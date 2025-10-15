@@ -1,17 +1,18 @@
 # Dexter 🤖
 
-An autonomous financial research agent that performs deep analysis using task planning, introspection, and real-time market data. Inspired by Claude Code, but built specifically for financial research.
+An autonomous financial agent that performs deep analysis, portfolio management, and trading using task planning, introspection, and real-time market data. Inspired by Claude Code, but built specifically for finance.
 <img width="979" height="651" alt="Screenshot 2025-10-14 at 6 12 35 PM" src="https://github.com/user-attachments/assets/5a2859d4-53cf-4638-998a-15cef3c98038" />
 
 ## Overview
 
-Dexter breaks down complex financial queries into actionable tasks, executes them intelligently using real-time data APIs, and synthesizes comprehensive, data-driven answers. Unlike simple chatbots, Dexter plans ahead, validates its progress, and iterates until it gathers the information needed to thoroughly answer your questions.
+Dexter breaks down complex financial queries into actionable tasks, executes them intelligently using real-time data APIs and trading platforms, and synthesizes comprehensive, data-driven answers. Unlike simple chatbots, Dexter plans ahead, validates its progress, and iterates until it gathers the information needed to thoroughly answer your questions.
 
 **Key Capabilities:**
-- **Intelligent Task Planning**: Automatically decomposes complex queries into structured research steps
-- **Autonomous Execution**: Selects and executes the right tools to gather financial data
+- **Intelligent Task Planning**: Automatically decomposes complex queries into structured research and trading steps
+- **Autonomous Execution**: Selects and executes the right tools to gather financial data and manage portfolios
 - **Self-Validation**: Checks its own work and iterates until tasks are complete
 - **Real-Time Financial Data**: Access to income statements, balance sheets, and cash flow statements
+- **Comprehensive Trading Integration**: Full Alpaca API support including orders, positions, account info, market data, watchlists, and portfolio history
 - **Safety Features**: Built-in loop detection and step limits to prevent runaway execution
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt)
@@ -24,6 +25,7 @@ Dexter breaks down complex financial queries into actionable tasks, executes the
 - [uv](https://github.com/astral-sh/uv) package manager
 - OpenAI API key
 - Financial Datasets API key (get one at [financialdatasets.ai](https://financialdatasets.ai))
+- Alpaca API credentials (get them at [alpaca.markets](https://alpaca.markets))
 
 ### Installation
 
@@ -46,6 +48,9 @@ cp env.example .env
 # Edit .env and add your API keys
 # OPENAI_API_KEY=your-openai-api-key
 # FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
+# ALPACA_API_KEY=your-alpaca-key
+# ALPACA_API_SECRET=your-alpaca-secret
+# ALPACA_BASE_URL=https://paper-api.alpaca.markets
 ```
 
 ### Usage
@@ -62,10 +67,17 @@ Try asking Dexter questions like:
 - "Compare Microsoft and Google's operating margins for 2023"
 - "Analyze Tesla's cash flow trends over the past year"
 - "What is Amazon's debt-to-equity ratio based on recent financials?"
+- "Show me my current portfolio positions"
+- "Place a buy order for 10 shares of AAPL at market price"
+- "What orders do I have open?"
+- "Is the market open right now?"
+- "Show me my account activities for today"
+- "Create a watchlist with AAPL, TSLA, and NVDA"
+- "What's my portfolio value history for the last month?"
 
 Dexter will automatically:
 1. Break down your question into research tasks
-2. Fetch the necessary financial data
+2. Fetch the necessary financial data or execute trades
 3. Perform calculations and analysis
 4. Provide a comprehensive, data-rich answer
 
