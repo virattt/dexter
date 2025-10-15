@@ -10,12 +10,19 @@ authors = []
 requires-python = ">=3.10"
 dependencies = [
     "langchain>=0.3.27",
+    "langchain-core>=0.3.79",
     "langchain-openai>=0.3.35",
     "openai>=2.2.0",
     "prompt-toolkit>=3.0.0",
     "pydantic>=2.11.10",
+    "pytest>=8.4.2",
     "python-dotenv>=1.1.1",
     "requests>=2.32.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
 ]
 
 [project.scripts]

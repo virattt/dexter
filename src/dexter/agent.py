@@ -1,4 +1,5 @@
-from typing import List
+from typing import List, Any, Dict
+import json
 
 from langchain_core.messages import AIMessage
 
@@ -38,7 +39,7 @@ class Agent:
             self.logger._log(f"Planning failed: {e}")
             tasks = [Task(id=1, description=query, done=False)]
         
-        task_dicts = [task.dict() for task in tasks]
+        task_dicts = [task.model_dump() for task in tasks]
         self.logger.log_task_list(task_dicts)
         return tasks
 
@@ -46,9 +47,13 @@ class Agent:
     @show_progress("Thinking...", "")
     def ask_for_actions(self, task_desc: str, last_outputs: str = "") -> AIMessage:
         # last_outputs = textual feedback of what we just tried
+        tool_descriptions = "\n".join([f"- {t.name}: {t.description}" for t in TOOLS])
         prompt = f"""
         We are working on: "{task_desc}".
         Here is a history of tool outputs from the session so far: {last_outputs}
+
+        You have access to the following tools:
+        {tool_descriptions}
 
         Based on the task and the outputs, what should be the next step?
         """
@@ -74,13 +79,108 @@ class Agent:
             return False
 
     # ---------- tool execution ----------
-    def _execute_tool(self, tool, tool_name: str, inp_args):
+    def _execute_tool(self, tool, tool_name: str, inp_args: Dict[str, Any]):
         """Execute a tool with progress indication."""
         # Create a dynamic decorator with the tool name
         @show_progress(f"Executing {tool_name}...", "")
         def run_tool():
-            return tool.run(inp_args)
+            # Prefer structured invocation when available
+            invoke = getattr(tool, "invoke", None)
+            if callable(invoke):
+                return invoke(inp_args)
+
+            # Fallback to direct function execution if decorated with args_schema
+            func = getattr(tool, "func", None)
+            if callable(func):
+                return func(**inp_args)
+
+            # Last resort: use run with dict input
+            run_callable = getattr(tool, "run", None)
+            if callable(run_callable):
+                return run_callable(inp_args)
+
+            raise AttributeError(f"Tool {tool_name} does not support invocation")
         return run_tool()
+
+    def _extract_tool_calls(self, ai_message) -> List[Dict[str, Any]]:
+        """Extract tool calls across LangChain/OpenAI variants.
+
+        Returns a list of {"name": str, "args": dict}.
+        """
+        parsed: List[Dict[str, Any]] = []
+
+        # Direct attribute (LangChain 0.2+/0.3)
+        tool_calls_attr = getattr(ai_message, "tool_calls", None)
+        if tool_calls_attr:
+            for tc in tool_calls_attr:
+                if isinstance(tc, dict):
+                    name = tc.get("name")
+                    args = tc.get("args", {})
+                else:
+                    name = getattr(tc, "name", None)
+                    args = getattr(tc, "args", {}) or {}
+                if name:
+                    if isinstance(args, str):
+                        try:
+                            args = json.loads(args)
+                        except Exception:
+                            args = {}
+                    parsed.append({"name": name, "args": args})
+            if parsed:
+                return parsed
+
+        # OpenAI-style in additional_kwargs.tool_calls
+        ak = getattr(ai_message, "additional_kwargs", {}) or {}
+        if isinstance(ak.get("tool_calls"), list):
+            for tc in ak["tool_calls"]:
+                func = tc.get("function", {}) if isinstance(tc, dict) else {}
+                name = func.get("name") or tc.get("name")
+                raw_args = func.get("arguments") or tc.get("args") or {}
+                if isinstance(raw_args, str):
+                    try:
+                        args = json.loads(raw_args)
+                    except Exception:
+                        args = {}
+                elif isinstance(raw_args, dict):
+                    args = raw_args
+                else:
+                    args = {}
+                if name:
+                    parsed.append({"name": name, "args": args})
+        elif isinstance(ak.get("function_call"), dict):
+            fc = ak["function_call"]
+            name = fc.get("name")
+            raw_args = fc.get("arguments", {})
+            try:
+                args = json.loads(raw_args) if isinstance(raw_args, str) else dict(raw_args)
+            except Exception:
+                args = {}
+            if name:
+                parsed.append({"name": name, "args": args})
+        return parsed
+
+    def _fallback_tool_calls(self, query: str, task_desc: str) -> List[Dict[str, Any]]:
+        """Heuristic fallback tool selection when LLM fails to choose one."""
+        combined = f"{query} {task_desc}".lower()
+        if "account" in combined and any(t.name == "get_alpaca_account" for t in TOOLS):
+            return [{"name": "get_alpaca_account", "args": {}}]
+        if any(keyword in combined for keyword in ["position", "holdings", "portfolio"]) and any(
+            t.name == "get_alpaca_positions" for t in TOOLS
+        ):
+            return [{"name": "get_alpaca_positions", "args": {}}]
+        if "order" in combined and any(t.name == "get_alpaca_orders" for t in TOOLS):
+            return [{"name": "get_alpaca_orders", "args": {}}]
+        if any(keyword in combined for keyword in ["open", "close", "market", "clock"]) and any(
+            t.name == "get_alpaca_clock" for t in TOOLS
+        ):
+            return [{"name": "get_alpaca_clock", "args": {}}]
+        if "watchlist" in combined and any(t.name == "get_alpaca_watchlists" for t in TOOLS):
+            return [{"name": "get_alpaca_watchlists", "args": {}}]
+        if any(keyword in combined for keyword in ["activity", "transaction", "history"]) and any(
+            t.name == "get_alpaca_account_activities" for t in TOOLS
+        ):
+            return [{"name": "get_alpaca_account_activities", "args": {}}]
+        return []
     
     # ---------- confirm action ----------
     def confirm_action(self, tool: str, input_str: str) -> bool:
@@ -121,7 +221,15 @@ class Agent:
 
                 ai_message = self.ask_for_actions(task.description, last_outputs="\n".join(session_outputs))
                 
-                if not ai_message.tool_calls:
+                tool_calls = self._extract_tool_calls(ai_message)
+                self.logger._log(f"Tool calls from LLM: {tool_calls}")
+                if not tool_calls:
+                    fallback_calls = self._fallback_tool_calls(query, task.description)
+                    if fallback_calls:
+                        self.logger._log(f"Applying fallback tool call: {fallback_calls}")
+                        tool_calls = fallback_calls
+
+                if not tool_calls:
                     # No tool calls means either the task is done or cannot be done with tools
                     # Always mark as done to avoid infinite loops
                     # The final answer generation will provide an appropriate response
@@ -129,12 +237,18 @@ class Agent:
                     self.logger.log_task_done(task.description)
                     break
 
-                for tool_call in ai_message.tool_calls:
+                for tool_call in tool_calls:
                     if step_count >= self.max_steps:
                         break
 
                     tool_name = tool_call["name"]
-                    inp_args = tool_call["args"]
+                    inp_args = tool_call.get("args") or {}
+                    # Ensure args are a dict
+                    if isinstance(inp_args, str):
+                        try:
+                            inp_args = json.loads(inp_args)
+                        except Exception:
+                            inp_args = {}
                     action_sig = f"{tool_name}:{inp_args}"
 
                     # stuck detection
@@ -167,6 +281,7 @@ class Agent:
                     break
 
         # Generate answer based on all collected data
+        self.logger._log(f"Session outputs: {session_outputs}")
         answer = self._generate_answer(query, session_outputs)
         self.logger.log_summary(answer)
         return answer
