@@ -31,7 +31,7 @@ Dexter breaks down complex financial queries into actionable tasks, executes the
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/virattt/dexter.git
 cd dexter
 ```
 
