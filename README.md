@@ -16,6 +16,7 @@ It’s not just another chatbot.  It’s an agent that plans ahead, verifies its
 - **Autonomous Execution**: Selects and executes the right tools to gather financial data
 - **Self-Validation**: Checks its own work and iterates until tasks are complete
 - **Real-Time Financial Data**: Access to income statements, balance sheets, and cash flow statements
+- **Schwab Brokerage Integration**: Connect your Schwab account to view positions, get quotes, and place trades
 - **Safety Features**: Built-in loop detection and step limits to prevent runaway execution
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt)
@@ -50,6 +51,11 @@ cp env.example .env
 # Edit .env and add your API keys
 # OPENAI_API_KEY=your-openai-api-key
 # FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
+
+# Optional: Add Schwab credentials for brokerage account access
+# SCHWAB_USERNAME=your-schwab-username
+# SCHWAB_PASSWORD=your-schwab-password
+# SCHWAB_TOTP=your-schwab-totp-secret
 ```
 
 ### Usage
@@ -62,10 +68,18 @@ uv run dexter-agent
 ### Example Queries
 
 Try asking Dexter questions like:
+
+**Financial Statement Analysis:**
 - "What was Apple's revenue growth over the last 4 quarters?"
 - "Compare Microsoft and Google's operating margins for 2023"
 - "Analyze Tesla's cash flow trends over the past year"
 - "What is Amazon's debt-to-equity ratio based on recent financials?"
+
+**Schwab Brokerage (requires Schwab credentials):**
+- "Show me all my Schwab accounts"
+- "What positions do I hold in my Schwab account?"
+- "Get me a quote for AAPL"
+- "What's the current price of Tesla stock?"
 
 Dexter will automatically:
 1. Break down your question into research tasks
