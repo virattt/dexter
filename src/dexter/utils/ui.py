@@ -17,6 +17,7 @@ class Colors:
     BOLD = "\033[1m"
     DIM = "\033[2m"
     WHITE = "\033[97m"
+    LIGHT_BLUE = "\033[94m"  # Same as DEXTER ASCII art
 
 
 class Spinner:
@@ -106,6 +107,10 @@ class UI:
     def print_header(self, text: str):
         """Print a section header."""
         print(f"\n{Colors.BOLD}{Colors.BLUE}╭─ {text}{Colors.ENDC}")
+    
+    def print_user_query(self, query: str):
+        """Print the user's query in the same style as DEXTER ASCII art."""
+        print(f"\n{Colors.BOLD}{Colors.LIGHT_BLUE}You: {query}{Colors.ENDC}\n")
     
     def print_task_list(self, tasks):
         """Print a clean list of planned tasks."""

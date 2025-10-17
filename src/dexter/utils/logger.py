@@ -15,6 +15,9 @@ class Logger:
 
     def log_header(self, msg: str):
         self.ui.print_header(msg)
+    
+    def log_user_query(self, query: str):
+        self.ui.print_user_query(query)
 
     def log_task_list(self, tasks):
         self.ui.print_task_list(tasks)
