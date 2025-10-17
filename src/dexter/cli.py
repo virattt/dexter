@@ -3,13 +3,15 @@ from dotenv import load_dotenv
 # Load environment variables BEFORE importing any dexter modules
 load_dotenv()
 
-from dexter.agent import Agent
 from dexter.utils.intro import print_intro
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import InMemoryHistory
 
 def main():
     print_intro()
+    # Import Agent after print_intro so that any environment variables set there
+    # are available to modules (like dexter.model) that read env vars at import time.
+    from dexter.agent import Agent
     agent = Agent()
 
     # Create a prompt session with history support
