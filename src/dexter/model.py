@@ -12,7 +12,20 @@ from dexter.prompts import DEFAULT_SYSTEM_PROMPT
 
 # Initialize the OpenAI client
 # Make sure your OPENAI_API_KEY is set in your environment
-llm = ChatOpenAI(model="gpt-4.1", temperature=0, api_key=os.getenv("OPENAI_API_KEY"))
+if os.getenv("DEXTER_API_KEY_TYPE") == "OPENAI":
+  llm = ChatOpenAI(
+      model="gpt-4.1",
+      temperature=0,
+      api_key=os.getenv("OPENAI_API_KEY"),
+  )
+
+if os.getenv("DEXTER_API_KEY_TYPE") == "OPEROUTER":
+    llm = ChatOpenAI(
+        model="openai/gpt-oss-20b:free", 
+        temperature=0, 
+        api_key=os.getenv("OPENROUTER_API_KEY"),
+        base_url=os.getenv("OPENROUTER_BASE_URL"),
+    )
 
 def call_llm(
     prompt: str,
@@ -29,7 +42,9 @@ def call_llm(
 
   runnable = llm
   if output_schema:
-      runnable = llm.with_structured_output(output_schema, method="function_calling")
+    runnable = llm.with_structured_output(output_schema, method="function_calling") \
+        if os.getenv("DEXTER_API_KEY_TYPE") == "OPENAI" \
+        else llm.with_structured_output(output_schema)
   elif tools:
       runnable = llm.bind_tools(tools)
   

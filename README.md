@@ -50,6 +50,10 @@ cp env.example .env
 # Edit .env and add your API keys
 # OPENAI_API_KEY=your-openai-api-key
 # FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
+
+# If you want to use OpenRouter API, edit .env with:
+OPENROUTER_API_KEY=your-openrouter-api-key
+# OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 ```
 
 ### Usage
