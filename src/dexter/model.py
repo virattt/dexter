@@ -11,7 +11,7 @@ from openai import APIConnectionError
 from dexter.prompts import DEFAULT_SYSTEM_PROMPT
 
 # Initialize the OpenAI client
-# Make sure your OPENAI_API_KEY is set in your environment
+# Make sure your OPENAI_API_KEY is set in your .env
 llm = ChatOpenAI(model="gpt-4.1", temperature=0, api_key=os.getenv("OPENAI_API_KEY"))
 
 def call_llm(
