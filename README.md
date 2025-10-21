@@ -20,14 +20,12 @@ It’s not just another chatbot.  It’s an agent that plans ahead, verifies its
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt)
 
-## Quick Start
-
 ### Prerequisites
 
 - Python 3.10 or higher
 - [uv](https://github.com/astral-sh/uv) package manager
-- OpenAI API key
-- Financial Datasets API key (get one at [financialdatasets.ai](https://financialdatasets.ai))
+- OpenAI API key (get [here](https://platform.openai.com/api-keys))
+- Financial Datasets API key (get [here](https://financialdatasets.ai))
 
 ### Installation
 
