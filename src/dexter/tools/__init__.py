@@ -8,6 +8,8 @@ from dexter.tools.filings import get_10Q_filing_items
 from dexter.tools.filings import get_8K_filing_items
 from dexter.tools.prices import get_price_snapshot
 from dexter.tools.prices import get_prices
+from dexter.tools.metrics import get_financial_metrics_snapshot
+from dexter.tools.metrics import get_financial_metrics
 
 TOOLS: list[Callable[..., any]] = [
     get_income_statements,
@@ -19,4 +21,6 @@ TOOLS: list[Callable[..., any]] = [
     get_filings,
     get_price_snapshot,
     get_prices,
+    get_financial_metrics_snapshot,
+    get_financial_metrics,
 ]

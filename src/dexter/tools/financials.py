@@ -11,10 +11,10 @@ class FinancialStatementsInput(BaseModel):
     ticker: str = Field(description="The stock ticker symbol to fetch financial statements for. For example, 'AAPL' for Apple.")
     period: Literal["annual", "quarterly", "ttm"] = Field(description="The reporting period for the financial statements. 'annual' for yearly, 'quarterly' for quarterly, and 'ttm' for trailing twelve months.")
     limit: int = Field(default=10, description="The number of past financial statements to retrieve.")
-    report_period_gt: Optional[str] = Field(default=None, description="Optional fitler to retrieve financial statements greater than the specified report period.")
-    report_period_gte: Optional[str] = Field(default=None, description="Optional fitler to retrieve financial statements greater than or equal to the specified report period.")
-    report_period_lt: Optional[str] = Field(default=None, description="Optional fitler to retrieve financial statements less than the specified report period.")
-    report_period_lte: Optional[str] = Field(default=None, description="Optional fitler to retrieve financial statements less than or equal to the specified report period.")
+    report_period_gt: Optional[str] = Field(default=None, description="Filter for financial statements with report periods after this date (YYYY-MM-DD).")
+    report_period_gte: Optional[str] = Field(default=None, description="Filter for financial statements with report periods on or after this date (YYYY-MM-DD).")
+    report_period_lt: Optional[str] = Field(default=None, description="Filter for financial statements with report periods before this date (YYYY-MM-DD).")
+    report_period_lte: Optional[str] = Field(default=None, description="Filter for financial statements with report periods on or before this date (YYYY-MM-DD).")
 
 
 def _create_params(

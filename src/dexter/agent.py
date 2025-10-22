@@ -5,9 +5,9 @@ from langchain_core.messages import AIMessage
 from dexter.model import call_llm
 from dexter.prompts import (
     ACTION_SYSTEM_PROMPT,
-    ANSWER_SYSTEM_PROMPT,
+    get_answer_system_prompt,
     PLANNING_SYSTEM_PROMPT,
-    TOOL_ARGS_SYSTEM_PROMPT,
+    get_tool_args_system_prompt,
     VALIDATION_SYSTEM_PROMPT,
 )
 from dexter.schemas import Answer, IsDone, OptimizedToolArgs, Task, TaskList
@@ -97,7 +97,7 @@ class Agent:
         Pay special attention to filtering parameters that would help narrow down results to match the task.
         """
         try:
-            response = call_llm(prompt, system_prompt=TOOL_ARGS_SYSTEM_PROMPT, output_schema=OptimizedToolArgs)
+            response = call_llm(prompt, system_prompt=get_tool_args_system_prompt(), output_schema=OptimizedToolArgs)
             # Handle case where LLM returns dict directly instead of OptimizedToolArgs
             if isinstance(response, dict):
                 return response if response else initial_args
@@ -248,5 +248,5 @@ class Agent:
         Based on the data above, provide a comprehensive answer to the user's query.
         Include specific numbers, calculations, and insights.
         """
-        answer_obj = call_llm(answer_prompt, system_prompt=ANSWER_SYSTEM_PROMPT, output_schema=Answer)
+        answer_obj = call_llm(answer_prompt, system_prompt=get_answer_system_prompt(), output_schema=Answer)
         return answer_obj.answer
