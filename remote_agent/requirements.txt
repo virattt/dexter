@@ -1,0 +1,5 @@
+# Remote Agent Requirements
+e2b-code-interpreter>=0.2.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+PyGithub>=2.1.1

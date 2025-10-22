@@ -110,6 +110,69 @@ agent = Agent(
 )
 ```
 
+## Remote Agent Deployment
+
+Run Dexter as a remote agent in E2B cloud sandboxes for always-on, scalable financial research.
+
+### Features
+
+- **Always-On Agents**: Run 24/7 in isolated cloud sandboxes
+- **Persistent State**: Pause/resume with full memory preservation
+- **Scalable**: Single agent to agent pools for parallel processing
+- **Complete API Integration**: E2B, GitHub, OpenAI, Financial Datasets
+- **Production Ready**: Comprehensive error handling, logging, and monitoring
+
+### Quick Start
+
+1. **Install dependencies:**
+   ```bash
+   ./setup_remote_agent.sh
+   ```
+
+2. **Configure API keys:**
+   ```bash
+   cp env.example.remote .env
+   # Edit .env with your E2B, GitHub, OpenAI, and Financial Datasets API keys
+   ```
+
+3. **Run a remote agent:**
+   ```python
+   from remote_agent.orchestrator import RemoteAgentOrchestrator
+
+   # Initialize and launch
+   orchestrator = RemoteAgentOrchestrator()
+   agent_id = orchestrator.launch_agent(persistent=True)
+
+   # Query the agent
+   result = orchestrator.query_agent(
+       agent_id,
+       "What was Apple's revenue growth over the last 4 quarters?"
+   )
+   print(result['answer'])
+   ```
+
+### Documentation
+
+- **Quick Start Guide**: See [`REMOTE_AGENT_QUICKSTART.md`](REMOTE_AGENT_QUICKSTART.md) for detailed setup instructions
+- **Architecture**: See [`REMOTE_AGENT_ARCHITECTURE.md`](REMOTE_AGENT_ARCHITECTURE.md) for system design and patterns
+- **Module Docs**: See [`remote_agent/README.md`](remote_agent/README.md) for API reference
+- **Summary**: See [`REMOTE_AGENT_SUMMARY.md`](REMOTE_AGENT_SUMMARY.md) for complete overview
+
+### Examples
+
+Run the provided examples:
+
+```bash
+# Simple single agent
+python examples/simple_remote_agent.py
+
+# Parallel processing with agent pool
+python examples/agent_pool_example.py
+
+# Persistent agent with pause/resume
+python examples/persistent_agent_example.py
+```
+
 ## How to Contribute
 
 1. Fork the repository
