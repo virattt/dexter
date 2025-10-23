@@ -49,7 +49,13 @@ def yf_get_income_statements(
     report_period_lt: Optional[str] = None,
     report_period_lte: Optional[str] = None,
 ) -> dict:
-    """Fetch income statements for the given ticker using yfinance."""
+    """Return structured income statement records from Yahoo Finance via yfinance.
+
+    Use this when the agent needs revenue, profit, or expense line items without
+    hitting the FinancialDatasets API. The `period` flag selects `annual`,
+    `quarterly`, or trailing-twelve-month (`ttm`) data and respects optional ISO
+    date filters plus a maximum number of periods (`limit`).
+    """
     ticker_obj = get_ticker(ticker)
     frame = load_statement_frame(ticker_obj, "income_stmt", period)
     return _prepare_response(
@@ -75,7 +81,13 @@ def yf_get_balance_sheets(
     report_period_lt: Optional[str] = None,
     report_period_lte: Optional[str] = None,
 ) -> dict:
-    """Fetch balance sheets for the given ticker using yfinance."""
+    """Return balance sheet snapshots from Yahoo Finance via yfinance.
+
+    Includes assets, liabilities, and equity lines so the agent can analyse
+    capital structure when the yfinance provider is selected. Supports the same
+    period selection and ISO date filtering options as the income statement
+    tool.
+    """
     ticker_obj = get_ticker(ticker)
     frame = load_statement_frame(ticker_obj, "balance_sheet", period)
     return _prepare_response(
@@ -101,7 +113,12 @@ def yf_get_cash_flow_statements(
     report_period_lt: Optional[str] = None,
     report_period_lte: Optional[str] = None,
 ) -> dict:
-    """Fetch cash flow statements for the given ticker using yfinance."""
+    """Return cash flow statement entries (operating, investing, financing) using yfinance.
+
+    Ideal for questions about liquidity, free cash flow, or capital allocation
+    when the agent works in `yfinance` mode. Mirrors the other financial
+    statement tools in supported arguments and response shape.
+    """
     ticker_obj = get_ticker(ticker)
     frame = load_statement_frame(ticker_obj, "cashflow", period)
     return _prepare_response(

@@ -130,7 +130,11 @@ def yf_get_filings(
     filing_type: Optional[str] = None,
     limit: int = 10,
 ) -> list[dict]:
-    """Fetch SEC filing metadata for the given ticker using yfinance."""
+    """List recent SEC filing metadata from Yahoo Finance's feed via yfinance.
+
+    Returns filing type, title, publish date, and document URLs to support SEC
+    discovery when the agent is configured for the yfinance provider.
+    """
     filings = _get_sec_filings(ticker)
     results: list[dict] = []
 
@@ -158,7 +162,12 @@ def yf_get_10K_filing_items(
     year: int,
     item: list[str] | None = None,
 ) -> dict:
-    """Retrieve sections from a company's 10-K filing via yfinance."""
+    """Extract text for specific 10-K items using Yahoo Finance sourced filings.
+
+    Downloads the linked SEC HTML, searches for Items (e.g., `Item-1A`), and
+    returns the requested sections so the agent can quote narrative content
+    without FinancialDatasets access.
+    """
     filings = _get_sec_filings(ticker)
     filing = _select_filing(filings, "10-K", lambda f: isinstance(f.get("date"), date) and f.get("date").year == year)
     if not filing:
@@ -188,7 +197,11 @@ def yf_get_10Q_filing_items(
     quarter: int,
     item: list[str] | None = None,
 ) -> dict:
-    """Retrieve sections from a company's 10-Q filing via yfinance."""
+    """Extract 10-Q sections (Item-1, Item-2, etc.) via Yahoo Finance sourced filings.
+
+    Helpful for quarterly MD&A or risk discussions when operating in
+    `yfinance` mode.
+    """
     quarter = max(1, min(4, quarter))
 
     def _is_target_quarter(filing: dict) -> bool:
@@ -227,7 +240,11 @@ def yf_get_8K_filing_items(
     accession_number: str,
     item: list[str] | None = None,
 ) -> dict:
-    """Retrieve sections from an 8-K filing using the accession number."""
+    """Extract 8-K narrative items (e.g., Item-2.02, Item-5.02) using the accession number.
+
+    Matches the specified filing in Yahoo Finance's feed, fetches the SEC HTML,
+    and returns the requested sections for disclosure summarisation.
+    """
     filings = _get_sec_filings(ticker)
     filing = _match_accession(filings, accession_number)
     if not filing or filing.get("type") != "8-K":

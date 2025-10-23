@@ -120,7 +120,12 @@ def _history_to_records(frame: pd.DataFrame) -> list[dict]:
 
 @tool(args_schema=PriceSnapshotInput)
 def yf_get_price_snapshot(ticker: str) -> dict:
-    """Fetch the most recent market snapshot for the given ticker using yfinance."""
+    """Fetch the latest Yahoo Finance quote snapshot (price, volume, market cap).
+
+    Returns fast-moving fields such as last price, day range, previous close,
+    and recent volume using yfinance's `fast_info` plus metadata fallbacks. Use
+    this for real-time oriented prompts while operating in `yfinance` mode.
+    """
     ticker_obj = get_ticker(ticker)
     snapshot: dict[str, Optional[float | str]] = {"ticker": ticker.upper()}
 
@@ -167,7 +172,13 @@ def yf_get_prices(
     start_date: str,
     end_date: str,
 ) -> dict:
-    """Fetch historical price data from yfinance with optional resampling."""
+    """Download historical OHLCV bars from Yahoo Finance with optional resampling.
+
+    Supports `minute`, `day`, `week`, `month`, and `year` intervals via the
+    `interval`/`interval_multiplier` pair and respects `start_date`/`end_date`
+    in ISO format. Use this when the agent needs price series but is configured
+    to use the yfinance backend instead of FinancialDatasets.
+    """
     ticker_obj = get_ticker(ticker)
 
     base_interval, resample_rule = _resolve_history_request(interval, interval_multiplier)

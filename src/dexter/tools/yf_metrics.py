@@ -30,7 +30,12 @@ def _get_share_count(ticker_obj) -> Optional[float]:
 
 @tool(args_schema=FinancialMetricsSnapshotInput)
 def yf_get_financial_metrics_snapshot(ticker: str) -> dict:
-    """Return a snapshot of key valuation metrics sourced from yfinance."""
+    """Return headline valuation metrics (market cap, PE, dividend data) from yfinance.
+
+    Pulls from Yahoo Finance's `fast_info` and `info` payloads so the agent can
+    answer quick "what's the multiple?" questions without calling the
+    FinancialDatasets API.
+    """
     ticker_obj = get_ticker(ticker)
     fast_info = getattr(ticker_obj, "fast_info", None)
     info = getattr(ticker_obj, "info", {}) or {}
@@ -137,7 +142,13 @@ def yf_get_financial_metrics(
     report_period_lt: Optional[str] = None,
     report_period_lte: Optional[str] = None,
 ) -> dict:
-    """Return historical fundamental metrics computed from yfinance statements."""
+    """Derive historical fundamentals (margins, cash flow, leverage) from yfinance statements.
+
+    Combines yfinance income, balance, and cash-flow tables to compute margins,
+    cash-flow per share, and debt-to-equity for `annual`, `quarterly`, or `ttm`
+    periods. Mirrors the FinancialDatasets version so the agent can swap
+    providers seamlessly.
+    """
     ticker_obj = get_ticker(ticker)
     income_frame = load_statement_frame(ticker_obj, "income_stmt", period)
     balance_frame = load_statement_frame(ticker_obj, "balance_sheet", period)
