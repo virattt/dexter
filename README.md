@@ -1,22 +1,22 @@
 # Maximus 🤖
 
-Maximus is an autonomous cryptocurrency research agent that thinks, plans, and learns as it works. It performs analysis using task planning, self-reflection, and real-time market data. Think Claude Code, but built specifically for cryptocurrency research.
+Maximus is an autonomous agent for onchain asset analysis and transaction execution. It thinks, plans, and learns as it works, performing comprehensive analysis using task planning, self-reflection, and real-time market data. Think Claude Code, but built specifically for onchain operations.
 
 
 <img width="979" height="651" alt="Screenshot 2025-10-14 at 6 12 35 PM" src="https://github.com/user-attachments/assets/5a2859d4-53cf-4638-998a-15cef3c98038" />
 
 ## Overview
 
-Maximus takes complex cryptocurrency questions and turns them into clear, step-by-step research plans. It runs those tasks using live market data, checks its own work, and refines the results until it has a confident, data-backed answer.  
+Maximus takes complex onchain tasks and turns them into clear, step-by-step execution plans. It runs those tasks using live market data, checks its own work, and refines the results until it has a confident, data-backed outcome.  
 
-It’s not just another chatbot.  It’s an agent that plans ahead, verifies its progress, and keeps iterating until the job is done.
+It's not just another chatbot. It's an agent that plans ahead, verifies its progress, and keeps iterating until the job is done—whether that's analyzing assets or executing transactions.
 
 **Key Capabilities:**
-- **Intelligent Task Planning**: Automatically decomposes complex queries into structured research steps
-- **Autonomous Execution**: Selects and executes the right tools to gather cryptocurrency data
+- **Intelligent Task Planning**: Automatically decomposes complex queries into structured execution steps
+- **Autonomous Execution**: Selects and executes the right tools for analysis and transaction operations
 - **Self-Validation**: Checks its own work and iterates until tasks are complete
 - **Conversational Memory**: Remembers past queries within a session using Capi memory API
-- **Real-Time Crypto Data**: Access to prices, market data, OHLC charts, and coin information from CoinGecko
+- **Real-Time Onchain Data**: Access to prices, market data, OHLC charts, and asset information from CoinGecko
 - **Flexible Identifiers**: Supports both CoinGecko IDs (bitcoin, ethereum) and ticker symbols (BTC, ETH)
 - **Safety Features**: Built-in loop detection and step limits to prevent runaway execution
 
@@ -72,10 +72,10 @@ Try asking Maximus questions like:
 - "Get detailed information about Cardano"
 
 Maximus will automatically:
-1. Break down your question into research tasks
-2. Fetch the necessary cryptocurrency data from CoinGecko
+1. Break down your request into actionable tasks
+2. Fetch the necessary onchain data from CoinGecko
 3. Perform calculations and analysis
-4. Provide a comprehensive, data-rich answer
+4. Provide a comprehensive, data-rich response
 
 ### Memory Feature
 
@@ -103,14 +103,14 @@ Maximus has conversational memory powered by Capi, allowing it to remember and r
 
 Maximus uses a multi-agent architecture with specialized components:
 
-- **Planning Agent**: Analyzes queries and creates structured task lists
-- **Action Agent**: Selects appropriate tools and executes research steps
+- **Planning Agent**: Analyzes requests and creates structured task lists
+- **Action Agent**: Selects appropriate tools and executes operations
 - **Validation Agent**: Verifies task completion and data sufficiency
 - **Answer Agent**: Synthesizes findings into comprehensive responses
 
 ## Available Tools
 
-Maximus has access to the following cryptocurrency research tools:
+Maximus has access to the following onchain data and analysis tools:
 
 **Price Data:**
 - `get_price_snapshot`: Current price, market cap, volume, and 24h changes
@@ -136,11 +136,11 @@ maximus/
 │   │   ├── model.py      # LLM interface
 │   │   ├── prompts.py    # System prompts for each component
 │   │   ├── schemas.py    # Pydantic models
-│   │   ├── tools/        # Cryptocurrency data tools
+│   │   ├── tools/        # Onchain data and analysis tools
 │   │   │   ├── api.py    # CoinGecko API client
 │   │   │   ├── prices.py # Price and OHLC data tools
 │   │   │   ├── market.py # Market overview tools
-│   │   │   └── info.py   # Coin information tools
+│   │   │   └── info.py   # Asset information tools
 │   │   ├── utils/        # Utility functions
 │   │   └── cli.py        # CLI entry point
 ├── pyproject.toml

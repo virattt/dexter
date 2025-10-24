@@ -54,7 +54,7 @@ def print_intro(session_id: str = None):
     
     # Session info
     if session_id:
-        print(f"{GREEN}✓{RESET} {DIM}Session initialized ID: {session_id[:8]}{RESET}")
+        print(f"{GREEN}✓{RESET} {DIM}Session initialized (ID: {session_id[:8]}){RESET}")
     
     # API connection status
     api_statuses = check_api_status()

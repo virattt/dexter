@@ -39,7 +39,7 @@ class CommandPalette:
         
         # Define available commands
         self.commands = [
-            Command("/clear-mem", ["clear", "reset"], "Clear conversation memory"),
+            Command("/clear", ["reset"], "Clear conversation memory"),
             Command("/config", ["settings"], "Open configuration settings"),
             Command("/cost", ["usage", "billing"], "Show session cost and duration"),
             Command("/exit", ["quit"], "Exit MAXIMUS"),
@@ -189,4 +189,39 @@ class CommandPalette:
             return self.render_expanded()
         else:
             return self.render_collapsed()
+    
+    def render_as_formatted_text(self):
+        """Render palette as formatted text for prompt_toolkit Application."""
+        from prompt_toolkit.formatted_text import FormattedText
+        
+        result = []
+        
+        if self.is_expanded:
+            # Commands only, no borders or headers
+            filtered = self.get_filtered_commands()
+            if not filtered:
+                result.append(('class:dim', '  No commands found\n'))
+            else:
+                for i, cmd in enumerate(filtered):
+                    is_selected = (i == self.selected_index)
+                    
+                    cmd_text = f"  {cmd.name}"
+                    desc_text = cmd.description
+                    max_cmd_width = 20
+                    spacing = max_cmd_width - len(cmd_text)
+                    
+                    if is_selected:
+                        # Selected: orange text for entire row, no background
+                        result.append(('class:selected', cmd_text + ' ' * spacing + desc_text + '\n'))
+                    else:
+                        result.append(('class:dim', cmd_text + ' ' * spacing + desc_text + '\n'))
+            
+            # Add padding at the bottom
+            result.append(('', '\n'))
+        else:
+            # Collapsed state - simple text with padding
+            result.append(('class:dim', " Type '?' to see all commands\n"))
+            result.append(('', '\n'))
+        
+        return FormattedText(result)
 
