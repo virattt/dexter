@@ -2,7 +2,7 @@
 
 const { spawn } = require('child_process');
 
-const child = spawn('dexter-agent', process.argv.slice(2), {
+const child = spawn('maximus', process.argv.slice(2), {
     stdio: 'inherit',
     shell: true
 });
@@ -10,3 +10,4 @@ const child = spawn('dexter-agent', process.argv.slice(2), {
 child.on('close', (code) => {
     process.exit(code);
 });
+

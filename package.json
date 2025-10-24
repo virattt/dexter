@@ -1,5 +1,5 @@
 {
-  "name": "maximus-agent",
+  "name": "maximus",
   "version": "0.1.0",
   "description": "An autonomous cryptocurrency research agent that performs deep analysis using task planning, introspection, and real-time market data. Built specifically for cryptocurrency research.",
   "main": "index.js",
@@ -11,6 +11,6 @@
     "postinstall": "uv pip install ."
   },
   "keywords": [],
-  "author": "Virat Singh",
+  "author": "Steven Sarmi",
   "license": "MIT"
 }
