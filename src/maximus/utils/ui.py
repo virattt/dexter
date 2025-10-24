@@ -17,7 +17,8 @@ class Colors:
     BOLD = "\033[1m"
     DIM = "\033[2m"
     WHITE = "\033[97m"
-    LIGHT_BLUE = "\033[94m"  # Same as DEXTER ASCII art
+    LIGHT_BLUE = "\033[94m"
+    LIGHT_ORANGE = "\033[38;5;215m"  # Light orange for MAXIMUS branding
 
 
 class Spinner:
@@ -25,33 +26,41 @@ class Spinner:
     
     FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
     
-    def __init__(self, message: str = "", color: str = Colors.CYAN):
+    def __init__(self, message: str = "", color: str = Colors.LIGHT_ORANGE):
         self.message = message
         self.color = color
         self.running = False
         self.thread: Optional[threading.Thread] = None
+        self._lock = threading.Lock()
         
     def _animate(self):
         """Animation loop that runs in a separate thread."""
         idx = 0
-        while self.running:
+        while True:
+            with self._lock:
+                if not self.running:
+                    break
+                message = self.message
             frame = self.FRAMES[idx % len(self.FRAMES)]
-            sys.stdout.write(f"\r{self.color}{frame}{Colors.ENDC} {self.message}")
+            sys.stdout.write(f"\r{self.color}{frame}{Colors.ENDC} {message}")
             sys.stdout.flush()
             time.sleep(0.08)
             idx += 1
     
     def start(self):
         """Start the spinner animation."""
-        if not self.running:
-            self.running = True
-            self.thread = threading.Thread(target=self._animate, daemon=True)
-            self.thread.start()
+        with self._lock:
+            if not self.running:
+                self.running = True
+                self.thread = threading.Thread(target=self._animate, daemon=True)
+                self.thread.start()
     
     def stop(self, final_message: str = "", symbol: str = "✓", symbol_color: str = Colors.GREEN):
         """Stop the spinner and optionally show a completion message."""
-        if self.running:
+        with self._lock:
+            was_running = self.running
             self.running = False
+        if was_running:
             if self.thread:
                 self.thread.join()
             # Clear the line
@@ -62,7 +71,8 @@ class Spinner:
     
     def update_message(self, message: str):
         """Update the spinner message."""
-        self.message = message
+        with self._lock:
+            self.message = message
 
 
 def show_progress(message: str, success_message: str = ""):
@@ -70,7 +80,7 @@ def show_progress(message: str, success_message: str = ""):
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
-            spinner = Spinner(message, color=Colors.CYAN)
+            spinner = Spinner(message, color=Colors.LIGHT_ORANGE)
             spinner.start()
             try:
                 result = func(*args, **kwargs)
@@ -92,7 +102,7 @@ class UI:
     @contextmanager
     def progress(self, message: str, success_message: str = ""):
         """Context manager for showing progress with a spinner."""
-        spinner = Spinner(message, color=Colors.CYAN)
+        spinner = Spinner(message, color=Colors.LIGHT_ORANGE)
         self.current_spinner = spinner
         spinner.start()
         try:
@@ -106,11 +116,11 @@ class UI:
     
     def print_header(self, text: str):
         """Print a section header."""
-        print(f"\n{Colors.BOLD}{Colors.BLUE}╭─ {text}{Colors.ENDC}")
+        print(f"\n{Colors.BOLD}{Colors.LIGHT_ORANGE}╭─ {text}{Colors.ENDC}")
     
     def print_user_query(self, query: str):
-        """Print the user's query in the same style as DEXTER ASCII art."""
-        print(f"\n{Colors.BOLD}{Colors.LIGHT_BLUE}You: {query}{Colors.ENDC}\n")
+        """Print the user's query in the same style as MAXIMUS ASCII art."""
+        print(f"\n{Colors.BOLD}{Colors.LIGHT_ORANGE}You: {query}{Colors.ENDC}\n")
     
     def print_task_list(self, tasks):
         """Print a clean list of planned tasks."""
@@ -121,16 +131,16 @@ class UI:
             status = "+"
             color = Colors.DIM
             desc = task.get('description', task)
-            print(f"{Colors.BLUE}│{Colors.ENDC} {color}{status}{Colors.ENDC} {desc}")
-        print(f"{Colors.BLUE}╰{'─' * 50}{Colors.ENDC}\n")
+            print(f"{Colors.LIGHT_ORANGE}│{Colors.ENDC} {color}{status}{Colors.ENDC} {desc}")
+        print(f"{Colors.LIGHT_ORANGE}╰{'─' * 50}{Colors.ENDC}\n")
     
     def print_task_start(self, task_desc: str):
         """Print when starting a task."""
-        print(f"\n{Colors.BOLD}{Colors.CYAN}▶ Task:{Colors.ENDC} {task_desc}")
+        print(f"\n{Colors.BOLD}{Colors.LIGHT_ORANGE}▶ Task:{Colors.ENDC} {task_desc}")
     
     def print_task_done(self, task_desc: str):
         """Print when a task is completed."""
-        print(f"{Colors.GREEN}  ✓ Completed{Colors.ENDC} {Colors.DIM}│ {task_desc}{Colors.ENDC}")
+        print(f"{Colors.GREEN}✓ Completed{Colors.ENDC} {Colors.DIM}│ {task_desc}{Colors.ENDC}")
     
     def print_tool_run(self, tool_name: str, args: str = ""):
         """Print when a tool is executed."""
@@ -142,39 +152,56 @@ class UI:
         width = 80
         
         # Top border
-        print(f"\n{Colors.BOLD}{Colors.BLUE}╔{'═' * (width - 2)}╗{Colors.ENDC}")
+        print(f"\n{Colors.BOLD}{Colors.LIGHT_ORANGE}╔{'═' * (width - 2)}╗{Colors.ENDC}")
         
         # Title
         title = "ANSWER"
         padding = (width - len(title) - 2) // 2
-        print(f"{Colors.BOLD}{Colors.BLUE}║{' ' * padding}{title}{' ' * (width - len(title) - padding - 2)}║{Colors.ENDC}")
+        print(f"{Colors.BOLD}{Colors.LIGHT_ORANGE}║{' ' * padding}{title}{' ' * (width - len(title) - padding - 2)}║{Colors.ENDC}")
         
         # Separator
-        print(f"{Colors.BLUE}╠{'═' * (width - 2)}╣{Colors.ENDC}")
+        print(f"{Colors.LIGHT_ORANGE}╠{'═' * (width - 2)}╣{Colors.ENDC}")
         
         # Answer content with proper line wrapping
-        print(f"{Colors.BLUE}║{Colors.ENDC}{' ' * (width - 2)}{Colors.BLUE}║{Colors.ENDC}")
+        print(f"{Colors.LIGHT_ORANGE}║{Colors.ENDC}{' ' * (width - 2)}{Colors.LIGHT_ORANGE}║{Colors.ENDC}")
         for line in answer.split('\n'):
             if len(line) == 0:
-                print(f"{Colors.BLUE}║{Colors.ENDC}{' ' * (width - 2)}{Colors.BLUE}║{Colors.ENDC}")
+                print(f"{Colors.LIGHT_ORANGE}║{Colors.ENDC}{' ' * (width - 2)}{Colors.LIGHT_ORANGE}║{Colors.ENDC}")
             else:
                 # Word wrap long lines
                 words = line.split()
                 current_line = ""
                 for word in words:
-                    if len(current_line) + len(word) + 1 <= width - 6:
+                    # Check if word itself is too long
+                    max_word_length = width - 6
+                    if len(word) > max_word_length:
+                        # Print current line if it has content
+                        if current_line:
+                            print(f"{Colors.LIGHT_ORANGE}║{Colors.ENDC} {current_line.ljust(width - 4)} {Colors.LIGHT_ORANGE}║{Colors.ENDC}")
+                            current_line = ""
+                        
+                        # Split the long word into chunks
+                        while len(word) > max_word_length:
+                            chunk = word[:max_word_length]
+                            print(f"{Colors.LIGHT_ORANGE}║{Colors.ENDC} {chunk.ljust(width - 4)} {Colors.LIGHT_ORANGE}║{Colors.ENDC}")
+                            word = word[max_word_length:]
+                        
+                        # Add remaining part of word to current line
+                        if word:
+                            current_line = word + " "
+                    elif len(current_line) + len(word) + 1 <= width - 6:
                         current_line += word + " "
                     else:
                         if current_line:
-                            print(f"{Colors.BLUE}║{Colors.ENDC} {current_line.ljust(width - 4)} {Colors.BLUE}║{Colors.ENDC}")
+                            print(f"{Colors.LIGHT_ORANGE}║{Colors.ENDC} {current_line.ljust(width - 4)} {Colors.LIGHT_ORANGE}║{Colors.ENDC}")
                         current_line = word + " "
                 if current_line:
-                    print(f"{Colors.BLUE}║{Colors.ENDC} {current_line.ljust(width - 4)} {Colors.BLUE}║{Colors.ENDC}")
+                    print(f"{Colors.LIGHT_ORANGE}║{Colors.ENDC} {current_line.ljust(width - 4)} {Colors.LIGHT_ORANGE}║{Colors.ENDC}")
         
-        print(f"{Colors.BLUE}║{Colors.ENDC}{' ' * (width - 2)}{Colors.BLUE}║{Colors.ENDC}")
+        print(f"{Colors.LIGHT_ORANGE}║{Colors.ENDC}{' ' * (width - 2)}{Colors.LIGHT_ORANGE}║{Colors.ENDC}")
         
         # Bottom border
-        print(f"{Colors.BOLD}{Colors.BLUE}╚{'═' * (width - 2)}╝{Colors.ENDC}\n")
+        print(f"{Colors.BOLD}{Colors.LIGHT_ORANGE}╚{'═' * (width - 2)}╝{Colors.ENDC}\n")
     
     def print_info(self, message: str):
         """Print an info message."""

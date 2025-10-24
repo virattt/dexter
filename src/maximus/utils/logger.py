@@ -1,4 +1,4 @@
-from dexter.utils.ui import UI
+from maximus.utils.ui import UI
 
 
 class Logger:
