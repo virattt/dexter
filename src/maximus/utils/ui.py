@@ -131,7 +131,7 @@ class UI:
     
     def print_task_done(self, task_desc: str):
         """Print when a task is completed."""
-        print(f"{Colors.GREEN}  ✓ Completed{Colors.ENDC} {Colors.DIM}│ {task_desc}{Colors.ENDC}")
+        print(f"{Colors.GREEN}✓ Completed{Colors.ENDC} {Colors.DIM}│ {task_desc}{Colors.ENDC}")
     
     def print_tool_run(self, tool_name: str, args: str = ""):
         """Print when a tool is executed."""

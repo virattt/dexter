@@ -1,44 +1,60 @@
-from typing import List, Optional
+"""
+Integration example showing how to use the StatusBar component with the Agent.
 
+This file demonstrates how to modify your existing agent.py to use the new
+single-line status bar instead of multi-line progress indicators.
+"""
+
+from typing import List, Optional
 from langchain_core.messages import AIMessage
 
-from maximus.model import call_llm
-from maximus.prompts import (
+from src.maximus.model import call_llm
+from src.maximus.prompts import (
     ACTION_SYSTEM_PROMPT,
     get_answer_system_prompt,
     PLANNING_SYSTEM_PROMPT,
     get_tool_args_system_prompt,
     VALIDATION_SYSTEM_PROMPT,
 )
-from maximus.schemas import Answer, IsDone, OptimizedToolArgs, Task, TaskList
-from maximus.tools import TOOLS
-from maximus.tools.memory import add_memory, retrieve_context
-from maximus.utils.logger import Logger
-from maximus.utils.status_bar import (
+from src.maximus.schemas import Answer, IsDone, OptimizedToolArgs, Task, TaskList
+from src.maximus.tools import TOOLS
+from src.maximus.tools.memory import add_memory, retrieve_context
+from src.maximus.utils.logger import Logger
+
+# Import the new status bar utilities
+from src.maximus.utils.status_bar import (
     get_status_bar,
     StatusPhase,
     with_planning,
     with_thinking,
+    with_executing,
     with_optimizing,
     with_validating,
     with_generating,
 )
 
 
-class Agent:
+class AgentWithStatusBar:
+    """
+    Enhanced Agent that uses the new StatusBar component for progress indication.
+    
+    This replaces the multi-line progress output with a clean single-line status
+    that updates in place as the agent progresses through different phases.
+    """
+    
     def __init__(self, max_steps: int = 20, max_steps_per_task: int = 5, session_id: Optional[str] = None):
         self.logger = Logger()
-        self.max_steps = max_steps            # global safety cap
+        self.max_steps = max_steps
         self.max_steps_per_task = max_steps_per_task
-        self.session_id = session_id          # unique identifier for memory isolation
-        self.status_bar = get_status_bar()    # inline status bar for progress
+        self.session_id = session_id
+        self.status_bar = get_status_bar()
 
     # ---------- task planning ----------
     @with_planning("Planning tasks...", "Tasks planned")
     def plan_tasks(self, query: str, memories: List[str] = None) -> List[Task]:
+        """Plan tasks with status bar indication."""
         tool_descriptions = "\n".join([f"- {t.name}: {t.description}" for t in TOOLS])
         
-        # Include memory context if available
         context_str = ""
         if memories:
             context_str = "\n\nPrevious conversation context:\n" + "\n".join([f"- {m}" for m in memories])
@@ -64,7 +80,7 @@ class Agent:
     # ---------- ask LLM what to do ----------
     @with_thinking("Thinking...", "")
     def ask_for_actions(self, task_desc: str, last_outputs: str = "") -> AIMessage:
-        # last_outputs = textual feedback of what we just tried
+        """Ask for next actions with status indication."""
         prompt = f"""
         We are working on: "{task_desc}".
         Here is a history of tool outputs from the session so far: {last_outputs}
@@ -80,6 +96,7 @@ class Agent:
     # ---------- ask LLM if task is done ----------
     @with_validating("Validating...", "")
     def ask_if_done(self, task_desc: str, recent_results: str) -> bool:
+        """Validate task completion with status indication."""
         prompt = f"""
         We were trying to complete the task: "{task_desc}".
         Here is a history of tool outputs from the session so far: {recent_results}
@@ -95,12 +112,11 @@ class Agent:
     # ---------- optimize tool arguments ----------
     @with_optimizing("Optimizing tool call...", "")
     def optimize_tool_args(self, tool_name: str, initial_args: dict, task_desc: str) -> dict:
-        """Optimize tool arguments based on task requirements."""
+        """Optimize tool arguments with status indication."""
         tool = next((t for t in TOOLS if t.name == tool_name), None)
         if not tool:
             return initial_args
         
-        # Get tool schema info
         tool_description = tool.description
         tool_schema = tool.args_schema.schema() if hasattr(tool, 'args_schema') and tool.args_schema else {}
         
@@ -116,7 +132,6 @@ class Agent:
         """
         try:
             response = call_llm(prompt, system_prompt=get_tool_args_system_prompt(), output_schema=OptimizedToolArgs)
-            # Handle case where LLM returns dict directly instead of OptimizedToolArgs
             if isinstance(response, dict):
                 return response if response else initial_args
             return response.arguments
@@ -126,7 +141,7 @@ class Agent:
 
     # ---------- tool execution ----------
     def _execute_tool(self, tool, tool_name: str, inp_args):
-        """Execute a tool with inline status bar indication."""
+        """Execute a tool with status bar indication."""
         # Start the execution phase
         self.status_bar.start_phase(
             StatusPhase.EXECUTING,
@@ -136,8 +151,11 @@ class Agent:
         
         try:
             result = tool.run(inp_args)
-            # Complete without showing result (clean transition)
+            
+            # Don't show completion - just transition to next step
+            # The status line will be replaced by the next operation
             self.status_bar.complete_phase("", show_completion=False)
+            
             return result
         except Exception as e:
             self.status_bar.error_phase(f"{tool_name} failed: {str(e)}", show_on_newline=True)
@@ -145,76 +163,69 @@ class Agent:
     
     # ---------- confirm action ----------
     def confirm_action(self, tool: str, input_str: str) -> bool:
-        # In production you'd ask the user; here we just log and auto-confirm
-        # Risky tools are not implemented in this version.
+        """Confirm action execution."""
         return True
 
     # ---------- main loop ----------
     def run(self, query: str):
         """
-        Executes the main agent loop to process a user query.
-
-        This method orchestrates the entire process of understanding a query,
-        planning tasks, executing tools to gather information, and synthesizing
-        a final answer.
-
-        Args:
-            query (str): The user's natural language query.
-
-        Returns:
-            str: A comprehensive answer to the user's query.
+        Execute the agent with enhanced status bar visualization.
+        
+        The status bar will show each phase on a single line that updates in place:
+        - ⠸ Planning tasks... → ⠸ Thinking... → ⠸ Executing get_crypto_prices...
+        
+        Each phase replaces the previous one on the same line.
+        Only the final phase (Generating answer) shows ✓ Answer ready on a new line.
+        
+        This creates a clean, uncluttered progress indication that stays above the input.
         """
         # Display the user's query
         self.logger.log_user_query(query)
         
-        # Retrieve relevant context from memory if session exists
+        # Retrieve relevant context from memory
         retrieved_memories = []
         if self.session_id:
             retrieved_memories = retrieve_context(self.session_id, query, limit=5)
         
-        # Initialize agent state for this run.
+        # Initialize state
         step_count = 0
         last_actions = []
         session_outputs = []
 
-        # 1. Decompose the user query into a list of tasks.
+        # 1. Plan tasks (status bar shows planning phase)
         tasks = self.plan_tasks(query, memories=retrieved_memories)
 
-        # If no tasks were created, the query is likely out of scope.
         if not tasks:
             answer = self._generate_answer(query, session_outputs, memories=retrieved_memories)
             self.logger.log_summary(answer)
             return answer
 
-        # 2. Execute tasks until all are complete or max steps are reached.
+        # 2. Execute tasks
         while any(not t.done for t in tasks):
-            # Global safety break.
             if step_count >= self.max_steps:
                 self.logger._log("Global max steps reached — aborting to avoid runaway loop.")
                 break
 
-            # Select the next incomplete task.
             task = next(t for t in tasks if not t.done)
             self.logger.log_task_start(task.description)
 
-            # Loop for a single task, with its own step limit.
             per_task_steps = 0
             task_outputs = []
+            
             while per_task_steps < self.max_steps_per_task:
                 if step_count >= self.max_steps:
                     self.logger._log("Global max steps reached — stopping.")
                     return
 
-                # Ask the LLM for the next action to take for the current task.
+                # Ask for actions (thinking phase)
                 ai_message = self.ask_for_actions(task.description, last_outputs="\n".join(task_outputs))
                 
-                # If no tool is called, the task is considered complete.
                 if not ai_message.tool_calls:
                     task.done = True
                     self.logger.log_task_done(task.description)
                     break
 
-                # Process each tool call returned by the LLM.
+                # Process tool calls
                 for tool_call in ai_message.tool_calls:
                     if step_count >= self.max_steps:
                         break
@@ -222,13 +233,11 @@ class Agent:
                     tool_name = tool_call["name"]
                     initial_args = tool_call["args"]
                     
-                    # Refine tool arguments for better performance.
+                    # Optimize args (optimizing phase)
                     optimized_args = self.optimize_tool_args(tool_name, initial_args, task.description)
                     
-                    # Create a signature of the action to be taken.
+                    # Detect loops
                     action_sig = f"{tool_name}:{optimized_args}"
-
-                    # Detect and prevent repetitive action loops.
                     last_actions.append(action_sig)
                     if len(last_actions) > 4:
                         last_actions = last_actions[-4:]
@@ -236,11 +245,12 @@ class Agent:
                         self.logger._log("Detected repeating action — aborting to avoid loop.")
                         return
                     
-                    # Execute the tool.
+                    # Execute tool (executing phase)
                     tool_to_run = next((t for t in TOOLS if t.name == tool_name), None)
                     if tool_to_run and self.confirm_action(tool_name, str(optimized_args)):
                         try:
                             result = self._execute_tool(tool_to_run, tool_name, optimized_args)
+                            self.logger.log_tool_run(tool_name, f"{result}")
                             output = f"Output of {tool_name} with args {optimized_args}: {result}"
                             session_outputs.append(output)
                             task_outputs.append(output)
@@ -255,13 +265,13 @@ class Agent:
                     step_count += 1
                     per_task_steps += 1
 
-                # After a batch of tool calls, check if the task is complete.
+                # Validate (validating phase)
                 if self.ask_if_done(task.description, "\n".join(task_outputs)):
                     task.done = True
                     self.logger.log_task_done(task.description)
                     break
 
-        # 3. Synthesize the final answer from all collected tool outputs.
+        # 3. Generate answer (generating phase)
         answer = self._generate_answer(query, session_outputs, memories=retrieved_memories)
         self.logger.log_summary(answer)
         return answer
@@ -269,10 +279,9 @@ class Agent:
     # ---------- answer generation ----------
     @with_generating("Generating answer...", "Answer ready")
     def _generate_answer(self, query: str, session_outputs: list, memories: List[str] = None) -> str:
-        """Generate the final answer based on collected data and conversation history."""
+        """Generate final answer with status indication."""
         all_results = "\n\n".join(session_outputs) if session_outputs else "No data was collected."
         
-        # Include memory context if available
         memory_context = ""
         if memories:
             memory_context = f"""
@@ -295,23 +304,40 @@ class Agent:
         answer_obj = call_llm(answer_prompt, system_prompt=get_answer_system_prompt(), output_schema=Answer)
         answer = answer_obj.answer
         
-        # Store the query and answer in memory if session exists
+        # Store in memory
         if self.session_id:
-            # Complete the generating phase without showing completion yet
-            self.status_bar.is_animating = False
-            if self.status_bar.animation_thread:
-                self.status_bar.animation_thread.join()
-            
-            # Show memory save on its own line
-            from maximus.utils.ui import Colors
-            import sys
-            sys.stdout.write(f"\r{' ' * 120}\r")
-            sys.stdout.flush()
-            
             memory_text = f"User asked: {query}\nMaximus answered: {answer}"
             add_memory(self.session_id, memory_text)
-            
-            # Print memory saved on its own line
-            print(f"{Colors.GREEN}✓{Colors.ENDC} Memory saved successfully")
         
         return answer
+
+
+# Example usage
+if __name__ == "__main__":
+    print("\n" + "="*60)
+    print("   AGENT WITH STATUS BAR - DEMO")
+    print("="*60 + "\n")
+    
+    # Create agent with status bar
+    agent = AgentWithStatusBar(session_id="demo_session")
+    
+    # Run a sample query
+    # This will show a single line that updates in place:
+    # 
+    # ⠸ Planning tasks...
+    # (changes to)
+    # ⠸ Thinking...
+    # (changes to)
+    # ⠸ Executing get_crypto_prices...
+    # (changes to)
+    # ⠸ Executing visualize_crypto_chart...
+    # (changes to)
+    # ⠸ Validating results...
+    # (changes to)
+    # ⠸ Generating answer...
+    # (finally shows)
+    # ✓ Answer ready
+    
+    print("This is a demonstration of how the status bar would work.")
+    print("To actually run it, you need to integrate it with your CLI.\n")
+

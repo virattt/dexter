@@ -59,7 +59,7 @@ def add_memory(user_id: str, text: str, metadata: Optional[Dict[str, Any]] = Non
         )
         
         response.raise_for_status()
-        logger._log("💾 Memory saved successfully")
+        # Memory save is now shown inline in status bar
         return True
         
     except ValueError as e:

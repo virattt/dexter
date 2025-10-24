@@ -12,6 +12,7 @@ dependencies = [
     "langchain>=0.3.27",
     "langchain-openai>=0.3.35",
     "openai>=2.2.0",
+    "plotext>=5.2.8",
     "prompt-toolkit>=3.0.0",
     "pydantic>=2.11.10",
     "python-dotenv>=1.1.1",
