@@ -1,7 +1,7 @@
 from langchain.tools import tool
 from typing import Literal, Optional
 from pydantic import BaseModel, Field
-from dexter.tools.api import call_api
+from dexter.tools.finance.api import call_api
 
 class FinancialMetricsSnapshotInput(BaseModel):
     """Input for get_financial_metrics_snapshot."""
