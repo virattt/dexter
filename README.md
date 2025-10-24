@@ -15,6 +15,7 @@ It’s not just another chatbot.  It’s an agent that plans ahead, verifies its
 - **Intelligent Task Planning**: Automatically decomposes complex queries into structured research steps
 - **Autonomous Execution**: Selects and executes the right tools to gather cryptocurrency data
 - **Self-Validation**: Checks its own work and iterates until tasks are complete
+- **Conversational Memory**: Remembers past queries within a session using Capi memory API
 - **Real-Time Crypto Data**: Access to prices, market data, OHLC charts, and coin information from CoinGecko
 - **Flexible Identifiers**: Supports both CoinGecko IDs (bitcoin, ethereum) and ticker symbols (BTC, ETH)
 - **Safety Features**: Built-in loop detection and step limits to prevent runaway execution
@@ -27,6 +28,7 @@ It’s not just another chatbot.  It’s an agent that plans ahead, verifies its
 - [uv](https://github.com/astral-sh/uv) package manager
 - OpenAI API key (get [here](https://platform.openai.com/api-keys))
 - CoinGecko Pro API key (get [here](https://www.coingecko.com/en/api/pricing))
+- Capi API key for memory (get [here](https://capi.dev/sign-up)) - Optional but recommended
 
 ### Installation
 
@@ -49,6 +51,7 @@ cp env.example .env
 # Edit .env and add your API keys
 # OPENAI_API_KEY=your-openai-api-key
 # COINGECKO_API_KEY=your-coingecko-api-key
+# CAPI_API_KEY=your-capi-api-key (optional, for conversational memory)
 ```
 
 ### Usage
@@ -73,6 +76,28 @@ Dexter will automatically:
 2. Fetch the necessary cryptocurrency data from CoinGecko
 3. Perform calculations and analysis
 4. Provide a comprehensive, data-rich answer
+
+### Memory Feature
+
+Dexter has conversational memory powered by Capi, allowing it to remember and reference past interactions within a session:
+
+**Follow-up questions:**
+```
+>> What's the 24h trading volume for BTC and SOL?
+[... Dexter provides the data ...]
+
+>> repeat the last data points to me
+[... Dexter recalls and repeats the previous answer ...]
+
+>> what about Ethereum?
+[... Dexter understands the context and fetches Ethereum's trading volume ...]
+```
+
+**Memory commands:**
+- `/clear-mem` or `/clear-memory` - Delete all memories from the current session using Capi's forgetMemory API
+- `exit` or `quit` - Exit Dexter (memories are automatically deleted)
+
+**Note:** Memory is session-based. Each time you start Dexter, you get a fresh session with no memory from previous runs. When you exit or use `/clear-mem`, memories are permanently deleted from Capi's storage.
 
 ## Architecture
 
@@ -145,6 +170,37 @@ agent = Agent(
 
 **Important**: Please keep your pull requests small and focused.  This will make it easier to review and merge.
 
+## Troubleshooting
+
+### Memory Not Working
+
+If you're seeing Capi API calls in your dashboard but memory doesn't seem to be working:
+
+1. **Check API Key**: Ensure `CAPI_API_KEY` is set in your `.env` file
+2. **Check Debug Output**: Look for memory-related logs:
+   - `💾 Session initialized with memory` - Session started successfully
+   - `💾 Memory saved successfully` - Memory was stored
+   - `💾 Retrieved X relevant memory item(s)` - Memories were found
+3. **Wait for Embedding**: Capi needs a moment to embed memories. Try:
+   - Ask a question and get an answer
+   - Wait 1-2 seconds
+   - Ask a follow-up question that references the previous one
+4. **Test with Simple Query**:
+   ```
+   >> What is the price of Bitcoin?
+   [wait for answer]
+   >> repeat that
+   [should recall the Bitcoin price]
+   ```
+
+If you see warnings like `⚠️ Memory storage disabled` or `⚠️ Failed to store memory`, check your API key and network connection.
+
+### Connection Issues
+
+If you encounter connection errors, try:
+- Check your internet connection
+- Verify your API keys are valid
+- Try again in a few moments (API rate limits)
 
 ## License
 

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from langchain_core.messages import AIMessage
 
@@ -12,24 +12,33 @@ from dexter.prompts import (
 )
 from dexter.schemas import Answer, IsDone, OptimizedToolArgs, Task, TaskList
 from dexter.tools import TOOLS
+from dexter.tools.memory import add_memory, retrieve_context
 from dexter.utils.logger import Logger
 from dexter.utils.ui import show_progress
 
 
 class Agent:
-    def __init__(self, max_steps: int = 20, max_steps_per_task: int = 5):
+    def __init__(self, max_steps: int = 20, max_steps_per_task: int = 5, session_id: Optional[str] = None):
         self.logger = Logger()
         self.max_steps = max_steps            # global safety cap
         self.max_steps_per_task = max_steps_per_task
+        self.session_id = session_id          # unique identifier for memory isolation
 
     # ---------- task planning ----------
     @show_progress("Planning tasks...", "Tasks planned")
-    def plan_tasks(self, query: str) -> List[Task]:
+    def plan_tasks(self, query: str, memories: List[str] = None) -> List[Task]:
         tool_descriptions = "\n".join([f"- {t.name}: {t.description}" for t in TOOLS])
+        
+        # Include memory context if available
+        context_str = ""
+        if memories:
+            context_str = "\n\nPrevious conversation context:\n" + "\n".join([f"- {m}" for m in memories])
+        
         prompt = f"""
         Given the user query: "{query}",
         Create a list of tasks to be completed.
         Example: {{"tasks": [{{"id": 1, "description": "some task", "done": false}}]}}
+        {context_str}
         """
         system_prompt = PLANNING_SYSTEM_PROMPT.format(tools=tool_descriptions)
         try:
@@ -139,17 +148,22 @@ class Agent:
         # Display the user's query
         self.logger.log_user_query(query)
         
+        # Retrieve relevant context from memory if session exists
+        retrieved_memories = []
+        if self.session_id:
+            retrieved_memories = retrieve_context(self.session_id, query, limit=5)
+        
         # Initialize agent state for this run.
         step_count = 0
         last_actions = []
         session_outputs = []
 
         # 1. Decompose the user query into a list of tasks.
-        tasks = self.plan_tasks(query)
+        tasks = self.plan_tasks(query, memories=retrieved_memories)
 
         # If no tasks were created, the query is likely out of scope.
         if not tasks:
-            answer = self._generate_answer(query, session_outputs)
+            answer = self._generate_answer(query, session_outputs, memories=retrieved_memories)
             self.logger.log_summary(answer)
             return answer
 
@@ -230,23 +244,42 @@ class Agent:
                     break
 
         # 3. Synthesize the final answer from all collected tool outputs.
-        answer = self._generate_answer(query, session_outputs)
+        answer = self._generate_answer(query, session_outputs, memories=retrieved_memories)
         self.logger.log_summary(answer)
         return answer
     
     # ---------- answer generation ----------
     @show_progress("Generating answer...", "Answer ready")
-    def _generate_answer(self, query: str, session_outputs: list) -> str:
-        """Generate the final answer based on collected data."""
+    def _generate_answer(self, query: str, session_outputs: list, memories: List[str] = None) -> str:
+        """Generate the final answer based on collected data and conversation history."""
         all_results = "\n\n".join(session_outputs) if session_outputs else "No data was collected."
+        
+        # Include memory context if available
+        memory_context = ""
+        if memories:
+            memory_context = f"""
+        
+        Previous conversation context:
+        {chr(10).join([f"- {m}" for m in memories])}
+        """
+        
         answer_prompt = f"""
         Original user query: "{query}"
+        {memory_context}
         
         Data and results collected from tools:
         {all_results}
         
-        Based on the data above, provide a comprehensive answer to the user's query.
+        Based on the data above and any relevant conversation history, provide a comprehensive answer to the user's query.
         Include specific numbers, calculations, and insights.
+        If the user is asking about something from our previous conversation, use the context to answer.
         """
         answer_obj = call_llm(answer_prompt, system_prompt=get_answer_system_prompt(), output_schema=Answer)
-        return answer_obj.answer
+        answer = answer_obj.answer
+        
+        # Store the query and answer in memory if session exists
+        if self.session_id:
+            memory_text = f"User asked: {query}\nDexter answered: {answer}"
+            add_memory(self.session_id, memory_text)
+        
+        return answer
