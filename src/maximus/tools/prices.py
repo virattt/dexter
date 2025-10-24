@@ -319,7 +319,6 @@ def visualize_crypto_chart(
             })
             
             # Extract close prices for line chart
-            from maximus.utils.charts import render_line_chart
             price_data = [
                 {"timestamp": candle["timestamp"], "price": candle["close"]}
                 for candle in ohlc_data["candles"]

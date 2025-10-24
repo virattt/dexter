@@ -31,28 +31,36 @@ class Spinner:
         self.color = color
         self.running = False
         self.thread: Optional[threading.Thread] = None
+        self._lock = threading.Lock()
         
     def _animate(self):
         """Animation loop that runs in a separate thread."""
         idx = 0
-        while self.running:
+        while True:
+            with self._lock:
+                if not self.running:
+                    break
+                message = self.message
             frame = self.FRAMES[idx % len(self.FRAMES)]
-            sys.stdout.write(f"\r{self.color}{frame}{Colors.ENDC} {self.message}")
+            sys.stdout.write(f"\r{self.color}{frame}{Colors.ENDC} {message}")
             sys.stdout.flush()
             time.sleep(0.08)
             idx += 1
     
     def start(self):
         """Start the spinner animation."""
-        if not self.running:
-            self.running = True
-            self.thread = threading.Thread(target=self._animate, daemon=True)
-            self.thread.start()
+        with self._lock:
+            if not self.running:
+                self.running = True
+                self.thread = threading.Thread(target=self._animate, daemon=True)
+                self.thread.start()
     
     def stop(self, final_message: str = "", symbol: str = "✓", symbol_color: str = Colors.GREEN):
         """Stop the spinner and optionally show a completion message."""
-        if self.running:
+        with self._lock:
+            was_running = self.running
             self.running = False
+        if was_running:
             if self.thread:
                 self.thread.join()
             # Clear the line
@@ -63,7 +71,8 @@ class Spinner:
     
     def update_message(self, message: str):
         """Update the spinner message."""
-        self.message = message
+        with self._lock:
+            self.message = message
 
 
 def show_progress(message: str, success_message: str = ""):
@@ -163,7 +172,24 @@ class UI:
                 words = line.split()
                 current_line = ""
                 for word in words:
-                    if len(current_line) + len(word) + 1 <= width - 6:
+                    # Check if word itself is too long
+                    max_word_length = width - 6
+                    if len(word) > max_word_length:
+                        # Print current line if it has content
+                        if current_line:
+                            print(f"{Colors.LIGHT_ORANGE}║{Colors.ENDC} {current_line.ljust(width - 4)} {Colors.LIGHT_ORANGE}║{Colors.ENDC}")
+                            current_line = ""
+                        
+                        # Split the long word into chunks
+                        while len(word) > max_word_length:
+                            chunk = word[:max_word_length]
+                            print(f"{Colors.LIGHT_ORANGE}║{Colors.ENDC} {chunk.ljust(width - 4)} {Colors.LIGHT_ORANGE}║{Colors.ENDC}")
+                            word = word[max_word_length:]
+                        
+                        # Add remaining part of word to current line
+                        if word:
+                            current_line = word + " "
+                    elif len(current_line) + len(word) + 1 <= width - 6:
                         current_line += word + " "
                     else:
                         if current_line:

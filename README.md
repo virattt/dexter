@@ -34,7 +34,7 @@ It's not just another chatbot. It's an agent that plans ahead, verifies its prog
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/virattt/maximus.git
+git clone https://github.com/stevesarmiento/maximus.git
 cd maximus
 ```
 

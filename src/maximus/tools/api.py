@@ -1,19 +1,40 @@
 import os
+import logging
 import requests
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 ####################################
 # API Configuration
 ####################################
 
 coingecko_api_key = os.getenv("COINGECKO_API_KEY")
+if not coingecko_api_key:
+    raise RuntimeError(
+        "COINGECKO_API_KEY environment variable is not set or is empty. "
+        "Please set it to your CoinGecko Pro API key before using this module. "
+        "You can obtain an API key from https://www.coingecko.com/en/api/pricing"
+    )
+
+api_timeout = int(os.getenv("API_TIMEOUT", "10"))  # Default 10 seconds
 
 # Cache for symbol to ID conversions to reduce API calls
 _symbol_to_id_cache = {}
 
 
-def call_api(endpoint: str, params: Optional[dict] = None) -> dict:
-    """Helper function to call the CoinGecko Pro API."""
+def call_api(endpoint: str, params: Optional[dict] = None, timeout: Optional[int] = None) -> dict:
+    """
+    Helper function to call the CoinGecko Pro API.
+    
+    Args:
+        endpoint: API endpoint path
+        params: Optional query parameters
+        timeout: Request timeout in seconds (defaults to API_TIMEOUT env var or 10 seconds)
+    
+    Returns:
+        JSON response from the API
+    """
     base_url = "https://pro-api.coingecko.com/api/v3"
     url = f"{base_url}{endpoint}"
     headers = {"x-cg-pro-api-key": coingecko_api_key}
@@ -21,7 +42,10 @@ def call_api(endpoint: str, params: Optional[dict] = None) -> dict:
     if params is None:
         params = {}
     
-    response = requests.get(url, params=params, headers=headers)
+    if timeout is None:
+        timeout = api_timeout
+    
+    response = requests.get(url, params=params, headers=headers, timeout=timeout)
     response.raise_for_status()
     return response.json()
 
@@ -52,7 +76,8 @@ def resolve_crypto_identifier(identifier: str) -> str:
             call_api(f"/coins/{identifier}", params={"localization": "false", "tickers": "false", "community_data": "false", "developer_data": "false"})
             _symbol_to_id_cache[identifier] = identifier
             return identifier
-        except:
+        except (requests.exceptions.RequestException, ValueError) as e:
+            logger.debug(f"Identifier '{identifier}' is not a valid CoinGecko ID, will search instead: {e}")
             pass
     
     # Otherwise, search for the symbol/name

@@ -118,40 +118,47 @@ class StatusBar:
             final_message: Optional message to show on completion
             show_completion: If True, show checkmark and newline. If False, just clear for next phase.
         """
+        # Stop animation and capture thread reference inside lock
         with self._lock:
-            # Stop animation
             self.is_animating = False
-            if self.animation_thread:
-                self.animation_thread.join()
+            thread = self.animation_thread
+            self.animation_thread = None
             
-            if show_completion:
-                # Show completion with checkmark and move to new line
-                message = final_message or self.current_message
-                line = f"{Colors.GREEN}✓{Colors.ENDC} {Colors.GREEN}{message}{Colors.ENDC}"
-                sys.stdout.write(f"\r{' ' * 120}\r{line}\n")
-                sys.stdout.flush()
-            else:
-                # Briefly pause to show the current phase before transitioning
-                # This ensures users see each step
-                time.sleep(0.3)
-                
-                # Optionally show checkmark briefly, then clear for next phase
-                if final_message:
-                    message = final_message or self.current_message
-                    line = f"{Colors.GREEN}✓{Colors.ENDC} {message}"
-                    sys.stdout.write(f"\r{' ' * 120}\r{line}")
-                    sys.stdout.flush()
-                    time.sleep(0.2)  # Brief pause to show completion
-                
-                # Clear the line, ready for next status
-                sys.stdout.write(f"\r{' ' * 120}\r")
-                sys.stdout.flush()
+            # Capture current message before resetting
+            current_msg = self.current_message
             
-            # Reset for next phase
+            # Reset state
+            self._frame_idx = 0
             self.current_phase = StatusPhase.IDLE
             self.current_message = ""
             self.details = ""
-            self._frame_idx = 0
+        
+        # Join thread outside the lock to avoid deadlock
+        if thread is not None:
+            thread.join()
+        
+        if show_completion:
+            # Show completion with checkmark and move to new line
+            message = final_message or current_msg
+            line = f"{Colors.GREEN}✓{Colors.ENDC} {Colors.GREEN}{message}{Colors.ENDC}"
+            sys.stdout.write(f"\r{' ' * 120}\r{line}\n")
+            sys.stdout.flush()
+        else:
+            # Briefly pause to show the current phase before transitioning
+            # This ensures users see each step
+            time.sleep(0.3)
+            
+            # Optionally show checkmark briefly, then clear for next phase
+            if final_message:
+                message = final_message or current_msg
+                line = f"{Colors.GREEN}✓{Colors.ENDC} {message}"
+                sys.stdout.write(f"\r{' ' * 120}\r{line}")
+                sys.stdout.flush()
+                time.sleep(0.2)  # Brief pause to show completion
+            
+            # Clear the line, ready for next status
+            sys.stdout.write(f"\r{' ' * 120}\r")
+            sys.stdout.flush()
     
     def error_phase(self, error_message: str, show_on_newline: bool = True):
         """
@@ -161,60 +168,75 @@ class StatusBar:
             error_message: Error message to display
             show_on_newline: If True, show error on new line. If False, update in place.
         """
+        # Stop animation and capture thread reference inside lock
         with self._lock:
-            # Stop animation
             self.is_animating = False
-            if self.animation_thread:
-                self.animation_thread.join()
+            thread = self.animation_thread
+            self.animation_thread = None
             
-            # Show error
-            line = f"{Colors.RED}✗{Colors.ENDC} {Colors.RED}{error_message}{Colors.ENDC}"
-            
-            if show_on_newline:
-                # Clear line and write error with newline
-                sys.stdout.write(f"\r{' ' * 120}\r{line}\n")
-            else:
-                # Just update in place
-                sys.stdout.write(f"\r{' ' * 120}\r{line}")
-            sys.stdout.flush()
-            
-            # Reset
+            # Reset state
+            self._frame_idx = 0
             self.current_phase = StatusPhase.IDLE
             self.current_message = ""
             self.details = ""
-            self._frame_idx = 0
+        
+        # Join thread outside the lock to avoid deadlock
+        if thread is not None:
+            thread.join()
+        
+        # Show error
+        line = f"{Colors.RED}✗{Colors.ENDC} {Colors.RED}{error_message}{Colors.ENDC}"
+        
+        if show_on_newline:
+            # Clear line and write error with newline
+            sys.stdout.write(f"\r{' ' * 120}\r{line}\n")
+        else:
+            # Just update in place
+            sys.stdout.write(f"\r{' ' * 120}\r{line}")
+        sys.stdout.flush()
     
     def transition_to(self, phase: StatusPhase, message: str, details: str = ""):
         """
         Smoothly transition to a new phase without showing completion of previous phase.
         Just clears the line and starts the new phase.
         """
+        # Stop animation and capture thread reference inside lock
         with self._lock:
-            # Stop any current animation
             self.is_animating = False
-            if self.animation_thread:
-                self.animation_thread.join()
+            thread = self.animation_thread
+            self.animation_thread = None
+            
+            # Reset state
+            self._frame_idx = 0
+            self.current_phase = StatusPhase.IDLE
+            self.current_message = ""
+            self.details = ""
             
             # Clear line
             sys.stdout.write(f"\r{' ' * 120}\r")
             sys.stdout.flush()
-            
-            # Reset state
-            self.current_phase = StatusPhase.IDLE
-            self.current_message = ""
-            self.details = ""
-            self._frame_idx = 0
+        
+        # Join thread outside the lock to avoid deadlock
+        if thread is not None:
+            thread.join()
         
         # Start new phase
         self.start_phase(phase, message, details)
     
     def clear(self):
         """Clear the status bar."""
+        # First, stop animation and get thread reference while holding lock
         with self._lock:
             self.is_animating = False
-            if self.animation_thread:
-                self.animation_thread.join()
-            
+            thread = self.animation_thread
+            self.animation_thread = None
+        
+        # Join thread outside the lock to avoid deadlock
+        if thread:
+            thread.join()
+        
+        # Reset state (can be done with or without lock since animation is stopped)
+        with self._lock:
             sys.stdout.write(f"\r{' ' * 120}\r")
             sys.stdout.flush()
             

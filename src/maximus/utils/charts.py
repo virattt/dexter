@@ -118,79 +118,72 @@ def render_candlestick_chart(
         print(f"Error extracting candle data: {e}")
         print(f"First candle type: {type(candles[0])}, value: {candles[0]}")
         raise
-        
-        # Get chart dimensions
-        if width is None or height is None:
-            auto_width, auto_height = get_optimal_chart_size()
-            width = width or auto_width
-            height = height or auto_height
-        
-        # Clear previous plot
-        plt.clear_figure()
-        
-        # Set plot size
-        plt.plot_size(width, height)
-        
-        # Format X-axis labels
-        positions, labels = format_timestamp_labels(timestamps)
-        
-        # Create custom candlestick visualization using basic plot elements
-        # plotext.candlestick() has bugs, so we build our own
-        x_indices = list(range(len(candles)))
-        
-        # Determine color for each candle (green=up, red=down)
-        for i in x_indices:
-            color = "green+" if closes[i] >= opens[i] else "red+"
-            
-            # Draw high-low line (wick)
-            plt.plot([i, i], [lows[i], highs[i]], color=color, marker="")
-            
-            # Draw open-close body (use thicker representation)
-            # Create a small vertical bar by plotting multiple close points
-            body_top = max(opens[i], closes[i])
-            body_bottom = min(opens[i], closes[i])
-            body_mid = (body_top + body_bottom) / 2
-            
-            # Plot body as scatter points for thickness
-            plt.scatter([i], [body_mid], marker="hd", color=color)
-        
-        # Apply custom X-axis labels (after the loop!)
-        if positions and labels:
-            plt.xticks(positions, labels)
-        
-        # Set title
-        if title:
-            plt.title(title)
-        else:
-            coin_id = str(ohlc_data.get("id", "Crypto"))
-            days = str(ohlc_data.get("days", ""))
-            if coin_id:
-                plt.title(f"{coin_id.upper()} - {days} Day OHLC")
-            else:
-                plt.title("OHLC Chart")
-        
-        # Set labels
-        vs_currency = str(ohlc_data.get("vs_currency", "USD")).upper()
-        plt.xlabel("Date")
-        plt.ylabel(f"Price ({vs_currency})")
-        
-        # Set theme
-        plt.theme("pro")
-        
-        # Show the plot
-        plt.show()
-        print()  # Add spacing after chart
-        
-        # Force flush to ensure chart appears immediately
-        import sys
-        sys.stdout.flush()
     
-    except Exception as e:
-        print(f"Chart rendering error: {e}")
-        import traceback
-        traceback.print_exc()
-        import sys
-        sys.stdout.flush()
+    # Get chart dimensions
+    if width is None or height is None:
+        auto_width, auto_height = get_optimal_chart_size()
+        width = width or auto_width
+        height = height or auto_height
+    
+    # Clear previous plot
+    plt.clear_figure()
+    
+    # Set plot size
+    plt.plot_size(width, height)
+    
+    # Format X-axis labels
+    positions, labels = format_timestamp_labels(timestamps)
+    
+    # Create custom candlestick visualization using basic plot elements
+    # plotext.candlestick() has bugs, so we build our own
+    x_indices = list(range(len(candles)))
+    
+    # Determine color for each candle (green=up, red=down)
+    for i in x_indices:
+        color = "green+" if closes[i] >= opens[i] else "red+"
+        
+        # Draw high-low line (wick)
+        plt.plot([i, i], [lows[i], highs[i]], color=color, marker="")
+        
+        # Draw open-close body (use thicker representation)
+        # Create a small vertical bar by plotting multiple close points
+        body_top = max(opens[i], closes[i])
+        body_bottom = min(opens[i], closes[i])
+        body_mid = (body_top + body_bottom) / 2
+        
+        # Plot body as scatter points for thickness
+        plt.scatter([i], [body_mid], marker="hd", color=color)
+    
+    # Apply custom X-axis labels (after the loop!)
+    if positions and labels:
+        plt.xticks(positions, labels)
+    
+    # Set title
+    if title:
+        plt.title(title)
+    else:
+        coin_id = str(ohlc_data.get("id", "Crypto"))
+        days = str(ohlc_data.get("days", ""))
+        if coin_id:
+            plt.title(f"{coin_id.upper()} - {days} Day OHLC")
+        else:
+            plt.title("OHLC Chart")
+    
+    # Set labels
+    vs_currency = str(ohlc_data.get("vs_currency", "USD")).upper()
+    plt.xlabel("Date")
+    plt.ylabel(f"Price ({vs_currency})")
+    
+    # Set theme
+    plt.theme("pro")
+    
+    # Show the plot
+    plt.show()
+    print()  # Add spacing after chart
+    
+    # Force flush to ensure chart appears immediately
+    import sys
+    sys.stdout.flush()
 
 
 def render_line_chart(

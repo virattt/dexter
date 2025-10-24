@@ -220,8 +220,7 @@ class CommandPalette:
             result.append(('', '\n'))
         else:
             # Collapsed state - simple text with padding
-            result.append(('class:dim', " Type '?' to see all commands\n"))
+            result.append(('class:dim', " Type '/' to see all commands\n"))
             result.append(('', '\n'))
         
         return FormattedText(result)
-

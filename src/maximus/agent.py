@@ -89,7 +89,8 @@ class Agent:
         try:
             resp = call_llm(prompt, system_prompt=VALIDATION_SYSTEM_PROMPT, output_schema=IsDone)
             return resp.done
-        except:
+        except Exception as e:
+            self.logger._log(f"Task validation failed: {e}")
             return False
 
     # ---------- optimize tool arguments ----------
@@ -176,6 +177,7 @@ class Agent:
         step_count = 0
         last_actions = []
         session_outputs = []
+        max_steps_reached = False  # Track if we hit the global limit
 
         # 1. Decompose the user query into a list of tasks.
         tasks = self.plan_tasks(query, memories=retrieved_memories)
@@ -202,8 +204,9 @@ class Agent:
             task_outputs = []
             while per_task_steps < self.max_steps_per_task:
                 if step_count >= self.max_steps:
-                    self.logger._log("Global max steps reached — stopping.")
-                    return
+                    self.logger._log("Global max steps reached — generating partial answer from collected data.")
+                    max_steps_reached = True
+                    break
 
                 # Ask the LLM for the next action to take for the current task.
                 ai_message = self.ask_for_actions(task.description, last_outputs="\n".join(task_outputs))
@@ -260,15 +263,19 @@ class Agent:
                     task.done = True
                     self.logger.log_task_done(task.description)
                     break
+            
+            # If max steps reached, exit the task loop to generate partial answer
+            if max_steps_reached:
+                break
 
         # 3. Synthesize the final answer from all collected tool outputs.
-        answer = self._generate_answer(query, session_outputs, memories=retrieved_memories)
+        answer = self._generate_answer(query, session_outputs, memories=retrieved_memories, partial=max_steps_reached)
         self.logger.log_summary(answer)
         return answer
     
     # ---------- answer generation ----------
     @with_generating("Generating answer...", "Answer ready")
-    def _generate_answer(self, query: str, session_outputs: list, memories: List[str] = None) -> str:
+    def _generate_answer(self, query: str, session_outputs: list, memories: List[str] = None, partial: bool = False) -> str:
         """Generate the final answer based on collected data and conversation history."""
         all_results = "\n\n".join(session_outputs) if session_outputs else "No data was collected."
         
@@ -281,9 +288,22 @@ class Agent:
         {chr(10).join([f"- {m}" for m in memories])}
         """
         
+        # Add partial result context if applicable
+        partial_context = ""
+        if partial:
+            partial_context = """
+        
+        IMPORTANT: The analysis reached the maximum step limit before completing all planned tasks.
+        Please provide a partial answer based on the data collected so far, and clearly indicate:
+        1. That this is a partial result due to step limits
+        2. What data was successfully gathered
+        3. What aspects of the query may not be fully addressed
+        """
+        
         answer_prompt = f"""
         Original user query: "{query}"
         {memory_context}
+        {partial_context}
         
         Data and results collected from tools:
         {all_results}

@@ -1,8 +1,23 @@
 import os
+from pathlib import Path
+
+try:
+    import tomli
+except ImportError:
+    import tomllib as tomli
 
 def get_version():
     """Get version from pyproject.toml"""
-    return "0.1.0"
+    try:
+        # Get path to pyproject.toml (3 levels up from this file)
+        project_root = Path(__file__).parent.parent.parent.parent
+        pyproject_path = project_root / "pyproject.toml"
+        
+        with open(pyproject_path, "rb") as f:
+            data = tomli.load(f)
+            return data["project"]["version"]
+    except (FileNotFoundError, KeyError):
+        return "0.1.0"
 
 def check_api_status():
     """Check if API keys are configured."""

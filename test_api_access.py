@@ -11,6 +11,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 API_KEY = os.getenv("COINGECKO_API_KEY")
+if not API_KEY:
+    raise RuntimeError(
+        "COINGECKO_API_KEY environment variable is not set. "
+        "Please set it in your .env file or environment before running this test."
+    )
+
 BASE_URL = "https://pro-api.coingecko.com/api/v3"
 
 def test_endpoint(endpoint, params=None, description=""):
@@ -24,7 +30,7 @@ def test_endpoint(endpoint, params=None, description=""):
         print(f"Params: {params}")
     
     try:
-        response = requests.get(url, params=params, headers=headers)
+        response = requests.get(url, params=params, headers=headers, timeout=10)
         print(f"Status: {response.status_code}")
         
         if response.status_code == 200:
@@ -39,6 +45,9 @@ def test_endpoint(endpoint, params=None, description=""):
         else:
             print(f"⚠ ERROR - {response.status_code}: {response.text[:200]}")
             return False
+    except requests.exceptions.Timeout:
+        print("✗ TIMEOUT - Request timed out after 10 seconds")
+        return False
     except Exception as e:
         print(f"✗ EXCEPTION: {e}")
         return False
