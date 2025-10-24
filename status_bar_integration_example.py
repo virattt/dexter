@@ -106,7 +106,9 @@ class AgentWithStatusBar:
         try:
             resp = call_llm(prompt, system_prompt=VALIDATION_SYSTEM_PROMPT, output_schema=IsDone)
             return resp.done
-        except:
+        except Exception as e:
+            # Log the exception for debugging purposes
+            print(f"Warning: Task validation failed: {e}")
             return False
 
     # ---------- optimize tool arguments ----------
