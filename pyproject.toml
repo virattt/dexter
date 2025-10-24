@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
-maximus-agent = "maximus.cli:main"
+maximus = "maximus.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
