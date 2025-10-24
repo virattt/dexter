@@ -4,9 +4,9 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-from dexter.agent import Agent
-from dexter.tools.memory import clear_memories
-from dexter.utils.intro import print_intro
+from maximus.agent import Agent
+from maximus.tools.memory import clear_memories
+from maximus.utils.intro import print_intro
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import InMemoryHistory
 
@@ -28,10 +28,14 @@ def main():
           
           # Handle special commands
           if query.lower() in ["exit", "quit"]:
-              # Clear memories on exit (silently)
-              if session_id:
-                  clear_memories(session_id, silent=True)
               print("Goodbye!")
+              # Clear memories on exit (silently, with error handling)
+              if session_id:
+                  try:
+                      clear_memories(session_id, silent=True)
+                  except Exception:
+                      # Silently ignore errors during cleanup
+                      pass
               break
           
           if query.lower() in ["/clear-mem", "/clear-memory"]:
@@ -42,10 +46,14 @@ def main():
               # Run the agent
               agent.run(query)
         except (KeyboardInterrupt, EOFError):
-            # Clear memories on exit (silently)
-            if session_id:
-                clear_memories(session_id, silent=True)
+            # Clear memories on exit (silently, with error handling)
             print("\nGoodbye!")
+            if session_id:
+                try:
+                    clear_memories(session_id, silent=True)
+                except Exception:
+                    # Silently ignore errors during cleanup on exit
+                    pass
             break
 
 

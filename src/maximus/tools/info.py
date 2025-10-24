@@ -1,6 +1,6 @@
 from langchain.tools import tool
 from pydantic import BaseModel, Field
-from dexter.tools.api import call_api, resolve_crypto_identifier
+from maximus.tools.api import call_api, resolve_crypto_identifier
 
 ####################################
 # Tools

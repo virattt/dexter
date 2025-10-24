@@ -1,7 +1,7 @@
 from langchain.tools import tool
 from typing import Optional
 from pydantic import BaseModel, Field
-from dexter.tools.api import call_api
+from maximus.tools.api import call_api
 
 ####################################
 # Tools

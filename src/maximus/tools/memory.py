@@ -6,7 +6,7 @@ Handles storing and retrieving conversation memories within a session.
 import os
 import requests
 from typing import List, Optional, Dict, Any
-from dexter.utils.logger import Logger
+from maximus.utils.logger import Logger
 
 CAPI_BASE_URL = "https://capi.dev/api/v1"
 logger = Logger()

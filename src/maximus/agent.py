@@ -2,19 +2,19 @@ from typing import List, Optional
 
 from langchain_core.messages import AIMessage
 
-from dexter.model import call_llm
-from dexter.prompts import (
+from maximus.model import call_llm
+from maximus.prompts import (
     ACTION_SYSTEM_PROMPT,
     get_answer_system_prompt,
     PLANNING_SYSTEM_PROMPT,
     get_tool_args_system_prompt,
     VALIDATION_SYSTEM_PROMPT,
 )
-from dexter.schemas import Answer, IsDone, OptimizedToolArgs, Task, TaskList
-from dexter.tools import TOOLS
-from dexter.tools.memory import add_memory, retrieve_context
-from dexter.utils.logger import Logger
-from dexter.utils.ui import show_progress
+from maximus.schemas import Answer, IsDone, OptimizedToolArgs, Task, TaskList
+from maximus.tools import TOOLS
+from maximus.tools.memory import add_memory, retrieve_context
+from maximus.utils.logger import Logger
+from maximus.utils.ui import show_progress
 
 
 class Agent:

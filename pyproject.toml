@@ -3,9 +3,9 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dexter"
+name = "maximus"
 version = "0.1.0"
-description = "AI agent for financial analysis."
+description = "AI agent for cryptocurrency research and analysis."
 authors = []
 requires-python = ">=3.10"
 dependencies = [
@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
-dexter-agent = "dexter.cli:main"
+maximus-agent = "maximus.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

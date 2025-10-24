@@ -1,7 +1,7 @@
 from langchain.tools import tool
 from typing import Literal, Optional
 from pydantic import BaseModel, Field
-from dexter.tools.api import call_api, resolve_crypto_identifier
+from maximus.tools.api import call_api, resolve_crypto_identifier
 from datetime import datetime
 
 ####################################

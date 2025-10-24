@@ -1,13 +1,13 @@
-# Dexter 🤖
+# Maximus 🤖
 
-Dexter is an autonomous cryptocurrency research agent that thinks, plans, and learns as it works. It performs analysis using task planning, self-reflection, and real-time market data. Think Claude Code, but built specifically for cryptocurrency research.
+Maximus is an autonomous cryptocurrency research agent that thinks, plans, and learns as it works. It performs analysis using task planning, self-reflection, and real-time market data. Think Claude Code, but built specifically for cryptocurrency research.
 
 
 <img width="979" height="651" alt="Screenshot 2025-10-14 at 6 12 35 PM" src="https://github.com/user-attachments/assets/5a2859d4-53cf-4638-998a-15cef3c98038" />
 
 ## Overview
 
-Dexter takes complex cryptocurrency questions and turns them into clear, step-by-step research plans. It runs those tasks using live market data, checks its own work, and refines the results until it has a confident, data-backed answer.  
+Maximus takes complex cryptocurrency questions and turns them into clear, step-by-step research plans. It runs those tasks using live market data, checks its own work, and refines the results until it has a confident, data-backed answer.  
 
 It’s not just another chatbot.  It’s an agent that plans ahead, verifies its progress, and keeps iterating until the job is done.
 
@@ -34,8 +34,8 @@ It’s not just another chatbot.  It’s an agent that plans ahead, verifies its
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/virattt/dexter.git
-cd dexter
+git clone https://github.com/virattt/maximus.git
+cd maximus
 ```
 
 2. Install dependencies with uv:
@@ -56,14 +56,14 @@ cp env.example .env
 
 ### Usage
 
-Run Dexter in interactive mode:
+Run Maximus in interactive mode:
 ```bash
-uv run dexter-agent
+uv run maximus-agent
 ```
 
 ### Example Queries
 
-Try asking Dexter questions like:
+Try asking Maximus questions like:
 - "What is Bitcoin's current price and market cap?"
 - "Compare the 30-day price performance of Ethereum and Solana"
 - "What are the top 10 cryptocurrencies by market cap?"
@@ -71,7 +71,7 @@ Try asking Dexter questions like:
 - "What are the trending cryptocurrencies right now?"
 - "Get detailed information about Cardano"
 
-Dexter will automatically:
+Maximus will automatically:
 1. Break down your question into research tasks
 2. Fetch the necessary cryptocurrency data from CoinGecko
 3. Perform calculations and analysis
@@ -79,29 +79,29 @@ Dexter will automatically:
 
 ### Memory Feature
 
-Dexter has conversational memory powered by Capi, allowing it to remember and reference past interactions within a session:
+Maximus has conversational memory powered by Capi, allowing it to remember and reference past interactions within a session:
 
 **Follow-up questions:**
 ```
 >> What's the 24h trading volume for BTC and SOL?
-[... Dexter provides the data ...]
+[... Maximus provides the data ...]
 
 >> repeat the last data points to me
-[... Dexter recalls and repeats the previous answer ...]
+[... Maximus recalls and repeats the previous answer ...]
 
 >> what about Ethereum?
-[... Dexter understands the context and fetches Ethereum's trading volume ...]
+[... Maximus understands the context and fetches Ethereum's trading volume ...]
 ```
 
 **Memory commands:**
 - `/clear-mem` or `/clear-memory` - Delete all memories from the current session using Capi's forgetMemory API
-- `exit` or `quit` - Exit Dexter (memories are automatically deleted)
+- `exit` or `quit` - Exit Maximus (memories are automatically deleted)
 
-**Note:** Memory is session-based. Each time you start Dexter, you get a fresh session with no memory from previous runs. When you exit or use `/clear-mem`, memories are permanently deleted from Capi's storage.
+**Note:** Memory is session-based. Each time you start Maximus, you get a fresh session with no memory from previous runs. When you exit or use `/clear-mem`, memories are permanently deleted from Capi's storage.
 
 ## Architecture
 
-Dexter uses a multi-agent architecture with specialized components:
+Maximus uses a multi-agent architecture with specialized components:
 
 - **Planning Agent**: Analyzes queries and creates structured task lists
 - **Action Agent**: Selects appropriate tools and executes research steps
@@ -110,7 +110,7 @@ Dexter uses a multi-agent architecture with specialized components:
 
 ## Available Tools
 
-Dexter has access to the following cryptocurrency research tools:
+Maximus has access to the following cryptocurrency research tools:
 
 **Price Data:**
 - `get_price_snapshot`: Current price, market cap, volume, and 24h changes
@@ -129,9 +129,9 @@ Dexter has access to the following cryptocurrency research tools:
 ## Project Structure
 
 ```
-dexter/
+maximus/
 ├── src/
-│   ├── dexter/
+│   ├── maximus/
 │   │   ├── agent.py      # Main agent orchestration logic
 │   │   ├── model.py      # LLM interface
 │   │   ├── prompts.py    # System prompts for each component
@@ -149,10 +149,10 @@ dexter/
 
 ## Configuration
 
-Dexter supports configuration via the `Agent` class initialization:
+Maximus supports configuration via the `Agent` class initialization:
 
 ```python
-from dexter.agent import Agent
+from maximus.agent import Agent
 
 agent = Agent(
     max_steps=20,              # Global safety limit
