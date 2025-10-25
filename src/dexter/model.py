@@ -1,7 +1,8 @@
 import os
 import time
+from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 from typing import Type, List, Optional
 from langchain_core.tools import BaseTool
@@ -10,9 +11,18 @@ from openai import APIConnectionError
 
 from dexter.prompts import DEFAULT_SYSTEM_PROMPT
 
+# Load environment variables
+load_dotenv()
+
 # Initialize the OpenAI client
 # Make sure your OPENAI_API_KEY is set in your .env
-llm = ChatOpenAI(model="gpt-4.1", temperature=0, api_key=os.getenv("OPENAI_API_KEY"))
+# Optionally set OPENAI_BASE_URL for custom OpenAI-compatible APIs
+llm = ChatOpenAI(
+    model=os.getenv("OPENAI_MODEL", "gpt-4.1"),
+    temperature=0,
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url=os.getenv("OPENAI_BASE_URL")
+)
 
 def call_llm(
     prompt: str,
