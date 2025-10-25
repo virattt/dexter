@@ -19,11 +19,11 @@ def web_search(query: str, max_results: int = 5) -> List[Dict[str, str]]:
     Returns a list of search results with titles, URLs, and snippets.
     """
     try:
-        from duckduckgo_search import DDGS
+        from ddgs import DDGS
 
-        # Perform the search
-        with DDGS() as ddgs:
-            results = list(ddgs.text(query, max_results=max_results))
+        # Perform the search with region set to US for financial content
+        ddgs = DDGS()
+        results = list(ddgs.text(query, region='us-en', max_results=max_results))
 
         # Format results for better readability
         formatted_results = []

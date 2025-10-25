@@ -10,9 +10,25 @@ from langchain_core.messages import AIMessage
 from openai import APIConnectionError
 
 from dexter.prompts import DEFAULT_SYSTEM_PROMPT
+from pathlib import Path
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from multiple possible locations
+# 1. Current directory
+# 2. Home directory (~/.dexter/.env)
+# 3. Original installation directory
+env_locations = [
+    Path.cwd() / ".env",
+    Path.home() / ".dexter" / ".env",
+    Path("/Users/giannisan/dexter/.env")
+]
+
+for env_path in env_locations:
+    if env_path.exists():
+        load_dotenv(env_path)
+        break
+else:
+    # If no .env file found, just load from environment
+    load_dotenv()
 
 # Initialize the OpenAI client
 # Make sure your OPENAI_API_KEY is set in your .env

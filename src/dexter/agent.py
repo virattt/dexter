@@ -84,7 +84,7 @@ class Agent:
         
         # Get tool schema info
         tool_description = tool.description
-        tool_schema = tool.args_schema.schema() if hasattr(tool, 'args_schema') and tool.args_schema else {}
+        tool_schema = tool.args_schema.model_json_schema() if hasattr(tool, 'args_schema') and tool.args_schema else {}
         
         prompt = f"""
         Task: "{task_desc}"
