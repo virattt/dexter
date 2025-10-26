@@ -11,7 +11,7 @@ class SearchResult(BaseModel):
     published_date: datetime | None = None
 
 class BaseSearcher(ABC):
-    """Abstract base class for RSS-based pluggable searchers with common utilities."""
+    """Abstract base class for pluggable searchers with common utilities."""
 
     @abstractmethod
     async def get_search_results(self, query: str, max_results: int) -> List[SearchResult]:
