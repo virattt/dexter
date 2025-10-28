@@ -11,6 +11,8 @@ from dexter.tools.finance.metrics import get_financial_metrics_snapshot
 from dexter.tools.finance.metrics import get_financial_metrics
 from dexter.tools.finance.prices import get_price_snapshot
 from dexter.tools.finance.prices import get_prices
+from dexter.tools.finance.news import get_news
+from dexter.tools.finance.estimates import get_analyst_estimates
 
 TOOLS: list[Callable[..., any]] = [
     get_income_statements,
@@ -24,4 +26,6 @@ TOOLS: list[Callable[..., any]] = [
     get_prices,
     get_financial_metrics_snapshot,
     get_financial_metrics,
+    get_news,
+    get_analyst_estimates,
 ]
