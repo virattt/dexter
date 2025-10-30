@@ -151,17 +151,12 @@ def get_10Q_filing_items(
 class Filing8KItemsInput(BaseModel):
     ticker: str = Field(description="The stock ticker symbol. For example, 'AAPL' for Apple.")
     accession_number: str = Field(description="The SEC accession number for the 8-K filing. For example, '0000320193-24-000123'. This can be retrieved from the get_filings tool.")
-    item: Optional[list[str]] = Field(
-        default=None, 
-        description=f"Optional list of specific items to retrieve from the 8-K. Valid items are:\n{format_items_description(ITEMS_8K_MAP)}\nIf not specified, all available items will be returned."
-    )
 
 
 @tool(args_schema=Filing8KItemsInput)
 def get_8K_filing_items(
     ticker: str,
     accession_number: str,
-    item: list[str] | None = None
 ) -> dict:
     """
     Retrieves specific sections (items) from a company's 8-K current report.
@@ -194,9 +189,6 @@ def get_8K_filing_items(
         "filing_type": "8-K",
         "accession_number": accession_number
     }
-    
-    if item is not None:
-        params["item"] = item
     
     data = call_api("/filings/items/", params)
     return data
