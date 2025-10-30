@@ -20,6 +20,7 @@ from dexter.tools.finance.metrics import (
 )
 from dexter.tools.finance.news import get_news
 from dexter.tools.finance.prices import get_price_snapshot, get_prices
+from dexter.tools.yf_estimates import yf_get_analyst_estimates
 from dexter.tools.yf_filings import (
     yf_get_10K_filing_items,
     yf_get_10Q_filing_items,
@@ -35,6 +36,7 @@ from dexter.tools.yf_metrics import (
     yf_get_financial_metrics,
     yf_get_financial_metrics_snapshot,
 )
+from dexter.tools.yf_news import yf_get_news
 from dexter.tools.yf_prices import yf_get_price_snapshot, yf_get_prices
 
 
@@ -66,6 +68,8 @@ YFINANCE_TOOLS: list[Callable[..., any]] = [
     yf_get_prices,
     yf_get_financial_metrics_snapshot,
     yf_get_financial_metrics,
+    yf_get_news,
+    yf_get_analyst_estimates,
 ]
 
 
