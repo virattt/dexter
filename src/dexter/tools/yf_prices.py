@@ -8,7 +8,7 @@ from typing import Literal, Optional
 import pandas as pd
 from langchain.tools import tool
 
-from dexter.tools.prices import PriceSnapshotInput, PricesInput
+from dexter.tools.finance.prices import PriceSnapshotInput, PricesInput
 from dexter.tools.yf_shared import get_ticker, to_python
 
 _MINUTE_INTERVALS: dict[int, str] = {

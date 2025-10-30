@@ -1,8 +1,8 @@
 from langchain.tools import tool
 from typing import Optional, Literal
 from pydantic import BaseModel, Field
-from dexter.tools.api import call_api
-from dexter.tools.constants import (
+from dexter.tools.finance.api import call_api
+from dexter.tools.finance.constants import (
     ITEMS_10K_MAP,
     ITEMS_10Q_MAP,
     ITEMS_8K_MAP,

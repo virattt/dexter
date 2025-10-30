@@ -6,7 +6,7 @@ from typing import Literal, Optional
 
 from langchain.tools import tool
 
-from dexter.tools.financials import FinancialStatementsInput
+from dexter.tools.finance.fundamentals import FinancialStatementsInput
 from dexter.tools.yf_shared import (
     apply_period_filters,
     frame_to_records,

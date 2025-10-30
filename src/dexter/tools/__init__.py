@@ -2,22 +2,24 @@ from typing import Literal
 
 from typing_extensions import Callable
 
-from dexter.tools.filings import (
+from dexter.tools.finance.estimates import get_analyst_estimates
+from dexter.tools.finance.filings import (
     get_10K_filing_items,
     get_10Q_filing_items,
     get_8K_filing_items,
     get_filings,
 )
-from dexter.tools.financials import (
+from dexter.tools.finance.fundamentals import (
     get_balance_sheets,
     get_cash_flow_statements,
     get_income_statements,
 )
-from dexter.tools.metrics import (
+from dexter.tools.finance.metrics import (
     get_financial_metrics,
     get_financial_metrics_snapshot,
 )
-from dexter.tools.prices import get_price_snapshot, get_prices
+from dexter.tools.finance.news import get_news
+from dexter.tools.finance.prices import get_price_snapshot, get_prices
 from dexter.tools.yf_filings import (
     yf_get_10K_filing_items,
     yf_get_10Q_filing_items,
@@ -48,6 +50,8 @@ FINANCIAL_DATASETS_TOOLS: list[Callable[..., any]] = [
     get_prices,
     get_financial_metrics_snapshot,
     get_financial_metrics,
+    get_news,
+    get_analyst_estimates,
 ]
 
 YFINANCE_TOOLS: list[Callable[..., any]] = [
@@ -68,7 +72,9 @@ YFINANCE_TOOLS: list[Callable[..., any]] = [
 AVAILABLE_DATA_PROVIDERS: tuple[str, ...] = ("financialdatasets", "yfinance")
 
 
-def get_tools(provider: Literal["financialdatasets", "yfinance"] = "financialdatasets") -> list[Callable[..., any]]:
+def get_tools(
+    provider: Literal["financialdatasets", "yfinance"] = "financialdatasets",
+) -> list[Callable[..., any]]:
     """Return the tool collection for the requested data provider."""
     provider_key = provider.lower()
     if provider_key == "yfinance":

@@ -10,12 +10,12 @@ import requests
 from bs4 import BeautifulSoup
 from langchain.tools import tool
 
-from dexter.tools.constants import (
+from dexter.tools.finance.constants import (
     ITEMS_10K_MAP,
     ITEMS_10Q_MAP,
     ITEMS_8K_MAP,
 )
-from dexter.tools.filings import (
+from dexter.tools.finance.filings import (
     Filing10KItemsInput,
     Filing10QItemsInput,
     Filing8KItemsInput,

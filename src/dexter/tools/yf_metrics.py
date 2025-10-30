@@ -6,7 +6,7 @@ from typing import Literal, Optional
 
 from langchain.tools import tool
 
-from dexter.tools.metrics import FinancialMetricsInput, FinancialMetricsSnapshotInput
+from dexter.tools.finance.metrics import FinancialMetricsInput, FinancialMetricsSnapshotInput
 from dexter.tools.yf_shared import (
     apply_period_filters,
     format_period_label,
