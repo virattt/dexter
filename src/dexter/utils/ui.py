@@ -132,10 +132,15 @@ class UI:
         """Print when a task is completed."""
         print(f"{Colors.GREEN}  ✓ Completed{Colors.ENDC} {Colors.DIM}│ {task_desc}{Colors.ENDC}")
     
-    def print_tool_run(self, tool_name: str, args: str = ""):
+    def print_tool_params(self, params: str):
+        """Print tool parameters before execution."""
+        params_display = f" {Colors.DIM}({params[:150]}...){Colors.ENDC}" if params and len(params) > 0 else ""
+        print(f"  {Colors.MAGENTA}→{Colors.ENDC}  Args: {params_display}")
+    
+    def print_tool_run(self, result: str):
         """Print when a tool is executed."""
-        args_display = f" {Colors.DIM}({args[:50]}...){Colors.ENDC}" if args and len(args) > 0 else ""
-        print(f"  {Colors.YELLOW}⚡{Colors.ENDC} {tool_name}{args_display}")
+        result_display = f" {Colors.DIM}({result[:150]}...){Colors.ENDC}" if result and len(result) > 0 else ""
+        print(f"  {Colors.YELLOW}⚡{Colors.ENDC} Result: {result_display}")
     
     def print_answer(self, answer: str):
         """Print the final answer in a beautiful box."""

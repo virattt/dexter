@@ -60,7 +60,7 @@ class Agent:
             return AIMessage(content="Failed to get actions.")
 
     # ---------- ask LLM if task is done ----------
-    @show_progress("Validating...", "")
+    @show_progress("Checking if task is complete...", "")
     def ask_if_done(self, task_desc: str, recent_results: str) -> bool:
         prompt = f"""
         We were trying to complete the task: "{task_desc}".
@@ -208,7 +208,7 @@ class Agent:
                     if tool_to_run and self.confirm_action(tool_name, str(optimized_args)):
                         try:
                             result = self._execute_tool(tool_to_run, tool_name, optimized_args)
-                            self.logger.log_tool_run(tool_name, f"{result}")
+                            self.logger.log_tool_run(optimized_args, result)
                             output = f"Output of {tool_name} with args {optimized_args}: {result}"
                             session_outputs.append(output)
                             task_outputs.append(output)
