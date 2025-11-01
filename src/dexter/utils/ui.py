@@ -134,8 +134,8 @@ class UI:
     
     def print_tool_params(self, params: str):
         """Print tool parameters before execution."""
-        params_display = f" {Colors.DIM}({params[:150]}...){Colors.ENDC}" if params and len(params) > 0 else ""
-        print(f"  {Colors.MAGENTA}→{Colors.ENDC}  Args: {params_display}")
+        params_display = f" {Colors.DIM}{params}{Colors.ENDC}" if params and len(params) > 0 else ""
+        print(f"  {Colors.MAGENTA}→{Colors.ENDC}  Parameters: {params_display}")
     
     def print_tool_run(self, result: str):
         """Print when a tool is executed."""
