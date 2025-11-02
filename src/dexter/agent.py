@@ -9,6 +9,7 @@ from dexter.prompts import (
     PLANNING_SYSTEM_PROMPT,
     get_tool_args_system_prompt,
     VALIDATION_SYSTEM_PROMPT,
+    META_VALIDATION_SYSTEM_PROMPT,
 )
 from dexter.schemas import Answer, IsDone, OptimizedToolArgs, Task, TaskList
 from dexter.tools import TOOLS
@@ -74,6 +75,26 @@ class Agent:
         except:
             return False
 
+    # ---------- ask LLM if main goal is achieved ----------
+    @show_progress("Checking if main goal is achieved...", "")
+    def is_goal_achieved(self, query: str, task_outputs: list) -> bool:
+        """Check if the overall goal is achieved based on all session outputs."""
+        all_results = "\n\n".join(task_outputs)
+        prompt = f"""
+        Original user query: "{query}"
+        
+        Data and results collected from tools so far:
+        {all_results}
+        
+        Based on the data above, is the original user query sufficiently answered?
+        """
+        try:
+            resp = call_llm(prompt, system_prompt=META_VALIDATION_SYSTEM_PROMPT, output_schema=IsDone)
+            return resp.done
+        except Exception as e:
+            self.logger._log(f"Meta-validation failed: {e}")
+            return False
+
     # ---------- optimize tool arguments ----------
     @show_progress("Optimizing tool call...", "")
     def optimize_tool_args(self, tool_name: str, initial_args: dict, task_desc: str) -> dict:
@@ -97,7 +118,7 @@ class Agent:
         Pay special attention to filtering parameters that would help narrow down results to match the task.
         """
         try:
-            response = call_llm(prompt, system_prompt=get_tool_args_system_prompt(), output_schema=OptimizedToolArgs)
+            response = call_llm(prompt, model="gpt-4.1", system_prompt=get_tool_args_system_prompt(), output_schema=OptimizedToolArgs)
             # Handle case where LLM returns dict directly instead of OptimizedToolArgs
             if isinstance(response, dict):
                 return response if response else initial_args
@@ -142,18 +163,18 @@ class Agent:
         # Initialize agent state for this run.
         step_count = 0
         last_actions = []
-        session_outputs = []
+        task_outputs = [] # outputs from all tasks
 
         # 1. Decompose the user query into a list of tasks.
         tasks = self.plan_tasks(query)
 
         # If no tasks were created, the query is likely out of scope.
         if not tasks:
-            answer = self._generate_answer(query, session_outputs)
+            answer = self._generate_answer(query, task_outputs)
             self.logger.log_summary(answer)
             return answer
 
-        # 2. Execute tasks until all are complete or max steps are reached.
+        # 2. Loop through tasks until all are complete or max steps are reached.
         while any(not t.done for t in tasks):
             # Global safety break.
             if step_count >= self.max_steps:
@@ -164,16 +185,18 @@ class Agent:
             task = next(t for t in tasks if not t.done)
             self.logger.log_task_start(task.description)
 
-            # Loop for a single task, with its own step limit.
+            # Define per-task step variables.
             per_task_steps = 0
-            task_outputs = []
+            task_step_outputs = [] # outputs from a single step of a given task.
+
+            # Loop through steps of a single task until the task is complete or the max steps are reached.
             while per_task_steps < self.max_steps_per_task:
                 if step_count >= self.max_steps:
                     self.logger._log("Global max steps reached — stopping.")
                     return
 
                 # Ask the LLM for the next action to take for the current task.
-                ai_message = self.ask_for_actions(task.description, last_outputs="\n".join(task_outputs))
+                ai_message = self.ask_for_actions(task.description, last_outputs="\n".join(task_step_outputs))
                 
                 # If no tool is called, the task is considered complete.
                 if not ai_message.tool_calls:
@@ -210,35 +233,40 @@ class Agent:
                             result = self._execute_tool(tool_to_run, tool_name, optimized_args)
                             self.logger.log_tool_run(optimized_args, result)
                             output = f"Output of {tool_name} with args {optimized_args}: {result}"
-                            session_outputs.append(output)
                             task_outputs.append(output)
+                            task_step_outputs.append(output)
                         except Exception as e:
                             self.logger._log(f"Tool execution failed: {e}")
                             error_output = f"Error from {tool_name} with args {optimized_args}: {e}"
-                            session_outputs.append(error_output)
                             task_outputs.append(error_output)
+                            task_step_outputs.append(error_output)
                     else:
                         self.logger._log(f"Invalid tool: {tool_name}")
 
                     step_count += 1
                     per_task_steps += 1
 
-                # After a batch of tool calls, check if the task is complete.
-                if self.ask_if_done(task.description, "\n".join(task_outputs)):
+                # Task-level introspection: Check if the task is complete.
+                if self.ask_if_done(task.description, "\n".join(task_step_outputs)):
                     task.done = True
                     self.logger.log_task_done(task.description)
                     break
+            
+            # Global introspection: Check if the overall goal is achieved.
+            if task.done and self.is_goal_achieved(query, task_outputs):
+                self.logger._log("Main goal achieved. Finalizing answer.")
+                break
 
-        # 3. Synthesize the final answer from all collected tool outputs.
-        answer = self._generate_answer(query, session_outputs)
+        # Generate the final answer from all collected tool outputs.
+        answer = self._generate_answer(query, task_outputs)
         self.logger.log_summary(answer)
         return answer
     
     # ---------- answer generation ----------
     @show_progress("Generating answer...", "Answer ready")
-    def _generate_answer(self, query: str, session_outputs: list) -> str:
+    def _generate_answer(self, query: str, task_outputs: list) -> str:
         """Generate the final answer based on collected data."""
-        all_results = "\n\n".join(session_outputs) if session_outputs else "No data was collected."
+        all_results = "\n\n".join(task_outputs) if task_outputs else "No data was collected."
         answer_prompt = f"""
         Original user query: "{query}"
         
