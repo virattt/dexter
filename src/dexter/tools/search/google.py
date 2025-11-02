@@ -1,4 +1,5 @@
 import requests
+from concurrent.futures import ThreadPoolExecutor
 from dexter.tools.search.models import SearchResult
 from dexter.tools.search.utils import parse_rss_content
 from langchain.tools import tool
@@ -22,7 +23,11 @@ def search_google_news(query: str, max_results: int = 5) -> list[SearchResult]:
         return []
     xml_content = response.text
     results = parse_rss_content(xml_content, max_results)
-    resolved_urls = [_resolve_google_news_url(result.url) for result in results]
+    
+    urls_to_resolve = [result.url for result in results]
+    with ThreadPoolExecutor() as executor:
+        resolved_urls = list(executor.map(_resolve_google_news_url, urls_to_resolve))
+
     final: list[SearchResult] = []
     for r, resolved in zip(results, resolved_urls):
         final.append(
