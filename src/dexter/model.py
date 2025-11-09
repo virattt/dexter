@@ -29,6 +29,7 @@ if os.getenv("DEXTER_API_KEY_TYPE") == "OPEROUTER":
 
 def call_llm(
     prompt: str,
+    model: str = "gpt-4.1",
     system_prompt: Optional[str] = None,
     output_schema: Optional[Type[BaseModel]] = None,
     tools: Optional[List[BaseTool]] = None,
@@ -40,6 +41,10 @@ def call_llm(
       ("user", "{prompt}")
   ])
 
+  # Initialize the LLM.
+  llm = ChatOpenAI(model=model, temperature=0, api_key=os.getenv("OPENAI_API_KEY"))
+
+  # Add structured output or tools to the LLM.
   runnable = llm
   if output_schema:
     runnable = llm.with_structured_output(output_schema, method="function_calling") \

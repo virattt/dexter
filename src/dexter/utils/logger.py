@@ -27,9 +27,10 @@ class Logger:
 
     def log_task_done(self, task_desc: str):
         self.ui.print_task_done(task_desc)
-
-    def log_tool_run(self, tool: str, result: str = ""):
-        self.ui.print_tool_run(tool, str(result)[:100])
+        
+    def log_tool_run(self, params: dict, result: dict):
+        self.ui.print_tool_params(str(params))
+        self.ui.print_tool_run(str(result))
 
     def log_risky(self, tool: str, input_str: str):
         self.ui.print_warning(f"Risky action {tool}({input_str}) — auto-confirmed")

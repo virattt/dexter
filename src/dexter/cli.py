@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 
-# Load environment variables BEFORE importing any dexter modules
+# Load environment variables
 load_dotenv()
 
 from dexter.utils.intro import print_intro
@@ -14,17 +14,19 @@ def main():
     from dexter.agent import Agent
     agent = Agent()
 
-    # Create a prompt session with history support
+    # Create a prompt session
     session = PromptSession(history=InMemoryHistory())
 
     while True:
         try:
-            query = session.prompt(">> ")
-            if query.lower() in ["exit", "quit"]:
-                print("Goodbye!")
-                break
-            if query:
-                agent.run(query)
+          # Prompt the user for input
+          query = session.prompt(">> ")
+          if query.lower() in ["exit", "quit"]:
+              print("Goodbye!")
+              break
+          if query:
+              # Run the agent
+              agent.run(query)
         except (KeyboardInterrupt, EOFError):
             print("\nGoodbye!")
             break
