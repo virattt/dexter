@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 from langsmith import Client
 from dexter.evals.dataset import create_dataset_from_csv
-from dexter.evals.evaluate import run_evaluation, eval_correctness
+from dexter.evals.evaluator import run_evaluation, eval_correctness
 from pathlib import Path
 
 load_dotenv()
