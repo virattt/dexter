@@ -12,6 +12,7 @@ dependencies = [
     "googlenewsdecoder>=0.1.7",
     "langchain>=0.3.27",
     "langchain-openai>=0.3.35",
+    "langsmith>=0.3.37",
     "openai>=2.2.0",
     "prompt-toolkit>=3.0.0",
     "pydantic>=2.11.10",
