@@ -14,7 +14,7 @@ from dexter.prompts import DEFAULT_SYSTEM_PROMPT
 # Make sure your OPENAI_API_KEY is set in your .env
 def call_llm(
     prompt: str,
-    model: str = "gpt-4.1",
+    model: str = "gpt-5.1",
     system_prompt: Optional[str] = None,
     output_schema: Optional[Type[BaseModel]] = None,
     tools: Optional[List[BaseTool]] = None,
