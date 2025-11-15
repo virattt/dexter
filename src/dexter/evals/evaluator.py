@@ -14,7 +14,7 @@ def get_today_str() -> str:
 
 
 eval_model = ChatOpenAI(
-    model="gpt-5.1",
+    model="gpt-4.1",
 )
 
 
