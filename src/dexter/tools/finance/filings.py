@@ -5,7 +5,6 @@ from dexter.tools.finance.api import call_api
 from dexter.tools.finance.constants import (
     ITEMS_10K_MAP,
     ITEMS_10Q_MAP,
-    ITEMS_8K_MAP,
     format_items_description,
 )
 
