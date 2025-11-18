@@ -2,7 +2,7 @@ from typing import List
 
 from langchain_core.messages import AIMessage
 
-from dexter.model import call_llm
+from dexter.model import call_llm, call_llm_stream
 from dexter.prompts import (
     ACTION_SYSTEM_PROMPT,
     get_answer_system_prompt,
@@ -170,8 +170,8 @@ class Agent:
 
         # If no tasks were created, the query is likely out of scope.
         if not tasks:
+            # Note: _generate_answer now streams and displays the answer directly
             answer = self._generate_answer(query, task_outputs)
-            self.logger.log_summary(answer)
             return answer
 
         # 2. Loop through tasks until all are complete or max steps are reached.
@@ -258,14 +258,13 @@ class Agent:
                 break
 
         # Generate the final answer from all collected tool outputs.
+        # Note: _generate_answer now streams and displays the answer directly
         answer = self._generate_answer(query, task_outputs)
-        self.logger.log_summary(answer)
         return answer
     
     # ---------- answer generation ----------
-    @show_progress("Generating answer...", "Answer ready")
     def _generate_answer(self, query: str, task_outputs: list) -> str:
-        """Generate the final answer based on collected data."""
+        """Generate the final answer based on collected data, streaming the output."""
         all_results = "\n\n".join(task_outputs) if task_outputs else "No data was collected."
         answer_prompt = f"""
         Original user query: "{query}"
@@ -276,5 +275,9 @@ class Agent:
         Based on the data above, provide a comprehensive answer to the user's query.
         Include specific numbers, calculations, and insights.
         """
-        answer_obj = call_llm(answer_prompt, system_prompt=get_answer_system_prompt(), output_schema=Answer)
-        return answer_obj.answer
+        
+        # Stream the answer and display it in real-time
+        text_chunks = call_llm_stream(answer_prompt, system_prompt=get_answer_system_prompt())
+        accumulated_answer = self.logger.ui.stream_answer(text_chunks)
+        
+        return accumulated_answer

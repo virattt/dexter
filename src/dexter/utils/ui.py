@@ -2,7 +2,7 @@ import sys
 import time
 import threading
 from contextlib import contextmanager
-from typing import Optional, Callable
+from typing import Optional, Callable, Iterator
 from functools import wraps
 
 
@@ -180,6 +180,87 @@ class UI:
         
         # Bottom border
         print(f"{Colors.BOLD}{Colors.BLUE}╚{'═' * (width - 2)}╝{Colors.ENDC}\n")
+    
+    def stream_answer(self, text_chunks: Iterator[str]) -> str:
+        """
+        Stream answer text chunks and display them in a beautiful box.
+        Returns the complete accumulated text.
+        """
+        width = 80
+        
+        # Top border
+        print(f"\n{Colors.BOLD}{Colors.BLUE}╔{'═' * (width - 2)}╗{Colors.ENDC}")
+        
+        # Title
+        title = "ANSWER"
+        padding = (width - len(title) - 2) // 2
+        print(f"{Colors.BOLD}{Colors.BLUE}║{' ' * padding}{title}{' ' * (width - len(title) - padding - 2)}║{Colors.ENDC}")
+        
+        # Separator
+        print(f"{Colors.BLUE}╠{'═' * (width - 2)}╣{Colors.ENDC}")
+        
+        # Start content area - print first line border
+        print(f"{Colors.BLUE}║{Colors.ENDC}", end="", flush=True)
+        
+        accumulated_text = ""
+        current_line = ""
+        
+        try:
+            for chunk in text_chunks:
+                accumulated_text += chunk
+                
+                # Process chunk character by character
+                for char in chunk:
+                    if char == '\n':
+                        # Print current line with proper padding and border
+                        padding_needed = max(0, width - 4 - len(current_line))
+                        print(f" {current_line}{' ' * padding_needed} {Colors.BLUE}║{Colors.ENDC}")
+                        # Start next line
+                        print(f"{Colors.BLUE}║{Colors.ENDC}", end="", flush=True)
+                        current_line = ""
+                    else:
+                        current_line += char
+                        
+                        # Check if line needs wrapping (simple word wrap)
+                        if len(current_line) >= width - 6:
+                            # Try to find last space for word wrap
+                            last_space = current_line.rfind(' ', 0, width - 6)
+                            if last_space > 0:
+                                # Wrap at word boundary
+                                line_to_print = current_line[:last_space]
+                                padding_needed = width - 4 - len(line_to_print)
+                                print(f" {line_to_print}{' ' * padding_needed} {Colors.BLUE}║{Colors.ENDC}")
+                                print(f"{Colors.BLUE}║{Colors.ENDC}", end="", flush=True)
+                                current_line = current_line[last_space + 1:]
+                            else:
+                                # No space found, wrap at character boundary
+                                line_to_print = current_line[:width - 6]
+                                padding_needed = width - 4 - len(line_to_print)
+                                print(f" {line_to_print}{' ' * padding_needed} {Colors.BLUE}║{Colors.ENDC}")
+                                print(f"{Colors.BLUE}║{Colors.ENDC}", end="", flush=True)
+                                current_line = current_line[width - 6:]
+            
+            # Print any remaining content on the current line
+            if current_line:
+                padding_needed = max(0, width - 4 - len(current_line))
+                print(f" {current_line}{' ' * padding_needed} {Colors.BLUE}║{Colors.ENDC}")
+            else:
+                # Empty line at end
+                print(f"{' ' * (width - 2)}{Colors.BLUE}║{Colors.ENDC}")
+        except Exception as e:
+            # On error, print remaining content
+            if current_line:
+                padding_needed = max(0, width - 4 - len(current_line))
+                print(f" {current_line}{' ' * padding_needed} {Colors.BLUE}║{Colors.ENDC}")
+            else:
+                print(f"{' ' * (width - 2)}{Colors.BLUE}║{Colors.ENDC}")
+            raise
+        
+        # Bottom border
+        print(f"{Colors.BLUE}║{Colors.ENDC}{' ' * (width - 2)}{Colors.BLUE}║{Colors.ENDC}")
+        print(f"{Colors.BOLD}{Colors.BLUE}╚{'═' * (width - 2)}╝{Colors.ENDC}\n")
+        
+        return accumulated_text
     
     def print_info(self, message: str):
         """Print an info message."""
