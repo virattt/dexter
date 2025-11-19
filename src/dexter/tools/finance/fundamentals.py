@@ -10,7 +10,7 @@ from dexter.tools.finance.api import call_api
 class FinancialStatementsInput(BaseModel):
     ticker: str = Field(description="The stock ticker symbol to fetch financial statements for. For example, 'AAPL' for Apple.")
     period: Literal["annual", "quarterly", "ttm"] = Field(description="The reporting period for the financial statements. 'annual' for yearly, 'quarterly' for quarterly, and 'ttm' for trailing twelve months.")
-    limit: int = Field(default=10, description="The number of past financial statements to retrieve.")
+    limit: int = Field(default=10, description="Maximum number of report periods to return (default: 10). Returns the most recent N periods based on the period type (e.g., 10 annual reports or 10 quarterly reports).")
     report_period_gt: Optional[str] = Field(default=None, description="Filter for financial statements with report periods after this date (YYYY-MM-DD).")
     report_period_gte: Optional[str] = Field(default=None, description="Filter for financial statements with report periods on or after this date (YYYY-MM-DD).")
     report_period_lt: Optional[str] = Field(default=None, description="Filter for financial statements with report periods before this date (YYYY-MM-DD).")
@@ -95,3 +95,22 @@ def get_cash_flow_statements(
     params = _create_params(ticker, period, limit, report_period_gt, report_period_gte, report_period_lt, report_period_lte)
     data = call_api("/financials/cash-flow-statements/", params)
     return data.get("cash_flow_statements", {})
+
+@tool(args_schema=FinancialStatementsInput)
+def get_all_financial_statements(
+    ticker: str,
+    period: Literal["annual", "quarterly", "ttm"],
+    limit: int = 10,
+    report_period_gt: Optional[str] = None,
+    report_period_gte: Optional[str] = None,
+    report_period_lt: Optional[str] = None,
+    report_period_lte: Optional[str] = None
+) -> dict:
+    """
+    Retrieves all three financial statements (income statements, balance sheets, and cash flow statements) 
+    for a company in a single API call. This is more efficient than calling each statement type separately 
+    when you need all three for comprehensive financial analysis.
+    """
+    params = _create_params(ticker, period, limit, report_period_gt, report_period_gte, report_period_lt, report_period_lte)
+    data = call_api("/financials/", params)
+    return data.get("financials", {})
