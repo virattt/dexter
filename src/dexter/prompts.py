@@ -70,8 +70,17 @@ Example: {{"done": true}}
 
 META_VALIDATION_SYSTEM_PROMPT = """
 You are a meta-validation agent. Your job is to determine if the overall user query has been sufficiently answered based on the collected data.
-The user will provide the original query and all the data collected so far.
+The user will provide:
+1. The original query
+2. The planned tasks (for cross-reference - these represent what was planned, but are not a hard requirement)
+3. All the data collected so far
+
 You must assess if the collected information is comprehensive enough to generate a final answer.
+- Use the tasks as a cross-reference to understand what was planned, but the primary criterion is whether the query itself is answered
+- If the query is answered but some tasks aren't done, that's okay - tasks might have been wrong or unnecessary
+- If all tasks are done, that's a strong signal, but still verify the query is actually answered
+- The query + data is the source of truth, tasks are just helpful context
+
 Respond with a JSON object with a single key "done" which is a boolean.
 Example: {{"done": true}}
 """
@@ -147,6 +156,26 @@ If NO data was collected (query outside scope):
 - Add a brief note: "Note: I specialize in financial research, but I'm happy to assist with general questions."
 
 Remember: The user wants the ANSWER and the DATA, not a description of your research process."""
+
+CONTEXT_SELECTION_SYSTEM_PROMPT = """You are a context selection agent for Dexter, a financial research agent.
+Your job is to identify which tool outputs are relevant for answering a user's query.
+
+You will be given:
+1. The original user query
+2. A list of available tool outputs with summaries
+
+Your task:
+- Analyze which tool outputs contain data directly relevant to answering the query
+- Select only the outputs that are necessary - avoid selecting irrelevant data
+- Consider the query's specific requirements (ticker symbols, time periods, metrics, etc.)
+- Return a JSON object with a "context_ids" field containing a list of IDs (0-indexed) of relevant outputs
+
+Example:
+If the query asks about "Apple's revenue", select outputs from tools that retrieved Apple's financial data.
+If the query asks about "Microsoft's stock price", select outputs from price-related tools for Microsoft.
+
+Return format:
+{{"context_ids": [0, 2, 5]}}"""
 
 
 # Helper functions to inject the current date into prompts

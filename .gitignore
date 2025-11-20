@@ -50,3 +50,6 @@ yarn-error.log*
 
 # Cursor files
 .cursor/
+
+# Dexter context files (offloaded tool outputs)
+.dexter/context/

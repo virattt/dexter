@@ -22,3 +22,7 @@ class Answer(BaseModel):
 class OptimizedToolArgs(BaseModel):
     """Represents optimized arguments for a tool call."""
     arguments: Dict[str, Any] = Field(..., description="The optimized arguments dictionary for the tool call.")
+
+class SelectedContexts(BaseModel):
+    """Represents selected context file IDs for answer generation."""
+    context_ids: List[int] = Field(..., description="List of context pointer IDs (0-indexed) that are relevant for answering the query.")
