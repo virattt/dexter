@@ -18,6 +18,9 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt)
 
+<img width="996" height="652" alt="Screenshot 2025-11-22 at 1 46 58 PM" src="https://github.com/user-attachments/assets/67e151f0-7e0b-42ec-a72c-11bab67806aa" />
+
+
 ### Prerequisites
 
 - Python 3.10 or higher
