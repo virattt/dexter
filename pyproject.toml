@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dexter"
-version = "0.1.0"
+version = "0.2.3"
 description = "AI agent for financial analysis."
 authors = []
 requires-python = ">=3.10"
