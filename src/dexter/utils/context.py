@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Optional
 from pathlib import Path
 from pydantic import BaseModel
 
-from dexter.model import call_llm
+from dexter.model import call_llm, DEFAULT_MODEL
 from dexter.prompts import DEFAULT_SYSTEM_PROMPT, CONTEXT_SELECTION_SYSTEM_PROMPT
 
 
@@ -67,7 +67,7 @@ class ContextManager:
             response = call_llm(
                 prompt,
                 system_prompt=DEFAULT_SYSTEM_PROMPT,
-                model="gpt-4.1"
+                model=DEFAULT_MODEL
             )
             summary = response.content if hasattr(response, 'content') else str(response)
             return summary.strip()
@@ -202,7 +202,7 @@ class ContextManager:
                 prompt,
                 system_prompt=CONTEXT_SELECTION_SYSTEM_PROMPT,
                 output_schema=SelectedContexts,
-                model="gpt-4.1"
+                model=DEFAULT_MODEL
             )
             
             # Extract selected IDs

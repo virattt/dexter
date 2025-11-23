@@ -3,7 +3,7 @@ from dexter.agent import Agent
 from typing import Callable, List, cast
 from pathlib import Path
 from pydantic import BaseModel, Field
-from langchain_openai import ChatOpenAI
+from dexter.model import get_chat_model, DEFAULT_MODEL
 from dexter.evals.prompts import CORRECTNESS_PROMPT
 from datetime import datetime
 
@@ -13,8 +13,8 @@ def get_today_str() -> str:
     return datetime.now().strftime("%A, %B %d, %Y")
 
 
-eval_model = ChatOpenAI(
-    model="gpt-4.1",
+eval_model = get_chat_model(
+    model_name=DEFAULT_MODEL,
 )
 
 

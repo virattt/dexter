@@ -1,20 +1,71 @@
 import os
 import time
 from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate
 from pydantic import BaseModel
-from typing import Type, List, Optional, Iterator
+from typing import Type, List, Optional, Iterator, Any
 from langchain_core.tools import BaseTool
 from langchain_core.messages import AIMessage
-from openai import APIConnectionError
+from langchain_core.language_models.chat_models import BaseChatModel
 
 from dexter.prompts import DEFAULT_SYSTEM_PROMPT
 
-# Initialize the OpenAI client
-# Make sure your OPENAI_API_KEY is set in your .env
+# Update this to the model you want to use
+DEFAULT_MODEL = "gpt-5.1"
+
+def get_chat_model(
+    model_name: str = DEFAULT_MODEL,
+    temperature: float = 0,
+    streaming: bool = False
+) -> BaseChatModel:
+    """
+    Factory function to get the appropriate chat model based on the model name.
+    """
+    if model_name.startswith("claude-"):
+        # Anthropic models
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
+        
+        return ChatAnthropic(
+            model=model_name,
+            temperature=temperature,
+            api_key=api_key,
+            streaming=streaming
+        )
+    
+    elif model_name.startswith("gemini-"):
+        # Google Gemini models
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY not found in environment variables")
+            
+        return ChatGoogleGenerativeAI(
+            model=model_name,
+            temperature=temperature,
+            google_api_key=api_key,
+            streaming=streaming,
+            convert_system_message_to_human=True 
+        )
+        
+    else:
+        # Default to OpenAI (gpt-* or others)
+        # OpenAI client handles reading OPENAI_API_KEY from env automatically if not passed,
+        # but we pass it explicitly to match existing pattern if set.
+        api_key = os.getenv("OPENAI_API_KEY")
+        return ChatOpenAI(
+            model=model_name, 
+            temperature=temperature, 
+            api_key=api_key, 
+            streaming=streaming
+        )
+
+
 def call_llm(
     prompt: str,
-    model: str = "gpt-4.1",
+    model: str = DEFAULT_MODEL,
     system_prompt: Optional[str] = None,
     output_schema: Optional[Type[BaseModel]] = None,
     tools: Optional[List[BaseTool]] = None,
@@ -27,7 +78,7 @@ def call_llm(
   ])
 
   # Initialize the LLM.
-  llm = ChatOpenAI(model=model, temperature=0, api_key=os.getenv("OPENAI_API_KEY"))
+  llm = get_chat_model(model_name=model, temperature=0, streaming=False)
 
   # Add structured output or tools to the LLM.
   runnable = llm
@@ -39,18 +90,22 @@ def call_llm(
   chain = prompt_template | runnable
   
   # Retry logic for transient connection errors
+  # Broadening exception handling for multiple providers
   for attempt in range(3):
       try:
           return chain.invoke({"prompt": prompt})
-      except APIConnectionError as e:
+      except Exception as e:
+          # We only want to retry on connection/transient errors, but catching generic Exception 
+          # for simplicity across providers as they raise different errors.
+          # In production, we should catch specific errors from each provider.
           if attempt == 2:  # Last attempt
-              raise
+              raise e
           time.sleep(0.5 * (2 ** attempt))  # 0.5s, 1s backoff
 
 
 def call_llm_stream(
     prompt: str,
-    model: str = "gpt-4.1",
+    model: str = DEFAULT_MODEL,
     system_prompt: Optional[str] = None,
 ) -> Iterator[str]:
     """
@@ -67,7 +122,7 @@ def call_llm_stream(
     ])
     
     # Initialize the LLM with streaming enabled
-    llm = ChatOpenAI(model=model, temperature=0, api_key=os.getenv("OPENAI_API_KEY"), streaming=True)
+    llm = get_chat_model(model_name=model, temperature=0, streaming=True)
     
     chain = prompt_template | llm
     
@@ -81,7 +136,7 @@ def call_llm_stream(
                     if content:  # Only yield non-empty content
                         yield content
             break
-        except APIConnectionError as e:
+        except Exception as e:
             if attempt == 2:  # Last attempt
-                raise
+                raise e
             time.sleep(0.5 * (2 ** attempt))  # 0.5s, 1s backoff

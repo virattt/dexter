@@ -11,7 +11,7 @@ from dexter.prompts import (
     VALIDATION_SYSTEM_PROMPT,
     META_VALIDATION_SYSTEM_PROMPT,
 )
-from dexter.schemas import Answer, IsDone, OptimizedToolArgs, Task, TaskList
+from dexter.schemas import IsDone, OptimizedToolArgs, Task, TaskList
 from dexter.tools import TOOLS
 from dexter.utils.logger import Logger
 from dexter.utils.ui import show_progress
@@ -132,7 +132,7 @@ class Agent:
         Pay special attention to filtering parameters that would help narrow down results to match the task.
         """
         try:
-            response = call_llm(prompt, model="gpt-4.1", system_prompt=get_tool_args_system_prompt(), output_schema=OptimizedToolArgs)
+            response = call_llm(prompt, system_prompt=get_tool_args_system_prompt(), output_schema=OptimizedToolArgs)
             # Handle case where LLM returns dict directly instead of OptimizedToolArgs
             if isinstance(response, dict):
                 return response if response else initial_args
