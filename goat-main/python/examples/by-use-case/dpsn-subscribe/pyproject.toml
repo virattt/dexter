@@ -1,0 +1,50 @@
+[tool.poetry]
+name = "goat-sdk-example-by-use-case-dpsn"
+version = "0.1.0"
+description = "GOAT example for dpsn plugin"
+authors = ["GOAT SDK <info@goat-sdk.com>"]
+readme = "README.md"
+keywords = ["goat", "sdk", "web3", "agents", "ai", "nft", "crossmint"]
+homepage = "https://ohmygoat.dev/"
+repository = "https://github.com/goat-sdk/goat"
+packages = [{ include = "example.py" }]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+langchain = "*"
+langchain-openai = "*"
+python-dotenv = "*"
+web3 = ">=6.20.3"
+goat-sdk = "*"
+goat-sdk-wallet-evm = "^0.1.1"
+goat-sdk-wallet-web3 = "^0.1.0"
+goat-sdk-wallet-crossmint = "*"
+goat-sdk-adapter-langchain = "*"
+goat-sdk-plugin-dpsn = { path = "../../../src/plugins/dpsn", develop = true }
+
+[tool.poetry.group.test.dependencies]
+pytest = "*"
+pytest-asyncio = "*"
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/goat-sdk/goat/issues"
+
+[tool.pytest.ini_options]
+addopts = ["--import-mode=importlib"]
+pythonpath = "src"
+asyncio_default_fixture_loop_scope = "function"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.8.6"
+goat-sdk = { path = "../../../src/goat-sdk", develop = true }
+goat-sdk-wallet-web3 = { path = "../../../src/wallets/web3", develop = true }
+goat-sdk-wallet-crossmint = { path = "../../../src/wallets/crossmint", develop = true }
+goat-sdk-adapter-langchain = { path = "../../../src/adapters/langchain", develop = true }
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"

@@ -1,0 +1,19 @@
+#!/bin/sh
+
+echo "Running pre-commit checks..."
+
+echo "Running linter and fixing issues..."
+# Run linter and fix issues
+cd typescript && pnpm lint:fix 
+
+echo "Building the project..."
+# Build the project
+pnpm build
+
+echo "Pre-commit checks completed." 
+
+# Exit with an error if any of the above commands fail
+if [ $? -ne 0 ]; then
+    echo "Pre-commit checks failed."
+    exit 1
+fi

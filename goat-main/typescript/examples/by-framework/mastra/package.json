@@ -1,0 +1,30 @@
+{
+    "name": "goat-examples-mastra",
+    "version": "0.0.0",
+    "type": "module",
+    "description": "",
+    "private": true,
+    "scripts": {
+        "test": "vitest run --passWithNoTests"
+    },
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "@ai-sdk/openai": "~1.0.4",
+        "@goat-sdk/adapter-mastra": "0.1.0",
+        "@goat-sdk/core": "0.4.9",
+        "@goat-sdk/plugin-erc20": "0.2.14",
+        "@goat-sdk/wallet-evm": "0.2.11",
+        "@goat-sdk/wallet-viem": "0.2.12",
+        "@mastra/core": "0.6.3",
+        "dotenv": "^16.4.5",
+        "viem": "2.23.4",
+        "zod": "3.23.8"
+    },
+    "devDependencies": {
+        "@types/node": "22.13.13",
+        "mastra": "0.4.2",
+        "tsx": "4.19.2",
+        "typescript": "5.8.2"
+    }
+}

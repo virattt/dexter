@@ -1,0 +1,59 @@
+# Core dependencies
+solana>=0.30.0
+anchorpy>=0.14.0
+base58>=2.1.0
+aiohttp>=3.8.0
+langchain>=0.0.200
+openai>=1.0.0
+python-dotenv>=0.19.0
+rsa
+web3==7.6.0
+ape==0.4.0
+
+# Data processing
+numpy>=1.21.0
+Pillow>=9.0.0
+pydantic>=1.8.2
+
+# Networking and API
+requests>=2.26.0
+cryptography>=3.4.0
+
+# Development dependencies
+black>=22.0.0
+pytest>=6.2.5
+pytest-asyncio>=0.18.0
+
+# Documentation
+sphinx>=4.5.0
+sphinx-rtd-theme>=1.0.0
+sphinx-autodoc-typehints>=1.18.0
+
+# Optional dependencies
+jupyter>=1.0.0  # For development notebooks
+ipython>=8.0.0  # For interactive development
+
+# Additional dependencies
+python==3.10
+pydantic==2.9.2
+langchain==0.3.7
+tweepy==4.14.0
+standard-imghdr==3.13.0
+ruff==0.7.2
+python-lsp-server==1.12.0
+ruff-lsp==0.0.58
+pytest==8.3.3
+pytest-cov==6.0.0
+mypy==1.13.0
+myst-parser==4.0.0
+sphinx==8.0.2
+sphinx-autobuild==2024.9.19
+sphinxcontrib-napoleon==0.7
+sphinx-autodoc-typehints==2.4.4
+langchain-openai==0.2.4
+langgraph==0.2.39
+tweepy==4.14.0
+construct==2.10.67
+anchorpy
+spl
+solders

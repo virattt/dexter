@@ -1,0 +1,33 @@
+{
+    "name": "@goat-sdk/plugin-opengradient",
+    "version": "0.1.1",
+    "files": ["dist/**/*", "README.md", "package.json"],
+    "scripts": {
+        "build": "tsup",
+        "clean": "rm -rf dist",
+        "test": "vitest run --passWithNoTests"
+    },
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "sideEffects": false,
+    "homepage": "https://ohmygoat.dev",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/goat-sdk/goat.git"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/goat-sdk/goat/issues"
+    },
+    "keywords": ["ai", "agents", "web3"],
+    "dependencies": {
+        "@goat-sdk/core": "workspace:*",
+        "opengradient-sdk": "1.0.0",
+        "web3": "4.16.0",
+        "zod": "catalog:"
+    },
+    "peerDependencies": {
+        "@goat-sdk/core": "workspace:*"
+    }
+}

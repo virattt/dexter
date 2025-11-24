@@ -1,0 +1,43 @@
+# notebook checkpoints
+.ipynb_checkpoints
+
+# python cache files
+*__pycache__*
+.pytest_cache
+
+# log files
+log/*
+*.log
+
+# vim temp files
+.~
+*.swp
+*.swo
+
+# other temps files
+.DS_Store
+.tmp/*
+
+# sphinx stuff
+_build
+make.bat
+
+# dist stuff
+build
+dist
+*.egg
+*.egg-info
+
+# solana validator logs
+test-ledger/
+
+# IDE Files
+.idea/
+
+# pytest coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# manual tests
+testing.py

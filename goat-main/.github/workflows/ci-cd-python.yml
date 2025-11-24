@@ -1,0 +1,82 @@
+name: CI-CD-PYTHON
+
+on:
+    push:
+        branches:
+            - main
+        paths:
+            - 'python/**'
+
+permissions:
+    contents: write
+    pull-requests: write
+
+jobs:
+    build-and-test:
+        name: build & test
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Python, Poetry, and install dependencies from monorepo to check for conflicts
+              uses: ./.github/actions/poetry-install
+              with:
+                  install-args: --no-root
+
+    release-packages:
+        name: Release Python Packages
+        runs-on: ubuntu-latest
+        needs: [build-and-test]
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Setup Python, Poetry, and install dependencies from monorepo to check for conflicts
+              uses: ./.github/actions/poetry-install
+              with:
+                  install-args: --no-root
+
+            - name: Configure PyPI token
+              run: poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
+
+            - name: Find packages with version changes
+              id: find-changes
+              working-directory: ./python
+              run: |
+                echo "Finding packages with version changes..."
+                PACKAGES_TO_PUBLISH=""
+                
+                # Get all package directories
+                for pkg_dir in src/goat-sdk src/plugins/* src/wallets/* src/adapters/*; do
+                  if [ -f "$pkg_dir/pyproject.toml" ]; then
+                    PKG_NAME=$(poetry run python -c "import tomli; print(tomli.load(open('$pkg_dir/pyproject.toml', 'rb'))['tool']['poetry']['name'])")
+                    PKG_VERSION=$(poetry run python -c "import tomli; print(tomli.load(open('$pkg_dir/pyproject.toml', 'rb'))['tool']['poetry']['version'])")
+                    
+                    # Check if this version exists on PyPI
+                    if ! pip index versions $PKG_NAME | grep -q "$PKG_VERSION"; then
+                      echo "Package $PKG_NAME version $PKG_VERSION not found on PyPI, will publish"
+                      PACKAGES_TO_PUBLISH="$PACKAGES_TO_PUBLISH $pkg_dir"
+                    else
+                      echo "Package $PKG_NAME version $PKG_VERSION already exists on PyPI, skipping"
+                    fi
+                  fi
+                done
+                
+                echo "packages_to_publish=${PACKAGES_TO_PUBLISH}" >> $GITHUB_OUTPUT
+
+            - name: Publish packages
+              if: steps.find-changes.outputs.packages_to_publish != ''
+              working-directory: ./python
+              run: |
+                for pkg_dir in ${{ steps.find-changes.outputs.packages_to_publish }}; do
+                  echo "Publishing package in $pkg_dir"
+                  pushd $pkg_dir
+                  poetry build
+                  poetry publish --no-interaction
+                  popd
+                done
+              env:
+                POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_TOKEN }} 

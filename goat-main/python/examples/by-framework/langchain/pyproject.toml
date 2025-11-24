@@ -1,0 +1,52 @@
+[tool.poetry]
+name = "goat-sdk-example-by-framework-langchain"
+version = "0.1.0"
+description = "GOAT example for Langchain with web3.py"
+authors = ["Andrea Villa <andreakarimodm@gmail.com>"]
+readme = "README.md"
+keywords = ["goat", "sdk", "web3", "agents", "ai"]
+homepage = "https://ohmygoat.dev/"
+repository = "https://github.com/goat-sdk/goat"
+packages = [
+    { include = "example.py" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+langchain = ">=0.3.2"
+langchain-openai = ">=0.2.14"
+python-dotenv = "^1.0.1" 
+web3 = ">=6.20.3"
+goat-sdk = "^0.1.0"
+goat-sdk-wallet-evm = "^0.1.0"
+goat-sdk-wallet-web3 = "^0.1.0"
+goat-sdk-adapter-langchain = "^0.1.0"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.4"
+pytest-asyncio = "^0.25.0"
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/goat-sdk/goat/issues"
+
+[tool.pytest.ini_options]
+addopts = [
+  "--import-mode=importlib",
+]
+pythonpath = "src"
+asyncio_default_fixture_loop_scope = "function"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.8.6"
+goat-sdk = { path = "../../../src/goat-sdk", develop = true }
+goat-sdk-wallet-evm = { path = "../../../src/wallets/evm", develop = true }
+goat-sdk-wallet-web3 = { path = "../../../src/wallets/web3", develop = true }
+goat-sdk-adapter-langchain = { path = "../../../src/adapters/langchain", develop = true }
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"

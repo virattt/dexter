@@ -1,0 +1,56 @@
+[tool.poetry]
+name = "goat-sdk-plugin-dexscreener"
+version = "0.1.2"
+description = "Goat plugin for Dexscreener"
+authors = [
+    "Andrea Villa <andreakarimodm@gmail.com>",
+]
+readme = "README.md"
+keywords = [
+    "goat",
+    "sdk",
+    "web3",
+    "agents",
+    "ai",
+]
+homepage = "https://ohmygoat.dev/"
+repository = "https://github.com/goat-sdk/goat"
+packages = [
+    { include = "goat_plugins/dexscreener" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+aiohttp = "^3.8.6"
+goat-sdk = "^0.1.1"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.4"
+pytest-asyncio = "^0.25.0"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.8.6"
+
+[tool.poetry.group.dev.dependencies.goat-sdk]
+path = "../../goat-sdk"
+develop = true
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/goat-sdk/goat/issues"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
+pythonpath = "src"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[build-system]
+requires = [
+    "poetry-core",
+]
+build-backend = "poetry.core.masonry.api"

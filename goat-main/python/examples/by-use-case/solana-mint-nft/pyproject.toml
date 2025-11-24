@@ -1,0 +1,53 @@
+[tool.poetry]
+name = "goat-sdk-example-by-use-case-solana-mint-nft"
+version = "0.1.0"
+description = "GOAT example for minting NFTs on Solana using Crossmint"
+authors = ["GOAT SDK <info@goat-sdk.com>"]
+readme = "README.md"
+keywords = ["goat", "sdk", "solana", "agents", "ai", "nft", "crossmint"]
+homepage = "https://ohmygoat.dev/"
+repository = "https://github.com/goat-sdk/goat"
+packages = [
+    { include = "index.py" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+langchain = "*"
+langchain-openai = "*"
+python-dotenv = "*"
+solana = {version = ">=0.30.2", extras = ["spl"]}
+solders = ">=0.18.0"
+goat-sdk = "*"
+goat-sdk-wallet-solana = "*"
+goat-sdk-wallet-crossmint = "*"
+goat-sdk-adapter-langchain = "*"
+
+[tool.poetry.group.test.dependencies]
+pytest = "*"
+pytest-asyncio = "*"
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/goat-sdk/goat/issues"
+
+[tool.pytest.ini_options]
+addopts = [
+  "--import-mode=importlib",
+]
+pythonpath = "src"
+asyncio_default_fixture_loop_scope = "function"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.8.6"
+goat-sdk = { path = "../../../src/goat-sdk", develop = true }
+goat-sdk-wallet-solana = { path = "../../../src/wallets/solana", develop = true }
+goat-sdk-wallet-crossmint = { path = "../../../src/wallets/crossmint", develop = true }
+goat-sdk-adapter-langchain = { path = "../../../src/adapters/langchain", develop = true }
+
+[tool.ruff]
+line-length = 120
+target-version = "py312" 

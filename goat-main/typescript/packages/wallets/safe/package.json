@@ -1,0 +1,39 @@
+{
+    "name": "@goat-sdk/wallet-safe",
+    "version": "0.2.0",
+    "sideEffects": false,
+    "files": ["dist/**/*", "README.md", "package.json"],
+    "scripts": {
+        "build": "tsup",
+        "clean": "rm -rf dist",
+        "test": "vitest run --passWithNoTests"
+    },
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "dependencies": {
+        "@goat-sdk/core": "workspace:*",
+        "@goat-sdk/wallet-evm": "workspace:*",
+        "@safe-global/protocol-kit": "5.2.1",
+        "@safe-global/safe-core-sdk-types": "5.1.0",
+        "@safe-global/sdk-starter-kit": "1.1.5",
+        "permissionless": "0.2.28",
+        "viem": "catalog:",
+        "zod": "3.24.1"
+    },
+    "peerDependencies": {
+        "@goat-sdk/core": "workspace:*",
+        "@goat-sdk/wallet-evm": "workspace:*",
+        "viem": "catalog:"
+    },
+    "homepage": "https://ohmygoat.dev",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/goat-sdk/goat.git"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/goat-sdk/goat/issues"
+    },
+    "keywords": ["ai", "agents", "web3"]
+}

@@ -1,0 +1,49 @@
+[tool.poetry]
+name = "goat-sdk"
+version = "0.2.0"
+description = "Goat 🐐 (Great Onchain Agent Toolkit) is an open-source framework for connecting AI agents to any onchain app"
+authors = [
+    "Andrea Villa <andreakarimodm@gmail.com>",
+]
+readme = "README.md"
+keywords = [
+    "goat",
+    "sdk",
+    "web3",
+    "agents",
+    "ai",
+]
+homepage = "https://ohmygoat.dev/"
+repository = "https://github.com/goat-sdk/goat"
+packages = [
+    { include = "goat" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pydantic = "^2.0.0"
+asyncio = "^3.4.1"
+typing-extensions = "^4.12.2"
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/goat-sdk/goat/issues"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.8.6"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
+pythonpath = "src"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[build-system]
+requires = [
+    "poetry-core",
+]
+build-backend = "poetry.core.masonry.api"

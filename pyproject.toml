@@ -18,6 +18,18 @@ dependencies = [
     "pydantic>=2.11.10",
     "python-dotenv>=1.1.1",
     "requests>=2.32.5",
+    "solana>=0.30.2",
+    "solders>=0.18.0",
+    "goat-sdk>=0.1.0",
+    "goat-sdk-wallet-crossmint>=0.1.0",
+    "goat-sdk-wallet-solana>=0.1.0",
+    "goat-sdk-adapter-langchain>=0.1.0",
+    "goat-sdk-plugin-jupiter>=0.1.0",
+    "goat-sdk-plugin-lulo>=0.1.0",
+    "goat-sdk-plugin-coingecko>=0.1.0",
+    "goat-sdk-plugin-dexscreener>=0.1.0",
+    "goat-sdk-plugin-rugcheck>=0.1.0",
+    "goat-sdk-plugin-nansen>=0.1.0",
 ]
 
 [project.scripts]

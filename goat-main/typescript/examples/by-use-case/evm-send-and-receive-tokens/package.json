@@ -1,0 +1,22 @@
+{
+    "name": "goat-examples-evm-send-and-receive-tokens",
+    "version": "0.0.0",
+    "description": "",
+    "private": true,
+    "scripts": {
+        "test": "vitest run --passWithNoTests"
+    },
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "@ai-sdk/openai": "~1.0.4",
+        "@goat-sdk/adapter-vercel-ai": "0.2.10",
+        "@goat-sdk/core": "0.5.0",
+        "@goat-sdk/wallet-evm": "0.3.0",
+        "@goat-sdk/wallet-viem": "0.3.0",
+        "ai": "~4.0.3",
+        "dotenv": "^16.4.5",
+        "viem": "2.23.4",
+        "zod": "3.23.8"
+    }
+}

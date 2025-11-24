@@ -1,0 +1,39 @@
+{
+    "name": "@goat-sdk/plugin-meteora",
+    "version": "0.2.17",
+    "files": ["dist/**/*", "README.md", "package.json"],
+    "scripts": {
+        "build": "tsup",
+        "clean": "rm -rf dist",
+        "test": "vitest run --passWithNoTests"
+    },
+    "sideEffects": false,
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "dependencies": {
+        "@coral-xyz/anchor": "0.30.1",
+        "@goat-sdk/core": "workspace:*",
+        "@goat-sdk/wallet-solana": "workspace:*",
+        "@meteora-ag/dlmm": "1.3.4",
+        "@solana/web3.js": "catalog:",
+        "bn.js": "5.2.1",
+        "zod": "catalog:"
+    },
+    "peerDependencies": {
+        "@goat-sdk/core": "workspace:*"
+    },
+    "homepage": "https://ohmygoat.dev",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/goat-sdk/goat.git"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/goat-sdk/goat/issues"
+    },
+    "keywords": ["ai", "agents", "web3"],
+    "devDependencies": {
+        "@types/bn.js": "5.1.6"
+    }
+}

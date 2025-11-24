@@ -1,0 +1,33 @@
+{
+    "name": "@goat-sdk/adapter-model-context-protocol",
+    "version": "0.2.11",
+    "sideEffects": false,
+    "files": ["dist/**/*", "README.md", "package.json"],
+    "scripts": {
+        "build": "tsup",
+        "clean": "rm -rf dist",
+        "test": "vitest run --passWithNoTests"
+    },
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "dependencies": {
+        "@goat-sdk/core": "workspace:*",
+        "@modelcontextprotocol/sdk": "catalog:",
+        "zod-to-json-schema": "catalog:"
+    },
+    "peerDependencies": {
+        "@goat-sdk/core": "workspace:*",
+        "@modelcontextprotocol/sdk": "catalog:"
+    },
+    "homepage": "https://ohmygoat.dev",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/goat-sdk/goat.git"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/goat-sdk/goat/issues"
+    },
+    "keywords": ["ai", "agents", "web3"]
+}

@@ -1,0 +1,34 @@
+{
+    "name": "@goat-sdk/adapter-eleven-labs",
+    "version": "0.2.10",
+    "sideEffects": false,
+    "files": ["dist/**/*", "README.md", "package.json"],
+    "scripts": {
+        "build": "tsup",
+        "clean": "rm -rf dist",
+        "test": "vitest run --passWithNoTests"
+    },
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "dependencies": {
+        "@goat-sdk/core": "workspace:*"
+    },
+    "peerDependencies": {
+        "@goat-sdk/core": "workspace:*",
+        "zod": "^3.0.0"
+    },
+    "devDependencies": {
+        "zod": "catalog:"
+    },
+    "homepage": "https://ohmygoat.dev",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/goat-sdk/goat.git"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/goat-sdk/goat/issues"
+    },
+    "keywords": ["ai", "agents", "web3"]
+}

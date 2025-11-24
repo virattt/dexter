@@ -1,0 +1,61 @@
+[tool.poetry]
+name = "goat-sdk-plugin-jupiter"
+version = "0.1.3"
+description = "Goat plugin for jupiter"
+authors = [
+    "Your Name <your_email@example.com>",
+]
+readme = "README.md"
+keywords = [
+    "goat",
+    "sdk",
+    "agents",
+    "ai",
+    "jupiter",
+]
+homepage = "https://ohmygoat.dev/"
+repository = "https://github.com/goat-sdk/goat"
+packages = [
+    { include = "goat_plugins/jupiter" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+goat-sdk = ">=0.1.0"
+goat-sdk-wallet-solana = ">=0.1.1"
+base58 = ">=2.1"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.4"
+pytest-asyncio = "^0.25.0"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.8.6"
+
+[tool.poetry.group.dev.dependencies.goat-sdk]
+path = "../../goat-sdk"
+develop = true
+
+[tool.poetry.group.dev.dependencies.goat-sdk-wallet-solana]
+path = "../../wallets/solana"
+develop = true
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/goat-sdk/goat/issues"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
+pythonpath = "src"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[build-system]
+requires = [
+    "poetry-core",
+]
+build-backend = "poetry.core.masonry.api"

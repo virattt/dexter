@@ -1,0 +1,41 @@
+{
+    "name": "@goat-sdk/plugin-debridge",
+    "version": "0.0.8",
+    "files": ["dist/**/*", "README.md", "package.json"],
+    "scripts": {
+        "build": "tsup",
+        "clean": "rm -rf dist",
+        "test": "vitest run --passWithNoTests"
+    },
+    "sideEffects": false,
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "dependencies": {
+        "@goat-sdk/core": "workspace:*",
+        "@goat-sdk/wallet-evm": "workspace:*",
+        "viem": "catalog:",
+        "zod": "catalog:"
+    },
+    "peerDependencies": {
+        "@goat-sdk/core": "workspace:*",
+        "@goat-sdk/wallet-evm": "workspace:*",
+        "viem": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "^18.0.0",
+        "tsup": "^8.3.5",
+        "typescript": "^5.2.2",
+        "vitest": "^2.1.9"
+    },
+    "homepage": "https://app.debridge.finance/",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/goat-sdk/goat.git"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/goat-sdk/goat/issues"
+    },
+    "keywords": ["ai", "agents", "web3", "bridge", "debridge"]
+}

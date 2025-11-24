@@ -1,0 +1,49 @@
+[tool.poetry]
+name = "goat-sdk-example-by-framework-crewai"
+version = "0.1.0"
+description = "GOAT example for CrewAI with Solana SPL token plugin"
+authors = ["Andrea Villa <andreakarimodm@gmail.com>"]
+readme = "README.md"
+keywords = ["goat", "sdk", "web3", "agents", "ai"]
+homepage = "https://ohmygoat.dev/"
+repository = "https://github.com/goat-sdk/goat"
+packages = [
+    { include = "example.py" },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.13"
+crewai = ">=0.108.0"
+python-dotenv = "^1.0.1" 
+goat-sdk = "^0.1.0"
+goat-sdk-wallet-solana = "^0.1.0"
+goat-sdk-adapter-crewai = ">=0.1.0"
+goat-sdk-wallet-crossmint = "*"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.4"
+pytest-asyncio = "^0.25.0"
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/goat-sdk/goat/issues"
+
+[tool.pytest.ini_options]
+addopts = [
+  "--import-mode=importlib",
+]
+pythonpath = "src"
+asyncio_default_fixture_loop_scope = "function"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.8.6"
+goat-sdk = { path = "../../../src/goat-sdk", develop = true }
+goat-sdk-wallet-solana = { path = "../../../src/wallets/solana", develop = true }
+goat-sdk-adapter-crewai = { path = "../../../src/adapters/crewai", develop = true }
+goat-sdk-wallet-crossmint = { path = "../../../src/wallets/crossmint", develop = true }
+[tool.ruff]
+line-length = 120
+target-version = "py312"

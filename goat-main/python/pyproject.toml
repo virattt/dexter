@@ -1,0 +1,93 @@
+[tool.poetry]
+name = "goat-sdk-monorepo"
+version = "0.1.0"
+description = "Goat 🐐 (Great Onchain Agent Toolkit) is an open-source framework for connecting AI agents to any onchain app"
+authors = ["Andrea Villa <andreakarimodm@gmail.com>"]
+readme = "README.md"
+keywords = ["goat", "sdk", "web3", "agents", "ai"]
+homepage = "https://ohmygoat.dev/"
+repository = "https://github.com/goat-sdk/goat"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[tool.poetry.dependencies.goat-sdk]
+path = "src/goat-sdk/"
+
+[tool.poetry.dependencies.goat-sdk-plugin-1inch]
+path = "src/plugins/1inch/"
+
+[tool.poetry.dependencies.goat-sdk-plugin-allora]
+path = "src/plugins/allora/"
+
+[tool.poetry.dependencies.goat-sdk-plugin-coingecko]
+path = "src/plugins/coingecko/"
+
+[tool.poetry.dependencies.goat-sdk-plugin-dexscreener]
+path = "src/plugins/dexscreener/"
+
+[tool.poetry.dependencies.goat-sdk-plugin-dpsn]
+path = "src/plugins/dpsn/"
+
+[tool.poetry.dependencies.goat-sdk-plugin-farcaster]
+path = "src/plugins/farcaster/"
+
+[tool.poetry.dependencies.goat-sdk-plugin-jsonrpc]
+path = "src/plugins/jsonrpc/"
+
+[tool.poetry.dependencies.goat-sdk-plugin-jupiter]
+path = "src/plugins/jupiter/"
+
+[tool.poetry.dependencies.goat-sdk-plugin-nansen]
+path = "src/plugins/nansen/"
+
+[tool.poetry.dependencies.goat-sdk-plugin-opensea]
+path = "src/plugins/opensea/"
+
+[tool.poetry.dependencies.goat-sdk-plugin-rugcheck]
+path = "src/plugins/rugcheck/"
+
+[tool.poetry.dependencies.goat-sdk-plugin-lulo]
+path = "src/plugins/lulo/"
+
+[tool.poetry.dependencies.goat-sdk-plugin-superfluid]
+path = "src/plugins/superfluid/"
+
+[tool.poetry.dependencies.goat-sdk-plugin-uniswap]
+path = "src/plugins/uniswap/"
+
+[tool.poetry.dependencies.goat-sdk-wallet-crossmint]
+path = "src/wallets/crossmint/"
+
+[tool.poetry.dependencies.goat-sdk-wallet-evm]
+path = "src/wallets/evm/"
+
+[tool.poetry.dependencies.goat-sdk-wallet-solana]
+path = "src/wallets/solana/"
+
+[tool.poetry.dependencies.goat-sdk-wallet-web3]
+path = "src/wallets/web3/"
+
+[tool.poetry.dependencies.goat-sdk-adapter-langchain]
+path = "src/adapters/langchain/"
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/goat-sdk/goat/issues"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.8.6"
+tomli = "^2.0.1"
+tomli-w = "^1.0.0"
+
+[tool.pytest.ini_options]
+addopts = ["--import-mode=importlib"]
+pythonpath = "src"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

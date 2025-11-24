@@ -1,0 +1,23 @@
+{
+    "name": "goat-examples-evm-mint-nft",
+    "version": "0.0.0",
+    "description": "",
+    "private": true,
+    "scripts": {
+        "test": "vitest run --passWithNoTests"
+    },
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "@ai-sdk/openai": "~1.0.4",
+        "@goat-sdk/adapter-vercel-ai": "0.2.10",
+        "@goat-sdk/core": "0.4.9",
+        "@goat-sdk/crossmint": "0.4.5",
+        "@goat-sdk/wallet-evm": "0.2.11",
+        "@goat-sdk/wallet-viem": "0.2.12",
+        "ai": "4.0.3",
+        "dotenv": "^16.4.5",
+        "viem": "2.23.4",
+        "zod": "3.23.8"
+    }
+}

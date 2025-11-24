@@ -1,0 +1,58 @@
+[tool.poetry]
+name = "goat-sdk-plugin-crossmint-headless-checkout"
+version = "0.1.0"
+description = "Goat plugin for crossmint-headless-checkout"
+authors = ["Your Name <your_email@example.com>"]
+readme = "README.md"
+keywords = ["goat", "sdk", "agents", "ai", "crossmint-headless-checkout"]
+homepage = "https://ohmygoat.dev/"
+repository = "https://github.com/goat-sdk/goat"
+packages = [
+    { include = "goat_plugins/crossmint_headless_checkout" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+goat-sdk = "^0.2.0"
+goat-sdk-wallet-evm = "^0.2.0"
+goat-sdk-wallet-solana = "^0.2.0"
+aiohttp = "^3.9.5"
+rlp = "^4.0.0"
+eth-utils = "^4.0.0"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.4"
+pytest-asyncio = "^0.25.0"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.8.6"
+
+[tool.poetry.group.dev.dependencies.goat-sdk]
+path = "../../goat-sdk"
+develop = true
+
+[tool.poetry.group.dev.dependencies.goat-sdk-wallet-evm]
+path = "../../wallets/evm"
+develop = true
+
+[tool.poetry.group.dev.dependencies.goat-sdk-wallet-solana]
+path = "../../wallets/solana"
+develop = true
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/goat-sdk/goat/issues"
+
+[tool.pytest.ini_options]
+addopts = [
+  "--import-mode=importlib",
+]
+pythonpath = "src"
+asyncio_default_fixture_loop_scope = "function"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"

@@ -1,0 +1,71 @@
+name: "Setup Node.js, PNPM, and install dependencies"
+
+inputs:
+    node-version:
+        description: "Node.js version to use"
+        required: false
+        default: 20.12.2
+    pnpm-version:
+        description: "PNPM version to use"
+        required: false
+        default: 9.14.2
+    skip-install:
+        description: "Skip 'pnpm install'"
+        required: false
+        default: false
+    install-args:
+        description: "Additional args supplied to 'pnpm install'"
+        required: false
+    working-directory:
+        description: "Working directory to run the command in"
+        required: false
+        default: ./typescript
+
+runs:
+    using: "composite"
+
+    steps:
+        - name: Log inputs
+          shell: bash
+          run: |
+              echo "Node.js version: ${{ inputs.node-version }}"
+              echo "PNPM version: ${{ inputs.pnpm-version }}"
+              echo "Skip install: ${{ inputs.skip-install }}"
+              echo "Install args: ${{ inputs.install-args }}"
+              echo "Working directory: ${{ inputs.working-directory }}"
+        - uses: actions/checkout@v4
+
+        - uses: pnpm/action-setup@v4
+          with:
+              version: ${{ inputs.pnpm-version }}
+
+        - name: Set up Node.js
+          uses: actions/setup-node@v4
+          with:
+              node-version: ${{ inputs.node-version }}
+
+        - id: pnpm-config
+          if: inputs.skip-install == 'false'
+          shell: bash
+          run: |
+              echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+        - id: cache-rotation
+          shell: bash
+          if: inputs.skip-install == 'false'
+          run: |
+              echo "YEAR_MONTH=$(/bin/date -u "+%Y%m")" >> $GITHUB_OUTPUT
+
+        - uses: actions/cache@v3
+          if: inputs.skip-install == 'false'
+          with:
+              path: ${{ steps.pnpm-config.outputs.STORE_PATH }}
+              key: ${{ runner.os }}-pnpm-store-cache-${{ steps.cache-rotation.outputs.YEAR_MONTH }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+              restore-keys: |
+                  ${{ runner.os }}-pnpm-store-cache-${{ steps.cache-rotation.outputs.YEAR_MONTH }}-
+
+        - name: Install dependencies
+          shell: bash
+          if: inputs.skip-install == 'false'
+          working-directory: ${{ inputs.working-directory }}
+          run: pnpm install --frozen-lockfile --prefer-offline ${{ inputs.install-args }}

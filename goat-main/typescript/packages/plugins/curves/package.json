@@ -1,0 +1,35 @@
+{
+    "name": "@goat-sdk/plugin-curves",
+    "version": "0.0.6",
+    "sideEffects": false,
+    "files": ["dist/**/*", "README.md", "package.json"],
+    "scripts": {
+        "build": "tsup",
+        "clean": "rm -rf dist",
+        "test": "vitest run --passWithNoTests"
+    },
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "dependencies": {
+        "@goat-sdk/core": "workspace:*",
+        "@goat-sdk/wallet-evm": "workspace:*",
+        "abitype": "^1.0.6",
+        "viem": "catalog:",
+        "zod": "catalog:"
+    },
+    "peerDependencies": {
+        "@goat-sdk/core": "workspace:*",
+        "@goat-sdk/wallet-evm": "workspace:*"
+    },
+    "homepage": "https://ohmygoat.dev",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/goat-sdk/goat.git"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/goat-sdk/goat/issues"
+    },
+    "keywords": ["ai", "agents", "web3", "form"]
+}

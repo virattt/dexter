@@ -1,0 +1,21 @@
+# IDEs
+.idea
+.vscode
+
+# OS generated files
+.DS_Store
+
+# Node.js dependencies
+node_modules/
+*.log
+*.tsbuildinfo
+npm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Build
+dist
+.turbo

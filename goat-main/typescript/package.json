@@ -1,0 +1,61 @@
+{
+    "private": true,
+    "name": "goat-typescript",
+    "version": "0.1.1",
+    "scripts": {
+        "prepare": "cd .. && pnpm install && cd typescript",
+        "create-plugin": "tsx scripts/createPlugin.ts",
+        "build": "pnpm turbo build",
+        "build:libs": "pnpm turbo --filter \"./packages/**\" build",
+        "build:libs:prod": "cross-env NODE_ENV=production pnpm build:libs",
+        "clean:dist": "pnpm rimraf \"**/dist\" --glob",
+        "clean:node_modules": "pnpm rimraf \"**/node_modules\" --glob",
+        "clean:examples": "tsx scripts/cleanExamples.ts",
+        "change:add": "pnpm changeset add",
+        "change:publish": "pnpm build:libs:prod && pnpm changeset publish --no-git-tag",
+        "change:version": "pnpm changeset version && pnpm clean:examples && pnpm lint:fix",
+        "lint": "biome check --diagnostic-level=error --max-diagnostics=200",
+        "lint:fix": "biome check --write",
+        "test": "pnpm turbo test"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "1.9.4",
+        "@changesets/cli": "2.27.10",
+        "@swc/core": "1.10.1",
+        "@types/node": "22.7.4",
+        "cross-env": "7.0.3",
+        "globals": "15.12.0",
+        "rimraf": "6.0.1",
+        "ts-node": "10.9.2",
+        "tsc-alias": "1.8.10",
+        "tsup": "8.3.5",
+        "tsx": "4.19.2",
+        "turbo": "2.3.1",
+        "typescript": "5.6.3",
+        "vitest": "2.1.9"
+    },
+    "engines": {
+        "node": ">=20.12.2 <23",
+        "npm": "please-use-pnpm",
+        "pnpm": ">=9",
+        "yarn": "please-use-pnpm"
+    },
+    "homepage": "https://github.com/crossmint/goat",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/crossmint/goat.git"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/crossmint/goat/issues"
+    },
+    "keywords": ["ai", "agents", "web3"],
+    "packageManager": "pnpm@9.14.2",
+    "dependencies": {
+        "@solana/web3.js": "1.95.8",
+        "bs58": "^6.0.0",
+        "commander": "13.0.0",
+        "tweetnacl": "^1.0.3",
+        "viem": "2.22.19"
+    }
+}

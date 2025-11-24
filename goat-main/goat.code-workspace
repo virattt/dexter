@@ -1,0 +1,64 @@
+{
+	"folders": [
+		{
+			"name": "🐐 GOAT",
+			"path": "."
+		},
+		{
+			"name": "📘 Typescript",
+			"path": "./typescript"
+		},
+		{
+			"name": "📘 Core",
+			"path": "./typescript/packages/core"
+		},
+		{
+			"name": "📘 Adapters",
+			"path": "./typescript/packages/adapters"
+		},
+		{
+			"name": "📘 Plugins",
+			"path": "./typescript/packages/plugins"
+		},
+		{
+			"name": "📘 Wallets",
+			"path": "./typescript/packages/wallets"
+		},
+		{
+			"name": "📘 Examples",
+			"path": "./typescript/examples"
+		},
+		{
+			"name": "🐍 Python",
+			"path": "./python"
+		},
+		{
+			"name": "🐍 Core",
+			"path": "./python/src/goat-sdk"
+		},
+		{
+			"name": "🐍 Adapters",
+			"path": "./python/src/adapters"
+		},
+
+		{
+			"name": "🐍 Plugins",
+			"path": "./python/src/plugins"
+		},
+
+		{
+			"name": "🐍 Wallets",
+			"path": "./python/src/wallets"
+		},
+		{
+			"name": "🐍 Examples",
+			"path": "./python/examples"
+		}
+	],
+	"settings": {
+		"editor.formatOnSave": true,
+		"editor.defaultFormatter": "biomejs.biome",
+		"eslint.enable": false,
+        "prettier.enable": false
+	}
+}

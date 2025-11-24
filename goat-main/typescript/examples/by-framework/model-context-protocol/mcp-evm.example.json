@@ -1,0 +1,12 @@
+{
+    "mcpServers": {
+        "goat-evm": {
+            "command": "node",
+            "args": ["/ABSOLUTE/PATH/TO/PARENT/model-context-protocol/build/evm.js"],
+            "env": {
+                "WALLET_PRIVATE_KEY": "<YOUR_PRIVATE_KEY>",
+                "RPC_PROVIDER_URL": "<YOUR_RPC_PROVIDER_URL>"
+            }
+        }
+    }
+}

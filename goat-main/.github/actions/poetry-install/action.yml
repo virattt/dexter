@@ -1,0 +1,61 @@
+name: "Setup Python, Poetry, and install dependencies"
+
+inputs:
+    python-version:
+        description: "Python version to use"
+        required: false
+        default: "3.10"
+    poetry-version:
+        description: "Poetry version to use"
+        required: false
+        default: "1.7.1"
+    skip-install:
+        description: "Skip 'poetry install'"
+        required: false
+        default: false
+    install-args:
+        description: "Additional args supplied to 'poetry install'"
+        required: false
+    working-directory:
+        description: "Working directory to run the command in"
+        required: false
+        default: ./python
+
+runs:
+    using: "composite"
+
+    steps:
+        - name: Log inputs
+          shell: bash
+          run: |
+              echo "Python version: ${{ inputs.python-version }}"
+              echo "Poetry version: ${{ inputs.poetry-version }}"
+              echo "Skip install: ${{ inputs.skip-install }}"
+              echo "Install args: ${{ inputs.install-args }}"
+              echo "Working directory: ${{ inputs.working-directory }}"
+
+        - name: Set up Python
+          uses: actions/setup-python@v5
+          with:
+              python-version: ${{ inputs.python-version }}
+              
+        - name: Install Poetry
+          uses: snok/install-poetry@v1
+          with:
+              version: ${{ inputs.poetry-version }}
+              virtualenvs-create: true
+              virtualenvs-in-project: true
+
+        - name: Load cached venv
+          id: cached-poetry-dependencies
+          if: inputs.skip-install == 'false'
+          uses: actions/cache@v3
+          with:
+              path: ${{ inputs.working-directory }}/.venv
+              key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+
+        - name: Install dependencies
+          shell: bash
+          if: inputs.skip-install == 'false'
+          working-directory: ${{ inputs.working-directory }}
+          run: poetry install ${{ inputs.install-args }} 

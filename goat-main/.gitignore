@@ -1,0 +1,11 @@
+# IDEs
+.idea
+.vscode
+
+# OS generated files
+.DS_Store
+
+# Node
+node_modules
+
+*.env

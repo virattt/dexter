@@ -1,0 +1,26 @@
+{
+    "name": "goat-examples-crossmint-solana-smart-wallets",
+    "version": "0.0.0",
+    "private": true,
+    "description": "",
+    "scripts": {
+        "create-wallet": "ts-node create-smart-wallet.ts",
+        "test": "vitest run --passWithNoTests"
+    },
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "@ai-sdk/openai": "~1.0.4",
+        "@goat-sdk/adapter-vercel-ai": "0.2.10",
+        "@goat-sdk/core": "0.4.9",
+        "@goat-sdk/plugin-spl-token": "0.2.19",
+        "@goat-sdk/crossmint": "0.4.5",
+        "@goat-sdk/wallet-solana": "0.2.16",
+        "@solana/web3.js": "1.98.0",
+        "ai": "4.0.3",
+        "bip39": "^3.1.0",
+        "bs58": "^6.0.0",
+        "dotenv": "^16.4.5",
+        "zod": "3.23.8"
+    }
+}

@@ -1,0 +1,25 @@
+{
+    "name": "goat-examples-zetrix-send-and-receive-tokens",
+    "version": "0.0.0",
+    "description": "",
+    "private": true,
+    "scripts": {
+        "test": "vitest run --passWithNoTests"
+    },
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "@ai-sdk/openai": "~1.0.4",
+        "@goat-sdk/adapter-vercel-ai": "0.2.9",
+        "@goat-sdk/core": "0.4.8",
+        "@goat-sdk/wallet-zetrix": "0.1.1",
+        "ai": "~4.0.3",
+        "dotenv": "^16.4.5",
+        "viem": "2.23.4",
+        "zetrix-sdk-nodejs": "^1.0.1",
+        "zod": "3.23.8"
+    },
+    "devDependencies": {
+        "@types/zetrix-sdk-nodejs": "^1.0.1"
+    }
+}

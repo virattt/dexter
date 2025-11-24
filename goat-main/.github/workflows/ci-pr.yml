@@ -1,0 +1,41 @@
+name: CI-PR
+
+on:
+  pull_request:
+  
+env:
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+
+jobs:
+    build-and-test:
+        name: build & test
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js, PNPM, and install dependencies
+              uses: ./.github/actions/pnpm-install
+
+            - name: Build all
+              working-directory: ./typescript
+              run: pnpm build
+
+            - name: Test all
+              working-directory: ./typescript
+              run: pnpm test
+
+    lint:
+        name: lint
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js, PNPM, and install dependencies
+              uses: ./.github/actions/pnpm-install
+
+            - name: Check for lint errors
+              working-directory: ./typescript
+              run: pnpm lint

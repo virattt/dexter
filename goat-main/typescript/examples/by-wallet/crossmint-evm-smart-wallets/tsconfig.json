@@ -1,0 +1,8 @@
+{
+    "extends": "../../../tsconfig.base.json",
+    "compilerOptions": {
+        "outDir": "dist"
+    },
+    "include": ["index.ts", "create-smart-wallet.ts"],
+    "exclude": ["node_modules", "dist"]
+}

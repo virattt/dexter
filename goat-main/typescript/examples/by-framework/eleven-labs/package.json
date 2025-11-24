@@ -1,0 +1,38 @@
+{
+    "name": "goat-examples-eleven-labs",
+    "version": "0.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build",
+        "start": "next start",
+        "lint": "next lint"
+    },
+    "dependencies": {
+        "@11labs/react": "^0.0.4",
+        "@dynamic-labs/ethereum": "4.0.0-alpha.45",
+        "@dynamic-labs/sdk-react-core": "4.0.0-alpha.45",
+        "@dynamic-labs/solana": "4.0.0-alpha.45",
+        "@dynamic-labs/solana-core": "3.9.2",
+        "@dynamic-labs/wagmi-connector": "4.0.0-alpha.45",
+        "@goat-sdk/adapter-eleven-labs": "0.2.10",
+        "@goat-sdk/core": "0.4.9",
+        "@goat-sdk/plugin-coingecko": "0.2.10",
+        "@goat-sdk/wallet-evm": "0.2.11",
+        "@goat-sdk/wallet-solana": "0.2.16",
+        "@goat-sdk/wallet-viem": "0.2.12",
+        "@tanstack/react-query": "^5.62.2",
+        "next": "15.2.4",
+        "react": "^18.0.0",
+        "react-dom": "^18.0.0",
+        "viem": "catalog:",
+        "wagmi": "^2.13.3",
+        "zod": "3.23.8"
+    },
+    "devDependencies": {
+        "@types/react": "^18",
+        "@types/react-dom": "^18",
+        "postcss": "^8",
+        "tailwindcss": "^3.4.1"
+    }
+}

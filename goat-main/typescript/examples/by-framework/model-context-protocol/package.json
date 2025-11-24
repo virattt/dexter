@@ -1,0 +1,37 @@
+{
+    "name": "goat-examples-model-context-protocol",
+    "version": "0.0.0",
+    "type": "module",
+    "description": "",
+    "private": true,
+    "bin": {
+        "goat-evm": "./build/evm.js",
+        "goat-solana": "./build/solana.js"
+    },
+    "scripts": {
+        "test": "vitest run --passWithNoTests",
+        "build": "tsc && node -e \"require('fs').chmodSync('build/evm.js', '755')\" && node -e \"require('fs').chmodSync('build/solana.js', '755')\""
+    },
+    "files": ["build"],
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "@goat-sdk/adapter-model-context-protocol": "0.2.11",
+        "@goat-sdk/core": "0.4.9",
+        "@goat-sdk/plugin-erc20": "0.2.14",
+        "@goat-sdk/plugin-spl-token": "0.2.19",
+        "@goat-sdk/wallet-evm": "0.2.11",
+        "@goat-sdk/wallet-solana": "0.2.16",
+        "@goat-sdk/wallet-viem": "0.2.12",
+        "@modelcontextprotocol/sdk": "1.0.4",
+        "@solana/web3.js": "1.98.0",
+        "bip39": "^3.1.0",
+        "bs58": "^6.0.0",
+        "dotenv": "^16.4.5",
+        "viem": "2.23.4",
+        "zod": "3.23.8"
+    },
+    "devDependencies": {
+        "@types/node": "22.7.4"
+    }
+}

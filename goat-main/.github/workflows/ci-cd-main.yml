@@ -1,0 +1,58 @@
+name: CI-CD-MAIN
+
+on:
+    push:
+        branches:
+            - main
+        paths-ignore:
+            - 'python/**'
+
+env:
+    TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+    TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+
+permissions:
+    contents: write
+    pull-requests: write
+
+jobs:
+    build-and-test:
+        name: build & test
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js, PNPM, and install dependencies
+              uses: ./.github/actions/pnpm-install
+
+            - name: Build all
+              working-directory: ./typescript
+              run: pnpm build
+
+            - name: Test all
+              working-directory: ./typescript
+              run: pnpm test
+
+
+    release-or-create-release-pr:
+        name: Release
+        runs-on: ubuntu-latest
+        needs: [build-and-test]
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Setup Node.js, PNPM, and install dependencies
+              uses: ./.github/actions/pnpm-install
+
+            - name: Create Release Pull Request or Publish
+              uses: changesets/action@v1
+              with:
+                  commit: "Release packages"
+                  title: "Release packages"
+                  publish: pnpm change:publish
+                  version: pnpm change:version
+                  cwd: ./typescript
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

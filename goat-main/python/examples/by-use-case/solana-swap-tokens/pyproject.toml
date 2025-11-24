@@ -1,0 +1,53 @@
+[tool.poetry]
+name = "goat-sdk-example-by-use-case-solana-swap-tokens"
+version = "0.1.0"
+description = "GOAT example for swapping tokens with Jupiter on Solana"
+authors = ["Andrea Villa <andreakarimodm@gmail.com>"]
+readme = "README.md"
+keywords = ["goat", "sdk", "solana", "agents", "ai"]
+homepage = "https://ohmygoat.dev/"
+repository = "https://github.com/goat-sdk/goat"
+packages = [
+    { include = "example.py" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+langchain = "*"
+langchain-openai = "*"
+python-dotenv = "*"
+solana = {version = ">=0.30.2", extras = ["spl"]}
+solders = ">=0.18.0"
+goat-sdk = "*"
+goat-sdk-wallet-solana = "*"
+goat-sdk-adapter-langchain = "*"
+goat-sdk-plugin-jupiter = "*"
+
+[tool.poetry.group.test.dependencies]
+pytest = "*"
+pytest-asyncio = "*"
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/goat-sdk/goat/issues"
+
+[tool.pytest.ini_options]
+addopts = [
+  "--import-mode=importlib",
+]
+pythonpath = "src"
+asyncio_default_fixture_loop_scope = "function"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.8.6"
+goat-sdk = { path = "../../../src/goat-sdk", develop = true }
+goat-sdk-wallet-solana = { path = "../../../src/wallets/solana", develop = true }
+goat-sdk-adapter-langchain = { path = "../../../src/adapters/langchain", develop = true }
+goat-sdk-plugin-jupiter = { path = "../../../src/plugins/jupiter", develop = true }
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"

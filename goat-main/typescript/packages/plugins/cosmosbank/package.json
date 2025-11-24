@@ -1,0 +1,44 @@
+{
+    "name": "@goat-sdk/plugin-cosmosbank",
+    "version": "0.0.7",
+    "files": ["dist/**/*", "README.md", "package.json"],
+    "scripts": {
+        "build": "tsup",
+        "clean": "rm -rf dist",
+        "test": "vitest run --passWithNoTests"
+    },
+    "sideEffects": false,
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "dependencies": {
+        "@goat-sdk/core": "workspace:*",
+        "@goat-sdk/wallet-cosmos": "workspace:*",
+        "@cosmjs/stargate": "^0.32.4",
+        "cosmjs-types": "^0.9.0",
+        "chain-registry": "^1.69.74",
+        "zod": "catalog:"
+    },
+    "peerDependencies": {
+        "@goat-sdk/core": "workspace:*",
+        "@cosmjs/stargate": "^0.32.4",
+        "cosmjs-types": "^0.9.0"
+    },
+    "engines": {
+        "node": ">=20.12.2",
+        "npm": "please-use-pnpm",
+        "pnpm": ">=9",
+        "yarn": "please-use-pnpm"
+    },
+    "homepage": "https://ohmygoat.dev",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/goat-sdk/goat.git"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/goat-sdk/goat/issues"
+    },
+    "keywords": ["ai", "agents", "web3"],
+    "packageManager": "pnpm@9.14.2"
+}

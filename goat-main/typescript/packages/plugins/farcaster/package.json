@@ -1,0 +1,41 @@
+{
+    "name": "@goat-sdk/plugin-farcaster",
+    "version": "0.1.6",
+    "description": "Farcaster protocol plugin for GOAT SDK",
+    "author": {
+        "name": "Codingsh",
+        "url": "https://warpcast.com/codingsh"
+    },
+    "files": ["dist/**/*", "README.md", "package.json"],
+    "scripts": {
+        "build": "tsup",
+        "clean": "rm -rf dist",
+        "test": "vitest run --passWithNoTests"
+    },
+    "sideEffects": false,
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "dependencies": {
+        "@goat-sdk/core": "workspace:*",
+        "zod": "catalog:"
+    },
+    "peerDependencies": {
+        "@goat-sdk/core": "workspace:*"
+    },
+    "devDependencies": {
+        "tsup": "^8.3.5",
+        "typescript": "^5.2.2",
+        "vitest": "^2.1.9"
+    },
+    "homepage": "https://ohmygoat.dev",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/goat-sdk/goat.git"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/goat-sdk/goat/issues"
+    },
+    "keywords": ["ai", "agents", "web3", "farcaster", "social"]
+}

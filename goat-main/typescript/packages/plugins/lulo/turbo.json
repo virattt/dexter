@@ -1,0 +1,11 @@
+{
+    "$schema": "https://turbo.build/schema.json",
+    "extends": ["//"],
+    "tasks": {
+        "build": {
+            "inputs": ["src/**", "tsup.config.ts", "!./**/*.test.{ts,tsx}", "tsconfig.json"],
+            "dependsOn": ["^build"],
+            "outputs": ["dist/**"]
+        }
+    }
+}

@@ -1,0 +1,13 @@
+{
+    "mcpServers": {
+        "goat-solana": {
+            "command": "node",
+            "args": ["/ABSOLUTE/PATH/TO/PARENT/model-context-protocol/build/index.js"],
+            "env": {
+                "WALLET_PRIVATE_KEY": "<YOUR_PRIVATE_KEY>",
+                "RPC_PROVIDER_URL": "<YOUR_RPC_PROVIDER_URL>",
+                "CROSSMINT_API_KEY": "<YOUR_CROSSMINT_API_KEY>"
+            }
+        }
+    }
+}
