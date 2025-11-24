@@ -24,7 +24,11 @@ def main():
               break
           if query:
               # Run the agent
-              agent.run(query)
+              try:
+                  agent.run(query)
+              except KeyboardInterrupt:
+                  print("\nOperation cancelled. You can ask a new question or press Ctrl+C to quit.\n")
+                  continue
         except (KeyboardInterrupt, EOFError):
             print("\nGoodbye!")
             break

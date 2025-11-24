@@ -76,6 +76,9 @@ def show_progress(message: str, success_message: str = ""):
                 result = func(*args, **kwargs)
                 spinner.stop(success_message or message.replace("...", " ✓"), symbol="✓", symbol_color=Colors.GREEN)
                 return result
+            except KeyboardInterrupt:
+                spinner.stop("", symbol="", symbol_color="")
+                raise
             except Exception as e:
                 spinner.stop(f"Failed: {str(e)}", symbol="✗", symbol_color=Colors.RED)
                 raise
@@ -98,6 +101,9 @@ class UI:
         try:
             yield spinner
             spinner.stop(success_message or message.replace("...", " ✓"), symbol="✓", symbol_color=Colors.GREEN)
+        except KeyboardInterrupt:
+            spinner.stop("", symbol="", symbol_color="")
+            raise
         except Exception as e:
             spinner.stop(f"Failed: {str(e)}", symbol="✗", symbol_color=Colors.RED)
             raise

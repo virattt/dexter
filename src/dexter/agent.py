@@ -74,6 +74,8 @@ class Agent:
         try:
             resp = call_llm(prompt, system_prompt=VALIDATION_SYSTEM_PROMPT, output_schema=IsDone)
             return resp.done
+        except KeyboardInterrupt:
+            raise
         except:
             return False
 
@@ -185,7 +187,7 @@ class Agent:
         # If no tasks were created, the query is likely out of scope.
         if not tasks:
             # Note: _generate_answer now streams and displays the answer directly
-            answer = self._generate_answer(query, [])
+            answer = self._generate_answer(query)
             return answer
 
         # 2. Loop through tasks until all are complete or max steps are reached.

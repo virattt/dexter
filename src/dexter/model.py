@@ -13,7 +13,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from dexter.prompts import DEFAULT_SYSTEM_PROMPT
 
 # Update this to the model you want to use
-DEFAULT_MODEL = "gpt-5.1"
+DEFAULT_MODEL = "gpt-4.1"
 
 def get_chat_model(
     model_name: str = DEFAULT_MODEL,
@@ -94,6 +94,9 @@ def call_llm(
   for attempt in range(3):
       try:
           return chain.invoke({"prompt": prompt})
+      except KeyboardInterrupt:
+          # Don't retry on user interrupt, propagate immediately
+          raise
       except Exception as e:
           # We only want to retry on connection/transient errors, but catching generic Exception 
           # for simplicity across providers as they raise different errors.
@@ -136,6 +139,9 @@ def call_llm_stream(
                     if content:  # Only yield non-empty content
                         yield content
             break
+        except KeyboardInterrupt:
+            # Don't retry on user interrupt, propagate immediately
+            raise
         except Exception as e:
             if attempt == 2:  # Last attempt
                 raise e
