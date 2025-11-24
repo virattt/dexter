@@ -2,6 +2,9 @@
 .env
 .env.local
 .env.*
+**/.env
+**/.env.local
+**/.env.*
 
 # Python
 __pycache__/
@@ -53,3 +56,19 @@ yarn-error.log*
 
 # Dexter context files (offloaded tool outputs)
 .dexter/context/
+
+# Wallet files - NEVER commit these!
+wallet.json
+**/wallet.json
+**/*wallet.json
+crossmint_wallet.json
+**/*_wallet.json
+*.key
+*.pem
+**/*.key
+**/*.pem
+
+# Solana keypairs
+**/.solana/
+id.json
+keypair.json
