@@ -53,3 +53,4 @@ yarn-error.log*
 
 # Dexter context files (offloaded tool outputs)
 .dexter/context/
+.dexter/settings.json
