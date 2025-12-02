@@ -91,6 +91,9 @@ export class Agent {
   async run(query: string): Promise<string> {
     this.callbacks.onSpinnerStart?.('Working...');
 
+    // Generate queryId to scope pointers to this query
+    const queryId = this.contextManager.hashQuery(query);
+
     // Notify that query was received
     this.callbacks.onUserQuery?.(query);
 
@@ -99,7 +102,7 @@ export class Agent {
 
     if (tasks.length === 0) {
       // No tasks planned - answer directly without tools
-      return await this.generateAnswer(query);
+      return await this.generateAnswer(query, queryId);
     }
 
     // Notify UI about planned tasks
@@ -112,7 +115,7 @@ export class Agent {
     this.callbacks.onSubtasksPlanned?.(plannedTasks);
 
     // Phase 3: Execute all subtasks with agentic loops (parallel)
-    await this.taskExecutor.executeAll(plannedTasks, {
+    await this.taskExecutor.executeTasks(plannedTasks, queryId, {
       onSubTaskStart: (taskId, subTaskId) => {
         this.callbacks.onSubTaskStart?.(taskId, subTaskId);
       },
@@ -130,14 +133,14 @@ export class Agent {
     this.callbacks.onSpinnerStop?.();
 
     // Phase 4: Generate answer from saved contexts
-    return await this.generateAnswer(query);
+    return await this.generateAnswer(query, queryId);
   }
 
   /**
    * Generates the final answer by loading relevant contexts.
    */
-  private async generateAnswer(query: string): Promise<string> {
-    const stream = await this.answerGenerator.generateAnswer(query);
+  private async generateAnswer(query: string, queryId: string): Promise<string> {
+    const stream = await this.answerGenerator.generateAnswer(query, queryId);
     this.callbacks.onAnswerStream?.(stream);
     return '';
   }

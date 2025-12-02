@@ -37,9 +37,9 @@ export class TaskExecutor {
   /**
    * Execute all planned tasks in parallel.
    */
-  async executeAll(plannedTasks: PlannedTask[], callbacks?: TaskExecutorCallbacks): Promise<SubTaskResult[]> {
+  async executeTasks(plannedTasks: PlannedTask[], queryId?: string, callbacks?: TaskExecutorCallbacks): Promise<SubTaskResult[]> {
     const taskResultArrays = await Promise.all(
-      plannedTasks.map(plannedTask => this.executeTask(plannedTask, callbacks))
+      plannedTasks.map(plannedTask => this.executeTask(plannedTask, queryId, callbacks))
     );
     return taskResultArrays.flat();
   }
@@ -47,7 +47,7 @@ export class TaskExecutor {
   /**
    * Execute a single planned task by running all its subtasks in parallel.
    */
-  private async executeTask(plannedTask: PlannedTask, callbacks?: TaskExecutorCallbacks): Promise<SubTaskResult[]> {
+  private async executeTask(plannedTask: PlannedTask, queryId?: string, callbacks?: TaskExecutorCallbacks): Promise<SubTaskResult[]> {
     const { task, subTasks } = plannedTask;
 
     if (subTasks.length === 0) {
@@ -59,7 +59,7 @@ export class TaskExecutor {
 
     try {
       const results = await Promise.all(
-        subTasks.map(subTask => this.executeSubTask(task.id, task.description, subTask, callbacks))
+        subTasks.map(subTask => this.executeSubTask(task.id, task.description, subTask, queryId, callbacks))
       );
       const allSucceeded = results.every(r => r.success);
       callbacks?.onTaskComplete?.(task.id, allSucceeded);
@@ -78,6 +78,7 @@ export class TaskExecutor {
     taskId: number,
     taskDescription: string,
     subTask: SubTask,
+    queryId?: string,
     callbacks?: TaskExecutorCallbacks
   ): Promise<SubTaskResult> {
     callbacks?.onSubTaskStart?.(taskId, subTask.id);
@@ -111,7 +112,7 @@ export class TaskExecutor {
             const result = await this.executeToolCall(toolName, args);
             
             // Save to filesystem via ContextManager
-            await this.contextManager.saveContext(toolName, args, result, taskId);
+            await this.contextManager.saveContext(toolName, args, result, taskId, queryId);
             
             // Get the summary from the just-saved pointer
             const pointer = this.contextManager.pointers[this.contextManager.pointers.length - 1];

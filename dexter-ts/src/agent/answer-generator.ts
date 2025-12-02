@@ -15,15 +15,17 @@ export class AnswerGenerator {
   /**
    * Generates a streaming answer by selecting relevant contexts and synthesizing data.
    */
-  async generateAnswer(query: string): Promise<AsyncGenerator<string>> {
-    const allPointers = this.contextManager.getAllPointers();
+  async generateAnswer(query: string, queryId?: string): Promise<AsyncGenerator<string>> {
+    const pointers = queryId
+      ? this.contextManager.getPointersForQuery(queryId)
+      : this.contextManager.getAllPointers();
 
-    if (allPointers.length === 0) {
+    if (pointers.length === 0) {
       return this.generateNoDataAnswer(query);
     }
 
     // Select relevant contexts using LLM
-    const selectedFilepaths = await this.contextManager.selectRelevantContexts(query, allPointers);
+    const selectedFilepaths = await this.contextManager.selectRelevantContexts(query, pointers);
     
     // Load the full context data
     const selectedContexts = this.contextManager.loadContexts(selectedFilepaths);
