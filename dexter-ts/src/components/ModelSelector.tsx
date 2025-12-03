@@ -27,14 +27,14 @@ const MODELS: Model[] = [
 ];
 
 interface ModelSelectorProps {
-  currentModel?: string;
+  model?: string;
   onSelect: (modelId: string | null) => void;
 }
 
-export function ModelSelector({ currentModel, onSelect }: ModelSelectorProps) {
+export function ModelSelector({ model, onSelect }: ModelSelectorProps) {
   const [selectedIndex, setSelectedIndex] = useState(() => {
-    if (currentModel) {
-      const idx = MODELS.findIndex((m) => m.modelId === currentModel);
+    if (model) {
+      const idx = MODELS.findIndex((m) => m.modelId === model);
       return idx >= 0 ? idx : 0;
     }
     return 0;
@@ -61,19 +61,19 @@ export function ModelSelector({ currentModel, onSelect }: ModelSelectorProps) {
         Switch between LLM models. Applies to this session and future sessions.
       </Text>
       <Box marginTop={1} flexDirection="column">
-        {MODELS.map((model, idx) => {
+        {MODELS.map((m, idx) => {
           const isSelected = idx === selectedIndex;
-          const isCurrent = currentModel === model.modelId;
+          const isCurrent = model === m.modelId;
           const prefix = isSelected ? '> ' : '  ';
 
           return (
             <Text
-              key={model.modelId}
+              key={m.modelId}
               color={isSelected ? colors.primaryLight : colors.primary}
               bold={isSelected}
             >
               {prefix}
-              {idx + 1}. {model.displayName} · {model.description}
+              {idx + 1}. {m.displayName} · {m.description}
               {isCurrent ? ' ✓' : ''}
             </Text>
           );

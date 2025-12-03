@@ -19,12 +19,13 @@ export function TaskList({ tasks, title = 'Planned Tasks' }: TaskListProps) {
         ╭─ {title}
       </Text>
       {tasks.map((task) => {
-        const status = task.done ? '✓' : '+';
-        const color = task.done ? colors.success : colors.muted;
+        const isDone = task.done;
+        const statusIcon = isDone ? '✓' : '+';
+        const color = isDone ? colors.success : colors.muted;
         return (
           <Text key={task.id}>
             <Text color={colors.primary}>│</Text>{' '}
-            <Text color={color}>{status}</Text> {task.description}
+            <Text color={color}>{statusIcon}</Text> {task.description}
           </Text>
         );
       })}

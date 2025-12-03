@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+// Simple task schema matching Python version
+// Subtasks (tool calls) are determined in a separate planning phase
 export const TaskSchema = z.object({
   id: z.number().describe('Unique identifier for the task.'),
   description: z.string().describe('The description of the task.'),
@@ -30,14 +32,6 @@ export const AnswerSchema = z.object({
 
 export type Answer = z.infer<typeof AnswerSchema>;
 
-export const OptimizedToolArgsSchema = z.object({
-  arguments: z
-    .record(z.string(), z.unknown())
-    .describe('The optimized arguments dictionary for the tool call.'),
-});
-
-export type OptimizedToolArgs = z.infer<typeof OptimizedToolArgsSchema>;
-
 export const SelectedContextsSchema = z.object({
   context_ids: z
     .array(z.number())
@@ -48,3 +42,32 @@ export const SelectedContextsSchema = z.object({
 
 export type SelectedContexts = z.infer<typeof SelectedContextsSchema>;
 
+export const OptimizedToolArgsSchema = z.object({
+  arguments: z
+    .record(z.string(), z.any())
+    .describe('The optimized arguments dictionary for the tool call.'),
+});
+
+export type OptimizedToolArgs = z.infer<typeof OptimizedToolArgsSchema>;
+
+// Subtask represents a specific tool call determined during subtask planning
+export interface SubTask {
+  name: string;
+  args: Record<string, unknown>;
+}
+
+// Task with its planned subtasks (tool calls)
+export interface PlannedTask {
+  task: Task;
+  subTasks: SubTask[];
+}
+
+// Result of executing a subtask (tool call)
+export interface SubTaskResult {
+  taskId: number;
+  tool: string;
+  args: Record<string, unknown>;
+  result: string;
+  success: boolean;
+  error?: string;
+}
