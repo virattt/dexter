@@ -4,6 +4,7 @@ import { Task, PlannedTask, SubTaskResult } from '../schemas.js';
 // Mock all external dependencies
 jest.mock('../../model/llm.js');
 jest.mock('../../tools/index.js');
+jest.mock('../../utils/context.js');
 jest.mock('../task-planner.js');
 jest.mock('../task-executor.js');
 jest.mock('../answer-generator.js');
@@ -25,7 +26,10 @@ function createMockCallbacks(): AgentCallbacks & {
   onUserQuery: jest.Mock;
   onTasksPlanned: jest.Mock;
   onSubtasksPlanned: jest.Mock;
-  onToolRun: jest.Mock;
+  onSubTaskStart: jest.Mock;
+  onSubTaskComplete: jest.Mock;
+  onTaskStart: jest.Mock;
+  onTaskComplete: jest.Mock;
   onLog: jest.Mock;
   onSpinnerStart: jest.Mock;
   onSpinnerStop: jest.Mock;
@@ -35,7 +39,10 @@ function createMockCallbacks(): AgentCallbacks & {
     onUserQuery: jest.fn(),
     onTasksPlanned: jest.fn(),
     onSubtasksPlanned: jest.fn(),
-    onToolRun: jest.fn(),
+    onSubTaskStart: jest.fn(),
+    onSubTaskComplete: jest.fn(),
+    onTaskStart: jest.fn(),
+    onTaskComplete: jest.fn(),
     onLog: jest.fn(),
     onSpinnerStart: jest.fn(),
     onSpinnerStop: jest.fn(),
@@ -63,8 +70,8 @@ function createPlannedTask(taskId: number = 1): PlannedTask {
     task: createTask({ id: taskId }),
     subTasks: [
       {
-        name: 'get_income_statements',
-        args: { ticker: 'AAPL' },
+        id: 1,
+        description: 'Retrieve income statements for Apple (AAPL)',
       },
     ],
   };
@@ -73,12 +80,10 @@ function createPlannedTask(taskId: number = 1): PlannedTask {
 /**
  * Creates a subtask result for testing
  */
-function createSubTaskResult(taskId: number = 1): SubTaskResult {
+function createSubTaskResult(taskId: number = 1, subTaskId: number = 1): SubTaskResult {
   return {
     taskId,
-    tool: 'get_income_statements',
-    args: { ticker: 'AAPL' },
-    result: JSON.stringify({ revenue: '100B' }),
+    subTaskId,
     success: true,
   };
 }
@@ -115,7 +120,7 @@ describe('Agent', () => {
     // Setup AnswerGenerator mock
     mockGenerateFromResults = jest.fn().mockReturnValue(mockStreamGenerator(['Answer']));
     MockAnswerGenerator.mockImplementation(() => ({
-      generateFromResults: mockGenerateFromResults,
+      generateAnswer: mockGenerateFromResults,
     }) as unknown as AnswerGenerator);
   });
 
@@ -211,14 +216,14 @@ describe('Agent', () => {
       expect(mockExecuteAll).toHaveBeenCalledWith(plannedTasks, expect.any(Object));
     });
 
-    it('passes tool run callback to executor', async () => {
+    it('passes subtask complete callback to executor', async () => {
       const tasks = [createTask()];
       const plannedTasks = [createPlannedTask()];
       mockPlanTasks.mockResolvedValue(tasks);
       mockPlanSubtasks.mockResolvedValue(plannedTasks);
       
       mockExecuteAll.mockImplementation((_plannedTasks, cbs) => {
-        cbs?.onToolRun?.(1, 'get_income_statements', { ticker: 'AAPL' }, '{"revenue": "100B"}');
+        cbs?.onSubTaskComplete?.(1, 1, true);
         return Promise.resolve([createSubTaskResult()]);
       });
 
@@ -227,12 +232,7 @@ describe('Agent', () => {
 
       await agent.run('Query');
 
-      expect(callbacks.onToolRun).toHaveBeenCalledWith(
-        1,
-        'get_income_statements',
-        { ticker: 'AAPL' },
-        '{"revenue": "100B"}'
-      );
+      expect(callbacks.onSubTaskComplete).toHaveBeenCalledWith(1, 1, true);
     });
 
     it('generates answer from subtask results', async () => {
@@ -248,7 +248,7 @@ describe('Agent', () => {
 
       await agent.run('What is Apple revenue?');
 
-      expect(mockGenerateFromResults).toHaveBeenCalledWith('What is Apple revenue?', subTaskResults);
+      expect(mockGenerateFromResults).toHaveBeenCalledWith('What is Apple revenue?');
       expect(callbacks.onAnswerStream).toHaveBeenCalled();
     });
 
@@ -302,7 +302,7 @@ describe('Agent', () => {
 
       expect(mockPlanSubtasks).toHaveBeenCalledWith(tasks, expect.any(Object));
       expect(mockExecuteAll).toHaveBeenCalledWith(plannedTasks, expect.any(Object));
-      expect(mockGenerateFromResults).toHaveBeenCalledWith('Compare Apple and Microsoft', subTaskResults);
+      expect(mockGenerateFromResults).toHaveBeenCalledWith('Compare Apple and Microsoft');
     });
   });
 });

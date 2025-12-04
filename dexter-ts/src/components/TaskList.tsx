@@ -3,6 +3,13 @@ import { Box, Text } from 'ink';
 import { colors } from '../theme.js';
 import type { Task } from '../agent/schemas.js';
 
+/**
+ * Truncates description for display if too long
+ */
+function truncateDescription(desc: string, maxLen = 60): string {
+  return desc.length > maxLen ? desc.slice(0, maxLen - 3) + '...' : desc;
+}
+
 interface TaskListProps {
   tasks: Task[];
   title?: string;
@@ -25,7 +32,7 @@ export function TaskList({ tasks, title = 'Planned Tasks' }: TaskListProps) {
         return (
           <Text key={task.id}>
             <Text color={colors.primary}>│</Text>{' '}
-            <Text color={color}>{statusIcon}</Text> {task.description}
+            <Text color={color}>{statusIcon}</Text> {truncateDescription(task.description)}
           </Text>
         );
       })}
@@ -44,7 +51,7 @@ export function TaskStart({ description }: TaskStartProps) {
       <Text color={colors.accent} bold>
         ▶ Task:
       </Text>
-      <Text> {description}</Text>
+      <Text> {truncateDescription(description)}</Text>
     </Box>
   );
 }
@@ -57,7 +64,7 @@ export function TaskDone({ description }: TaskDoneProps) {
   return (
     <Box>
       <Text color={colors.success}>  ✓ Completed</Text>
-      <Text dimColor> │ {description}</Text>
+      <Text dimColor> │ {truncateDescription(description)}</Text>
     </Box>
   );
 }

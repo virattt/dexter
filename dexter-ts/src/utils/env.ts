@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { config } from 'dotenv';
 
 // Load .env on module import
-config();
+config({ quiet: true });
 
 // Map model IDs to their required API key environment variable names
 const MODEL_API_KEY_MAP: Record<string, string> = {
@@ -89,7 +89,7 @@ export function saveApiKeyToEnv(apiKeyName: string, apiKeyValue: string): boolea
     writeFileSync('.env', lines.join('\n'));
 
     // Reload environment variables
-    config({ override: true });
+    config({ override: true, quiet: true });
 
     return true;
   } catch (e) {

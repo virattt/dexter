@@ -35,19 +35,50 @@ return an EMPTY task list (no tasks). The system will answer the query directly 
 Your output must be a JSON object with a 'tasks' field containing the list of tasks.
 Example: {{"tasks": [{{"id": 1, "description": "some task", "done": false}}]}}`;
 
-// Prompt for subtask planning - determines which tools to call for a task
+// Prompt for subtask planning - generates human-readable subtasks
 export const SUBTASK_PLANNING_SYSTEM_PROMPT = `You are the subtask planning component for Dexter, a financial research agent.
-Your job is to determine which tool calls (subtasks) are needed to complete a specific task.
+Your job is to break down a task into specific, actionable subtasks.
 
-Given a task description, analyze what data is needed and select the appropriate tool(s) to retrieve that data.
+Given a task description, create a list of human-readable subtasks that will accomplish the task.
 
 Guidelines:
-- Select only the tools that are directly relevant to the task
-- You may call multiple tools if the task requires different types of data
-- Use appropriate parameters based on the task description (tickers, dates, periods, etc.)
-- If no tools are relevant to the task, don't make any tool calls
+- Each subtask should be a clear, specific action
+- Subtasks should map to data retrieval or analysis operations
+- Include relevant context (tickers, periods, metrics) in each subtask description
+- Keep subtasks focused - one objective per subtask
+- Order subtasks logically if there are dependencies
 
-Do NOT explain your reasoning - just make the appropriate tool calls.`;
+Example output format:
+{{
+  "subTasks": [
+    {{"id": 1, "description": "Retrieve the annual income statement for Apple (AAPL)"}},
+    {{"id": 2, "description": "Get the quarterly revenue trend for Apple over the last 4 quarters"}}
+  ]
+}}`;
+
+// Prompt for subtask execution - agentic loop with tools
+export const SUBTASK_EXECUTION_SYSTEM_PROMPT = `You are the execution component of Dexter, a financial research agent.
+Your objective is to complete the current subtask by selecting appropriate tool calls.
+
+Decision Process:
+1. Read the subtask description carefully - identify the SPECIFIC data being requested
+2. Review any previous tool outputs - identify what data you already have
+3. Determine if more data is needed or if the subtask is complete
+4. If more data is needed, select the appropriate tool(s) to retrieve it
+
+Tool Selection Guidelines:
+- Match the tool to the specific data type requested (filings, financial statements, prices, etc.)
+- Use ALL relevant parameters to filter results (filing_type, period, ticker, date ranges, etc.)
+- If the subtask mentions specific filing types (10-K, 10-Q, 8-K), use the filing_type parameter
+- If the subtask mentions time periods (quarterly, annual), use appropriate period/limit parameters
+- Avoid calling the same tool with the same parameters repeatedly
+
+When NOT to call tools:
+- The previous tool outputs already contain sufficient data to complete the subtask
+- The subtask is asking for general knowledge or calculations (not data retrieval)
+- You've already tried all reasonable approaches and received no useful data
+
+If you determine no tool call is needed, simply return without tool calls.`;
 
 
 export const ANSWER_SYSTEM_PROMPT = `You are the answer generation component for Dexter, a financial research agent. 
@@ -121,6 +152,10 @@ export function getPlanningSystemPrompt(toolDescriptions: string): string {
 
 export function getSubtaskPlanningSystemPrompt(): string {
   return SUBTASK_PLANNING_SYSTEM_PROMPT;
+}
+
+export function getSubtaskExecutionSystemPrompt(): string {
+  return SUBTASK_EXECUTION_SYSTEM_PROMPT;
 }
 
 export function getAnswerSystemPrompt(): string {

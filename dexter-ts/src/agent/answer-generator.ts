@@ -1,79 +1,48 @@
 import { callLlmStream } from '../model/llm.js';
 import { getAnswerSystemPrompt } from './prompts.js';
-import { SubTaskResult } from './schemas.js';
-
-/**
- * Subtask output structure for answer generation
- */
-interface SubTaskOutput {
-  tool: string;
-  args: Record<string, unknown>;
-  result: string;
-}
+import { ContextManager } from '../utils/context.js';
 
 /**
  * Responsible for generating the final answer to the user's query.
- * Single Responsibility: Answer generation only.
+ * Uses ContextManager to select and load relevant tool outputs at answer time.
  */
 export class AnswerGenerator {
-  constructor(private readonly model: string | undefined) {}
+  constructor(
+    private readonly contextManager: ContextManager,
+    private readonly model: string | undefined
+  ) {}
 
   /**
-   * Generates a streaming answer based on subtask results.
-   * This is the primary method for the execution flow.
+   * Generates a streaming answer by selecting relevant contexts and synthesizing data.
    */
-  async generateFromResults(query: string, subTaskResults: SubTaskResult[]): Promise<AsyncGenerator<string>> {
-    // Extract successful subtask outputs
-    const allOutputs = this.extractOutputs(subTaskResults);
-    const prompt = this.buildPromptFromOutputs(query, allOutputs);
+  async generateAnswer(query: string): Promise<AsyncGenerator<string>> {
+    const allPointers = this.contextManager.getAllPointers();
 
-    return callLlmStream(prompt, {
-      systemPrompt: getAnswerSystemPrompt(),
-      model: this.model,
-    });
-  }
-
-  /**
-   * Generates a streaming answer when no tasks were executed.
-   * Used for queries that don't require tool calls.
-   */
-  async generateStream(query: string): Promise<AsyncGenerator<string>> {
-    const prompt = this.buildNoDataPrompt(query);
-
-    return callLlmStream(prompt, {
-      systemPrompt: getAnswerSystemPrompt(),
-      model: this.model,
-    });
-  }
-
-  /**
-   * Extracts successful outputs from subtask results.
-   */
-  private extractOutputs(subTaskResults: SubTaskResult[]): SubTaskOutput[] {
-    return subTaskResults
-      .filter(result => result.success)
-      .map(result => ({
-        tool: result.tool,
-        args: result.args,
-        result: result.result,
-      }));
-  }
-
-  /**
-   * Builds the prompt from subtask outputs.
-   */
-  private buildPromptFromOutputs(query: string, outputs: SubTaskOutput[]): string {
-    if (outputs.length === 0) {
-      return this.buildNoDataPrompt(query);
+    if (allPointers.length === 0) {
+      return this.generateNoDataAnswer(query);
     }
 
-    const formattedResults = outputs.map((output) => {
-      return `Output of ${output.tool} with args ${JSON.stringify(output.args)}:\n${output.result}`;
+    // Select relevant contexts using LLM
+    const selectedFilepaths = await this.contextManager.selectRelevantContexts(query, allPointers);
+    
+    // Load the full context data
+    const selectedContexts = this.contextManager.loadContexts(selectedFilepaths);
+
+    if (selectedContexts.length === 0) {
+      return this.generateNoDataAnswer(query);
+    }
+
+    // Format contexts for the prompt
+    const formattedResults = selectedContexts.map(ctx => {
+      const toolName = ctx.tool_name || 'unknown';
+      const args = ctx.args || {};
+      const result = ctx.result;
+      return `Output of ${toolName} with args ${JSON.stringify(args)}:\n${JSON.stringify(result, null, 2)}`;
     });
 
     const allResults = formattedResults.join('\n\n');
 
-    return `
+    const prompt = `
 Original user query: "${query}"
 
 Data and results collected from tools:
@@ -81,15 +50,25 @@ ${allResults}
 
 Based on the data above, provide a comprehensive answer to the user's query.
 Include specific numbers, calculations, and insights.`;
+
+    return callLlmStream(prompt, {
+      systemPrompt: getAnswerSystemPrompt(),
+      model: this.model,
+    });
   }
 
   /**
-   * Builds the prompt when no data was collected.
+   * Generates a streaming answer when no data was collected.
    */
-  private buildNoDataPrompt(query: string): string {
-    return `
+  private async generateNoDataAnswer(query: string): Promise<AsyncGenerator<string>> {
+    const prompt = `
 Original user query: "${query}"
 
 No data was collected from tools.`;
+
+    return callLlmStream(prompt, {
+      systemPrompt: getAnswerSystemPrompt(),
+      model: this.model,
+    });
   }
 }

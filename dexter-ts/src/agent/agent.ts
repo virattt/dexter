@@ -2,6 +2,7 @@ import { Task, PlannedTask, SubTaskResult } from './schemas.js';
 import { TaskPlanner } from './task-planner.js';
 import { TaskExecutor } from './task-executor.js';
 import { AnswerGenerator } from './answer-generator.js';
+import { ContextManager } from '../utils/context.js';
 
 /**
  * Callbacks for observing agent execution
@@ -13,10 +14,18 @@ export interface AgentCallbacks {
   onTasksPlanned?: (tasks: Task[]) => void;
   /** Called when subtasks are planned for tasks */
   onSubtasksPlanned?: (plannedTasks: PlannedTask[]) => void;
-  /** Called when a tool is executed */
-  onToolRun?: (taskId: number, tool: string, args: Record<string, unknown>, result: string) => void;
+  /** Called when a subtask starts executing */
+  onSubTaskStart?: (taskId: number, subTaskId: number) => void;
+  /** Called when a subtask finishes executing */
+  onSubTaskComplete?: (taskId: number, subTaskId: number, success: boolean) => void;
+  /** Called when a task starts executing */
+  onTaskStart?: (taskId: number) => void;
+  /** Called when a task completes */
+  onTaskComplete?: (taskId: number, success: boolean) => void;
   /** Called for general log messages */
   onLog?: (message: string) => void;
+  /** Called for debug messages (accumulated, not overwritten) */
+  onDebug?: (message: string) => void;
   /** Called when a spinner should start */
   onSpinnerStart?: (message: string) => void;
   /** Called when a spinner should stop */
@@ -40,15 +49,19 @@ export interface AgentOptions {
  * 
  * Architecture:
  * 1. TaskPlanner.planTasks: Creates high-level tasks from user query
- * 2. TaskPlanner.planSubtasks: For each task IN PARALLEL, determines tool calls using bindTools
- * 3. TaskExecutor: Executes all subtasks (tool calls) in parallel
- * 4. AnswerGenerator: Generates final answer from all tool outputs
+ * 2. TaskPlanner.planSubtasks: For each task, generates human-readable subtasks
+ * 3. TaskExecutor: Executes subtasks using agentic loops (0, 1, or many tools per subtask)
+ * 4. AnswerGenerator: Loads relevant contexts and generates final answer
  * 
- * This avoids structured output schema limitations by using bindTools for subtask planning.
+ * Tool outputs are saved to filesystem via ContextManager during execution,
+ * and only loaded at answer generation time for memory efficiency.
  */
 export class Agent {
   private readonly callbacks: AgentCallbacks;
   private readonly model: string;
+  
+  // Shared context manager for tool outputs
+  private readonly contextManager: ContextManager;
   
   // Collaborators
   private readonly taskPlanner: TaskPlanner;
@@ -59,10 +72,13 @@ export class Agent {
     this.callbacks = options.callbacks ?? {};
     this.model = options.model;
     
-    // Create collaborators
+    // Create shared context manager
+    this.contextManager = new ContextManager('.dexter/context', this.model);
+    
+    // Create collaborators with shared context manager
     this.taskPlanner = new TaskPlanner(this.model);
-    this.taskExecutor = new TaskExecutor();
-    this.answerGenerator = new AnswerGenerator(this.model);
+    this.taskExecutor = new TaskExecutor(this.contextManager, this.model);
+    this.answerGenerator = new AnswerGenerator(this.contextManager, this.model);
   }
 
   /**
@@ -71,8 +87,8 @@ export class Agent {
    * Flow:
    * 1. Plan high-level tasks
    * 2. Plan subtasks for each task (parallel)
-   * 3. Execute subtasks (parallel)
-   * 4. Generate answer
+   * 3. Execute subtasks with agentic loops (parallel)
+   * 4. Generate answer from saved contexts
    */
   async run(query: string): Promise<string> {
     // Notify that query was received
@@ -82,12 +98,12 @@ export class Agent {
     const tasks = await this.withProgress(
       'Planning tasks...',
       'Tasks planned',
-      () => this.taskPlanner.planTasks(query, { onLog: this.callbacks.onLog })
+      () => this.taskPlanner.planTasks(query, { onLog: this.callbacks.onLog, onDebug: this.callbacks.onDebug })
     );
-    
+
     if (tasks.length === 0) {
       // No tasks planned - answer directly without tools
-      return await this.generateAnswer(query, []);
+      return await this.generateAnswer(query);
     }
 
     // Notify UI about planned tasks
@@ -97,33 +113,42 @@ export class Agent {
     const plannedTasks = await this.withProgress(
       'Planning subtasks...',
       'Subtasks planned',
-      () => this.taskPlanner.planSubtasks(tasks, { onLog: this.callbacks.onLog })
+      () => this.taskPlanner.planSubtasks(tasks, { onLog: this.callbacks.onLog, onDebug: this.callbacks.onDebug })
     );
 
     // Notify UI about planned subtasks
     this.callbacks.onSubtasksPlanned?.(plannedTasks);
 
-    // Phase 3: Execute all subtasks (parallel)
-    const results = await this.withProgress(
+    // Phase 3: Execute all subtasks with agentic loops (parallel)
+    await this.withProgress(
       'Executing subtasks...',
       'Subtasks executed',
       () => this.taskExecutor.executeAll(plannedTasks, {
         onLog: this.callbacks.onLog,
-        onToolRun: (taskId, tool, args, result) => {
-          this.callbacks.onToolRun?.(taskId, tool, args, result);
+        onSubTaskStart: (taskId, subTaskId) => {
+          this.callbacks.onSubTaskStart?.(taskId, subTaskId);
+        },
+        onSubTaskComplete: (taskId, subTaskId, success) => {
+          this.callbacks.onSubTaskComplete?.(taskId, subTaskId, success);
+        },
+        onTaskStart: (taskId) => {
+          this.callbacks.onTaskStart?.(taskId);
+        },
+        onTaskComplete: (taskId, success) => {
+          this.callbacks.onTaskComplete?.(taskId, success);
         },
       })
     );
 
-    // Phase 4: Generate answer from all subtask outputs
-    return await this.generateAnswer(query, results);
+    // Phase 4: Generate answer from saved contexts
+    return await this.generateAnswer(query);
   }
 
   /**
-   * Generates the final answer based on subtask results.
+   * Generates the final answer by loading relevant contexts.
    */
-  private async generateAnswer(query: string, results: SubTaskResult[]): Promise<string> {
-    const stream = await this.answerGenerator.generateFromResults(query, results);
+  private async generateAnswer(query: string): Promise<string> {
+    const stream = await this.answerGenerator.generateAnswer(query);
     this.callbacks.onAnswerStream?.(stream);
     return '';
   }

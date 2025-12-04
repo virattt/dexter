@@ -13,8 +13,8 @@ export type DisplayStatus = 'pending' | 'running' | 'completed' | 'failed';
  * Subtask state for UI display
  */
 export interface SubTaskState {
-  name: string;
-  args: Record<string, unknown>;
+  id: number;
+  description: string;
   status: DisplayStatus;
 }
 
@@ -34,7 +34,6 @@ export interface TaskState {
 function StatusIcon({ status }: { status: DisplayStatus }) {
   switch (status) {
     case 'pending':
-      return <Text color={colors.muted}>○</Text>;
     case 'running':
       return (
         <Text color={colors.accent}>
@@ -49,11 +48,10 @@ function StatusIcon({ status }: { status: DisplayStatus }) {
 }
 
 /**
- * Formats tool arguments for display (truncated if too long)
+ * Truncates description for display if too long
  */
-function formatArgs(args: Record<string, unknown>): string {
-  const str = JSON.stringify(args);
-  return str.length > 50 ? str.slice(0, 47) + '...' : str;
+function truncateDescription(desc: string, maxLen = 60): string {
+  return desc.length > maxLen ? desc.slice(0, maxLen - 3) + '...' : desc;
 }
 
 interface TaskProgressProps {
@@ -86,7 +84,7 @@ export function TaskProgress({ tasks, title = 'Tasks' }: TaskProgressProps) {
             <Text color={colors.primary}>│</Text>
             <Text> </Text>
             <StatusIcon status={task.status} />
-            <Text> {task.description}</Text>
+            <Text> {truncateDescription(task.description)}</Text>
           </Box>
           
           {/* Subtask rows */}
@@ -94,15 +92,14 @@ export function TaskProgress({ tasks, title = 'Tasks' }: TaskProgressProps) {
             const isLastSubTask = subTaskIndex === task.subTasks.length - 1;
             
             return (
-              <Box key={`${task.id}-${subTaskIndex}`}>
+              <Box key={`${task.id}-${subTask.id}`}>
                 <Text color={colors.primary}>│</Text>
                 <Text>   </Text>
                 <Text color={colors.muted}>{isLastSubTask ? '└' : '├'}</Text>
                 <Text> </Text>
                 <StatusIcon status={subTask.status} />
                 <Text> </Text>
-                <Text color={colors.accent}>{subTask.name}</Text>
-                <Text dimColor>({formatArgs(subTask.args)})</Text>
+                <Text color={colors.accent}>{truncateDescription(subTask.description)}</Text>
               </Box>
             );
           })}
@@ -140,8 +137,8 @@ export function plannedTaskToState(plannedTask: PlannedTask): TaskState {
     description: plannedTask.task.description,
     status: 'pending',
     subTasks: plannedTask.subTasks.map(st => ({
-      name: st.name,
-      args: st.args,
+      id: st.id,
+      description: st.description,
       status: 'pending',
     })),
   };

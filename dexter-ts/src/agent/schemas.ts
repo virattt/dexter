@@ -50,24 +50,31 @@ export const OptimizedToolArgsSchema = z.object({
 
 export type OptimizedToolArgs = z.infer<typeof OptimizedToolArgsSchema>;
 
-// Subtask represents a specific tool call determined during subtask planning
+// Subtask schema for structured output generation
+export const SubTaskSchema = z.object({
+  id: z.number().describe('Unique identifier for the subtask'),
+  description: z.string().describe('Human-readable description of the subtask'),
+});
+
+export const SubTaskListSchema = z.object({
+  subTasks: z.array(SubTaskSchema).describe('List of subtasks to complete the task'),
+});
+
+// Subtask - human-readable unit of work (can use 0, 1, or many tools)
 export interface SubTask {
-  name: string;
-  args: Record<string, unknown>;
+  id: number;
+  description: string;
 }
 
-// Task with its planned subtasks (tool calls)
+// Task with its planned subtasks
 export interface PlannedTask {
   task: Task;
   subTasks: SubTask[];
 }
 
-// Result of executing a subtask (tool call)
+// Result of executing a subtask
 export interface SubTaskResult {
   taskId: number;
-  tool: string;
-  args: Record<string, unknown>;
-  result: string;
+  subTaskId: number;
   success: boolean;
-  error?: string;
 }

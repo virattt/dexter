@@ -69,6 +69,7 @@ export function CLI() {
   const [answerStream, setAnswerStream] = useState<AsyncGenerator<string> | null>(null);
   const [apiKeyReady, setApiKeyReady] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [debugMessages, setDebugMessages] = useState<string[]>([]);
 
   useEffect(() => {
     const checkApiKey = async () => {
@@ -99,7 +100,7 @@ export function CLI() {
   /**
    * Updates a subtask's status in the current turn
    */
-  const updateSubTaskStatus = useCallback((taskId: number, toolName: string, status: DisplayStatus) => {
+  const updateSubTaskStatus = useCallback((taskId: number, subTaskId: number, status: DisplayStatus) => {
     setCurrentTurn(prev => {
       if (!prev) return prev;
       return {
@@ -109,7 +110,7 @@ export function CLI() {
             ? {
                 ...task,
                 subTasks: task.subTasks.map(st =>
-                  st.name === toolName ? { ...st, status } : st
+                  st.id === subTaskId ? { ...st, status } : st
                 ),
               }
             : task
@@ -161,12 +162,23 @@ export function CLI() {
         };
       });
     },
-    onToolRun: (taskId, tool, args, result) => {
-      // Mark the subtask as completed
-      updateSubTaskStatus(taskId, tool, 'completed');
+    onSubTaskStart: (taskId, subTaskId) => {
+      updateSubTaskStatus(taskId, subTaskId, 'running');
+    },
+    onSubTaskComplete: (taskId, subTaskId, success) => {
+      updateSubTaskStatus(taskId, subTaskId, success ? 'completed' : 'failed');
+    },
+    onTaskStart: (taskId) => {
+      updateTaskStatus(taskId, 'running');
+    },
+    onTaskComplete: (taskId, success) => {
+      updateTaskStatus(taskId, success ? 'completed' : 'failed');
     },
     onLog: (msg) => {
       setStatusMessage(msg);
+    },
+    onDebug: (msg) => {
+      setDebugMessages(prev => [...prev, msg]);
     },
     onSpinnerStart: (msg) => setSpinner(msg),
     onSpinnerStop: (msg, success) => {
@@ -176,7 +188,7 @@ export function CLI() {
       }
     },
     onAnswerStream: (stream) => setAnswerStream(stream),
-  }), [updateSubTaskStatus]);
+  }), [updateSubTaskStatus, updateTaskStatus]);
 
   const handleSubmit = useCallback(
     async (query: string) => {
@@ -195,7 +207,7 @@ export function CLI() {
 
       setState('running');
       setInputValue('');
-      setStatusMessage(null);
+      setDebugMessages([]);
 
       const callbacks = createAgentCallbacks();
 
@@ -283,7 +295,16 @@ export function CLI() {
         </Box>
       )}
 
-      {/* Status message - always show debug logs */}
+      {/* Debug messages */}
+      {debugMessages.length > 0 && (
+        <Box flexDirection="column" marginTop={1}>
+          {debugMessages.map((msg, i) => (
+            <Text key={i} dimColor>[DEBUG] {msg}</Text>
+          ))}
+        </Box>
+      )}
+
+      {/* Status message */}
       {statusMessage && (
         <Box marginTop={1}>
           <Text dimColor>{statusMessage}</Text>
