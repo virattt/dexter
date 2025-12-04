@@ -7,7 +7,6 @@ import { getPlanningSystemPrompt, getSubtaskPlanningSystemPrompt } from './promp
  * Callbacks for task planning
  */
 export interface TaskPlannerCallbacks {
-  onLog?: (message: string) => void;
   onDebug?: (message: string) => void;
   onSubtasksPlanned?: (taskId: number, subTasks: SubTask[]) => void;
 }
@@ -48,7 +47,6 @@ export class TaskPlanner {
         done: task.done ?? false,
       }));
     } catch (error: unknown) {
-      callbacks?.onLog?.(`[ERROR] Failed to plan tasks for query: ${query}`);
       // callbacks?.onDebug?.(`Error: ${error instanceof Error ? error.message : String(error)}`);
       return [];
     }
@@ -88,7 +86,6 @@ export class TaskPlanner {
 
       return { task, subTasks };
     } catch (error: unknown) {
-      callbacks?.onLog?.(`[ERROR] Failed to plan subtasks for task ${task.id}: ${error instanceof Error ? error.message : String(error)}`);
       // callbacks?.onDebug?.(`Error: ${error instanceof Error ? error.message : String(error)}`);
       return { task, subTasks: [] };
     }

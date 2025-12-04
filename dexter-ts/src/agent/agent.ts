@@ -22,8 +22,6 @@ export interface AgentCallbacks {
   onTaskStart?: (taskId: number) => void;
   /** Called when a task completes */
   onTaskComplete?: (taskId: number, success: boolean) => void;
-  /** Called for general log messages */
-  onLog?: (message: string) => void;
   /** Called for debug messages (accumulated, not overwritten) */
   onDebug?: (message: string) => void;
   /** Called when a spinner should start */
@@ -97,8 +95,7 @@ export class Agent {
     // Phase 1: Plan high-level tasks
     const tasks = await this.withProgress(
       'Planning tasks...',
-      'Tasks planned',
-      () => this.taskPlanner.planTasks(query, { onLog: this.callbacks.onLog, onDebug: this.callbacks.onDebug })
+      () => this.taskPlanner.planTasks(query, { onDebug: this.callbacks.onDebug })
     );
 
     if (tasks.length === 0) {
@@ -112,8 +109,7 @@ export class Agent {
     // Phase 2: Plan subtasks for each task (parallel)
     const plannedTasks = await this.withProgress(
       'Planning subtasks...',
-      'Subtasks planned',
-      () => this.taskPlanner.planSubtasks(tasks, { onLog: this.callbacks.onLog, onDebug: this.callbacks.onDebug })
+      () => this.taskPlanner.planSubtasks(tasks, { onDebug: this.callbacks.onDebug })
     );
 
     // Notify UI about planned subtasks
@@ -122,9 +118,7 @@ export class Agent {
     // Phase 3: Execute all subtasks with agentic loops (parallel)
     await this.withProgress(
       'Executing subtasks...',
-      'Subtasks executed',
       () => this.taskExecutor.executeAll(plannedTasks, {
-        onLog: this.callbacks.onLog,
         onSubTaskStart: (taskId, subTaskId) => {
           this.callbacks.onSubTaskStart?.(taskId, subTaskId);
         },
@@ -158,13 +152,12 @@ export class Agent {
    */
   private async withProgress<T>(
     message: string,
-    successMessage: string,
     fn: () => Promise<T>
   ): Promise<T> {
     this.callbacks.onSpinnerStart?.(message);
     try {
       const result = await fn();
-      this.callbacks.onSpinnerStop?.(successMessage || message.replace('...', ' ✓'), true);
+      this.callbacks.onSpinnerStop?.(message.replace('...', ' ✓'), true);
       return result;
     } catch (e) {
       this.callbacks.onSpinnerStop?.(`Failed: ${e}`, false);

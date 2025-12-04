@@ -32,10 +32,7 @@ export function AnswerBox({ stream, text, onComplete }: AnswerBoxProps) {
 
   return (
     <Box flexDirection="column" marginTop={1}>
-      <Text color={colors.primary} bold>
-        Answer:
-      </Text>
-        <Text>
+      <Text>
         {content}
         {isStreaming && '▌'}
       </Text>

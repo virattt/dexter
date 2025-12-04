@@ -10,7 +10,6 @@ import { ContextManager } from '../utils/context.js';
  * Callbacks for observing task execution progress
  */
 export interface TaskExecutorCallbacks {
-  onLog?: (message: string) => void;
   onSubTaskStart?: (taskId: number, subTaskId: number) => void;
   onSubTaskComplete?: (taskId: number, subTaskId: number, success: boolean) => void;
   onTaskStart?: (taskId: number) => void;
@@ -66,7 +65,6 @@ export class TaskExecutor {
       callbacks?.onTaskComplete?.(task.id, allSucceeded);
       return results;
     } catch (error) {
-      callbacks?.onLog?.(`[ERROR] Task ${task.id} execution failed: ${error}`);
       callbacks?.onTaskComplete?.(task.id, false);
       return [];
     }
@@ -122,7 +120,6 @@ export class TaskExecutor {
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
             outputSummaries.push(`Error from ${toolName}: ${errorMsg}`);
-            callbacks?.onLog?.(`[ERROR] Tool ${toolName} failed: ${errorMsg}`);
           }
         }
       }
@@ -131,7 +128,6 @@ export class TaskExecutor {
       return { taskId, subTaskId: subTask.id, success: true };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      callbacks?.onLog?.(`[ERROR] Subtask ${subTask.id} failed: ${errorMessage}`);
       callbacks?.onSubTaskComplete?.(taskId, subTask.id, false);
       return { taskId, subTaskId: subTask.id, success: false };
     }

@@ -30,7 +30,6 @@ function createMockCallbacks(): AgentCallbacks & {
   onSubTaskComplete: jest.Mock;
   onTaskStart: jest.Mock;
   onTaskComplete: jest.Mock;
-  onLog: jest.Mock;
   onSpinnerStart: jest.Mock;
   onSpinnerStop: jest.Mock;
   onAnswerStream: jest.Mock;
@@ -43,7 +42,6 @@ function createMockCallbacks(): AgentCallbacks & {
     onSubTaskComplete: jest.fn(),
     onTaskStart: jest.fn(),
     onTaskComplete: jest.fn(),
-    onLog: jest.fn(),
     onSpinnerStart: jest.fn(),
     onSpinnerStop: jest.fn(),
     onAnswerStream: jest.fn(),

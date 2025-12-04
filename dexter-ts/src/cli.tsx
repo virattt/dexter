@@ -174,9 +174,6 @@ export function CLI() {
     onTaskComplete: (taskId, success) => {
       updateTaskStatus(taskId, success ? 'completed' : 'failed');
     },
-    onLog: (msg) => {
-      setStatusMessage(msg);
-    },
     onDebug: (msg) => {
       setDebugMessages(prev => [...prev, msg]);
     },
