@@ -27,7 +27,7 @@ export interface AgentCallbacks {
   /** Called when a spinner should start */
   onSpinnerStart?: (message: string) => void;
   /** Called when a spinner should stop */
-  onSpinnerStop?: (message: string, success: boolean) => void;
+  onSpinnerStop?: () => void;
   /** Called with the answer stream */
   onAnswerStream?: (stream: AsyncGenerator<string>) => void;
 }
@@ -89,14 +89,13 @@ export class Agent {
    * 4. Generate answer from saved contexts
    */
   async run(query: string): Promise<string> {
+    this.callbacks.onSpinnerStart?.('Working...');
+
     // Notify that query was received
     this.callbacks.onUserQuery?.(query);
 
     // Phase 1: Plan high-level tasks
-    const tasks = await this.withProgress(
-      'Planning tasks...',
-      () => this.taskPlanner.planTasks(query, { onDebug: this.callbacks.onDebug })
-    );
+    const tasks = await this.taskPlanner.planTasks(query, { onDebug: this.callbacks.onDebug });
 
     if (tasks.length === 0) {
       // No tasks planned - answer directly without tools
@@ -107,32 +106,28 @@ export class Agent {
     this.callbacks.onTasksPlanned?.(tasks);
 
     // Phase 2: Plan subtasks for each task (parallel)
-    const plannedTasks = await this.withProgress(
-      'Planning subtasks...',
-      () => this.taskPlanner.planSubtasks(tasks, { onDebug: this.callbacks.onDebug })
-    );
+    const plannedTasks = await this.taskPlanner.planSubtasks(tasks, { onDebug: this.callbacks.onDebug });
 
     // Notify UI about planned subtasks
     this.callbacks.onSubtasksPlanned?.(plannedTasks);
 
     // Phase 3: Execute all subtasks with agentic loops (parallel)
-    await this.withProgress(
-      'Executing subtasks...',
-      () => this.taskExecutor.executeAll(plannedTasks, {
-        onSubTaskStart: (taskId, subTaskId) => {
-          this.callbacks.onSubTaskStart?.(taskId, subTaskId);
-        },
-        onSubTaskComplete: (taskId, subTaskId, success) => {
-          this.callbacks.onSubTaskComplete?.(taskId, subTaskId, success);
-        },
-        onTaskStart: (taskId) => {
-          this.callbacks.onTaskStart?.(taskId);
-        },
-        onTaskComplete: (taskId, success) => {
-          this.callbacks.onTaskComplete?.(taskId, success);
-        },
-      })
-    );
+    await this.taskExecutor.executeAll(plannedTasks, {
+      onSubTaskStart: (taskId, subTaskId) => {
+        this.callbacks.onSubTaskStart?.(taskId, subTaskId);
+      },
+      onSubTaskComplete: (taskId, subTaskId, success) => {
+        this.callbacks.onSubTaskComplete?.(taskId, subTaskId, success);
+      },
+      onTaskStart: (taskId) => {
+        this.callbacks.onTaskStart?.(taskId);
+      },
+      onTaskComplete: (taskId, success) => {
+        this.callbacks.onTaskComplete?.(taskId, success);
+      },
+    });
+
+    this.callbacks.onSpinnerStop?.();
 
     // Phase 4: Generate answer from saved contexts
     return await this.generateAnswer(query);
@@ -145,23 +140,5 @@ export class Agent {
     const stream = await this.answerGenerator.generateAnswer(query);
     this.callbacks.onAnswerStream?.(stream);
     return '';
-  }
-
-  /**
-   * Wraps an async operation with spinner callbacks.
-   */
-  private async withProgress<T>(
-    message: string,
-    fn: () => Promise<T>
-  ): Promise<T> {
-    this.callbacks.onSpinnerStart?.(message);
-    try {
-      const result = await fn();
-      this.callbacks.onSpinnerStop?.(message.replace('...', ' ✓'), true);
-      return result;
-    } catch (e) {
-      this.callbacks.onSpinnerStop?.(`Failed: ${e}`, false);
-      throw e;
-    }
   }
 }

@@ -178,11 +178,8 @@ export function CLI() {
       setDebugMessages(prev => [...prev, msg]);
     },
     onSpinnerStart: (msg) => setSpinner(msg),
-    onSpinnerStop: (msg, success) => {
+    onSpinnerStop: () => {
       setSpinner(null);
-      if (msg) {
-        setStatusMessage(msg);
-      }
     },
     onAnswerStream: (stream) => setAnswerStream(stream),
   }), [updateSubTaskStatus, updateTaskStatus]);

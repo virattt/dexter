@@ -104,9 +104,8 @@ export class TaskPlanner {
 Create a list of tasks to be completed. Each task should be a specific, actionable step.
 
 Remember:
-- Make tasks specific and focused
-- Include relevant details like ticker symbols, time periods, metrics
-- Tasks should map clearly to available tools`;
+- Make tasks specific, focused, and concise in 50 characters or less
+- Include relevant details like ticker`;
   }
 
   private buildSubtaskPlanningPrompt(task: Task): string {

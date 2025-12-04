@@ -8,13 +8,13 @@ interface SpinnerProps {
   color?: string;
 }
 
-export function Spinner({ message, color = colors.accent }: SpinnerProps) {
+export function Spinner({ message, color = colors.primary }: SpinnerProps) {
   return (
     <Box>
       <Text color={color}>
         <InkSpinner type="dots" />
       </Text>
-      <Text> {message}</Text>
+      <Text color={color}> {message}</Text>
     </Box>
   );
 }
