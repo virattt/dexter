@@ -87,8 +87,8 @@ export function TaskProgress({ tasks, title = 'Tasks' }: TaskProgressProps) {
             <Text> {truncateDescription(task.description)}</Text>
           </Box>
           
-          {/* Subtask rows */}
-          {task.subTasks.map((subTask, subTaskIndex) => {
+          {/* Subtask rows - only show if more than 1 sub-task */}
+          {task.subTasks.length > 1 && task.subTasks.map((subTask, subTaskIndex) => {
             const isLastSubTask = subTaskIndex === task.subTasks.length - 1;
             
             return (
