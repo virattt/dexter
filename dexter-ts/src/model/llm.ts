@@ -101,7 +101,13 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
 
   const chain = promptTemplate.pipe(runnable);
 
-  return withRetry(() => chain.invoke({ prompt }));
+  const result = await withRetry(() => chain.invoke({ prompt }));
+
+  // If no outputSchema, extract content from AIMessage
+  if (!outputSchema && result && typeof result === 'object' && 'content' in result) {
+    return (result as { content: string }).content;
+  }
+  return result;
 }
 
 export async function* callLlmStream(

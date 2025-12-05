@@ -12,6 +12,7 @@ interface ContextPointer {
   args: Record<string, unknown>;
   summary: string;
   taskId?: number;
+  queryId?: string;
 }
 
 interface ContextData {
@@ -20,6 +21,7 @@ interface ContextData {
   summary: string;
   timestamp: string;
   task_id?: number;
+  query_id?: string;
   result: unknown;
 }
 
@@ -39,6 +41,10 @@ export class ContextManager {
   private hashArgs(args: Record<string, unknown>): string {
     const argsStr = JSON.stringify(args, Object.keys(args).sort());
     return createHash('md5').update(argsStr).digest('hex').slice(0, 12);
+  }
+
+  hashQuery(query: string): string {
+    return createHash('md5').update(query).digest('hex').slice(0, 12);
   }
 
   private async generateSummary(
@@ -72,7 +78,8 @@ export class ContextManager {
     toolName: string,
     args: Record<string, unknown>,
     result: unknown,
-    taskId?: number
+    taskId?: number,
+    queryId?: string
   ): Promise<string> {
     const argsHash = this.hashArgs(args);
     const filename = `${toolName}_${argsHash}.json`;
@@ -82,11 +89,12 @@ export class ContextManager {
 
     const contextData: ContextData = {
       tool_name: toolName,
-      args,
-      summary,
+      args: args,
+      summary: summary,
       timestamp: new Date().toISOString(),
       task_id: taskId,
-      result,
+      query_id: queryId,
+      result: result,
     };
 
     writeFileSync(filepath, JSON.stringify(contextData, null, 2));
@@ -98,6 +106,7 @@ export class ContextManager {
       args,
       summary,
       taskId,
+      queryId,
     };
 
     this.pointers.push(pointer);
@@ -107,6 +116,10 @@ export class ContextManager {
 
   getAllPointers(): ContextPointer[] {
     return [...this.pointers];
+  }
+
+  getPointersForQuery(queryId: string): ContextPointer[] {
+    return this.pointers.filter(p => p.queryId === queryId);
   }
 
   loadContexts(filepaths: string[]): ContextData[] {
