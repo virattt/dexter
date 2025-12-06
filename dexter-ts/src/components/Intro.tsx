@@ -30,8 +30,8 @@ export function Intro() {
       </Box>
 
       <Box marginTop={1} flexDirection="column">
-        <Text>Your AI assistant for financial analysis.</Text>
-        <Text>Ask me any question. Press Ctrl+C to quit. Type /model to change the model.</Text>
+        <Text color={colors.primary}>Your AI assistant for deep financial research.</Text>
+        <Text color={colors.muted}>Press Ctrl+C to quit. Type /model to change the model.</Text>
       </Box>
     </Box>
   );

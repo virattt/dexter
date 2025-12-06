@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { Intro } from './components/Intro.js';
 import { Input } from './components/Input.js';
@@ -6,11 +6,13 @@ import { Spinner } from './components/Spinner.js';
 import { TaskProgress, TaskState, DisplayStatus, taskToState, plannedTaskToState } from './components/TaskProgress.js';
 import { AnswerBox, UserQuery } from './components/AnswerBox.js';
 import { ModelSelector } from './components/ModelSelector.js';
+import { QueueDisplay } from './components/QueueDisplay.js';
 import { Agent, AgentCallbacks } from './agent/agent.js';
 import { getSetting, setSetting } from './utils/config.js';
 import { ensureApiKeyForModel } from './utils/env.js';
 import { DEFAULT_MODEL } from './model/llm.js';
 import { colors } from './theme.js';
+import { useQueryQueue } from './hooks/useQueryQueue.js';
 import type { Task, PlannedTask } from './agent/schemas.js';
 
 type AppState = 'idle' | 'running' | 'model_select';
@@ -63,6 +65,10 @@ export function CLI() {
   // New declarative state model
   const [history, setHistory] = useState<CompletedTurn[]>([]);
   const [currentTurn, setCurrentTurn] = useState<CurrentTurn | null>(null);
+  
+  // Query queue for handling multiple queries
+  const { queue: queryQueue, enqueue, shift: shiftQueue, clear: clearQueue } = useQueryQueue();
+  const isProcessingRef = useRef(false);
   
   // UI state
   const [spinner, setSpinner] = useState<string | null>(null);
@@ -184,24 +190,15 @@ export function CLI() {
     onAnswerStream: (stream) => setAnswerStream(stream),
   }), [updateSubTaskStatus, updateTaskStatus]);
 
-  const handleSubmit = useCallback(
+  /**
+   * Processes a single query through the agent
+   */
+  const processQuery = useCallback(
     async (query: string) => {
-      if (!query.trim()) return;
-      if (state === 'running') return;
-
-      if (query.trim().toLowerCase() === 'exit' || query.trim().toLowerCase() === 'quit') {
-        console.log('Goodbye!');
-        exit();
-        return;
-      }
-
-      if (query.trim() === '/model') {
-        setState('model_select');
-        return;
-      }
+      if (isProcessingRef.current) return;
+      isProcessingRef.current = true;
 
       setState('running');
-      setInputValue('');
       setDebugMessages([]);
 
       const callbacks = createAgentCallbacks();
@@ -220,10 +217,52 @@ export function CLI() {
       } finally {
         setState('idle');
         setSpinner(null);
+        isProcessingRef.current = false;
       }
     },
-    [state, model, createAgentCallbacks, exit]
+    [model, createAgentCallbacks]
   );
+
+  const handleSubmit = useCallback(
+    (query: string) => {
+      if (!query.trim()) return;
+
+      // Handle special commands even while running
+      if (query.trim().toLowerCase() === 'exit' || query.trim().toLowerCase() === 'quit') {
+        console.log('Goodbye!');
+        exit();
+        return;
+      }
+
+      if (query.trim() === '/model') {
+        setState('model_select');
+        return;
+      }
+
+      // Queue the query if already running
+      if (state === 'running') {
+        enqueue(query.trim());
+        setInputValue('');
+        return;
+      }
+
+      // Process immediately if idle
+      setInputValue('');
+      processQuery(query.trim());
+    },
+    [state, exit, enqueue, processQuery]
+  );
+
+  /**
+   * Process next queued query when state becomes idle
+   */
+  useEffect(() => {
+    if (state === 'idle' && queryQueue.length > 0 && !isProcessingRef.current) {
+      const nextQuery = queryQueue[0];
+      shiftQueue();
+      processQuery(nextQuery);
+    }
+  }, [state, queryQueue, shiftQueue, processQuery]);
 
   const handleModelSelect = useCallback(
     async (modelId: string | null) => {
@@ -248,6 +287,8 @@ export function CLI() {
         setState('idle');
         setSpinner(null);
         setCurrentTurn(null);
+        clearQueue();
+        isProcessingRef.current = false;
         setStatusMessage('Operation cancelled. You can ask a new question or press Ctrl+C again to quit.');
       } else {
         console.log('\nGoodbye!');
@@ -289,6 +330,9 @@ export function CLI() {
           <Spinner message={spinner} />
         </Box>
       )}
+
+      {/* Queued queries */}
+      <QueueDisplay queries={queryQueue} />
 
       {/* Debug messages */}
       {debugMessages.length > 0 && (
