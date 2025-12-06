@@ -103,8 +103,9 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
 
   const result = await withRetry(() => chain.invoke({ prompt }));
 
-  // If no outputSchema, extract content from AIMessage
-  if (!outputSchema && result && typeof result === 'object' && 'content' in result) {
+  // If no outputSchema and no tools, extract content from AIMessage
+  // When tools are provided, return the full AIMessage to preserve tool_calls
+  if (!outputSchema && !tools && result && typeof result === 'object' && 'content' in result) {
     return (result as { content: string }).content;
   }
   return result;

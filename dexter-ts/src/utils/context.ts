@@ -47,6 +47,14 @@ export class ContextManager {
     return createHash('md5').update(query).digest('hex').slice(0, 12);
   }
 
+  private generateFilename(toolName: string, args: Record<string, unknown>): string {
+    const argsHash = this.hashArgs(args);
+    const ticker = typeof args.ticker === 'string' ? args.ticker.toUpperCase() : null;
+    return ticker 
+      ? `${ticker}_${toolName}_${argsHash}.json`
+      : `${toolName}_${argsHash}.json`;
+  }
+
   private async generateSummary(
     toolName: string,
     args: Record<string, unknown>,
@@ -81,8 +89,7 @@ export class ContextManager {
     taskId?: number,
     queryId?: string
   ): Promise<string> {
-    const argsHash = this.hashArgs(args);
-    const filename = `${toolName}_${argsHash}.json`;
+    const filename = this.generateFilename(toolName, args);
     const filepath = join(this.contextDir, filename);
 
     const summary = await this.generateSummary(toolName, args, result);
