@@ -308,14 +308,14 @@ export function CLI() {
       {/* Streaming answer */}
       {answerStream && <AnswerBox stream={answerStream} onComplete={handleAnswerComplete} />}
 
-      {/* Input when idle */}
-      {state === 'idle' && apiKeyReady && (
+      {/* Input bar - always visible, disabled when running */}
+      {apiKeyReady && (
         <Box marginTop={1}>
           <Input
             value={inputValue}
             onChange={setInputValue}
             onSubmit={handleSubmit}
-            placeholder="Ask a financial question..."
+            disabled={state === 'running'}
           />
         </Box>
       )}
