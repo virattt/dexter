@@ -48,7 +48,7 @@ export function UserQuery({ query }: UserQueryProps) {
   return (
     <Box marginTop={1}>
       <Text color={colors.primary} bold>
-        You: {query}
+        &gt; {query}
       </Text>
     </Box>
   );
