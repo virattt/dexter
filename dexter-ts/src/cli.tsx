@@ -187,6 +187,7 @@ export function CLI() {
   const handleSubmit = useCallback(
     async (query: string) => {
       if (!query.trim()) return;
+      if (state === 'running') return;
 
       if (query.trim().toLowerCase() === 'exit' || query.trim().toLowerCase() === 'quit') {
         console.log('Goodbye!');
@@ -221,7 +222,7 @@ export function CLI() {
         setSpinner(null);
       }
     },
-    [model, createAgentCallbacks, exit]
+    [state, model, createAgentCallbacks, exit]
   );
 
   const handleModelSelect = useCallback(
@@ -308,14 +309,13 @@ export function CLI() {
       {/* Streaming answer */}
       {answerStream && <AnswerBox stream={answerStream} onComplete={handleAnswerComplete} />}
 
-      {/* Input bar - always visible, disabled when running */}
+      {/* Input bar - always visible and interactive */}
       {apiKeyReady && (
         <Box marginTop={1}>
           <Input
             value={inputValue}
             onChange={setInputValue}
             onSubmit={handleSubmit}
-            disabled={state === 'running'}
           />
         </Box>
       )}

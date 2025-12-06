@@ -7,7 +7,6 @@ interface InputProps {
   value: string;
   onChange: (value: string) => void;
   onSubmit: (value: string) => void;
-  disabled?: boolean;
 }
 
 function useTerminalWidth(): number {
@@ -35,19 +34,19 @@ function HorizontalBar() {
   return <Text color={colors.muted}>{'─'.repeat(width)}</Text>;
 }
 
-export function Input({ value, onChange, onSubmit, disabled = false }: InputProps) {
+export function Input({ value, onChange, onSubmit }: InputProps) {
   return (
     <Box flexDirection="column" marginBottom={1}>
       <HorizontalBar />
       <Box>
-        <Text color={disabled ? colors.muted : colors.primary} bold>
+        <Text color={colors.primary} bold>
           {'> '}
         </Text>
         <TextInput
           value={value}
           onChange={onChange}
           onSubmit={onSubmit}
-          focus={!disabled}
+          focus={true}
         />
       </Box>
       <HorizontalBar />
