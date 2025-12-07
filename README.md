@@ -2,7 +2,6 @@
 
 Dexter is an autonomous financial research agent that thinks, plans, and learns as it works. It performs analysis using task planning, self-reflection, and real-time market data. Think Claude Code, but built specifically for financial research.
 
-This is the **TypeScript version** built with React, Ink, and Bun.
 
 <img width="979" height="651" alt="Screenshot 2025-10-14 at 6 12 35 PM" src="https://github.com/user-attachments/assets/5a2859d4-53cf-4638-998a-15cef3c98038" />
 
@@ -47,12 +46,12 @@ After installation, restart your terminal and verify Bun is installed:
 bun --version
 ```
 
-### Installation
+### Installing Dexter
 
 1. Clone the repository:
 ```bash
 git clone https://github.com/virattt/dexter.git
-cd dexter/ts-opus
+cd dexter
 ```
 
 2. Install dependencies with Bun:
@@ -74,12 +73,12 @@ cp ../env.example .env
 
 Run Dexter in interactive mode:
 ```bash
-bun run start
+bun start
 ```
 
 Or with watch mode for development:
 ```bash
-bun run dev
+bun dev
 ```
 
 ### Example Queries
@@ -113,50 +112,6 @@ Dexter uses a multi-agent architecture with specialized components:
 - **Schema Validation**: [Zod](https://zod.dev)
 - **Language**: TypeScript
 
-## Project Structure
-
-```
-ts-opus/
-├── src/
-│   ├── agent/
-│   │   ├── agent.ts       # Main agent orchestration logic
-│   │   ├── prompts.ts     # System prompts for each component
-│   │   └── schemas.ts     # Zod schemas
-│   ├── components/
-│   │   ├── AnswerBox.tsx  # Streaming answer display
-│   │   ├── Input.tsx      # User input component
-│   │   ├── Intro.tsx      # Welcome screen
-│   │   ├── ModelSelector.tsx  # Model picker UI
-│   │   ├── Spinner.tsx    # Loading indicators
-│   │   └── TaskList.tsx   # Task display
-│   ├── model/
-│   │   └── llm.ts         # LLM interface (multi-provider)
-│   ├── tools/
-│   │   ├── finance/       # Financial data tools (16 tools)
-│   │   └── search/        # Search tools
-│   ├── utils/
-│   │   ├── config.ts      # Settings persistence
-│   │   ├── context.ts     # Context management
-│   │   └── env.ts         # API key management
-│   ├── cli.tsx            # Main CLI component
-│   └── index.tsx          # Entry point
-├── package.json
-└── tsconfig.json
-```
-
-## Configuration
-
-Dexter supports configuration via the `Agent` class initialization:
-
-```typescript
-import { Agent } from './agent/agent.js';
-
-const agent = new Agent({
-  maxSteps: 20,           // Global safety limit
-  maxStepsPerTask: 5,     // Per-task iteration limit
-  model: 'gpt-4.1',       // LLM model to use
-});
-```
 
 ### Changing Models
 
