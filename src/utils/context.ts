@@ -2,26 +2,26 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { createHash } from 'crypto';
 import { callLlm, DEFAULT_MODEL } from '../model/llm.js';
-import { TOOL_OUTPUT_SUMMARY_SYSTEM_PROMPT, CONTEXT_SELECTION_SYSTEM_PROMPT } from '../agent/prompts.js';
+import { CONTEXT_SELECTION_SYSTEM_PROMPT } from '../agent/prompts.js';
 import { SelectedContextsSchema } from '../agent/schemas.js';
 
 interface ContextPointer {
   filepath: string;
   filename: string;
   toolName: string;
+  toolDescription: string;
   args: Record<string, unknown>;
-  summary: string;
   taskId?: number;
   queryId?: string;
 }
 
 interface ContextData {
-  tool_name: string;
+  toolName: string;
+  toolDescription: string;
   args: Record<string, unknown>;
-  summary: string;
   timestamp: string;
-  task_id?: number;
-  query_id?: string;
+  taskId?: number;
+  queryId?: string;
   result: unknown;
 }
 
@@ -55,52 +55,83 @@ export class ToolContextManager {
       : `${toolName}_${argsHash}.json`;
   }
 
-  private async generateSummary(
-    toolName: string,
-    args: Record<string, unknown>,
-    result: unknown
-  ): Promise<string> {
-    const resultStr = JSON.stringify(result).slice(0, 1000);
+  /**
+   * Creates a simple description string for the tool using the tool name and arguments.
+   * The description string is used to identify the tool and is used to select relevant context for the query.
+   */
+  private getToolDescription(toolName: string, args: Record<string, unknown>): string {
+    const parts: string[] = [];
+    const usedKeys = new Set<string>();
 
-    const prompt = `
-    Tool: ${toolName}
-    Arguments: ${JSON.stringify(args, null, 2)}
-    Output preview: ${resultStr}
-    
-    Generate a brief one-sentence summary describing what data this tool output contains.
-    Focus on the key information (e.g., "Apple's last 4 quarterly income statements from Q1 2023 to Q4 2023").
-    `;
-
-    try {
-      const response = await callLlm(prompt, {
-        systemPrompt: TOOL_OUTPUT_SUMMARY_SYSTEM_PROMPT,
-        model: this.model,
-      });
-      return typeof response === 'string' ? response.trim() : String(response).trim();
-    } catch {
-      return `${toolName} output with args ${JSON.stringify(args)}`;
+    // Add ticker if present (most common identifier)
+    if (args.ticker) {
+      parts.push(String(args.ticker).toUpperCase());
+      usedKeys.add('ticker');
     }
+
+    // Add search query if present
+    if (args.query) {
+      parts.push(`"${args.query}"`);
+      usedKeys.add('query');
+    }
+
+    // Format tool name: get_income_statements -> income statements
+    const formattedToolName = toolName
+      .replace(/^get_/, '')
+      .replace(/^search_/, '')
+      .replace(/_/g, ' ');
+    parts.push(formattedToolName);
+
+    // Add period qualifier if present
+    if (args.period) {
+      parts.push(`(${args.period})`);
+      usedKeys.add('period');
+    }
+
+    // Add limit if present
+    if (args.limit && typeof args.limit === 'number') {
+      parts.push(`- ${args.limit} periods`);
+      usedKeys.add('limit');
+    }
+
+    // Add date range if present
+    if (args.start_date && args.end_date) {
+      parts.push(`from ${args.start_date} to ${args.end_date}`);
+      usedKeys.add('start_date');
+      usedKeys.add('end_date');
+    }
+
+    // Append any remaining args not explicitly handled
+    const remainingArgs = Object.entries(args)
+      .filter(([key]) => !usedKeys.has(key))
+      .map(([key, value]) => `${key}=${value}`);
+
+    if (remainingArgs.length > 0) {
+      parts.push(`[${remainingArgs.join(', ')}]`);
+    }
+
+    return parts.join(' ');
   }
 
-  async saveContext(
+  saveContext(
     toolName: string,
     args: Record<string, unknown>,
     result: unknown,
     taskId?: number,
     queryId?: string
-  ): Promise<string> {
+  ): string {
     const filename = this.generateFilename(toolName, args);
     const filepath = join(this.contextDir, filename);
 
-    const summary = await this.generateSummary(toolName, args, result);
+    const toolDescription = this.getToolDescription(toolName, args);
 
     const contextData: ContextData = {
-      tool_name: toolName,
+      toolName: toolName,
       args: args,
-      summary: summary,
+      toolDescription: toolDescription,
       timestamp: new Date().toISOString(),
-      task_id: taskId,
-      query_id: queryId,
+      taskId: taskId,
+      queryId: queryId,
       result: result,
     };
 
@@ -111,7 +142,7 @@ export class ToolContextManager {
       filename,
       toolName,
       args,
-      summary,
+      toolDescription,
       taskId,
       queryId,
     };
@@ -152,9 +183,9 @@ export class ToolContextManager {
 
     const pointersInfo = availablePointers.map((ptr, i) => ({
       id: i,
-      tool_name: ptr.toolName,
+      toolName: ptr.toolName,
+      toolDescription: ptr.toolDescription,
       args: ptr.args,
-      summary: ptr.summary,
     }));
 
     const prompt = `

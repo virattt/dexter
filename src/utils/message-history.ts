@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { callLlm, DEFAULT_MODEL } from '../model/llm.js';
 import { MESSAGE_SUMMARY_SYSTEM_PROMPT, MESSAGE_SELECTION_SYSTEM_PROMPT } from '../agent/prompts.js';
 import { z } from 'zod';
@@ -27,9 +28,17 @@ export const SelectedMessagesSchema = z.object({
 export class MessageHistory {
   private messages: Message[] = [];
   private model: string;
+  private relevantMessagesByQuery: Map<string, Message[]> = new Map();
 
   constructor(model: string = DEFAULT_MODEL) {
     this.model = model;
+  }
+
+  /**
+   * Hashes a query string for cache key generation
+   */
+  private hashQuery(query: string): string {
+    return createHash('md5').update(query).digest('hex').slice(0, 12);
   }
 
   /**
@@ -66,6 +75,9 @@ Generate a brief 1-2 sentence summary of this answer.`;
    * Adds a new conversation turn to history with an LLM-generated summary
    */
   async addMessage(query: string, answer: string): Promise<void> {
+    // Clear the relevance cache since message history has changed
+    this.relevantMessagesByQuery.clear();
+
     const summary = await this.generateSummary(query, answer);
     this.messages.push({
       id: this.messages.length,
@@ -76,11 +88,19 @@ Generate a brief 1-2 sentence summary of this answer.`;
   }
 
   /**
-   * Uses LLM to select which messages are relevant to the current query
+   * Uses LLM to select which messages are relevant to the current query.
+   * Results are cached by query hash to avoid redundant LLM calls within the same query.
    */
   async selectRelevantMessages(currentQuery: string): Promise<Message[]> {
     if (this.messages.length === 0) {
       return [];
+    }
+
+    // Check cache first
+    const cacheKey = this.hashQuery(currentQuery);
+    const cached = this.relevantMessagesByQuery.get(cacheKey);
+    if (cached) {
+      return cached;
     }
 
     const messagesInfo = this.messages.map((message) => ({
@@ -105,9 +125,14 @@ Select which previous messages are relevant to understanding or answering the cu
 
       const selectedIds = (response as { message_ids: number[] }).message_ids || [];
 
-      return selectedIds
+      const selectedMessages = selectedIds
         .filter((idx) => idx >= 0 && idx < this.messages.length)
         .map((idx) => this.messages[idx]);
+
+      // Cache the result
+      this.relevantMessagesByQuery.set(cacheKey, selectedMessages);
+
+      return selectedMessages;
     } catch {
       // On failure, return empty (don't inject potentially irrelevant context)
       return [];
@@ -155,9 +180,10 @@ Select which previous messages are relevant to understanding or answering the cu
   }
 
   /**
-   * Clears all messages
+   * Clears all messages and cache
    */
   clear(): void {
     this.messages = [];
+    this.relevantMessagesByQuery.clear();
   }
 }

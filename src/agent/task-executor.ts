@@ -111,12 +111,12 @@ export class TaskExecutor {
           try {
             const result = await this.executeToolCall(toolName, args);
             
-            // Save to filesystem via ToolContextManager
-            await this.toolContextManager.saveContext(toolName, args, result, taskId, queryId);
+            // Save to filesystem via ToolContextManager (synchronous)
+            this.toolContextManager.saveContext(toolName, args, result, taskId, queryId);
             
             // Get the summary from the just-saved pointer
             const pointer = this.toolContextManager.pointers[this.toolContextManager.pointers.length - 1];
-            const summary = `Output of ${toolName} with args ${JSON.stringify(args)}: ${pointer.summary}`;
+            const summary = `Output of ${toolName} with args ${JSON.stringify(args)}: ${pointer.toolDescription}`;
             outputSummaries.push(summary);
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
