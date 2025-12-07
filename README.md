@@ -2,8 +2,9 @@
 
 Dexter is an autonomous financial research agent that thinks, plans, and learns as it works. It performs analysis using task planning, self-reflection, and real-time market data. Think Claude Code, but built specifically for financial research.
 
+This is the **TypeScript version** built with React, Ink, and Bun.
 
-<img width="979" height="651" alt="Screenshot 2025-10-14 at 6 12 35 PM" src="https://github.com/user-attachments/assets/5a2859d4-53cf-4638-998a-15cef3c98038" />
+<img width="979" height="651" alt="Screenshot 2025-10-14 at 6 12 35 PM" src="https://github.com/user-attachments/assets/5a2859d4-53cf-4638-998a-15cef3c98038" />
 
 ## Overview
 
@@ -18,33 +19,51 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt)
 
-<img width="996" height="639" alt="Screenshot 2025-11-22 at 1 45 07 PM" src="https://github.com/user-attachments/assets/8915fd70-82c9-4775-bdf9-78d5baf28a8a" />
+<img width="996" height="639" alt="Screenshot 2025-11-22 at 1 45 07 PM" src="https://github.com/user-attachments/assets/8915fd70-82c9-4775-bdf9-78d5baf28a8a" />
 
 
 ### Prerequisites
 
-- Python 3.10 or higher
-- [uv](https://github.com/astral-sh/uv) package manager
+- [Bun](https://bun.com) runtime (v1.0 or higher)
 - OpenAI API key (get [here](https://platform.openai.com/api-keys))
 - Financial Datasets API key (get [here](https://financialdatasets.ai))
+
+#### Installing Bun
+
+If you don't have Bun installed, you can install it using curl:
+
+**macOS/Linux:**
+```bash
+curl -fsSL https://bun.com/install | bash
+```
+
+**Windows:**
+```bash
+powershell -c "irm bun.sh/install.ps1|iex"
+```
+
+After installation, restart your terminal and verify Bun is installed:
+```bash
+bun --version
+```
 
 ### Installation
 
 1. Clone the repository:
 ```bash
 git clone https://github.com/virattt/dexter.git
-cd dexter
+cd dexter/ts-opus
 ```
 
-2. Install dependencies with uv:
+2. Install dependencies with Bun:
 ```bash
-uv sync
+bun install
 ```
 
 3. Set up your environment variables:
 ```bash
-# Copy the example environment file
-cp env.example .env
+# Copy the example environment file (from parent directory)
+cp ../env.example .env
 
 # Edit .env and add your API keys
 # OPENAI_API_KEY=your-openai-api-key
@@ -55,7 +74,12 @@ cp env.example .env
 
 Run Dexter in interactive mode:
 ```bash
-uv run dexter-agent
+bun run start
+```
+
+Or with watch mode for development:
+```bash
+bun run dev
 ```
 
 ### Example Queries
@@ -81,35 +105,65 @@ Dexter uses a multi-agent architecture with specialized components:
 - **Validation Agent**: Verifies task completion and data sufficiency
 - **Answer Agent**: Synthesizes findings into comprehensive responses
 
+## Tech Stack
+
+- **Runtime**: [Bun](https://bun.sh)
+- **UI Framework**: [React](https://react.dev) + [Ink](https://github.com/vadimdemedes/ink) (terminal UI)
+- **LLM Integration**: [LangChain.js](https://js.langchain.com) with multi-provider support (OpenAI, Anthropic, Google)
+- **Schema Validation**: [Zod](https://zod.dev)
+- **Language**: TypeScript
+
 ## Project Structure
 
 ```
-dexter/
+ts-opus/
 ├── src/
-│   ├── dexter/
-│   │   ├── agent.py      # Main agent orchestration logic
-│   │   ├── model.py      # LLM interface
-│   │   ├── tools.py      # Financial data tools
-│   │   ├── prompts.py    # System prompts for each component
-│   │   ├── schemas.py    # Pydantic models
-│   │   ├── utils/        # Utility functions
-│   │   └── cli.py        # CLI entry point
-├── pyproject.toml
-└── uv.lock
+│   ├── agent/
+│   │   ├── agent.ts       # Main agent orchestration logic
+│   │   ├── prompts.ts     # System prompts for each component
+│   │   └── schemas.ts     # Zod schemas
+│   ├── components/
+│   │   ├── AnswerBox.tsx  # Streaming answer display
+│   │   ├── Input.tsx      # User input component
+│   │   ├── Intro.tsx      # Welcome screen
+│   │   ├── ModelSelector.tsx  # Model picker UI
+│   │   ├── Spinner.tsx    # Loading indicators
+│   │   └── TaskList.tsx   # Task display
+│   ├── model/
+│   │   └── llm.ts         # LLM interface (multi-provider)
+│   ├── tools/
+│   │   ├── finance/       # Financial data tools (16 tools)
+│   │   └── search/        # Search tools
+│   ├── utils/
+│   │   ├── config.ts      # Settings persistence
+│   │   ├── context.ts     # Context management
+│   │   └── env.ts         # API key management
+│   ├── cli.tsx            # Main CLI component
+│   └── index.tsx          # Entry point
+├── package.json
+└── tsconfig.json
 ```
 
 ## Configuration
 
 Dexter supports configuration via the `Agent` class initialization:
 
-```python
-from dexter.agent import Agent
+```typescript
+import { Agent } from './agent/agent.js';
 
-agent = Agent(
-    max_steps=20,              # Global safety limit
-    max_steps_per_task=5       # Per-task iteration limit
-)
+const agent = new Agent({
+  maxSteps: 20,           // Global safety limit
+  maxStepsPerTask: 5,     // Per-task iteration limit
+  model: 'gpt-4.1',       // LLM model to use
+});
 ```
+
+### Changing Models
+
+Type `/model` in the CLI to switch between:
+- GPT 4.1 (OpenAI)
+- Claude Sonnet 4.5 (Anthropic)
+- Gemini 3 (Google)
 
 ## How to Contribute
 
