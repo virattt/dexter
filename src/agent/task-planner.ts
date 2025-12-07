@@ -29,9 +29,8 @@ export class TaskPlanner {
    * @param messageHistory - Optional message history for multi-turn context
    */
   async planTasks(query: string, callbacks?: TaskPlannerCallbacks, messageHistory?: MessageHistory): Promise<Task[]> {
-    const toolDescriptions = this.buildToolDescriptions();
     const prompt = await this.buildTaskPlanningPrompt(query, messageHistory);
-    const systemPrompt = getPlanningSystemPrompt(toolDescriptions);
+    const systemPrompt = getPlanningSystemPrompt();
 
     try {
       const response = await callLlm(prompt, {
@@ -75,7 +74,8 @@ export class TaskPlanner {
    */
   private async planTaskSubtasks(task: Task, callbacks?: TaskPlannerCallbacks): Promise<PlannedTask> {
     const prompt = this.buildSubtaskPlanningPrompt(task);
-    const systemPrompt = getSubtaskPlanningSystemPrompt();
+    const toolDescriptions = this.buildToolDescriptions();
+    const systemPrompt = getSubtaskPlanningSystemPrompt(toolDescriptions);
 
     try {
       const response = await callLlm(prompt, {
@@ -132,12 +132,8 @@ Remember:
   }
 
   private buildSubtaskPlanningPrompt(task: Task): string {
-    const toolDescriptions = this.buildToolDescriptions();
     return `Task to complete: "${task.description}"
 
-Available tools for reference:
-${toolDescriptions}
-
-Break down this task into specific, actionable subtasks. Each subtask should describe a clear data retrieval or analysis action.  Keep the subtask short and concise.`;
+Break down this task into specific, actionable subtasks. Keep each subtask short and concise.`;
   }
 }
