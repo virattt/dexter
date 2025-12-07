@@ -2,7 +2,8 @@ import { Task, PlannedTask, SubTaskResult } from './schemas.js';
 import { TaskPlanner } from './task-planner.js';
 import { TaskExecutor } from './task-executor.js';
 import { AnswerGenerator } from './answer-generator.js';
-import { ContextManager } from '../utils/context.js';
+import { ToolContextManager } from '../utils/context.js';
+import { MessageHistory } from '../utils/message-history.js';
 
 /**
  * Callbacks for observing agent execution
@@ -51,7 +52,7 @@ export interface AgentOptions {
  * 3. TaskExecutor: Executes subtasks using agentic loops (0, 1, or many tools per subtask)
  * 4. AnswerGenerator: Loads relevant contexts and generates final answer
  * 
- * Tool outputs are saved to filesystem via ContextManager during execution,
+ * Tool outputs are saved to filesystem via ToolContextManager during execution,
  * and only loaded at answer generation time for memory efficiency.
  */
 export class Agent {
@@ -59,7 +60,7 @@ export class Agent {
   private readonly model: string;
   
   // Shared context manager for tool outputs
-  private readonly contextManager: ContextManager;
+  private readonly toolContextManager: ToolContextManager;
   
   // Collaborators
   private readonly taskPlanner: TaskPlanner;
@@ -70,39 +71,42 @@ export class Agent {
     this.callbacks = options.callbacks ?? {};
     this.model = options.model;
     
-    // Create shared context manager
-    this.contextManager = new ContextManager('.dexter/context', this.model);
+    // Create shared tool context manager
+    this.toolContextManager = new ToolContextManager('.dexter/context', this.model);
     
-    // Create collaborators with shared context manager
+    // Create collaborators with shared tool context manager
     this.taskPlanner = new TaskPlanner(this.model);
-    this.taskExecutor = new TaskExecutor(this.contextManager, this.model);
-    this.answerGenerator = new AnswerGenerator(this.contextManager, this.model);
+    this.taskExecutor = new TaskExecutor(this.toolContextManager, this.model);
+    this.answerGenerator = new AnswerGenerator(this.toolContextManager, this.model);
   }
 
   /**
    * Main entry point - runs the agent on a user query.
    * 
    * Flow:
-   * 1. Plan high-level tasks
+   * 1. Plan high-level tasks (with message history for context)
    * 2. Plan subtasks for each task (parallel)
    * 3. Execute subtasks with agentic loops (parallel)
-   * 4. Generate answer from saved contexts
+   * 4. Generate answer from saved contexts (with message history for context)
+   * 
+   * @param query - The user's query
+   * @param messageHistory - Optional message history for multi-turn context
    */
-  async run(query: string): Promise<string> {
+  async run(query: string, messageHistory?: MessageHistory): Promise<string> {
     this.callbacks.onSpinnerStart?.('Working...');
 
     // Generate queryId to scope pointers to this query
-    const queryId = this.contextManager.hashQuery(query);
+    const queryId = this.toolContextManager.hashQuery(query);
 
     // Notify that query was received
     this.callbacks.onUserQuery?.(query);
 
-    // Phase 1: Plan high-level tasks
-    const tasks = await this.taskPlanner.planTasks(query, { onDebug: this.callbacks.onDebug });
+    // Phase 1: Plan high-level tasks (with message history for context)
+    const tasks = await this.taskPlanner.planTasks(query, { onDebug: this.callbacks.onDebug }, messageHistory);
 
     if (tasks.length === 0) {
       // No tasks planned - answer directly without tools
-      return await this.generateAnswer(query, queryId);
+      return await this.generateAnswer(query, queryId, messageHistory);
     }
 
     // Notify UI about planned tasks
@@ -132,15 +136,15 @@ export class Agent {
 
     this.callbacks.onSpinnerStop?.();
 
-    // Phase 4: Generate answer from saved contexts
-    return await this.generateAnswer(query, queryId);
+    // Phase 4: Generate answer from saved contexts (with message history for context)
+    return await this.generateAnswer(query, queryId, messageHistory);
   }
 
   /**
    * Generates the final answer by loading relevant contexts.
    */
-  private async generateAnswer(query: string, queryId: string): Promise<string> {
-    const stream = await this.answerGenerator.generateAnswer(query, queryId);
+  private async generateAnswer(query: string, queryId: string, messageHistory?: MessageHistory): Promise<string> {
+    const stream = await this.answerGenerator.generateAnswer(query, queryId, messageHistory);
     this.callbacks.onAnswerStream?.(stream);
     return '';
   }

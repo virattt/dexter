@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { createHash } from 'crypto';
 import { callLlm, DEFAULT_MODEL } from '../model/llm.js';
-import { DEFAULT_SYSTEM_PROMPT, CONTEXT_SELECTION_SYSTEM_PROMPT } from '../agent/prompts.js';
+import { TOOL_OUTPUT_SUMMARY_SYSTEM_PROMPT, CONTEXT_SELECTION_SYSTEM_PROMPT } from '../agent/prompts.js';
 import { SelectedContextsSchema } from '../agent/schemas.js';
 
 interface ContextPointer {
@@ -25,7 +25,7 @@ interface ContextData {
   result: unknown;
 }
 
-export class ContextManager {
+export class ToolContextManager {
   private contextDir: string;
   private model: string;
   public pointers: ContextPointer[] = [];
@@ -73,7 +73,7 @@ export class ContextManager {
 
     try {
       const response = await callLlm(prompt, {
-        systemPrompt: DEFAULT_SYSTEM_PROMPT,
+        systemPrompt: TOOL_OUTPUT_SUMMARY_SYSTEM_PROMPT,
         model: this.model,
       });
       return typeof response === 'string' ? response.trim() : String(response).trim();

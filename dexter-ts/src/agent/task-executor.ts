@@ -4,7 +4,7 @@ import { PlannedTask, SubTask, SubTaskResult } from './schemas.js';
 import { TOOLS } from '../tools/index.js';
 import { callLlm } from '../model/llm.js';
 import { getSubtaskExecutionSystemPrompt } from './prompts.js';
-import { ContextManager } from '../utils/context.js';
+import { ToolContextManager } from '../utils/context.js';
 
 /**
  * Callbacks for observing task execution progress
@@ -19,14 +19,14 @@ export interface TaskExecutorCallbacks {
 /**
  * Executes subtasks using an agentic loop.
  * Each subtask can use 0, 1, or many tools.
- * Tool outputs are saved to filesystem via ContextManager.
+ * Tool outputs are saved to filesystem via ToolContextManager.
  */
 export class TaskExecutor {
   private toolMap: Map<string, StructuredToolInterface>;
   private readonly maxIterationsPerSubTask: number;
 
   constructor(
-    private readonly contextManager: ContextManager,
+    private readonly toolContextManager: ToolContextManager,
     private readonly model?: string,
     maxIterationsPerSubTask: number = 5
   ) {
@@ -111,11 +111,11 @@ export class TaskExecutor {
           try {
             const result = await this.executeToolCall(toolName, args);
             
-            // Save to filesystem via ContextManager
-            await this.contextManager.saveContext(toolName, args, result, taskId, queryId);
+            // Save to filesystem via ToolContextManager
+            await this.toolContextManager.saveContext(toolName, args, result, taskId, queryId);
             
             // Get the summary from the just-saved pointer
-            const pointer = this.contextManager.pointers[this.contextManager.pointers.length - 1];
+            const pointer = this.toolContextManager.pointers[this.toolContextManager.pointers.length - 1];
             const summary = `Output of ${toolName} with args ${JSON.stringify(args)}: ${pointer.summary}`;
             outputSummaries.push(summary);
           } catch (error) {

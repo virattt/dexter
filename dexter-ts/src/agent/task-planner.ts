@@ -2,6 +2,7 @@ import { callLlm } from '../model/llm.js';
 import { TOOLS } from '../tools/index.js';
 import { Task, TaskListSchema, SubTask, SubTaskListSchema, PlannedTask } from './schemas.js';
 import { getPlanningSystemPrompt, getSubtaskPlanningSystemPrompt } from './prompts.js';
+import { MessageHistory } from '../utils/message-history.js';
 
 /**
  * Callbacks for task planning
@@ -22,10 +23,14 @@ export class TaskPlanner {
   /**
    * Plans high-level tasks based on the user query.
    * Returns simple tasks with id, description, and done status.
+   * 
+   * @param query - The user's query
+   * @param callbacks - Optional callbacks for debugging
+   * @param messageHistory - Optional message history for multi-turn context
    */
-  async planTasks(query: string, callbacks?: TaskPlannerCallbacks): Promise<Task[]> {
+  async planTasks(query: string, callbacks?: TaskPlannerCallbacks, messageHistory?: MessageHistory): Promise<Task[]> {
     const toolDescriptions = this.buildToolDescriptions();
-    const prompt = this.buildTaskPlanningPrompt(query);
+    const prompt = await this.buildTaskPlanningPrompt(query, messageHistory);
     const systemPrompt = getPlanningSystemPrompt(toolDescriptions);
 
     try {
@@ -98,14 +103,32 @@ export class TaskPlanner {
     return TOOLS.map((tool) => `- ${tool.name}: ${tool.description}`).join('\n');
   }
 
-  private buildTaskPlanningPrompt(query: string): string {
-    return `Given the user query: "${query}"
+  private async buildTaskPlanningPrompt(query: string, messageHistory?: MessageHistory): Promise<string> {
+    let conversationContext = '';
+    
+    // If message history exists, select relevant messages and include them
+    if (messageHistory && messageHistory.hasMessages()) {
+      const relevantMessages = await messageHistory.selectRelevantMessages(query);
+      if (relevantMessages.length > 0) {
+        const formattedHistory = messageHistory.formatForPlanning(relevantMessages);
+        conversationContext = `
+Previous conversation context (for reference when interpreting the current query):
+${formattedHistory}
+
+---
+
+`;
+      }
+    }
+    
+    return `${conversationContext}Given the user query: "${query}"
 
 Create a list of tasks to be completed. Each task should be a specific, actionable step.
 
 Remember:
 - Make tasks specific, focused, and concise in 50 characters or less
-- Include relevant details like ticker`;
+- Include relevant details like ticker
+- If the query references previous conversation (e.g., "And MSFT's?"), use the context to understand what is being asked`;
   }
 
   private buildSubtaskPlanningPrompt(task: Task): string {

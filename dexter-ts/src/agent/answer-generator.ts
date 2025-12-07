@@ -1,37 +1,46 @@
 import { callLlmStream } from '../model/llm.js';
 import { getAnswerSystemPrompt } from './prompts.js';
-import { ContextManager } from '../utils/context.js';
+import { ToolContextManager } from '../utils/context.js';
+import { MessageHistory } from '../utils/message-history.js';
 
 /**
  * Responsible for generating the final answer to the user's query.
- * Uses ContextManager to select and load relevant tool outputs at answer time.
+ * Uses ToolContextManager to select and load relevant tool outputs at answer time.
+ * Uses MessageHistory to include relevant conversation context.
  */
 export class AnswerGenerator {
   constructor(
-    private readonly contextManager: ContextManager,
+    private readonly toolContextManager: ToolContextManager,
     private readonly model: string | undefined
   ) {}
 
   /**
    * Generates a streaming answer by selecting relevant contexts and synthesizing data.
+   * 
+   * @param query - The user's query
+   * @param queryId - Optional query ID to scope tool contexts
+   * @param messageHistory - Optional message history for multi-turn context
    */
-  async generateAnswer(query: string, queryId?: string): Promise<AsyncGenerator<string>> {
+  async generateAnswer(query: string, queryId?: string, messageHistory?: MessageHistory): Promise<AsyncGenerator<string>> {
     const pointers = queryId
-      ? this.contextManager.getPointersForQuery(queryId)
-      : this.contextManager.getAllPointers();
+      ? this.toolContextManager.getPointersForQuery(queryId)
+      : this.toolContextManager.getAllPointers();
+
+    // Build conversation context from message history
+    const conversationContext = await this.buildConversationContext(query, messageHistory);
 
     if (pointers.length === 0) {
-      return this.generateNoDataAnswer(query);
+      return this.generateNoDataAnswer(query, conversationContext);
     }
 
     // Select relevant contexts using LLM
-    const selectedFilepaths = await this.contextManager.selectRelevantContexts(query, pointers);
+    const selectedFilepaths = await this.toolContextManager.selectRelevantContexts(query, pointers);
     
     // Load the full context data
-    const selectedContexts = this.contextManager.loadContexts(selectedFilepaths);
+    const selectedContexts = this.toolContextManager.loadContexts(selectedFilepaths);
 
     if (selectedContexts.length === 0) {
-      return this.generateNoDataAnswer(query);
+      return this.generateNoDataAnswer(query, conversationContext);
     }
 
     // Format contexts for the prompt
@@ -44,8 +53,7 @@ export class AnswerGenerator {
 
     const allResults = formattedResults.join('\n\n');
 
-    const prompt = `
-Original user query: "${query}"
+    const prompt = `${conversationContext}Original user query: "${query}"
 
 Data and results collected from tools:
 ${allResults}
@@ -60,11 +68,32 @@ Include specific numbers, calculations, and insights.`;
   }
 
   /**
+   * Builds conversation context from message history for inclusion in prompts.
+   */
+  private async buildConversationContext(query: string, messageHistory?: MessageHistory): Promise<string> {
+    if (!messageHistory || !messageHistory.hasMessages()) {
+      return '';
+    }
+
+    const relevantMessages = await messageHistory.selectRelevantMessages(query);
+    if (relevantMessages.length === 0) {
+      return '';
+    }
+
+    const formattedHistory = messageHistory.formatForAnswerGeneration(relevantMessages);
+    return `Previous conversation context (for reference):
+${formattedHistory}
+
+---
+
+`;
+  }
+
+  /**
    * Generates a streaming answer when no data was collected.
    */
-  private async generateNoDataAnswer(query: string): Promise<AsyncGenerator<string>> {
-    const prompt = `
-Original user query: "${query}"
+  private async generateNoDataAnswer(query: string, conversationContext: string = ''): Promise<AsyncGenerator<string>> {
+    const prompt = `${conversationContext}Original user query: "${query}"
 
 No data was collected from tools.`;
 

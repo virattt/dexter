@@ -13,6 +13,7 @@ import { ensureApiKeyForModel } from './utils/env.js';
 import { DEFAULT_MODEL } from './model/llm.js';
 import { colors } from './theme.js';
 import { useQueryQueue } from './hooks/useQueryQueue.js';
+import { MessageHistory } from './utils/message-history.js';
 import type { Task, PlannedTask } from './agent/schemas.js';
 
 type AppState = 'idle' | 'running' | 'model_select';
@@ -65,6 +66,12 @@ export function CLI() {
   // New declarative state model
   const [history, setHistory] = useState<CompletedTurn[]>([]);
   const [currentTurn, setCurrentTurn] = useState<CurrentTurn | null>(null);
+  
+  // Message history for multi-turn conversations (persists across agent instances)
+  const messageHistoryRef = useRef<MessageHistory>(new MessageHistory(model));
+  
+  // Track the current query being processed (for adding to message history with answer)
+  const currentQueryRef = useRef<string | null>(null);
   
   // Query queue for handling multiple queries
   const { queue: queryQueue, enqueue, shift: shiftQueue, clear: clearQueue } = useQueryQueue();
@@ -137,6 +144,16 @@ export function CLI() {
       return null;
     });
     setAnswerStream(null);
+    
+    // Add to message history for multi-turn context
+    const query = currentQueryRef.current;
+    if (query && answer) {
+      // Add message asynchronously (summary generation happens in background)
+      messageHistoryRef.current.addMessage(query, answer).catch(() => {
+        // Silently ignore errors in adding to history - not critical
+      });
+    }
+    currentQueryRef.current = null;
   }, []);
 
   /**
@@ -200,12 +217,16 @@ export function CLI() {
 
       setState('running');
       setDebugMessages([]);
+      
+      // Store current query for message history
+      currentQueryRef.current = query;
 
       const callbacks = createAgentCallbacks();
 
       try {
         const agent = new Agent({ model, callbacks });
-        await agent.run(query);
+        // Pass message history for multi-turn context
+        await agent.run(query, messageHistoryRef.current);
       } catch (e) {
         if ((e as Error).message?.includes('interrupted')) {
           setStatusMessage('Operation cancelled.');
@@ -214,6 +235,7 @@ export function CLI() {
         }
         // Clear current turn on error
         setCurrentTurn(null);
+        currentQueryRef.current = null;
       } finally {
         setState('idle');
         setSpinner(null);
@@ -271,6 +293,8 @@ export function CLI() {
         if (ready) {
           setModel(modelId);
           setSetting('model', modelId);
+          // Update message history manager's model for summary generation
+          messageHistoryRef.current.setModel(modelId);
           setStatusMessage(`Model changed to ${modelId}`);
         } else {
           setStatusMessage(`Cannot use model ${modelId} without API key.`);
