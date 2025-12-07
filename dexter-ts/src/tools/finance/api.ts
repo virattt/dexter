@@ -1,10 +1,11 @@
-const FINANCIAL_DATASETS_API_KEY = process.env.FINANCIAL_DATASETS_API_KEY;
 const BASE_URL = 'https://api.financialdatasets.ai';
 
 export async function callApi(
   endpoint: string,
   params: Record<string, string | number | string[] | undefined>
 ): Promise<Record<string, unknown>> {
+  // Read API key lazily at call time (after dotenv has loaded)
+  const FINANCIAL_DATASETS_API_KEY = process.env.FINANCIAL_DATASETS_API_KEY;
   const url = new URL(`${BASE_URL}${endpoint}`);
 
   // Add params to URL, handling arrays
