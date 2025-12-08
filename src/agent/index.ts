@@ -28,10 +28,10 @@ export {
 // Prompts
 export {
   DEFAULT_SYSTEM_PROMPT,
-  COMBINED_PLANNING_SYSTEM_PROMPT,
+  TASK_PLANNING_SYSTEM_PROMPT,
   ANSWER_SYSTEM_PROMPT,
   CONTEXT_SELECTION_SYSTEM_PROMPT,
   getCurrentDate,
   getAnswerSystemPrompt,
-  getCombinedPlanningSystemPrompt,
+  getPlanningSystemPrompt,
 } from './prompts.js';

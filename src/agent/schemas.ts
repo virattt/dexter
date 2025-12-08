@@ -28,7 +28,7 @@ export type SelectedContexts = z.infer<typeof SelectedContextsSchema>;
 
 export const OptimizedToolArgsSchema = z.object({
   arguments: z
-    .looseObject({})
+    .record(z.string(), z.unknown())
     .describe('The optimized arguments dictionary for the tool call.'),
 });
 
@@ -39,7 +39,7 @@ export const SubTaskSchema = z.object({
   id: z.number().describe('Unique identifier for the subtask'),
   description: z.string().describe('Human-readable description of the subtask'),
   toolName: z.string().describe('Name of the tool to call'),
-  toolArgs: z.looseObject({}).describe('Arguments to pass to the tool'),
+  toolArgs: z.record(z.string(), z.unknown()).describe('Arguments to pass to the tool'),
 });
 
 // Subtask with explicit tool call
