@@ -13,7 +13,7 @@ Principles:
 - Group related work together (by research category, not by ticker)
 - A human should understand each task as a meaningful phase of research
 - Subtasks will handle the specific data retrieval later
-- 1-4 tasks is typical; more complex queries may need more
+- 1-3 tasks is typical; more complex queries may need more
 
 If the query isn't about financial research, return an empty task list.
 
