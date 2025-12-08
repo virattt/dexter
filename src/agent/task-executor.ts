@@ -28,7 +28,7 @@ export class TaskExecutor {
   constructor(
     private readonly toolContextManager: ToolContextManager,
     private readonly model?: string,
-    maxIterationsPerSubTask: number = 5
+    maxIterationsPerSubTask: number = 3
   ) {
     this.toolMap = new Map(TOOLS.map(t => [t.name, t]));
     this.maxIterationsPerSubTask = maxIterationsPerSubTask;
