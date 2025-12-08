@@ -1,7 +1,7 @@
 import { callLlm } from '../model/llm.js';
 import { TOOLS } from '../tools/index.js';
-import { Task, TaskListSchema, SubTask, SubTaskListSchema, PlannedTask } from './schemas.js';
-import { getPlanningSystemPrompt, getSubtaskPlanningSystemPrompt } from './prompts.js';
+import { ExecutionPlanSchema, PlannedTask } from './schemas.js';
+import { getPlanningSystemPrompt } from './prompts.js';
 import { MessageHistory } from '../utils/message-history.js';
 
 /**
@@ -9,103 +9,97 @@ import { MessageHistory } from '../utils/message-history.js';
  */
 export interface TaskPlannerCallbacks {
   onDebug?: (message: string) => void;
-  onSubtasksPlanned?: (taskId: number, subTasks: SubTask[]) => void;
 }
 
 /**
- * Responsible for all planning operations:
- * 1. Planning high-level tasks from a user query
- * 2. Planning subtasks (tool calls) for each task
+ * Responsible for planning tasks with explicit tool calls in a single LLM call.
+ * Combines task planning and subtask planning into one step for efficiency.
  */
 export class TaskPlanner {
   constructor(private readonly model?: string) {}
 
   /**
-   * Plans high-level tasks based on the user query.
-   * Returns simple tasks with id, description, and done status.
+   * Plans tasks with subtasks and explicit tool calls in a single LLM call.
+   * Each subtask includes the exact tool name and arguments to use.
    * 
    * @param query - The user's query
    * @param callbacks - Optional callbacks for debugging
    * @param messageHistory - Optional message history for multi-turn context
    */
-  async planTasks(query: string, callbacks?: TaskPlannerCallbacks, messageHistory?: MessageHistory): Promise<Task[]> {
-    const prompt = await this.buildTaskPlanningPrompt(query, messageHistory);
-    const systemPrompt = getPlanningSystemPrompt();
+  async planTasks(
+    query: string,
+    callbacks?: TaskPlannerCallbacks,
+    messageHistory?: MessageHistory
+  ): Promise<PlannedTask[]> {
+    const toolSchemas = this.buildToolSchemas();
+    const systemPrompt = getPlanningSystemPrompt(toolSchemas);
+    const prompt = await this.getUserPrompt(query, messageHistory);
 
     try {
       const response = await callLlm(prompt, {
         systemPrompt,
-        outputSchema: TaskListSchema,
+        outputSchema: ExecutionPlanSchema,
         model: this.model,
       });
-      const tasks = (response as { tasks: Task[] }).tasks;
-      // callbacks?.onDebug?.(`Tasks planned: ${JSON.stringify(tasks, null, 2)}`);
-      
+
+      const tasks = (response as { tasks: PlannedTask[] }).tasks;
+
       if (!Array.isArray(tasks)) {
         return [];
       }
-      
-      // Ensure all tasks have proper initialization
-      return tasks.map(task => ({
-        ...task,
-        done: task.done ?? false,
+
+      // Validate and clean up the response
+      return tasks.map((task, taskIndex) => ({
+        id: task.id ?? taskIndex + 1,
+        description: task.description,
+        subTasks: (task.subTasks || []).map((subTask, subTaskIndex) => ({
+          id: subTask.id ?? subTaskIndex + 1,
+          description: subTask.description,
+          toolName: subTask.toolName,
+          toolArgs: subTask.toolArgs || {},
+        })),
       }));
     } catch (error: unknown) {
-      // callbacks?.onDebug?.(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      callbacks?.onDebug?.(`Planning error: ${error instanceof Error ? error.message : String(error)}`);
       return [];
     }
   }
 
   /**
-   * Plans subtasks for all tasks in parallel.
-   * Uses structured output to generate human-readable subtask descriptions.
+   * Builds tool schemas with parameter information for the LLM.
+   * Includes tool name, description, and JSON schema of parameters.
    */
-  async planSubtasks(tasks: Task[], callbacks?: TaskPlannerCallbacks): Promise<PlannedTask[]> {
-    const plannedTasks = await Promise.all(
-      tasks.map(task => this.planTaskSubtasks(task, callbacks))
-    );
-    // callbacks?.onDebug?.(`Subtasks planned: ${JSON.stringify(plannedTasks, null, 2)}`);
-    return plannedTasks;
-  }
-
-  /**
-   * Plans subtasks for a single task.
-   * Uses structured output to get human-readable subtask descriptions.
-   */
-  private async planTaskSubtasks(task: Task, callbacks?: TaskPlannerCallbacks): Promise<PlannedTask> {
-    const prompt = this.buildSubtaskPlanningPrompt(task);
-    const toolDescriptions = this.buildToolDescriptions();
-    const systemPrompt = getSubtaskPlanningSystemPrompt(toolDescriptions);
-
-    try {
-      const response = await callLlm(prompt, {
-        systemPrompt,
-        outputSchema: SubTaskListSchema,
-        model: this.model,
+  private buildToolSchemas(): string {
+    return TOOLS.map((tool) => {
+      // The schema property is already a JSON schema from LangChain
+      const jsonSchema = tool.schema as Record<string, unknown>;
+      
+      // Extract just the properties for cleaner output
+      const properties = (jsonSchema.properties as Record<string, unknown>) || {};
+      const required = (jsonSchema.required as string[]) || [];
+      
+      // Format parameters in a readable way
+      const paramLines = Object.entries(properties).map(([name, prop]) => {
+        const propObj = prop as { type?: string; description?: string; enum?: string[]; default?: unknown };
+        const isRequired = required.includes(name);
+        const reqLabel = isRequired ? ' (required)' : '';
+        const enumValues = propObj.enum ? ` [${propObj.enum.join(', ')}]` : '';
+        const defaultVal = propObj.default !== undefined ? ` default=${propObj.default}` : '';
+        return `    - ${name}: ${propObj.type || 'any'}${enumValues}${reqLabel}${defaultVal} - ${propObj.description || ''}`;
       });
 
-      const subTasks = (response as { subTasks: SubTask[] }).subTasks || [];
-      
-      // callbacks?.onDebug?.(`Task ${task.id} has ${subTasks.length} subtasks`);
-      callbacks?.onSubtasksPlanned?.(task.id, subTasks);
-
-      return { task, subTasks };
-    } catch (error: unknown) {
-      // callbacks?.onDebug?.(`Error: ${error instanceof Error ? error.message : String(error)}`);
-      return { task, subTasks: [] };
-    }
+      return `${tool.name}: ${tool.description}
+  Parameters:
+${paramLines.join('\n')}`;
+    }).join('\n\n');
   }
 
   /**
-   * Builds simple tool descriptions for the LLM (name and description only).
+   * Builds the prompt for combined task and subtask planning.
    */
-  private buildToolDescriptions(): string {
-    return TOOLS.map((tool) => `- ${tool.name}: ${tool.description}`).join('\n');
-  }
-
-  private async buildTaskPlanningPrompt(query: string, messageHistory?: MessageHistory): Promise<string> {
+  private async getUserPrompt(query: string, messageHistory?: MessageHistory): Promise<string> {
     let conversationContext = '';
-    
+
     // If message history exists, select relevant messages and include them
     if (messageHistory && messageHistory.hasMessages()) {
       const relevantMessages = await messageHistory.selectRelevantMessages(query);
@@ -120,20 +114,14 @@ ${formattedHistory}
 `;
       }
     }
-    
-    return `${conversationContext}Given the user query: "${query}"
 
-Create a list of tasks to be completed. Each task should be a specific, actionable step.
+    return `${conversationContext}User query: "${query}"
+
+Create an execution plan with tasks and subtasks. Each subtask must specify the exact tool and arguments to call.
 
 Remember:
-- Make tasks specific, focused, and concise in 50 characters or less
-- Include relevant details like ticker
-- If the query references previous conversation (e.g., "And MSFT's?"), use the context to understand what is being asked`;
-  }
-
-  private buildSubtaskPlanningPrompt(task: Task): string {
-    return `Task to complete: "${task.description}"
-
-Break down this task into specific, actionable subtasks. Keep each subtask short and concise.`;
+- Each subtask = one tool call with specific arguments
+- Include ticker symbols, periods, and limits as needed
+- If comparing multiple companies, create separate subtasks for each`;
   }
 }

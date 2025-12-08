@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { colors } from '../theme.js';
-import type { Task } from '../agent/schemas.js';
+import type { Task } from '../agent/agent.js';
 
 /**
  * Truncates description for display if too long

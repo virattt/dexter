@@ -7,14 +7,14 @@ import { TaskProgress, TaskState, DisplayStatus, taskToState, plannedTaskToState
 import { AnswerBox, UserQuery } from './components/AnswerBox.js';
 import { ModelSelector } from './components/ModelSelector.js';
 import { QueueDisplay } from './components/QueueDisplay.js';
-import { Agent, AgentCallbacks } from './agent/agent.js';
+import { Agent, AgentCallbacks, Task } from './agent/agent.js';
 import { getSetting, setSetting } from './utils/config.js';
 import { ensureApiKeyForModel } from './utils/env.js';
 import { DEFAULT_MODEL } from './model/llm.js';
 import { colors } from './theme.js';
 import { useQueryQueue } from './hooks/useQueryQueue.js';
 import { MessageHistory } from './utils/message-history.js';
-import type { Task, PlannedTask } from './agent/schemas.js';
+import type { PlannedTask } from './agent/schemas.js';
 
 type AppState = 'idle' | 'running' | 'model_select';
 

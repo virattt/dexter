@@ -45,7 +45,7 @@ export class AnswerGenerator {
 
     // Format contexts for the prompt
     const formattedResults = selectedContexts.map(ctx => {
-      const toolName = ctx.tool_name || 'unknown';
+      const toolName = ctx.toolName || 'unknown';
       const args = ctx.args || {};
       const result = ctx.result;
       return `Output of ${toolName} with args ${JSON.stringify(args)}:\n${JSON.stringify(result, null, 2)}`;

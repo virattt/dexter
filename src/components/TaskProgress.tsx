@@ -2,7 +2,8 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import InkSpinner from 'ink-spinner';
 import { colors } from '../theme.js';
-import type { Task, PlannedTask } from '../agent/schemas.js';
+import type { Task } from '../agent/agent.js';
+import type { PlannedTask } from '../agent/schemas.js';
 
 /**
  * Status type for UI display
@@ -133,8 +134,8 @@ export function taskToState(task: Task): TaskState {
  */
 export function plannedTaskToState(plannedTask: PlannedTask): TaskState {
   return {
-    id: plannedTask.task.id,
-    description: plannedTask.task.description,
+    id: plannedTask.id,
+    description: plannedTask.description,
     status: 'pending',
     subTasks: plannedTask.subTasks.map(st => ({
       id: st.id,

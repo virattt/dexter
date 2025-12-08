@@ -1,21 +1,5 @@
 import { z } from 'zod';
 
-// Simple task schema matching Python version
-// Subtasks (tool calls) are determined in a separate planning phase
-export const TaskSchema = z.object({
-  id: z.number().describe('Unique identifier for the task.'),
-  description: z.string().describe('The description of the task.'),
-  done: z.boolean().default(false).describe('Whether the task is completed.'),
-});
-
-export type Task = z.infer<typeof TaskSchema>;
-
-export const TaskListSchema = z.object({
-  tasks: z.array(TaskSchema).describe('The list of tasks.'),
-});
-
-export type TaskList = z.infer<typeof TaskListSchema>;
-
 export const IsDoneSchema = z.object({
   done: z.boolean().describe('Whether the task is done or not.'),
 });
@@ -50,25 +34,39 @@ export const OptimizedToolArgsSchema = z.object({
 
 export type OptimizedToolArgs = z.infer<typeof OptimizedToolArgsSchema>;
 
-// Subtask schema for structured output generation
+// Subtask schema with explicit tool call - used in combined planning
 export const SubTaskSchema = z.object({
   id: z.number().describe('Unique identifier for the subtask'),
   description: z.string().describe('Human-readable description of the subtask'),
+  toolName: z.string().describe('Name of the tool to call'),
+  toolArgs: z.record(z.string(), z.any()).describe('Arguments to pass to the tool'),
 });
 
-export const SubTaskListSchema = z.object({
-  subTasks: z.array(SubTaskSchema).describe('List of subtasks to complete the task'),
-});
-
-// Subtask - human-readable unit of work (can use 0, 1, or many tools)
+// Subtask with explicit tool call
 export interface SubTask {
   id: number;
   description: string;
+  toolName: string;
+  toolArgs: Record<string, unknown>;
 }
 
-// Task with its planned subtasks
+// Combined planning output - task with its subtasks and tool calls
+export const PlannedTaskSchema = z.object({
+  id: z.number().describe('Unique identifier for the task'),
+  description: z.string().describe('High-level description of the research task'),
+  subTasks: z.array(SubTaskSchema).describe('Subtasks with tool calls to execute'),
+});
+
+export const ExecutionPlanSchema = z.object({
+  tasks: z.array(PlannedTaskSchema).describe('Tasks with their subtasks and tool calls'),
+});
+
+export type ExecutionPlan = z.infer<typeof ExecutionPlanSchema>;
+
+// Task with its planned subtasks (used at runtime)
 export interface PlannedTask {
-  task: Task;
+  id: number;
+  description: string;
   subTasks: SubTask[];
 }
 

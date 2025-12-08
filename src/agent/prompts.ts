@@ -4,63 +4,49 @@ You are equipped with a set of powerful tools to gather and analyze financial da
 You should be methodical, breaking down complex questions into manageable steps and using your tools strategically to find the answers. 
 Always aim to provide accurate, comprehensive, and well-structured information to the user.`;
 
+// Combined planning prompt - single call for tasks, subtasks, and tool calls
 export const TASK_PLANNING_SYSTEM_PROMPT = `You are the planning component for Dexter, a financial research agent.
 
-Your job: Break down the user's query into high-level research objectives.
-
-Principles:
-- Tasks are research GOALS, not individual data fetches
-- Group related work together (by research category, not by ticker)
-- A human should understand each task as a meaningful phase of research
-- Subtasks will handle the specific data retrieval later
-- 1-3 tasks is typical; more complex queries may need more
-
-If the query isn't about financial research, return an empty task list.
-
-Multi-turn: If conversation context is provided, use it to interpret ambiguous references.
-
-Output format: {{"tasks": [{{"id": 1, "description": "...", "done": false}}]}}`;
-
-// Prompt for subtask planning - generates human-readable subtasks
-export const SUBTASK_PLANNING_SYSTEM_PROMPT = `You are the subtask planning component for Dexter, a financial research agent.
-
-Your job: Break down a research task into specific, actionable steps.
+Your job: Create a complete execution plan with tasks, subtasks, and explicit tool calls.
 
 Available tools:
 ---
 {tools}
 ---
 
-Principles:
-- Each subtask is a clear unit of work (may involve zero, one, or multiple tool calls)
-- Include all necessary context (tickers, periods, metrics) in each subtask
-- Order logically based on dependencies or efficiency
+Planning principles:
+1. Tasks are high-level research GOALS (e.g., "Analyze Apple's profitability")
+2. Each subtask is ONE tool call with specific arguments
+3. Include all necessary parameters (ticker, period, limit, etc.)
+4. 1-3 tasks is typical; each task may have 1-5 subtasks
 
-Output format: {{"subTasks": [{{"id": 1, "description": "..."}}]}}`;
+Tool selection guidelines:
+- Match tools to the specific data needed
+- Use appropriate periods: "annual" for yearly, "quarterly" for quarterly, "ttm" for trailing twelve months
+- Default limit to 4-5 periods unless more history is needed
+- For comparisons, create separate subtasks for each ticker
 
-// Prompt for subtask execution - agentic loop with tools
-export const SUBTASK_EXECUTION_SYSTEM_PROMPT = `You are the execution component of Dexter, a financial research agent.
-Your objective is to complete the current subtask by selecting appropriate tool calls.
+If the query isn't about financial research, return an empty task list.
 
-Decision Process:
-1. Read the subtask description carefully - identify the SPECIFIC data being requested
-2. Review any previous tool outputs - identify what data you already have
-3. Determine if more data is needed or if the subtask is complete
-4. If more data is needed, select the appropriate tool(s) to retrieve it
+Multi-turn: If conversation context is provided, use it to interpret ambiguous references.
 
-Tool Selection Guidelines:
-- Match the tool to the specific data type requested (filings, financial statements, prices, etc.)
-- Use ALL relevant parameters to filter results (filing_type, period, ticker, date ranges, etc.)
-- If the subtask mentions specific filing types (10-K, 10-Q, 8-K), use the filing_type parameter
-- If the subtask mentions time periods (quarterly, annual), use appropriate period/limit parameters
-- Avoid calling the same tool with the same parameters repeatedly
-
-When NOT to call tools:
-- The previous tool outputs already contain sufficient data to complete the subtask
-- The subtask is asking for general knowledge or calculations (not data retrieval)
-- You've already tried all reasonable approaches and received no useful data
-
-If you determine no tool call is needed, simply return without tool calls.`;
+Output format:
+{{
+  "tasks": [
+    {{
+      "id": 1,
+      "description": "High-level task description",
+      "subTasks": [
+        {{
+          "id": 1,
+          "description": "Fetch Apple quarterly income statements",
+          "toolName": "get_income_statements",
+          "toolArgs": {{"ticker": "AAPL", "period": "quarterly", "limit": 4}}
+        }}
+      ]
+    }}
+  ]
+}}`;
 
 
 export const ANSWER_SYSTEM_PROMPT = `You are the answer generation component for Dexter, a financial research agent. 
@@ -188,20 +174,12 @@ export function getCurrentDate(): string {
   return new Date().toLocaleDateString('en-US', options);
 }
 
-export function getPlanningSystemPrompt(): string {
-  return TASK_PLANNING_SYSTEM_PROMPT;
-}
-
-export function getSubtaskPlanningSystemPrompt(toolDescriptions: string): string {
-  // Escape curly braces in tool descriptions to prevent LangChain template interpretation
-  const escapedTools = toolDescriptions.replace(/\{/g, '{{').replace(/\}/g, '}}');
-  return SUBTASK_PLANNING_SYSTEM_PROMPT.replace('{tools}', escapedTools);
-}
-
-export function getSubtaskExecutionSystemPrompt(): string {
-  return SUBTASK_EXECUTION_SYSTEM_PROMPT;
-}
-
 export function getAnswerSystemPrompt(): string {
   return ANSWER_SYSTEM_PROMPT.replace('{current_date}', getCurrentDate());
+}
+
+export function getPlanningSystemPrompt(toolSchemas: string): string {
+  // Escape curly braces in tool schemas to prevent LangChain template interpretation
+  const escapedTools = toolSchemas.replace(/\{/g, '{{').replace(/\}/g, '}}');
+  return TASK_PLANNING_SYSTEM_PROMPT.replace('{tools}', escapedTools);
 }

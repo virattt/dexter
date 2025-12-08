@@ -1,9 +1,18 @@
-import { Task, PlannedTask, SubTaskResult } from './schemas.js';
+import { PlannedTask } from './schemas.js';
 import { TaskPlanner } from './task-planner.js';
 import { TaskExecutor } from './task-executor.js';
 import { AnswerGenerator } from './answer-generator.js';
 import { ToolContextManager } from '../utils/context.js';
 import { MessageHistory } from '../utils/message-history.js';
+
+/**
+ * Task type for UI callbacks (simplified view)
+ */
+export interface Task {
+  id: number;
+  description: string;
+  done: boolean;
+}
 
 /**
  * Callbacks for observing agent execution
@@ -44,13 +53,12 @@ export interface AgentOptions {
 }
 
 /**
- * Dexter Agent - Orchestrates financial research with hybrid task architecture.
+ * Dexter Agent - Orchestrates financial research with optimized task architecture.
  * 
- * Architecture:
- * 1. TaskPlanner.planTasks: Creates high-level tasks from user query
- * 2. TaskPlanner.planSubtasks: For each task, generates human-readable subtasks
- * 3. TaskExecutor: Executes subtasks using agentic loops (0, 1, or many tools per subtask)
- * 4. AnswerGenerator: Loads relevant contexts and generates final answer
+ * Architecture (optimized for minimal LLM calls):
+ * 1. TaskPlanner.planTasksWithToolCalls: Single LLM call creates tasks, subtasks, AND explicit tool calls
+ * 2. TaskExecutor: Executes tool calls directly (no LLM calls)
+ * 3. AnswerGenerator: Loads relevant contexts and generates final answer
  * 
  * Tool outputs are saved to filesystem via ToolContextManager during execution,
  * and only loaded at answer generation time for memory efficiency.
@@ -76,7 +84,7 @@ export class Agent {
     
     // Create collaborators with shared tool context manager
     this.taskPlanner = new TaskPlanner(this.model);
-    this.taskExecutor = new TaskExecutor(this.toolContextManager, this.model);
+    this.taskExecutor = new TaskExecutor(this.toolContextManager);
     this.answerGenerator = new AnswerGenerator(this.toolContextManager, this.model);
   }
 
@@ -84,16 +92,15 @@ export class Agent {
    * Main entry point - runs the agent on a user query.
    * 
    * Flow:
-   * 1. Plan high-level tasks (with message history for context)
-   * 2. Plan subtasks for each task (parallel)
-   * 3. Execute subtasks with agentic loops (parallel)
-   * 4. Generate answer from saved contexts (with message history for context)
+   * 1. Plan tasks with subtasks and tool calls (single LLM call)
+   * 2. Execute tool calls directly (no LLM calls)
+   * 3. Generate answer from saved contexts
    * 
    * @param query - The user's query
    * @param messageHistory - Optional message history for multi-turn context
    */
   async run(query: string, messageHistory?: MessageHistory): Promise<string> {
-    this.callbacks.onSpinnerStart?.('Working...');
+    this.callbacks.onSpinnerStart?.('Planning...');
 
     // Generate queryId to scope pointers to this query
     const queryId = this.toolContextManager.hashQuery(query);
@@ -101,24 +108,28 @@ export class Agent {
     // Notify that query was received
     this.callbacks.onUserQuery?.(query);
 
-    // Phase 1: Plan high-level tasks (with message history for context)
-    const tasks = await this.taskPlanner.planTasks(query, { onDebug: this.callbacks.onDebug }, messageHistory);
+    // Single planning call - creates tasks, subtasks, and tool calls
+    const plannedTasks = await this.taskPlanner.planTasks(
+      query,
+      { onDebug: this.callbacks.onDebug },
+      messageHistory
+    );
 
-    if (tasks.length === 0) {
+    if (plannedTasks.length === 0) {
       // No tasks planned - answer directly without tools
       return await this.generateAnswer(query, queryId, messageHistory);
     }
 
-    // Notify UI about planned tasks
+    // Extract tasks for UI callback
+    const tasks: Task[] = plannedTasks.map(pt => ({
+      id: pt.id,
+      description: pt.description,
+      done: false,
+    }));
     this.callbacks.onTasksPlanned?.(tasks);
-
-    // Phase 2: Plan subtasks for each task (parallel)
-    const plannedTasks = await this.taskPlanner.planSubtasks(tasks, { onDebug: this.callbacks.onDebug });
-
-    // Notify UI about planned subtasks
     this.callbacks.onSubtasksPlanned?.(plannedTasks);
 
-    // Phase 3: Execute all subtasks with agentic loops (parallel)
+    // Execute all tool calls directly (no LLM calls)
     await this.taskExecutor.executeTasks(plannedTasks, queryId, {
       onSubTaskStart: (taskId, subTaskId) => {
         this.callbacks.onSubTaskStart?.(taskId, subTaskId);
@@ -136,7 +147,7 @@ export class Agent {
 
     this.callbacks.onSpinnerStop?.();
 
-    // Phase 4: Generate answer from saved contexts (with message history for context)
+    // Generate answer from saved contexts
     return await this.generateAnswer(query, queryId, messageHistory);
   }
 

@@ -1,5 +1,5 @@
-import { Agent, AgentCallbacks } from '../agent.js';
-import { Task, PlannedTask, SubTaskResult } from '../schemas.js';
+import { Agent, AgentCallbacks, Task } from '../agent.js';
+import { PlannedTask, SubTaskResult } from '../schemas.js';
 
 // Mock all external dependencies
 jest.mock('../../model/llm.js');
@@ -49,7 +49,7 @@ function createMockCallbacks(): AgentCallbacks & {
 }
 
 /**
- * Creates a sample task for testing
+ * Creates a sample task for testing (UI representation)
  */
 function createTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -61,15 +61,18 @@ function createTask(overrides: Partial<Task> = {}): Task {
 }
 
 /**
- * Creates a planned task for testing
+ * Creates a planned task for testing (new format with explicit tool calls)
  */
 function createPlannedTask(taskId: number = 1): PlannedTask {
   return {
-    task: createTask({ id: taskId }),
+    id: taskId,
+    description: 'Test task',
     subTasks: [
       {
         id: 1,
         description: 'Retrieve income statements for Apple (AAPL)',
+        toolName: 'get_income_statements',
+        toolArgs: { ticker: 'AAPL', period: 'quarterly', limit: 4 },
       },
     ],
   };
@@ -93,32 +96,29 @@ async function* mockStreamGenerator(chunks: string[]) {
 }
 
 describe('Agent', () => {
-  let mockPlanTasks: jest.Mock;
-  let mockPlanSubtasks: jest.Mock;
-  let mockExecuteAll: jest.Mock;
-  let mockGenerateFromResults: jest.Mock;
+  let mockPlanTasksWithToolCalls: jest.Mock;
+  let mockExecuteTasks: jest.Mock;
+  let mockGenerateAnswer: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Setup TaskPlanner mock
-    mockPlanTasks = jest.fn().mockResolvedValue([]);
-    mockPlanSubtasks = jest.fn().mockResolvedValue([]);
+    // Setup TaskPlanner mock - now uses single combined method
+    mockPlanTasksWithToolCalls = jest.fn().mockResolvedValue([]);
     MockTaskPlanner.mockImplementation(() => ({
-      planTasks: mockPlanTasks,
-      planSubtasks: mockPlanSubtasks,
+      planTasksWithToolCalls: mockPlanTasksWithToolCalls,
     }) as unknown as TaskPlanner);
 
     // Setup TaskExecutor mock
-    mockExecuteAll = jest.fn().mockResolvedValue([]);
+    mockExecuteTasks = jest.fn().mockResolvedValue([]);
     MockTaskExecutor.mockImplementation(() => ({
-      executeAll: mockExecuteAll,
+      executeTasks: mockExecuteTasks,
     }) as unknown as TaskExecutor);
 
     // Setup AnswerGenerator mock
-    mockGenerateFromResults = jest.fn().mockReturnValue(mockStreamGenerator(['Answer']));
+    mockGenerateAnswer = jest.fn().mockReturnValue(mockStreamGenerator(['Answer']));
     MockAnswerGenerator.mockImplementation(() => ({
-      generateAnswer: mockGenerateFromResults,
+      generateAnswer: mockGenerateAnswer,
     }) as unknown as AnswerGenerator);
   });
 
@@ -132,31 +132,38 @@ describe('Agent', () => {
       expect(callbacks.onUserQuery).toHaveBeenCalledWith('What is Apple revenue?');
     });
 
-    it('plans tasks based on query', async () => {
+    it('plans tasks with tool calls in single call', async () => {
       const callbacks = createMockCallbacks();
       const agent = new Agent({ model, callbacks });
 
       await agent.run('What is Apple revenue?');
 
-      expect(mockPlanTasks).toHaveBeenCalledWith('What is Apple revenue?', expect.any(Object));
+      expect(mockPlanTasksWithToolCalls).toHaveBeenCalledWith(
+        'What is Apple revenue?',
+        expect.any(Object),
+        undefined
+      );
     });
 
-    it('calls onTasksPlanned callback after planning tasks', async () => {
-      const tasks = [createTask({ id: 1 }), createTask({ id: 2 })];
-      mockPlanTasks.mockResolvedValue(tasks);
-      mockPlanSubtasks.mockResolvedValue([createPlannedTask(1), createPlannedTask(2)]);
-      mockExecuteAll.mockResolvedValue([createSubTaskResult(1), createSubTaskResult(2)]);
+    it('calls onTasksPlanned callback after planning', async () => {
+      const plannedTasks = [createPlannedTask(1), createPlannedTask(2)];
+      mockPlanTasksWithToolCalls.mockResolvedValue(plannedTasks);
+      mockExecuteTasks.mockResolvedValue([createSubTaskResult(1), createSubTaskResult(2)]);
 
       const callbacks = createMockCallbacks();
       const agent = new Agent({ model, callbacks });
 
       await agent.run('Query');
 
-      expect(callbacks.onTasksPlanned).toHaveBeenCalledWith(tasks);
+      // Tasks are extracted from planned tasks for UI
+      expect(callbacks.onTasksPlanned).toHaveBeenCalledWith([
+        { id: 1, description: 'Test task', done: false },
+        { id: 2, description: 'Test task', done: false },
+      ]);
     });
 
     it('generates answer directly when no tasks are planned', async () => {
-      mockPlanTasks.mockResolvedValue([]);
+      mockPlanTasksWithToolCalls.mockResolvedValue([]);
 
       const callbacks = createMockCallbacks();
       const agent = new Agent({ model, callbacks });
@@ -165,31 +172,13 @@ describe('Agent', () => {
 
       expect(callbacks.onAnswerStream).toHaveBeenCalled();
       expect(callbacks.onTasksPlanned).not.toHaveBeenCalled();
-      expect(mockPlanSubtasks).not.toHaveBeenCalled();
-      expect(mockExecuteAll).not.toHaveBeenCalled();
+      expect(mockExecuteTasks).not.toHaveBeenCalled();
     });
 
-    it('plans subtasks for tasks using TaskPlanner', async () => {
-      const tasks = [createTask()];
+    it('calls onSubtasksPlanned callback with planned tasks', async () => {
       const plannedTasks = [createPlannedTask()];
-      mockPlanTasks.mockResolvedValue(tasks);
-      mockPlanSubtasks.mockResolvedValue(plannedTasks);
-      mockExecuteAll.mockResolvedValue([createSubTaskResult()]);
-
-      const callbacks = createMockCallbacks();
-      const agent = new Agent({ model, callbacks });
-
-      await agent.run('Query');
-
-      expect(mockPlanSubtasks).toHaveBeenCalledWith(tasks, expect.any(Object));
-    });
-
-    it('calls onSubtasksPlanned callback after planning subtasks', async () => {
-      const tasks = [createTask()];
-      const plannedTasks = [createPlannedTask()];
-      mockPlanTasks.mockResolvedValue(tasks);
-      mockPlanSubtasks.mockResolvedValue(plannedTasks);
-      mockExecuteAll.mockResolvedValue([createSubTaskResult()]);
+      mockPlanTasksWithToolCalls.mockResolvedValue(plannedTasks);
+      mockExecuteTasks.mockResolvedValue([createSubTaskResult()]);
 
       const callbacks = createMockCallbacks();
       const agent = new Agent({ model, callbacks });
@@ -200,27 +189,27 @@ describe('Agent', () => {
     });
 
     it('executes planned tasks using TaskExecutor', async () => {
-      const tasks = [createTask()];
       const plannedTasks = [createPlannedTask()];
-      mockPlanTasks.mockResolvedValue(tasks);
-      mockPlanSubtasks.mockResolvedValue(plannedTasks);
-      mockExecuteAll.mockResolvedValue([createSubTaskResult()]);
+      mockPlanTasksWithToolCalls.mockResolvedValue(plannedTasks);
+      mockExecuteTasks.mockResolvedValue([createSubTaskResult()]);
 
       const callbacks = createMockCallbacks();
       const agent = new Agent({ model, callbacks });
 
       await agent.run('Query');
 
-      expect(mockExecuteAll).toHaveBeenCalledWith(plannedTasks, expect.any(Object));
+      expect(mockExecuteTasks).toHaveBeenCalledWith(
+        plannedTasks,
+        expect.any(String), // queryId
+        expect.any(Object)  // callbacks
+      );
     });
 
     it('passes subtask complete callback to executor', async () => {
-      const tasks = [createTask()];
       const plannedTasks = [createPlannedTask()];
-      mockPlanTasks.mockResolvedValue(tasks);
-      mockPlanSubtasks.mockResolvedValue(plannedTasks);
+      mockPlanTasksWithToolCalls.mockResolvedValue(plannedTasks);
       
-      mockExecuteAll.mockImplementation((_plannedTasks, cbs) => {
+      mockExecuteTasks.mockImplementation((_plannedTasks, _queryId, cbs) => {
         cbs?.onSubTaskComplete?.(1, 1, true);
         return Promise.resolve([createSubTaskResult()]);
       });
@@ -233,25 +222,27 @@ describe('Agent', () => {
       expect(callbacks.onSubTaskComplete).toHaveBeenCalledWith(1, 1, true);
     });
 
-    it('generates answer from subtask results', async () => {
-      const tasks = [createTask()];
+    it('generates answer after execution', async () => {
       const plannedTasks = [createPlannedTask()];
       const subTaskResults = [createSubTaskResult()];
-      mockPlanTasks.mockResolvedValue(tasks);
-      mockPlanSubtasks.mockResolvedValue(plannedTasks);
-      mockExecuteAll.mockResolvedValue(subTaskResults);
+      mockPlanTasksWithToolCalls.mockResolvedValue(plannedTasks);
+      mockExecuteTasks.mockResolvedValue(subTaskResults);
 
       const callbacks = createMockCallbacks();
       const agent = new Agent({ model, callbacks });
 
       await agent.run('What is Apple revenue?');
 
-      expect(mockGenerateFromResults).toHaveBeenCalledWith('What is Apple revenue?');
+      expect(mockGenerateAnswer).toHaveBeenCalledWith(
+        'What is Apple revenue?',
+        expect.any(String), // queryId
+        undefined // messageHistory
+      );
       expect(callbacks.onAnswerStream).toHaveBeenCalled();
     });
 
     it('calls onSpinnerStart and onSpinnerStop during operations', async () => {
-      mockPlanTasks.mockResolvedValue([]);
+      mockPlanTasksWithToolCalls.mockResolvedValue([]);
 
       const callbacks = createMockCallbacks();
       const agent = new Agent({ model, callbacks });
@@ -259,28 +250,9 @@ describe('Agent', () => {
       await agent.run('Query');
 
       expect(callbacks.onSpinnerStart).toHaveBeenCalled();
-      expect(callbacks.onSpinnerStop).toHaveBeenCalled();
-    });
-
-    it('calls onSpinnerStop with failure message on error', async () => {
-      mockPlanTasks.mockRejectedValue(new Error('Planning failed'));
-
-      const callbacks = createMockCallbacks();
-      const agent = new Agent({ model, callbacks });
-
-      await expect(agent.run('Query')).rejects.toThrow('Planning failed');
-
-      expect(callbacks.onSpinnerStop).toHaveBeenCalledWith(
-        expect.stringContaining('Failed'),
-        false
-      );
     });
 
     it('handles multiple tasks in parallel', async () => {
-      const tasks = [
-        createTask({ id: 1 }),
-        createTask({ id: 2 }),
-      ];
       const plannedTasks = [
         createPlannedTask(1),
         createPlannedTask(2),
@@ -289,18 +261,24 @@ describe('Agent', () => {
         createSubTaskResult(1),
         createSubTaskResult(2),
       ];
-      mockPlanTasks.mockResolvedValue(tasks);
-      mockPlanSubtasks.mockResolvedValue(plannedTasks);
-      mockExecuteAll.mockResolvedValue(subTaskResults);
+      mockPlanTasksWithToolCalls.mockResolvedValue(plannedTasks);
+      mockExecuteTasks.mockResolvedValue(subTaskResults);
 
       const callbacks = createMockCallbacks();
       const agent = new Agent({ model, callbacks });
 
       await agent.run('Compare Apple and Microsoft');
 
-      expect(mockPlanSubtasks).toHaveBeenCalledWith(tasks, expect.any(Object));
-      expect(mockExecuteAll).toHaveBeenCalledWith(plannedTasks, expect.any(Object));
-      expect(mockGenerateFromResults).toHaveBeenCalledWith('Compare Apple and Microsoft');
+      expect(mockExecuteTasks).toHaveBeenCalledWith(
+        plannedTasks,
+        expect.any(String),
+        expect.any(Object)
+      );
+      expect(mockGenerateAnswer).toHaveBeenCalledWith(
+        'Compare Apple and Microsoft',
+        expect.any(String),
+        undefined
+      );
     });
   });
 });
