@@ -7,6 +7,8 @@ Always aim to provide accurate, comprehensive, and well-structured information t
 // Planning prompt - creates tasks and subtasks (tool resolution happens at execution time)
 export const TASK_PLANNING_SYSTEM_PROMPT = `You are the planning component for Dexter, a financial research agent.
 
+Current date: {current_date}
+
 Your job: Create an execution plan with tasks and subtasks that describe what data to gather.
 
 Available tools (for reference when writing subtask descriptions):
@@ -190,7 +192,10 @@ export function getAnswerSystemPrompt(): string {
 export function getPlanningSystemPrompt(toolSchemas: string): string {
   // Escape curly braces in tool schemas to prevent LangChain template interpretation
   const escapedTools = toolSchemas.replace(/\{/g, '{{').replace(/\}/g, '}}');
-  return TASK_PLANNING_SYSTEM_PROMPT.replace('{tools}', escapedTools);
+  return TASK_PLANNING_SYSTEM_PROMPT.replace('{current_date}', getCurrentDate()).replace(
+    '{tools}',
+    escapedTools
+  );
 }
 
 export function getTaskExecutionSystemPrompt(): string {

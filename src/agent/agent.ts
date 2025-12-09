@@ -155,7 +155,9 @@ export class Agent {
    * Generates the final answer by loading relevant contexts.
    */
   private async generateAnswer(query: string, queryId: string, messageHistory?: MessageHistory): Promise<string> {
+    this.callbacks.onSpinnerStart?.('Answering...');
     const stream = await this.answerGenerator.generateAnswer(query, queryId, messageHistory);
+    this.callbacks.onSpinnerStop?.();
     this.callbacks.onAnswerStream?.(stream);
     return '';
   }
