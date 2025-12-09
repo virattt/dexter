@@ -22,7 +22,7 @@ export function AnswerBox({ stream, text, onStart, onComplete }: AnswerBoxProps)
     (async () => {
       try {
         for await (const chunk of stream) {
-          if (!started) {
+          if (!started && chunk.trim()) {
             started = true;
             onStart?.();
           }
