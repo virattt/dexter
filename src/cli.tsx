@@ -348,13 +348,6 @@ export function CLI() {
         </Box>
       )}
 
-      {/* Spinner for async operations */}
-      {spinner && (
-        <Box marginTop={1}>
-          <Spinner message={spinner} />
-        </Box>
-      )}
-
       {/* Queued queries */}
       <QueueDisplay queries={queryQueue} />
 
@@ -375,7 +368,20 @@ export function CLI() {
       )}
 
       {/* Streaming answer */}
-      {answerStream && <AnswerBox stream={answerStream} onComplete={handleAnswerComplete} />}
+      {answerStream && (
+        <AnswerBox
+          stream={answerStream}
+          onStart={() => setSpinner(null)}
+          onComplete={handleAnswerComplete}
+        />
+      )}
+
+      {/* Spinner for async operations */}
+      {spinner && (
+        <Box marginTop={1}>
+          <Spinner message={spinner} />
+        </Box>
+      )}
 
       {/* Input bar - always visible and interactive */}
       {apiKeyReady && (

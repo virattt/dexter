@@ -5,10 +5,11 @@ import { colors } from '../theme.js';
 interface AnswerBoxProps {
   stream?: AsyncGenerator<string>;
   text?: string;
+  onStart?: () => void;
   onComplete?: (answer: string) => void;
 }
 
-export function AnswerBox({ stream, text, onComplete }: AnswerBoxProps) {
+export function AnswerBox({ stream, text, onStart, onComplete }: AnswerBoxProps) {
   const [content, setContent] = useState(text || '');
   const [isStreaming, setIsStreaming] = useState(!!stream);
 
@@ -16,10 +17,15 @@ export function AnswerBox({ stream, text, onComplete }: AnswerBoxProps) {
     if (!stream) return;
 
     let collected = text || '';
+    let started = false;
     
     (async () => {
       try {
         for await (const chunk of stream) {
+          if (!started) {
+            started = true;
+            onStart?.();
+          }
           collected += chunk;
           setContent(collected);
         }
@@ -28,7 +34,7 @@ export function AnswerBox({ stream, text, onComplete }: AnswerBoxProps) {
         onComplete?.(collected);
       }
     })();
-  }, [stream, onComplete, text]);
+  }, [stream, onStart, onComplete, text]);
 
   return (
     <Box flexDirection="column" marginTop={1}>
