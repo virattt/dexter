@@ -21,17 +21,17 @@ export {
   AnswerSchema,
   SelectedContexts,
   SelectedContextsSchema,
-  OptimizedToolArgs,
-  OptimizedToolArgsSchema,
 } from './schemas.js';
 
 // Prompts
 export {
   DEFAULT_SYSTEM_PROMPT,
   TASK_PLANNING_SYSTEM_PROMPT,
+  TASK_EXECUTION_SYSTEM_PROMPT,
   ANSWER_SYSTEM_PROMPT,
   CONTEXT_SELECTION_SYSTEM_PROMPT,
   getCurrentDate,
   getAnswerSystemPrompt,
   getPlanningSystemPrompt,
+  getTaskExecutionSystemPrompt,
 } from './prompts.js';

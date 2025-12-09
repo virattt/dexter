@@ -12,15 +12,14 @@ export interface TaskPlannerCallbacks {
 }
 
 /**
- * Responsible for planning tasks with explicit tool calls in a single LLM call.
- * Combines task planning and subtask planning into one step for efficiency.
+ * Responsible for planning tasks and subtasks.
+ * Tool resolution happens at execution time, not during planning.
  */
 export class TaskPlanner {
   constructor(private readonly model?: string) {}
 
   /**
-   * Plans tasks with subtasks and explicit tool calls in a single LLM call.
-   * Each subtask includes the exact tool name and arguments to use.
+   * Plans tasks with subtasks that describe what data to gather.
    * 
    * @param query - The user's query
    * @param callbacks - Optional callbacks for debugging
@@ -55,8 +54,6 @@ export class TaskPlanner {
         subTasks: (task.subTasks || []).map((subTask, subTaskIndex) => ({
           id: subTask.id ?? subTaskIndex + 1,
           description: subTask.description,
-          toolName: subTask.toolName,
-          toolArgs: subTask.toolArgs || {},
         })),
       }));
     } catch (error: unknown) {
@@ -117,11 +114,11 @@ ${formattedHistory}
 
     return `${conversationContext}User query: "${query}"
 
-Create an execution plan with tasks and subtasks. Each subtask must specify the exact tool and arguments to call.
+Create an execution plan with tasks and subtasks.
 
 Remember:
-- Each subtask = one tool call with specific arguments
-- Include ticker symbols, periods, and limits as needed
+- Each subtask should describe one specific data fetch
+- Be specific about ticker symbols, time periods, and data needed
 - If comparing multiple companies, create separate subtasks for each`;
   }
 }

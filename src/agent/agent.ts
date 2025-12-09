@@ -53,11 +53,11 @@ export interface AgentOptions {
 }
 
 /**
- * Dexter Agent - Orchestrates financial research with optimized task architecture.
+ * Dexter Agent - Orchestrates financial research with two-pass architecture.
  * 
- * Architecture (optimized for minimal LLM calls):
- * 1. TaskPlanner.planTasksWithToolCalls: Single LLM call creates tasks, subtasks, AND explicit tool calls
- * 2. TaskExecutor: Executes tool calls directly (no LLM calls)
+ * Architecture:
+ * 1. TaskPlanner: Creates tasks and subtasks (descriptions only)
+ * 2. TaskExecutor: Resolves subtasks to tool calls via LLM, then executes them
  * 3. AnswerGenerator: Loads relevant contexts and generates final answer
  * 
  * Tool outputs are saved to filesystem via ToolContextManager during execution,
@@ -84,7 +84,7 @@ export class Agent {
     
     // Create collaborators with shared tool context manager
     this.taskPlanner = new TaskPlanner(this.model);
-    this.taskExecutor = new TaskExecutor(this.toolContextManager);
+    this.taskExecutor = new TaskExecutor(this.toolContextManager, this.model);
     this.answerGenerator = new AnswerGenerator(this.toolContextManager, this.model);
   }
 
@@ -92,8 +92,8 @@ export class Agent {
    * Main entry point - runs the agent on a user query.
    * 
    * Flow:
-   * 1. Plan tasks with subtasks and tool calls (single LLM call)
-   * 2. Execute tool calls directly (no LLM calls)
+   * 1. Plan tasks with subtasks (LLM call)
+   * 2. Execute: resolve subtasks to tool calls (LLM call per task), then execute tools
    * 3. Generate answer from saved contexts
    * 
    * @param query - The user's query
@@ -108,7 +108,7 @@ export class Agent {
     // Notify that query was received
     this.callbacks.onUserQuery?.(query);
 
-    // Single planning call - creates tasks, subtasks, and tool calls
+    // Planning call - creates tasks and subtasks
     const plannedTasks = await this.taskPlanner.planTasks(
       query,
       { onDebug: this.callbacks.onDebug },
@@ -129,7 +129,7 @@ export class Agent {
     this.callbacks.onTasksPlanned?.(tasks);
     this.callbacks.onSubtasksPlanned?.(plannedTasks);
 
-    // Execute all tool calls directly (no LLM calls)
+    // Execute tasks: resolve subtasks to tool calls via LLM, then execute
     await this.taskExecutor.executeTasks(plannedTasks, queryId, {
       onSubTaskStart: (taskId, subTaskId) => {
         this.callbacks.onSubTaskStart?.(taskId, subTaskId);

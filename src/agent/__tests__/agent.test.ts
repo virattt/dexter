@@ -61,7 +61,7 @@ function createTask(overrides: Partial<Task> = {}): Task {
 }
 
 /**
- * Creates a planned task for testing (new format with explicit tool calls)
+ * Creates a planned task for testing
  */
 function createPlannedTask(taskId: number = 1): PlannedTask {
   return {
@@ -70,9 +70,7 @@ function createPlannedTask(taskId: number = 1): PlannedTask {
     subTasks: [
       {
         id: 1,
-        description: 'Retrieve income statements for Apple (AAPL)',
-        toolName: 'get_income_statements',
-        toolArgs: { ticker: 'AAPL', period: 'quarterly', limit: 4 },
+        description: 'Get Apple quarterly income statements for last 4 quarters',
       },
     ],
   };
@@ -96,17 +94,17 @@ async function* mockStreamGenerator(chunks: string[]) {
 }
 
 describe('Agent', () => {
-  let mockPlanTasksWithToolCalls: jest.Mock;
+  let mockPlanTasks: jest.Mock;
   let mockExecuteTasks: jest.Mock;
   let mockGenerateAnswer: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Setup TaskPlanner mock - now uses single combined method
-    mockPlanTasksWithToolCalls = jest.fn().mockResolvedValue([]);
+    // Setup TaskPlanner mock
+    mockPlanTasks = jest.fn().mockResolvedValue([]);
     MockTaskPlanner.mockImplementation(() => ({
-      planTasksWithToolCalls: mockPlanTasksWithToolCalls,
+      planTasks: mockPlanTasks,
     }) as unknown as TaskPlanner);
 
     // Setup TaskExecutor mock
@@ -132,13 +130,13 @@ describe('Agent', () => {
       expect(callbacks.onUserQuery).toHaveBeenCalledWith('What is Apple revenue?');
     });
 
-    it('plans tasks with tool calls in single call', async () => {
+    it('plans tasks and subtasks', async () => {
       const callbacks = createMockCallbacks();
       const agent = new Agent({ model, callbacks });
 
       await agent.run('What is Apple revenue?');
 
-      expect(mockPlanTasksWithToolCalls).toHaveBeenCalledWith(
+      expect(mockPlanTasks).toHaveBeenCalledWith(
         'What is Apple revenue?',
         expect.any(Object),
         undefined
@@ -147,7 +145,7 @@ describe('Agent', () => {
 
     it('calls onTasksPlanned callback after planning', async () => {
       const plannedTasks = [createPlannedTask(1), createPlannedTask(2)];
-      mockPlanTasksWithToolCalls.mockResolvedValue(plannedTasks);
+      mockPlanTasks.mockResolvedValue(plannedTasks);
       mockExecuteTasks.mockResolvedValue([createSubTaskResult(1), createSubTaskResult(2)]);
 
       const callbacks = createMockCallbacks();
@@ -163,7 +161,7 @@ describe('Agent', () => {
     });
 
     it('generates answer directly when no tasks are planned', async () => {
-      mockPlanTasksWithToolCalls.mockResolvedValue([]);
+      mockPlanTasks.mockResolvedValue([]);
 
       const callbacks = createMockCallbacks();
       const agent = new Agent({ model, callbacks });
@@ -177,7 +175,7 @@ describe('Agent', () => {
 
     it('calls onSubtasksPlanned callback with planned tasks', async () => {
       const plannedTasks = [createPlannedTask()];
-      mockPlanTasksWithToolCalls.mockResolvedValue(plannedTasks);
+      mockPlanTasks.mockResolvedValue(plannedTasks);
       mockExecuteTasks.mockResolvedValue([createSubTaskResult()]);
 
       const callbacks = createMockCallbacks();
@@ -190,7 +188,7 @@ describe('Agent', () => {
 
     it('executes planned tasks using TaskExecutor', async () => {
       const plannedTasks = [createPlannedTask()];
-      mockPlanTasksWithToolCalls.mockResolvedValue(plannedTasks);
+      mockPlanTasks.mockResolvedValue(plannedTasks);
       mockExecuteTasks.mockResolvedValue([createSubTaskResult()]);
 
       const callbacks = createMockCallbacks();
@@ -207,7 +205,7 @@ describe('Agent', () => {
 
     it('passes subtask complete callback to executor', async () => {
       const plannedTasks = [createPlannedTask()];
-      mockPlanTasksWithToolCalls.mockResolvedValue(plannedTasks);
+      mockPlanTasks.mockResolvedValue(plannedTasks);
       
       mockExecuteTasks.mockImplementation((_plannedTasks, _queryId, cbs) => {
         cbs?.onSubTaskComplete?.(1, 1, true);
@@ -225,7 +223,7 @@ describe('Agent', () => {
     it('generates answer after execution', async () => {
       const plannedTasks = [createPlannedTask()];
       const subTaskResults = [createSubTaskResult()];
-      mockPlanTasksWithToolCalls.mockResolvedValue(plannedTasks);
+      mockPlanTasks.mockResolvedValue(plannedTasks);
       mockExecuteTasks.mockResolvedValue(subTaskResults);
 
       const callbacks = createMockCallbacks();
@@ -242,7 +240,7 @@ describe('Agent', () => {
     });
 
     it('calls onSpinnerStart and onSpinnerStop during operations', async () => {
-      mockPlanTasksWithToolCalls.mockResolvedValue([]);
+      mockPlanTasks.mockResolvedValue([]);
 
       const callbacks = createMockCallbacks();
       const agent = new Agent({ model, callbacks });
@@ -261,7 +259,7 @@ describe('Agent', () => {
         createSubTaskResult(1),
         createSubTaskResult(2),
       ];
-      mockPlanTasksWithToolCalls.mockResolvedValue(plannedTasks);
+      mockPlanTasks.mockResolvedValue(plannedTasks);
       mockExecuteTasks.mockResolvedValue(subTaskResults);
 
       const callbacks = createMockCallbacks();

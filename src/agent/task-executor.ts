@@ -1,7 +1,10 @@
 import { StructuredToolInterface } from '@langchain/core/tools';
-import { PlannedTask, SubTask, SubTaskResult } from './schemas.js';
+import { AIMessage } from '@langchain/core/messages';
+import { PlannedTask, SubTaskResult } from './schemas.js';
 import { TOOLS } from '../tools/index.js';
 import { ToolContextManager } from '../utils/context.js';
+import { callLlm } from '../model/llm.js';
+import { getTaskExecutionSystemPrompt } from './prompts.js';
 
 /**
  * Callbacks for observing task execution progress
@@ -14,8 +17,7 @@ export interface TaskExecutorCallbacks {
 }
 
 /**
- * Executes planned subtasks directly without LLM calls.
- * Each subtask has explicit toolName and toolArgs from the planner.
+ * Executes planned tasks by resolving subtasks to tool calls via LLM.
  * Tool outputs are saved to filesystem via ToolContextManager.
  */
 export class TaskExecutor {
@@ -23,6 +25,7 @@ export class TaskExecutor {
 
   constructor(
     private readonly toolContextManager: ToolContextManager,
+    private readonly model?: string,
   ) {
     this.toolMap = new Map(TOOLS.map(t => [t.name, t]));
   }
@@ -38,7 +41,7 @@ export class TaskExecutor {
   }
 
   /**
-   * Execute a single planned task by running all its subtasks in parallel.
+   * Execute a single planned task by resolving subtasks to tool calls via LLM.
    */
   private async executeTask(plannedTask: PlannedTask, queryId?: string, callbacks?: TaskExecutorCallbacks): Promise<SubTaskResult[]> {
     const { id: taskId, subTasks } = plannedTask;
@@ -51,49 +54,76 @@ export class TaskExecutor {
     callbacks?.onTaskStart?.(taskId);
 
     try {
+      // Resolve subtasks to tool calls via LLM
+      const aiMessage = await this.generateToolCalls(plannedTask);
+      const toolCalls = aiMessage.tool_calls || [];
+
+      if (toolCalls.length === 0) {
+        callbacks?.onTaskComplete?.(taskId, true);
+        return [];
+      }
+
+      // Notify about subtask starts (one per tool call)
+      toolCalls.forEach((_, index) => {
+        callbacks?.onSubTaskStart?.(taskId, index + 1);
+      });
+
+      // Execute all tool calls in parallel
       const results = await Promise.all(
-        subTasks.map(subTask => this.executeSubTask(taskId, subTask, queryId, callbacks))
+        toolCalls.map(async (toolCall, index) => {
+          const subTaskId = index + 1;
+          try {
+            const result = await this.executeToolCall(toolCall.name, toolCall.args);
+
+            // Save to filesystem via ToolContextManager
+            this.toolContextManager.saveContext(
+              toolCall.name,
+              toolCall.args,
+              result,
+              taskId,
+              queryId
+            );
+
+            callbacks?.onSubTaskComplete?.(taskId, subTaskId, true);
+            return { taskId, subTaskId, success: true };
+          } catch {
+            callbacks?.onSubTaskComplete?.(taskId, subTaskId, false);
+            return { taskId, subTaskId, success: false };
+          }
+        })
       );
+
       const allSucceeded = results.every(r => r.success);
       callbacks?.onTaskComplete?.(taskId, allSucceeded);
       return results;
-    } catch (error) {
+    } catch {
       callbacks?.onTaskComplete?.(taskId, false);
       return [];
     }
   }
 
   /**
-   * Execute a single subtask by calling its specified tool directly.
-   * No LLM call needed - the planner already determined the exact tool and args.
+   * Ask the LLM to resolve a task's subtasks into tool calls.
    */
-  private async executeSubTask(
-    taskId: number,
-    subTask: SubTask,
-    queryId?: string,
-    callbacks?: TaskExecutorCallbacks
-  ): Promise<SubTaskResult> {
-    callbacks?.onSubTaskStart?.(taskId, subTask.id);
+  private async generateToolCalls(task: PlannedTask): Promise<AIMessage> {
+    const subtaskList = task.subTasks
+      .map(s => `- ${s.description}`)
+      .join('\n');
 
-    try {
-      // Direct execution - no LLM call needed
-      const result = await this.executeToolCall(subTask.toolName, subTask.toolArgs);
+    const prompt = `Task: "${task.description}"
 
-      // Save to filesystem via ToolContextManager
-      this.toolContextManager.saveContext(
-        subTask.toolName,
-        subTask.toolArgs,
-        result,
-        taskId,
-        queryId
-      );
+Subtasks to complete:
+${subtaskList}
 
-      callbacks?.onSubTaskComplete?.(taskId, subTask.id, true);
-      return { taskId, subTaskId: subTask.id, success: true };
-    } catch (error) {
-      callbacks?.onSubTaskComplete?.(taskId, subTask.id, false);
-      return { taskId, subTaskId: subTask.id, success: false };
-    }
+Call the appropriate tools to gather data for these subtasks.`;
+
+    const response = await callLlm(prompt, {
+      systemPrompt: getTaskExecutionSystemPrompt(),
+      tools: TOOLS,
+      model: this.model,
+    });
+
+    return response as AIMessage;
   }
 
   /**

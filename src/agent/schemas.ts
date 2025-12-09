@@ -26,39 +26,27 @@ export const SelectedContextsSchema = z.object({
 
 export type SelectedContexts = z.infer<typeof SelectedContextsSchema>;
 
-export const OptimizedToolArgsSchema = z.object({
-  arguments: z
-    .record(z.string(), z.unknown())
-    .describe('The optimized arguments dictionary for the tool call.'),
-});
-
-export type OptimizedToolArgs = z.infer<typeof OptimizedToolArgsSchema>;
-
-// Subtask schema with explicit tool call - used in combined planning
+// Subtask schema - describes what data to fetch (tool resolution happens at execution time)
 export const SubTaskSchema = z.object({
   id: z.number().describe('Unique identifier for the subtask'),
-  description: z.string().describe('Human-readable description of the subtask'),
-  toolName: z.string().describe('Name of the tool to call'),
-  toolArgs: z.record(z.string(), z.unknown()).describe('Arguments to pass to the tool'),
+  description: z.string().describe('What data to fetch or action to perform'),
 });
 
-// Subtask with explicit tool call
+// Subtask interface
 export interface SubTask {
   id: number;
   description: string;
-  toolName: string;
-  toolArgs: Record<string, unknown>;
 }
 
-// Combined planning output - task with its subtasks and tool calls
+// Combined planning output - task with its subtasks
 export const PlannedTaskSchema = z.object({
   id: z.number().describe('Unique identifier for the task'),
   description: z.string().describe('High-level description of the research task'),
-  subTasks: z.array(SubTaskSchema).describe('Subtasks with tool calls to execute'),
+  subTasks: z.array(SubTaskSchema).describe('Subtasks to execute'),
 });
 
 export const ExecutionPlanSchema = z.object({
-  tasks: z.array(PlannedTaskSchema).describe('Tasks with their subtasks and tool calls'),
+  tasks: z.array(PlannedTaskSchema).describe('Tasks with their subtasks'),
 });
 
 export type ExecutionPlan = z.infer<typeof ExecutionPlanSchema>;
