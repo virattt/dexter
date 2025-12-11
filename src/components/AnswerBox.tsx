@@ -52,9 +52,9 @@ interface UserQueryProps {
 
 export function UserQuery({ query }: UserQueryProps) {
   return (
-    <Box marginTop={1}>
-      <Text color={colors.primary} bold>
-        &gt; {query}
+    <Box marginTop={1} paddingRight={2}>
+      <Text color={colors.white} backgroundColor={colors.mutedDark}>
+        {'>'} {query}{' '}
       </Text>
     </Box>
   );

@@ -4,9 +4,11 @@ export const colors = {
   success: 'green',
   error: 'red',
   warning: 'yellow',
-  muted: 'gray',
+  muted: '#808080',
+  mutedDark: '#303030',
   accent: 'cyan',
   highlight: 'magenta',
+  white: '#ffffff',
 } as const;
 
 export const dimensions = {
