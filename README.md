@@ -114,6 +114,21 @@ Dexter uses a multi-agent architecture with specialized components:
 - **Schema Validation**: [Zod](https://zod.dev)
 - **Language**: TypeScript
 
+## Security
+
+Dexter is built with security in mind:
+
+- **Quantum-Safe Hashing**: All internal hashing uses SHAKE256 (SHA-3 family), which is resistant to quantum computing attacks
+- **Secure XML Parsing**: Uses `defusedxml` to prevent XML External Entity (XXE) attacks
+- **HTTP Timeouts**: All external API requests have timeouts to prevent indefinite hanging
+- **Regular Security Scanning**: Scanned with [Medusa SAST](https://github.com/Pantheon-Security/medusa)
+
+### Security Updates
+
+| Version | Date | Description |
+|---------|------|-------------|
+| 2.1.0 | 2025-12-11 | Quantum-safe SHAKE256 hashing, CVE-2025-55182 fix, XXE protection |
+
 
 ### Changing Models
 
