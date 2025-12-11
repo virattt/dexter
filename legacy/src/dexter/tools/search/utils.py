@@ -3,9 +3,12 @@ from typing import List
 from dexter.tools.search.models import SearchResult
 from datetime import datetime
 
+# Use defusedxml for secure XML parsing (prevents XXE attacks)
+# defusedxml is required - no fallback to vulnerable xml.etree
+import defusedxml.ElementTree as ET
+
 def parse_rss_content(xml_content: str, max_results: int) -> List[SearchResult]:
   try:
-      from xml.etree import ElementTree as ET
       root = ET.fromstring(xml_content)
       results: List[SearchResult] = []
 

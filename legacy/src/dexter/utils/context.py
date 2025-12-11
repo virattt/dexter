@@ -10,6 +10,17 @@ from dexter.model import call_llm, DEFAULT_MODEL
 from dexter.prompts import DEFAULT_SYSTEM_PROMPT, CONTEXT_SELECTION_SYSTEM_PROMPT
 
 
+def quantum_safe_hash(data: bytes, length: int = 12) -> str:
+    """
+    Generate a quantum-safe hash using SHA-3 (SHAKE256).
+    SHAKE256 is a post-quantum secure extendable-output function (XOF).
+    """
+    # SHAKE256 is quantum-resistant and provides configurable output length
+    shake = hashlib.shake_256(data)
+    # Return hex digest of specified length (length * 2 for hex chars)
+    return shake.hexdigest(length)
+
+
 class ContextManager:
     """Manages context offloading and onloading for tool outputs."""
     
@@ -27,10 +38,11 @@ class ContextManager:
         self.model = model
     
     def _hash_args(self, args: dict) -> str:
-        """Generate a hash of tool arguments for filename."""
+        """Generate a quantum-safe hash of tool arguments for filename."""
         # Sort args to ensure consistent hashing
         args_str = json.dumps(args, sort_keys=True, default=self._json_serializer)
-        return hashlib.md5(args_str.encode()).hexdigest()[:12]
+        # Use SHAKE256 for quantum-resistant hashing
+        return quantum_safe_hash(args_str.encode(), length=12)
     
     def _json_serializer(self, obj):
         """Custom JSON serializer for Pydantic models and other special types."""
