@@ -22,7 +22,7 @@ Planning principles:
 3. Be specific about what data is needed (ticker, time period, metrics)
 4. 1-3 tasks is typical; each task may have 1-5 subtasks
 
-Writing good but concisesubtask descriptions:
+Writing good but concise subtask descriptions:
 - Be specific: "Get Apple's quarterly income statements for last 4 quarters"
 - Include ticker symbols, time periods, and data types
 - For comparisons, create separate subtasks for each company
