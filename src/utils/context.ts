@@ -5,6 +5,23 @@ import { callLlm, DEFAULT_MODEL } from '../model/llm.js';
 import { CONTEXT_SELECTION_SYSTEM_PROMPT } from '../agent/prompts.js';
 import { SelectedContextsSchema } from '../agent/schemas.js';
 
+/**
+ * Generate a quantum-safe hash using SHAKE256.
+ * SHAKE256 is a SHA-3 extendable-output function (XOF) that is
+ * considered resistant to quantum computing attacks.
+ *
+ * @param data - The string data to hash
+ * @param length - Output length in bytes (default: 12)
+ * @returns Hex-encoded hash string
+ */
+function quantumSafeHash(data: string, length: number = 12): string {
+  // Use SHAKE256 for quantum-resistant hashing
+  // Node.js crypto supports shake256 as of Node 12+
+  return createHash('shake256', { outputLength: length })
+    .update(data)
+    .digest('hex');
+}
+
 interface ContextPointer {
   filepath: string;
   filename: string;
@@ -40,11 +57,13 @@ export class ToolContextManager {
 
   private hashArgs(args: Record<string, unknown>): string {
     const argsStr = JSON.stringify(args, Object.keys(args).sort());
-    return createHash('md5').update(argsStr).digest('hex').slice(0, 12);
+    // Use quantum-safe SHAKE256 instead of MD5
+    return quantumSafeHash(argsStr, 12);
   }
 
   hashQuery(query: string): string {
-    return createHash('md5').update(query).digest('hex').slice(0, 12);
+    // Use quantum-safe SHAKE256 instead of MD5
+    return quantumSafeHash(query, 12);
   }
 
   private generateFilename(toolName: string, args: Record<string, unknown>): string {

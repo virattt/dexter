@@ -25,7 +25,7 @@
     "ink": "^6.5.1",
     "ink-spinner": "^5.0.0",
     "ink-text-input": "^6.0.0",
-    "react": "^19.2.0",
+    "react": "^19.2.1",
     "zod": "^4.1.13",
     "zod-to-json-schema": "^3.25.0"
   },
