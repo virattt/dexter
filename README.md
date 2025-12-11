@@ -26,6 +26,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 - [Bun](https://bun.com) runtime (v1.0 or higher)
 - OpenAI API key (get [here](https://platform.openai.com/api-keys))
 - Financial Datasets API key (get [here](https://financialdatasets.ai))
+- Tavily API key (get [here](https://tavily.com)) - optional, for web search
 
 #### Installing Bun
 
@@ -67,6 +68,7 @@ cp ../env.example .env
 # Edit .env and add your API keys
 # OPENAI_API_KEY=your-openai-api-key
 # FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
+# TAVILY_API_KEY=your-tavily-api-key
 ```
 
 ### Usage

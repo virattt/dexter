@@ -1,2 +1,1 @@
-export { searchGoogleNews } from './google.js';
-
+export { tavilySearch } from './tavily.js';

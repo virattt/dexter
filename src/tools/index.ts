@@ -16,7 +16,7 @@ import {
   getAnalystEstimates,
   getSegmentedRevenues,
 } from './finance/index.js';
-import { searchGoogleNews } from './search/index.js';
+import { tavilySearch } from './search/index.js';
 
 export const TOOLS: StructuredToolInterface[] = [
   getIncomeStatements,
@@ -34,7 +34,7 @@ export const TOOLS: StructuredToolInterface[] = [
   getNews,
   getAnalystEstimates,
   getSegmentedRevenues,
-  searchGoogleNews,
+  ...(process.env.TAVILY_API_KEY ? [tavilySearch] : []),
 ];
 
 export {
@@ -53,6 +53,5 @@ export {
   getNews,
   getAnalystEstimates,
   getSegmentedRevenues,
-  searchGoogleNews,
+  tavilySearch,
 };
-
