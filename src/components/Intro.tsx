@@ -5,8 +5,10 @@ import packageJson from '../../package.json';
 
 export function Intro() {
   const { introWidth } = dimensions;
-  const welcomeText = `Welcome to Dexter v${packageJson.version}`;
-  const padding = Math.floor((introWidth - welcomeText.length - 2) / 2);
+  const welcomeText = 'Welcome to Dexter';
+  const versionText = ` v${packageJson.version}`;
+  const fullText = welcomeText + versionText;
+  const padding = Math.floor((introWidth - fullText.length - 2) / 2);
 
   return (
     <Box flexDirection="column" marginTop={2}>
@@ -14,7 +16,8 @@ export function Intro() {
       <Text color={colors.primary}>
         ║{' '.repeat(padding)}
         <Text bold>{welcomeText}</Text>
-        {' '.repeat(introWidth - welcomeText.length - padding - 2)}║
+        <Text color={colors.muted}>{versionText}</Text>
+        {' '.repeat(introWidth - fullText.length - padding - 2)}║
       </Text>
       <Text color={colors.primary}>{'═'.repeat(introWidth)}</Text>
 
