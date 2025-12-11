@@ -5,6 +5,9 @@ from dexter.tools.search.utils import parse_rss_content
 from langchain.tools import tool
 from pydantic import BaseModel, Field
 
+# Default timeout for HTTP requests (30 seconds)
+DEFAULT_TIMEOUT = 30
+
 class SearchGoogleNewsInput(BaseModel):
     query: str = Field(description="The search query to send to Google News. For example, 'Apple earnings'")
     max_results: int = Field(default=5, description="The maximum number of results to retrieve.")
@@ -18,7 +21,7 @@ def search_google_news(query: str, max_results: int = 5) -> list[SearchResult]:
     """
     search_url = f"https://news.google.com/rss/search?q={query.replace(' ', '%20')}&hl=en-US&gl=US&ceid=US:en"
 
-    response = requests.get(search_url)
+    response = requests.get(search_url, timeout=DEFAULT_TIMEOUT)
     if response.status_code != 200:
         return []
     xml_content = response.text
