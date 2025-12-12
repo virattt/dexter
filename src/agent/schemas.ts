@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+// ============================================================================
+// Simple Response Schemas
+// ============================================================================
+
 export const IsDoneSchema = z.object({
   done: z.boolean().describe('Whether the task is done or not.'),
 });
@@ -26,39 +30,51 @@ export const SelectedContextsSchema = z.object({
 
 export type SelectedContexts = z.infer<typeof SelectedContextsSchema>;
 
-// Subtask schema - describes what data to fetch (tool resolution happens at execution time)
+// ============================================================================
+// Task Planning Schemas
+// ============================================================================
+
+/**
+ * Subtask schema - describes what data to fetch.
+ * Tool resolution happens at execution time.
+ */
 export const SubTaskSchema = z.object({
   id: z.number().describe('Unique identifier for the subtask'),
   description: z.string().describe('What data to fetch or action to perform'),
 });
 
-// Subtask interface
-export interface SubTask {
-  id: number;
-  description: string;
-}
+export type SubTask = z.infer<typeof SubTaskSchema>;
 
-// Combined planning output - task with its subtasks
+/**
+ * Planned task schema - a task with its subtasks.
+ * Used for planning and validation.
+ */
 export const PlannedTaskSchema = z.object({
   id: z.number().describe('Unique identifier for the task'),
   description: z.string().describe('High-level description of the research task'),
   subTasks: z.array(SubTaskSchema).describe('Subtasks to execute'),
 });
 
+export type PlannedTask = z.infer<typeof PlannedTaskSchema>;
+
+/**
+ * Execution plan schema - collection of planned tasks.
+ * Used as output schema for task planning.
+ */
 export const ExecutionPlanSchema = z.object({
   tasks: z.array(PlannedTaskSchema).describe('Tasks with their subtasks'),
 });
 
 export type ExecutionPlan = z.infer<typeof ExecutionPlanSchema>;
 
-// Task with its planned subtasks (used at runtime)
-export interface PlannedTask {
-  id: number;
-  description: string;
-  subTasks: SubTask[];
-}
+// ============================================================================
+// Runtime Types
+// ============================================================================
 
-// Result of executing a subtask
+/**
+ * Result of executing a subtask.
+ * Used internally by TaskExecutor to track execution results.
+ */
 export interface SubTaskResult {
   taskId: number;
   subTaskId: number;
