@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Box, Text, useStdout } from 'ink';
 import TextInput from 'ink-text-input';
+
 import { colors } from '../theme.js';
 
 interface InputProps {
