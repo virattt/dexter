@@ -15,6 +15,9 @@ import {
   getNews,
   getAnalystEstimates,
   getSegmentedRevenues,
+  getCryptoPriceSnapshot,
+  getCryptoPrices,
+  getCryptoTickers,
 } from './finance/index.js';
 import { tavilySearch } from './search/index.js';
 
@@ -29,6 +32,9 @@ export const TOOLS: StructuredToolInterface[] = [
   getFilings,
   getPriceSnapshot,
   getPrices,
+  getCryptoPriceSnapshot,
+  getCryptoPrices,
+  getCryptoTickers,
   getFinancialMetricsSnapshot,
   getFinancialMetrics,
   getNews,
@@ -48,6 +54,9 @@ export {
   get8KFilingItems,
   getPriceSnapshot,
   getPrices,
+  getCryptoPriceSnapshot,
+  getCryptoPrices,
+  getCryptoTickers,
   getFinancialMetricsSnapshot,
   getFinancialMetrics,
   getNews,

@@ -12,7 +12,7 @@ const PriceSnapshotInputSchema = z.object({
 
 export const getPriceSnapshot = new DynamicStructuredTool({
   name: 'get_price_snapshot',
-  description: `Fetches the most recent price snapshot for a specific stock, including the latest price, trading volume, and other open, high, low, and close price data.`,
+  description: `Fetches the most recent price snapshot for a specific stock ticker, including the latest price, trading volume, and other open, high, low, and close price data.`,
   schema: PriceSnapshotInputSchema,
   func: async (input) => {
     const params = { ticker: input.ticker };

@@ -5,4 +5,5 @@ export { getFinancialMetricsSnapshot, getFinancialMetrics } from './metrics.js';
 export { getNews } from './news.js';
 export { getAnalystEstimates } from './estimates.js';
 export { getSegmentedRevenues } from './segments.js';
+export { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
 

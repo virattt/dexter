@@ -204,22 +204,13 @@ export function CLI() {
       )}
 
       {/* Input bar - always visible and interactive */}
-      {apiKeyReady && (
         <Box marginTop={1}>
           <Input
             value={inputValue}
             onChange={setInputValue}
             onSubmit={handleSubmit}
-          />
-        </Box>
-      )}
-
-      {/* API key error */}
-      {!apiKeyReady && (
-        <Box marginTop={1}>
-          <Text color={colors.error}>API key not configured. Please restart and enter your API key.</Text>
-        </Box>
-      )}
+        />
+      </Box>
     </Box>
   );
 }
