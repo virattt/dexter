@@ -19,3 +19,4 @@ export function StatusMessage({ message }: StatusMessageProps) {
     </Box>
   );
 }
+

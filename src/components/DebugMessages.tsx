@@ -21,3 +21,4 @@ export function DebugMessages({ messages }: DebugMessagesProps) {
     </Box>
   );
 }
+

@@ -20,3 +20,4 @@ export function CompletedTurnView({ turn }: CompletedTurnViewProps) {
     </Box>
   );
 }
+
