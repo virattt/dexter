@@ -6,7 +6,7 @@ config({ quiet: true });
 
 // Map model IDs to their required API key environment variable names
 const MODEL_API_KEY_MAP: Record<string, string> = {
-  'gpt-4.1': 'OPENAI_API_KEY',
+  'gpt-5.2': 'OPENAI_API_KEY',
   'claude-sonnet-4-5': 'ANTHROPIC_API_KEY',
   'gemini-3': 'GOOGLE_API_KEY',
 };

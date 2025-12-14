@@ -8,7 +8,7 @@ import { Runnable } from '@langchain/core/runnables';
 import { z } from 'zod';
 import { DEFAULT_SYSTEM_PROMPT } from '../agent/prompts.js';
 
-export const DEFAULT_MODEL = 'gpt-4.1';
+export const DEFAULT_MODEL = 'gpt-5.2';
 
 // Generic retry helper with exponential backoff
 async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {

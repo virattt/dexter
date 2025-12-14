@@ -10,9 +10,9 @@ interface Model {
 
 const MODELS: Model[] = [
   {
-    displayName: 'GPT 4.1',
-    modelId: 'gpt-4.1',
-    description: "OpenAI's smartest non-reasoning model",
+    displayName: 'GPT 5.2',
+    modelId: 'gpt-5.2',
+    description: "OpenAI's flagship model",
   },
   {
     displayName: 'Sonnet 4.5',
