@@ -4,6 +4,21 @@ import { MESSAGE_SUMMARY_SYSTEM_PROMPT, MESSAGE_SELECTION_SYSTEM_PROMPT } from '
 import { z } from 'zod';
 
 /**
+ * Generate a quantum-safe hash using SHAKE256.
+ * SHAKE256 is a SHA-3 extendable-output function (XOF) that is
+ * considered resistant to quantum computing attacks.
+ *
+ * @param data - The string data to hash
+ * @param length - Output length in bytes (default: 12)
+ * @returns Hex-encoded hash string
+ */
+function quantumSafeHash(data: string, length: number = 12): string {
+  return createHash('shake256', { outputLength: length })
+    .update(data)
+    .digest('hex');
+}
+
+/**
  * Represents a single conversation turn (query + answer + summary)
  */
 export interface Message {
@@ -35,10 +50,10 @@ export class MessageHistory {
   }
 
   /**
-   * Hashes a query string for cache key generation
+   * Hashes a query string for cache key generation using quantum-safe SHAKE256
    */
   private hashQuery(query: string): string {
-    return createHash('md5').update(query).digest('hex').slice(0, 12);
+    return quantumSafeHash(query, 12);
   }
 
   /**
