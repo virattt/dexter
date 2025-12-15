@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
+import { formatToolResult } from '../types.js';
 
 const PriceSnapshotInputSchema = z.object({
   ticker: z
@@ -16,8 +17,8 @@ export const getPriceSnapshot = new DynamicStructuredTool({
   schema: PriceSnapshotInputSchema,
   func: async (input) => {
     const params = { ticker: input.ticker };
-    const data = await callApi('/prices/snapshot/', params);
-    return JSON.stringify(data.snapshot || {});
+    const { data, url } = await callApi('/prices/snapshot/', params);
+    return formatToolResult(data.snapshot || {}, [url]);
   },
 });
 
@@ -51,8 +52,8 @@ export const getPrices = new DynamicStructuredTool({
       start_date: input.start_date,
       end_date: input.end_date,
     };
-    const data = await callApi('/prices/', params);
-    return JSON.stringify(data.prices || []);
+    const { data, url } = await callApi('/prices/', params);
+    return formatToolResult(data.prices || [], [url]);
   },
 });
 

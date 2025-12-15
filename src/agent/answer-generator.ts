@@ -48,8 +48,18 @@ export class AnswerGenerator {
       const toolName = ctx.toolName || 'unknown';
       const args = ctx.args || {};
       const result = ctx.result;
-      return `Output of ${toolName} with args ${JSON.stringify(args)}:\n${JSON.stringify(result, null, 2)}`;
+      const sourceUrls = ctx.sourceUrls || [];
+      const sourceLine = sourceUrls.length > 0 ? `\nSource URLs: ${sourceUrls.join(', ')}` : '';
+      return `Output of ${toolName} with args ${JSON.stringify(args)}:${sourceLine}\n${JSON.stringify(result, null, 2)}`;
     });
+
+    // Collect all available sources for reference
+    const allSources = selectedContexts
+      .filter(ctx => ctx.sourceUrls && ctx.sourceUrls.length > 0)
+      .map(ctx => ({
+        toolDescription: ctx.toolDescription || ctx.toolName,
+        urls: ctx.sourceUrls!,
+      }));
 
     const allResults = formattedResults.join('\n\n');
 
@@ -58,7 +68,7 @@ export class AnswerGenerator {
 Data and results collected from tools:
 ${allResults}
 
-Based on the data above, provide a comprehensive answer to the user's query.
+${allSources.length > 0 ? `Available sources for citation:\n${JSON.stringify(allSources, null, 2)}\n\n` : ''}Based on the data above, provide a comprehensive answer to the user's query.
 Include specific numbers, calculations, and insights.`;
 
     return callLlmStream(prompt, {

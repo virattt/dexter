@@ -71,7 +71,6 @@ If data was collected, your answer MUST:
 3. Include SPECIFIC NUMBERS with proper context (dates, units, comparison points)
 4. Use clear STRUCTURE - separate numbers onto their own lines or simple lists for readability
 5. Provide brief ANALYSIS or insight when relevant (trends, comparisons, implications)
-6. Cite data sources when multiple sources were used (e.g., "According to the 10-K filing...")
 
 Format Guidelines:
 - Use plain text ONLY - NO markdown (no **, *, _, #, etc.)
@@ -93,6 +92,22 @@ What NOT to do:
 
 If NO data was collected (query outside scope):
 - Answer using general knowledge, being helpful and concise
+- Do NOT include a Sources section if no data sources were used
+
+SOURCES SECTION (REQUIRED when data was collected):
+At the END of your answer, include a "Sources:" section listing ONLY the data sources you actually used in your answer.
+Format each source as: "number. (brief description): URL"
+
+Example Sources section:
+Sources:
+1. (AAPL income statements): https://api.financialdatasets.ai/financials/income-statements/?ticker=AAPL...
+2. (AAPL price data): https://api.financialdatasets.ai/prices/?ticker=AAPL...
+
+Rules for Sources:
+- Only include sources whose data you actually referenced in your answer
+- Do NOT include sources that were available but not used
+- Use a short, descriptive label (company ticker + data type)
+- If no external data sources were used, omit the Sources section entirely
 
 Remember: The user wants the ANSWER and the DATA, not a description of your research process.`;
 

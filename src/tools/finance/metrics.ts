@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
+import { formatToolResult } from '../types.js';
 
 const FinancialMetricsSnapshotInputSchema = z.object({
   ticker: z
@@ -16,8 +17,8 @@ export const getFinancialMetricsSnapshot = new DynamicStructuredTool({
   schema: FinancialMetricsSnapshotInputSchema,
   func: async (input) => {
     const params = { ticker: input.ticker };
-    const data = await callApi('/financial-metrics/snapshot/', params);
-    return JSON.stringify(data.snapshot || {});
+    const { data, url } = await callApi('/financial-metrics/snapshot/', params);
+    return formatToolResult(data.snapshot || {}, [url]);
   },
 });
 
@@ -78,8 +79,8 @@ export const getFinancialMetrics = new DynamicStructuredTool({
       report_period_lt: input.report_period_lt,
       report_period_lte: input.report_period_lte,
     };
-    const data = await callApi('/financial-metrics/', params);
-    return JSON.stringify(data.financial_metrics || []);
+    const { data, url } = await callApi('/financial-metrics/', params);
+    return formatToolResult(data.financial_metrics || [], [url]);
   },
 });
 

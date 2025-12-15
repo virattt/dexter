@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
 import { ITEMS_10K_MAP, ITEMS_10Q_MAP, formatItemsDescription } from './constants.js';
+import { formatToolResult } from '../types.js';
 
 const FilingsInputSchema = z.object({
   ticker: z
@@ -31,8 +32,8 @@ export const getFilings = new DynamicStructuredTool({
       limit: input.limit,
       filing_type: input.filing_type,
     };
-    const data = await callApi('/filings/', params);
-    return JSON.stringify(data.filings || []);
+    const { data, url } = await callApi('/filings/', params);
+    return formatToolResult(data.filings || [], [url]);
   },
 });
 
@@ -58,8 +59,8 @@ export const get10KFilingItems = new DynamicStructuredTool({
       year: input.year,
       item: input.item,
     };
-    const data = await callApi('/filings/items/', params);
-    return JSON.stringify(data);
+    const { data, url } = await callApi('/filings/items/', params);
+    return formatToolResult(data, [url]);
   },
 });
 
@@ -87,8 +88,8 @@ export const get10QFilingItems = new DynamicStructuredTool({
       quarter: input.quarter,
       item: input.item,
     };
-    const data = await callApi('/filings/items/', params);
-    return JSON.stringify(data);
+    const { data, url } = await callApi('/filings/items/', params);
+    return formatToolResult(data, [url]);
   },
 });
 
@@ -111,8 +112,8 @@ export const get8KFilingItems = new DynamicStructuredTool({
       filing_type: '8-K',
       accession_number: input.accession_number,
     };
-    const data = await callApi('/filings/items/', params);
-    return JSON.stringify(data);
+    const { data, url } = await callApi('/filings/items/', params);
+    return formatToolResult(data, [url]);
   },
 });
 

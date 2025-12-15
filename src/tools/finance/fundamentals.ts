@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
+import { formatToolResult } from '../types.js';
 
 const FinancialStatementsInputSchema = z.object({
   ticker: z
@@ -59,8 +60,8 @@ export const getIncomeStatements = new DynamicStructuredTool({
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
     const params = createParams(input);
-    const data = await callApi('/financials/income-statements/', params);
-    return JSON.stringify(data.income_statements || {});
+    const { data, url } = await callApi('/financials/income-statements/', params);
+    return formatToolResult(data.income_statements || {}, [url]);
   },
 });
 
@@ -70,8 +71,8 @@ export const getBalanceSheets = new DynamicStructuredTool({
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
     const params = createParams(input);
-    const data = await callApi('/financials/balance-sheets/', params);
-    return JSON.stringify(data.balance_sheets || {});
+    const { data, url } = await callApi('/financials/balance-sheets/', params);
+    return formatToolResult(data.balance_sheets || {}, [url]);
   },
 });
 
@@ -81,8 +82,8 @@ export const getCashFlowStatements = new DynamicStructuredTool({
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
     const params = createParams(input);
-    const data = await callApi('/financials/cash-flow-statements/', params);
-    return JSON.stringify(data.cash_flow_statements || {});
+    const { data, url } = await callApi('/financials/cash-flow-statements/', params);
+    return formatToolResult(data.cash_flow_statements || {}, [url]);
   },
 });
 
@@ -92,8 +93,8 @@ export const getAllFinancialStatements = new DynamicStructuredTool({
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
     const params = createParams(input);
-    const data = await callApi('/financials/', params);
-    return JSON.stringify(data.financials || {});
+    const { data, url } = await callApi('/financials/', params);
+    return formatToolResult(data.financials || {}, [url]);
   },
 });
 

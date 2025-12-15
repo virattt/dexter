@@ -13,6 +13,7 @@ interface ContextPointer {
   args: Record<string, unknown>;
   taskId?: number;
   queryId?: string;
+  sourceUrls?: string[];
 }
 
 interface ContextData {
@@ -22,6 +23,7 @@ interface ContextData {
   timestamp: string;
   taskId?: number;
   queryId?: string;
+  sourceUrls?: string[];
   result: unknown;
 }
 
@@ -125,6 +127,22 @@ export class ToolContextManager {
 
     const toolDescription = this.getToolDescription(toolName, args);
 
+    // Extract sourceUrls from ToolResult format
+    let sourceUrls: string[] | undefined;
+    let actualResult = result;
+
+    if (typeof result === 'string') {
+      try {
+        const parsed = JSON.parse(result);
+        if (parsed.data !== undefined) {
+          sourceUrls = parsed.sourceUrls;
+          actualResult = parsed.data;
+        }
+      } catch {
+        // Result is not JSON, use as-is
+      }
+    }
+
     const contextData: ContextData = {
       toolName: toolName,
       args: args,
@@ -132,7 +150,8 @@ export class ToolContextManager {
       timestamp: new Date().toISOString(),
       taskId: taskId,
       queryId: queryId,
-      result: result,
+      sourceUrls: sourceUrls,
+      result: actualResult,
     };
 
     writeFileSync(filepath, JSON.stringify(contextData, null, 2));
@@ -145,6 +164,7 @@ export class ToolContextManager {
       toolDescription,
       taskId,
       queryId,
+      sourceUrls,
     };
 
     this.pointers.push(pointer);

@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
+import { formatToolResult } from '../types.js';
 
 const AnalystEstimatesInputSchema = z.object({
   ticker: z
@@ -23,8 +24,8 @@ export const getAnalystEstimates = new DynamicStructuredTool({
       ticker: input.ticker,
       period: input.period,
     };
-    const data = await callApi('/analyst-estimates/', params);
-    return JSON.stringify(data.analyst_estimates || []);
+    const { data, url } = await callApi('/analyst-estimates/', params);
+    return formatToolResult(data.analyst_estimates || [], [url]);
   },
 });
 
