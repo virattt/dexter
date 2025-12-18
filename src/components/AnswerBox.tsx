@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, Text } from 'ink';
 import { colors } from '../theme.js';
 
@@ -9,9 +9,15 @@ interface AnswerBoxProps {
   onComplete?: (answer: string) => void;
 }
 
-export function AnswerBox({ stream, text, onStart, onComplete }: AnswerBoxProps) {
+export const AnswerBox = React.memo(function AnswerBox({ stream, text, onStart, onComplete }: AnswerBoxProps) {
   const [content, setContent] = useState(text || '');
   const [isStreaming, setIsStreaming] = useState(!!stream);
+
+  // Store callbacks in refs to avoid effect re-runs when references change
+  const onStartRef = useRef(onStart);
+  const onCompleteRef = useRef(onComplete);
+  onStartRef.current = onStart;
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
     if (!stream) return;
@@ -24,17 +30,17 @@ export function AnswerBox({ stream, text, onStart, onComplete }: AnswerBoxProps)
         for await (const chunk of stream) {
           if (!started && chunk.trim()) {
             started = true;
-            onStart?.();
+            onStartRef.current?.();
           }
           collected += chunk;
           setContent(collected);
         }
       } finally {
         setIsStreaming(false);
-        onComplete?.(collected);
+        onCompleteRef.current?.(collected);
       }
     })();
-  }, [stream, onStart, onComplete, text]);
+  }, [stream, text]);
 
   return (
     <Box flexDirection="column" marginTop={1}>
@@ -44,7 +50,7 @@ export function AnswerBox({ stream, text, onStart, onComplete }: AnswerBoxProps)
       </Text>
     </Box>
   );
-}
+});
 
 interface UserQueryProps {
   query: string;

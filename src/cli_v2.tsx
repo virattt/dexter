@@ -1,20 +1,27 @@
+#!/usr/bin/env bun
+/**
+ * CLI V2 - Agent Interface
+ * 
+ * This is the v2 CLI that uses the agent with iterative
+ * reasoning and Cursor-style progress display.
+ */
+import React from 'react';
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Box, Text, Static, useApp, useInput } from 'ink';
+import { render, Box, Text, Static, useApp, useInput } from 'ink';
+import { config } from 'dotenv';
 
 import { Intro } from './components/Intro.js';
 import { Input } from './components/Input.js';
-import { Spinner } from './components/Spinner.js';
-import { AnswerBox } from './components/AnswerBox.js';
+import { AnswerBox, UserQuery } from './components/AnswerBox.js';
 import { ModelSelector } from './components/ModelSelector.js';
 import { QueueDisplay } from './components/QueueDisplay.js';
-import { DebugMessages } from './components/DebugMessages.js';
 import { StatusMessage } from './components/StatusMessage.js';
-import { CurrentTurnView } from './components/CurrentTurnView.js';
-import { CompletedTurnView } from './components/CompletedTurnView.js';
+import { CurrentTurnViewV2, AgentProgressView } from './components/AgentProgressView.js';
+import type { Iteration } from './agent/schemas_v2.js';
 
 import { useQueryQueue } from './hooks/useQueryQueue.js';
 import { useApiKey } from './hooks/useApiKey.js';
-import { useAgentExecution } from './hooks/useAgentExecution.js';
+import { useAgentExecutionV2 } from './hooks/useAgentExecution_v2.js';
 
 import { getSetting, setSetting } from './utils/config.js';
 import { ensureApiKeyForModel } from './utils/env.js';
@@ -23,15 +30,63 @@ import { MessageHistory } from './utils/message-history.js';
 import { DEFAULT_MODEL } from './model/llm.js';
 import { colors } from './theme.js';
 
-import type { AppState, CompletedTurn } from './cli/types.js';
+import type { AppState } from './cli/types.js';
 
-export function CLI() {
+// Load environment variables
+config({ quiet: true });
+
+// ============================================================================
+// Completed Turn V2 Type and View
+// ============================================================================
+
+interface CompletedTurnV2 {
+  id: string;
+  query: string;
+  iterations: Iteration[];
+  answer: string;
+}
+
+const CompletedTurnViewV2 = React.memo(function CompletedTurnViewV2({ turn }: { turn: CompletedTurnV2 }) {
+  // Create a "done" state to render the completed iterations
+  const completedState = {
+    iterations: turn.iterations,
+    currentIteration: turn.iterations.length,
+    status: 'done' as const,
+  };
+
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      {/* Query */}
+      <Box marginBottom={1}>
+        <Text color={colors.primary} bold>{'> '}</Text>
+        <Text>{turn.query}</Text>
+      </Box>
+
+      {/* Thinking and tools (chronological) */}
+      <AgentProgressView state={completedState} />
+
+      {/* Answer */}
+      <Box marginTop={1}>
+        <AnswerBox text={turn.answer} />
+      </Box>
+    </Box>
+  );
+});
+
+// ============================================================================
+// Main CLI Component
+// ============================================================================
+
+function CLIV2() {
   const { exit } = useApp();
 
   const [state, setState] = useState<AppState>('idle');
   const [model, setModel] = useState(() => getSetting('model', DEFAULT_MODEL));
-  const [history, setHistory] = useState<CompletedTurn[]>([]);
+  const [history, setHistory] = useState<CompletedTurnV2[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  // Store the current turn's iterations when answer starts streaming
+  const currentIterationsRef = useRef<Iteration[]>([]);
 
   const messageHistoryRef = useRef<MessageHistory>(new MessageHistory(model));
 
@@ -40,26 +95,37 @@ export function CLI() {
 
   const {
     currentTurn,
-    spinner,
     answerStream,
-    debugMessages,
+    isProcessing,
     processQuery,
     handleAnswerComplete: baseHandleAnswerComplete,
     cancelExecution,
-  } = useAgentExecution({
+  } = useAgentExecutionV2({
     model,
     messageHistory: messageHistoryRef.current,
   });
+
+  // Capture iterations when answer stream starts
+  useEffect(() => {
+    if (answerStream && currentTurn) {
+      currentIterationsRef.current = [...currentTurn.state.iterations];
+    }
+  }, [answerStream, currentTurn]);
 
   /**
    * Handles the completed answer and moves current turn to history
    */
   const handleAnswerComplete = useCallback((answer: string) => {
-    // Add to history before clearing current turn
     if (currentTurn) {
-      setHistory(h => [...h, { ...currentTurn, answer }]);
+      setHistory(h => [...h, {
+        id: currentTurn.id,
+        query: currentTurn.query,
+        iterations: currentIterationsRef.current,
+        answer,
+      }]);
     }
     baseHandleAnswerComplete(answer);
+    currentIterationsRef.current = [];
   }, [currentTurn, baseHandleAnswerComplete]);
 
   /**
@@ -127,7 +193,6 @@ export function CLI() {
         if (ready) {
           setModel(modelId);
           setSetting('model', modelId);
-          // Update message history manager's model for summary generation
           messageHistoryRef.current.setModel(modelId);
           setStatusMessage(`Model changed to ${modelId}`);
         } else {
@@ -162,7 +227,7 @@ export function CLI() {
   }
 
   // Combine intro and history into a single static stream
-  const staticItems: Array<{ type: 'intro' } | { type: 'turn'; turn: CompletedTurn }> = [
+  const staticItems: Array<{ type: 'intro' } | { type: 'turn'; turn: CompletedTurnV2 }> = [
     { type: 'intro' },
     ...history.map(h => ({ type: 'turn' as const, turn: h })),
   ];
@@ -175,43 +240,48 @@ export function CLI() {
           item.type === 'intro' ? (
             <Intro key="intro" />
           ) : (
-            <CompletedTurnView key={item.turn.id} turn={item.turn} />
+            <CompletedTurnViewV2 key={item.turn.id} turn={item.turn} />
           )
         }
       </Static>
 
       {/* Render current in-progress conversation */}
-      {currentTurn && <CurrentTurnView turn={currentTurn} />}
+      {currentTurn && (
+        <Box flexDirection="column" marginBottom={1}>
+          {/* Query + thinking + tools */}
+          <CurrentTurnViewV2 
+            query={currentTurn.query} 
+            state={currentTurn.state} 
+          />
+
+          {/* Streaming answer (appears below progress, chronologically) */}
+          {answerStream && (
+            <Box marginTop={1}>
+              <AnswerBox
+                stream={answerStream}
+                onComplete={handleAnswerComplete}
+              />
+            </Box>
+          )}
+        </Box>
+      )}
 
       {/* Queued queries */}
       <QueueDisplay queries={queryQueue} />
 
-      {/* Debug messages */}
-      <DebugMessages messages={debugMessages} />
-
       {/* Status message */}
       <StatusMessage message={statusMessage} />
 
-      {/* Streaming answer */}
-      {answerStream && (
-        <AnswerBox
-          stream={answerStream}
-          onStart={() => {}}
-          onComplete={handleAnswerComplete}
-        />
-      )}
-
-      {/* Spinner for async operations */}
-      {spinner && (
-        <Box marginTop={1}>
-          <Spinner message={spinner} />
-        </Box>
-      )}
-
       {/* Input bar - always visible and interactive */}
-        <Box marginTop={1}>
-          <Input onSubmit={handleSubmit} />
+      <Box marginTop={1}>
+        <Input onSubmit={handleSubmit} />
       </Box>
     </Box>
   );
 }
+
+// ============================================================================
+// Entry Point
+// ============================================================================
+
+render(<CLIV2 />);

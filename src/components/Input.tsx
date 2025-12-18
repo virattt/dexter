@@ -1,12 +1,10 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Text, useStdout } from 'ink';
 import TextInput from 'ink-text-input';
 
 import { colors } from '../theme.js';
 
 interface InputProps {
-  value: string;
-  onChange: (value: string) => void;
   onSubmit: (value: string) => void;
 }
 
@@ -35,7 +33,16 @@ function HorizontalBar() {
   return <Text color={colors.muted}>{'─'.repeat(width)}</Text>;
 }
 
-export function Input({ value, onChange, onSubmit }: InputProps) {
+export function Input({ onSubmit }: InputProps) {
+  // Input manages its own state - typing won't cause parent re-renders
+  const [value, setValue] = useState('');
+
+  const handleSubmit = (val: string) => {
+    if (!val.trim()) return;
+    onSubmit(val);
+    setValue('');
+  };
+
   return (
     <Box flexDirection="column" marginBottom={1}>
       <HorizontalBar />
@@ -45,8 +52,8 @@ export function Input({ value, onChange, onSubmit }: InputProps) {
         </Text>
         <TextInput
           value={value}
-          onChange={onChange}
-          onSubmit={onSubmit}
+          onChange={setValue}
+          onSubmit={handleSubmit}
           focus={true}
         />
       </Box>

@@ -4,6 +4,7 @@ import { createHash } from 'crypto';
 import { callLlm, DEFAULT_MODEL } from '../model/llm.js';
 import { CONTEXT_SELECTION_SYSTEM_PROMPT } from '../agent/prompts.js';
 import { SelectedContextsSchema } from '../agent/schemas.js';
+import type { ToolSummary } from '../agent/schemas_v2.js';
 
 interface ContextPointer {
   filepath: string;
@@ -61,7 +62,7 @@ export class ToolContextManager {
    * Creates a simple description string for the tool using the tool name and arguments.
    * The description string is used to identify the tool and is used to select relevant context for the query.
    */
-  private getToolDescription(toolName: string, args: Record<string, unknown>): string {
+  getToolDescription(toolName: string, args: Record<string, unknown>): string {
     const parts: string[] = [];
     const usedKeys = new Set<string>();
 
@@ -170,6 +171,27 @@ export class ToolContextManager {
     this.pointers.push(pointer);
 
     return filepath;
+  }
+
+  /**
+   * Saves context to disk and returns a lightweight ToolSummary for the agent loop.
+   * Combines saveContext + deterministic summary generation in one call.
+   */
+  saveAndGetSummary(
+    toolName: string,
+    args: Record<string, unknown>,
+    result: unknown,
+    queryId?: string
+  ): ToolSummary {
+    const filepath = this.saveContext(toolName, args, result, undefined, queryId);
+    const summary = this.getToolDescription(toolName, args);
+    
+    return {
+      id: filepath,
+      toolName,
+      args,
+      summary,
+    };
   }
 
   getAllPointers(): ContextPointer[] {
