@@ -1,8 +1,0 @@
-{
-    "extends": "../../../tsconfig.base.json",
-    "compilerOptions": {
-        "outDir": "dist"
-    },
-    "include": ["src/evm.ts", "src/solana.ts"],
-    "exclude": ["node_modules", "dist"]
-}

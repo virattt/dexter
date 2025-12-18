@@ -1,3 +1,0 @@
-# Core
-
-:::spl.token.core

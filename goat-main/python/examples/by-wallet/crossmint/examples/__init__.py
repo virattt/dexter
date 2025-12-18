@@ -1,1 +1,0 @@
-"""Crossmint wallet examples package."""

@@ -1,3 +1,0 @@
-# Constants
-
-:::spl.token.constants

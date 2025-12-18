@@ -5,7 +5,7 @@
 **/.env
 **/.env.local
 **/.env.*
-
+kits
 # Python
 __pycache__/
 *.py[cod]

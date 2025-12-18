@@ -1,3 +1,0 @@
-# Constants
-
-:::spl.memo.constants

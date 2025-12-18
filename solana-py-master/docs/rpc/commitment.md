@@ -1,3 +1,0 @@
-# Commitment
-
-:::solana.rpc.commitment

@@ -1,3 +1,0 @@
-# Instructions
-
-:::spl.token.instructions

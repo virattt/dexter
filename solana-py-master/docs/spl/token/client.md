@@ -1,3 +1,0 @@
-# Client
-
-:::spl.token.client
