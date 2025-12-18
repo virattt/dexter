@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 from dotenv import load_dotenv
 from solders.keypair import Keypair
+from solders.pubkey import Pubkey
 from solana.rpc.api import Client as SolanaClient
 
 from src.dexter.tools.birdeye.client import BirdEyeClient
@@ -71,8 +72,54 @@ def create_or_load_wallet() -> Keypair:
     return keypair
 
 
+def is_placeholder_value(value: str) -> bool:
+    """Check if a value is a placeholder (not a real API key/URL)."""
+    if not value:
+        return True
+    placeholders = ["your_", "your-", "placeholder", "xxx", "insert", "api_key_here"]
+    value_lower = value.lower()
+    return any(p in value_lower for p in placeholders)
+
+
+def check_api_keys():
+    """Check which API keys are configured."""
+    keys = {
+        "BIRDEYE_API_KEY": os.getenv("BIRDEYE_API_KEY"),
+        "HELIUS_API_KEY": os.getenv("HELIUS_API_KEY"),
+        "HELIUS_RPC_URL": os.getenv("HELIUS_RPC_URL"),
+    }
+    
+    missing = [k for k, v in keys.items() if is_placeholder_value(v)]
+    
+    if missing:
+        print("⚠️  API KEY STATUS:")
+        print("-" * 40)
+        for key in missing:
+            print(f"   ❌ {key} - Not configured")
+        configured = [k for k in keys.keys() if k not in missing]
+        for key in configured:
+            print(f"   ✅ {key} - Configured")
+        print("-" * 40)
+        print("   💡 Configure missing keys in your .env file")
+        print()
+    
+    return missing
+
+
 def display_trending_tokens():
     """Display trending Solana tokens using BirdEye API."""
+    # Check if BirdEye API key is configured
+    birdeye_key = os.getenv("BIRDEYE_API_KEY")
+    if is_placeholder_value(birdeye_key):
+        print("📈 TRENDING SOLANA TOKENS")
+        print("=" * 80)
+        print("   ⚠️  BirdEye API key not configured")
+        print("   💡 Set BIRDEYE_API_KEY in your .env file to enable this feature")
+        print("   🔗 Get your API key at: https://birdeye.so/")
+        print("=" * 80)
+        print()
+        return
+    
     try:
         print("📈 TRENDING SOLANA TOKENS")
         print("=" * 80)
@@ -112,64 +159,90 @@ def display_wallet_balance(wallet_address: str):
     print("=" * 80)
     print(f"📍 Address: {wallet_address}\n")
     
-    # Try BirdEye first
-    try:
+    # Try BirdEye first (if API key is configured)
+    birdeye_key = os.getenv("BIRDEYE_API_KEY")
+    if birdeye_key and not is_placeholder_value(birdeye_key):
+        try:
+            print("🐦 BirdEye Data:")
+            birdeye = BirdEyeClient()
+            portfolio = birdeye.get_wallet_portfolio(wallet_address)
+            
+            print(f"   Total Portfolio Value: ${portfolio.total_usd:.2f} USD")
+            
+            if portfolio.items:
+                print(f"   Token Count: {len(portfolio.items)}")
+                print(f"\n   {'Symbol':<12} {'Balance':<20} {'Value':<15}")
+                print(f"   {'-' * 47}")
+                
+                for item in portfolio.items[:5]:  # Show top 5 tokens
+                    symbol = item.get('symbol', 'Unknown')[:10]
+                    ui_amount = item.get('uiAmount', 0)
+                    value_usd = item.get('valueUSD', 0)
+                    print(f"   {symbol:<12} {ui_amount:<20.4f} ${value_usd:<14.2f}")
+                
+                if len(portfolio.items) > 5:
+                    print(f"   ... and {len(portfolio.items) - 5} more tokens")
+            else:
+                print("   No tokens found in wallet")
+            
+            print()
+            
+        except Exception as e:
+            print(f"   ⚠️  Error fetching BirdEye data: {e}\n")
+    else:
         print("🐦 BirdEye Data:")
-        birdeye = BirdEyeClient()
-        portfolio = birdeye.get_wallet_portfolio(wallet_address)
-        
-        print(f"   Total Portfolio Value: ${portfolio.total_usd:.2f} USD")
-        
-        if portfolio.items:
-            print(f"   Token Count: {len(portfolio.items)}")
-            print(f"\n   {'Symbol':<12} {'Balance':<20} {'Value':<15}")
-            print(f"   {'-' * 47}")
-            
-            for item in portfolio.items[:5]:  # Show top 5 tokens
-                symbol = item.get('symbol', 'Unknown')[:10]
-                ui_amount = item.get('uiAmount', 0)
-                value_usd = item.get('valueUSD', 0)
-                print(f"   {symbol:<12} {ui_amount:<20.4f} ${value_usd:<14.2f}")
-            
-            if len(portfolio.items) > 5:
-                print(f"   ... and {len(portfolio.items) - 5} more tokens")
-        else:
-            print("   No tokens found in wallet")
-        
-        print()
-        
-    except Exception as e:
-        print(f"   ⚠️  Error fetching BirdEye data: {e}\n")
+        print("   ⚠️  BirdEye API key not configured - skipping\n")
     
-    # Try Helius
-    try:
-        print("🌟 Helius Data:")
-        helius = HeliusClient()
-        rpc_url = os.getenv("HELIUS_RPC_URL", "https://api.devnet.helius.xyz/v1/" + os.getenv("HELIUS_API_KEY", ""))
-        client = SolanaClient(rpc_url)
-        
-        # Get SOL balance
-        balance_response = client.get_balance(wallet_address)
-        if balance_response.value:
-            sol_balance = balance_response.value / 1e9  # Convert lamports to SOL
-            print(f"   SOL Balance: {sol_balance:.4f} SOL")
-        
-        # Get assets owned by wallet
-        assets = helius.get_assets_by_owner(wallet_address, limit=5)
-        if assets:
-            print(f"   NFT/Asset Count: {len(assets)}")
-            asset_list = list(assets)[:3]
-            for i, asset in enumerate(asset_list, 1):
+    # Try Helius (if API key is configured)
+    helius_key = os.getenv("HELIUS_API_KEY")
+    rpc_url = os.getenv("HELIUS_RPC_URL")
+    
+    if (helius_key and not is_placeholder_value(helius_key)) or (rpc_url and not is_placeholder_value(rpc_url)):
+        try:
+            print("🌟 Helius Data:")
+            
+            # Use RPC URL if available, otherwise construct from API key
+            if rpc_url:
+                client = SolanaClient(rpc_url)
+            elif helius_key:
+                client = SolanaClient(f"https://mainnet.helius-rpc.com/?api-key={helius_key}")
+            else:
+                raise ValueError("Neither HELIUS_RPC_URL nor HELIUS_API_KEY configured")
+            
+            # Get SOL balance - convert string to Pubkey
+            wallet_pubkey = Pubkey.from_string(wallet_address)
+            balance_response = client.get_balance(wallet_pubkey)
+            if balance_response.value is not None:
+                sol_balance = balance_response.value / 1e9  # Convert lamports to SOL
+                print(f"   SOL Balance: {sol_balance:.4f} SOL")
+            else:
+                print("   SOL Balance: 0.0000 SOL (or unable to fetch)")
+            
+            # Only try DAS API if we have a proper API key
+            if helius_key and not is_placeholder_value(helius_key):
                 try:
-                    name = asset.content.metadata.get('name', 'Unknown') if asset.content and asset.content.metadata else 'Unknown'
-                except Exception:
-                    name = 'Unknown'
-                print(f"   {i}. {name}")
-        
-        print()
-        
-    except Exception as e:
-        print(f"   ⚠️  Error fetching Helius data: {e}\n")
+                    helius = HeliusClient(api_key=helius_key)
+                    assets_result = helius.get_assets_by_owner(wallet_address, limit=5)
+                    items = assets_result.get("items", [])
+                    if items:
+                        print(f"   NFT/Asset Count: {len(items)}")
+                        for i, asset in enumerate(items[:3], 1):
+                            try:
+                                name = asset.content.metadata.name if asset.content and asset.content.metadata else 'Unknown'
+                            except Exception:
+                                name = 'Unknown'
+                            print(f"   {i}. {name}")
+                except Exception as asset_err:
+                    print(f"   (NFT data unavailable: {asset_err})")
+            
+            print()
+            
+        except Exception as e:
+            print(f"   ⚠️  Error fetching Helius data: {e}\n")
+    else:
+        print("🌟 Helius Data:")
+        print("   ⚠️  Helius API key/RPC URL not configured - skipping")
+        print("   💡 Set HELIUS_API_KEY or HELIUS_RPC_URL in your .env file\n")
     
     print("=" * 80)
     print()
@@ -279,6 +352,9 @@ def main():
     
     print(DARK_DEXTER_ASCII)
     print("🚀 Initializing Dark Dexter Agent...\n")
+    
+    # Check API keys status
+    check_api_keys()
     
     # Create or load wallet
     wallet = create_or_load_wallet()
