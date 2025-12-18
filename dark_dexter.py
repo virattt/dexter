@@ -19,6 +19,13 @@ from solana.rpc.api import Client as SolanaClient
 from src.dexter.tools.birdeye.client import BirdEyeClient
 from src.dexter.tools.helius.client import HeliusClient
 
+# SAM 3 Vision imports (optional)
+try:
+    from src.dexter.tools.sam3 import Sam3Agent, Sam3ImageProcessor, segment_image
+    HAS_SAM3 = True
+except ImportError:
+    HAS_SAM3 = False
+
 # Load environment variables
 load_dotenv()
 
@@ -332,6 +339,119 @@ def analyze_token_price(token_address: str = None):
         print(f"❌ Error analyzing token: {e}\n")
 
 
+def analyze_image_with_sam3(image_path: str = None):
+    """Analyze an image using SAM 3 vision capabilities."""
+    if not HAS_SAM3:
+        print("❌ SAM 3 Vision not available")
+        print("   Install dependencies: pip install pillow numpy torch")
+        print("   See docs/SAM3_INTEGRATION.md for setup instructions\n")
+        return
+    
+    if not image_path:
+        image_path = input("Enter image path or URL to analyze: ").strip()
+    
+    if not image_path:
+        print("❌ No image provided\n")
+        return
+    
+    try:
+        print(f"\n👁️ SAM 3 VISION ANALYSIS")
+        print("=" * 80)
+        print(f"Image: {image_path}")
+        print()
+        
+        # Initialize SAM 3 Agent
+        agent = Sam3Agent()
+        
+        # Interactive analysis loop
+        while True:
+            query = input("🔍 What would you like to find? (or 'done' to exit): ").strip()
+            
+            if query.lower() in ['done', 'exit', 'quit', '']:
+                break
+            
+            print(f"\n⏳ Analyzing image for: {query}...")
+            
+            response = agent.query(query, image=image_path)
+            
+            print(f"\n📊 Action: {response.action}")
+            print(f"💭 Interpretation: {response.interpretation}")
+            print(f"📝 Result: {response.explanation}")
+            print(f"🎯 Confidence: {response.confidence:.1%}")
+            
+            if response.results and hasattr(response.results, 'masks'):
+                print(f"🎭 Objects found: {len(response.results.masks)}")
+                if response.results.boxes:
+                    print("📍 Locations:")
+                    for i, box in enumerate(response.results.boxes[:5], 1):
+                        print(f"   {i}. Box: ({box[0]}, {box[1]}) to ({box[2]}, {box[3]})")
+            
+            print()
+        
+        print("=" * 80)
+        print("✅ Vision analysis complete!\n")
+        
+    except Exception as e:
+        print(f"❌ Error analyzing image: {e}\n")
+
+
+def analyze_video_with_sam3(video_path: str = None):
+    """Track objects in a video using SAM 3."""
+    if not HAS_SAM3:
+        print("❌ SAM 3 Vision not available")
+        print("   Install dependencies: pip install pillow numpy torch opencv-python")
+        print("   See docs/SAM3_INTEGRATION.md for setup instructions\n")
+        return
+    
+    from src.dexter.tools.sam3 import Sam3VideoProcessor
+    
+    if not video_path:
+        video_path = input("Enter video path to analyze: ").strip()
+    
+    if not video_path:
+        print("❌ No video provided\n")
+        return
+    
+    query = input("Enter object to track (e.g., 'person', 'car'): ").strip()
+    if not query:
+        query = "objects"
+    
+    try:
+        print(f"\n🎬 SAM 3 VIDEO TRACKING")
+        print("=" * 80)
+        print(f"Video: {video_path}")
+        print(f"Tracking: {query}")
+        print()
+        
+        processor = Sam3VideoProcessor()
+        
+        print("⏳ Processing video (this may take a while)...")
+        
+        result = processor.segment_video(
+            video_path=video_path,
+            query=query,
+            max_frames=100  # Limit for demo
+        )
+        
+        print(f"\n📊 Results:")
+        print(f"   Total frames processed: {result.total_frames}")
+        print(f"   Video FPS: {result.fps:.1f}")
+        print(f"   Resolution: {result.resolution[0]}x{result.resolution[1]}")
+        print(f"   Objects tracked: {len(result.tracked_objects)}")
+        
+        for obj in result.tracked_objects:
+            coverage = obj.frame_count / result.total_frames * 100
+            print(f"\n   🎯 {obj.label} (ID: {obj.object_id})")
+            print(f"      Visible in: {obj.frame_count} frames ({coverage:.1f}%)")
+            print(f"      Avg confidence: {obj.average_score:.1%}")
+        
+        print("\n" + "=" * 80)
+        print("✅ Video analysis complete!\n")
+        
+    except Exception as e:
+        print(f"❌ Error analyzing video: {e}\n")
+
+
 def display_quick_actions():
     """Display available quick actions."""
     print("⚡ QUICK ACTIONS")
@@ -342,7 +462,10 @@ def display_quick_actions():
     print("4. 📤 Send SOL/tokens")
     print("5. 🔄 Refresh trending tokens")
     print("6. 💹 Analyze token price")
-    print("7. 🚪 Exit")
+    sam3_status = "✅" if HAS_SAM3 else "❌"
+    print(f"7. 👁️ Vision Analysis (SAM 3) {sam3_status}")
+    print(f"8. 🎬 Video Tracking (SAM 3) {sam3_status}")
+    print("9. 🚪 Exit")
     print("=" * 80)
     print()
 

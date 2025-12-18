@@ -26,6 +26,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 - **Security Analysis**: Built-in rug pull detection and token security scoring
 - **Wallet Intelligence**: Multi-source balance checking and portfolio analytics
 - **AI-Powered Trading**: LangChain integration for autonomous DeFi operations
+- **🆕 SAM 3 Vision AI**: Meta AI's Segment Anything Model 3 for image segmentation and video object tracking with natural language queries
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt)
 
@@ -140,7 +141,8 @@ dexter/
 │   │   │   ├── helius/               # Helius DAS API (NFTs, cNFTs)
 │   │   │   ├── birdeye/              # BirdEye token analytics
 │   │   │   ├── crossmint/            # Crossmint smart wallets
-│   │   │   └── goat_plugins/         # GOAT SDK plugin wrappers
+│   │   │   ├── goat_plugins/         # GOAT SDK plugin wrappers
+│   │   │   └── sam3/                 # SAM 3 Vision AI (image/video)
 │   │   ├── prompts.py                # System prompts
 │   │   ├── schemas.py                # Pydantic models
 │   │   ├── utils/                    # Utility functions
