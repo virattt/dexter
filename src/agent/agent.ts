@@ -1,43 +1,52 @@
-import { PlannedTask } from './schemas.js';
-import { TaskPlanner } from './task-planner.js';
-import { TaskExecutor } from './task-executor.js';
-import { AnswerGenerator } from './answer-generator.js';
+import { DynamicStructuredTool } from '@langchain/core/tools';
+import { StructuredToolInterface } from '@langchain/core/tools';
+import { AIMessage } from '@langchain/core/messages';
+import { z } from 'zod';
+import { ToolSummary } from './schemas.js';
 import { ToolContextManager } from '../utils/context.js';
 import { MessageHistory } from '../utils/message-history.js';
+import { callLlm, callLlmStream } from '../model/llm.js';
+import { TOOLS } from '../tools/index.js';
+import { getSystemPrompt, buildUserPrompt, getAnswerSystemPrompt } from './prompts.js';
+
+// ============================================================================
+// Types
+// ============================================================================
 
 /**
- * Task type for UI callbacks (simplified view)
+ * Tool call information for callbacks
  */
-export interface Task {
-  id: number;
-  description: string;
-  done: boolean;
+export interface ToolCallInfo {
+  name: string;
+  args: Record<string, unknown>;
+}
+
+/**
+ * Tool call result for callbacks
+ */
+export interface ToolCallResult {
+  name: string;
+  args: Record<string, unknown>;
+  summary: string;
+  success: boolean;
 }
 
 /**
  * Callbacks for observing agent execution
  */
 export interface AgentCallbacks {
-  /** Called when user query is received */
-  onUserQuery?: (query: string) => void;
-  /** Called when tasks are planned */
-  onTasksPlanned?: (tasks: Task[]) => void;
-  /** Called when subtasks are planned for tasks */
-  onSubtasksPlanned?: (plannedTasks: PlannedTask[]) => void;
-  /** Called when a subtask starts executing */
-  onSubTaskStart?: (taskId: number, subTaskId: number) => void;
-  /** Called when a subtask finishes executing */
-  onSubTaskComplete?: (taskId: number, subTaskId: number, success: boolean) => void;
-  /** Called when a task starts executing */
-  onTaskStart?: (taskId: number) => void;
-  /** Called when a task completes */
-  onTaskComplete?: (taskId: number, success: boolean) => void;
-  /** Called for debug messages (accumulated, not overwritten) */
-  onDebug?: (message: string) => void;
-  /** Called when a spinner should start */
-  onSpinnerStart?: (message: string) => void;
-  /** Called when a spinner should stop */
-  onSpinnerStop?: () => void;
+  /** Called when a new iteration starts */
+  onIterationStart?: (iteration: number) => void;
+  /** Called when the agent expresses its thinking */
+  onThinking?: (thought: string) => void;
+  /** Called when tool calls are about to be executed */
+  onToolCallsStart?: (toolCalls: ToolCallInfo[]) => void;
+  /** Called when a single tool call completes */
+  onToolCallComplete?: (result: ToolCallResult) => void;
+  /** Called when an iteration completes */
+  onIterationComplete?: (iteration: number) => void;
+  /** Called when the answer generation phase starts */
+  onAnswerStart?: () => void;
   /** Called with the answer stream */
   onAnswerStream?: (stream: AsyncGenerator<string>) => void;
 }
@@ -49,115 +58,346 @@ export interface AgentOptions {
   /** LLM model to use */
   model: string;
   /** Callbacks to observe agent execution */
-  callbacks: AgentCallbacks;
+  callbacks?: AgentCallbacks;
+  /** Maximum number of iterations (default: 5) */
+  maxIterations?: number;
 }
 
+// ============================================================================
+// Finish Tool
+// ============================================================================
+
+const FinishToolSchema = z.object({
+  reason: z.string().describe('Brief explanation of why you have enough data to answer the query'),
+});
+
 /**
- * Dexter Agent - Orchestrates financial research with two-pass architecture.
+ * Creates the "finish" tool that signals the agent is ready to generate an answer.
+ */
+function createFinishTool(onFinish: (reason: string) => void): StructuredToolInterface {
+  return new DynamicStructuredTool({
+    name: 'finish',
+    description: 'Call this tool when you have gathered enough data to comprehensively answer the user\'s query. Do not call this until you have all the data you need.',
+    schema: FinishToolSchema,
+    func: async ({ reason }) => {
+      onFinish(reason);
+      return 'Ready to generate answer.';
+    },
+  });
+}
+
+// ============================================================================
+// Agent Implementation
+// ============================================================================
+
+/**
+ * Agent that iteratively reasons and acts until it has enough data.
  * 
  * Architecture:
- * 1. TaskPlanner: Creates tasks and subtasks (descriptions only)
- * 2. TaskExecutor: Resolves subtasks to tool calls via LLM, then executes them
- * 3. AnswerGenerator: Loads relevant contexts and generates final answer
- * 
- * Tool outputs are saved to filesystem via ToolContextManager during execution,
- * and only loaded at answer generation time for memory efficiency.
+ * 1. Agent Loop: Reason about query → Call tools → Observe summaries → Repeat
+ * 2. Context Management: Tool outputs saved to disk, only summaries kept in context
+ * 3. Answer Generation: Load relevant full data from disk, generate comprehensive answer
  */
 export class Agent {
   private readonly callbacks: AgentCallbacks;
   private readonly model: string;
-  
-  // Shared context manager for tool outputs
+  private readonly maxIterations: number;
   private readonly toolContextManager: ToolContextManager;
-  
-  // Collaborators
-  private readonly taskPlanner: TaskPlanner;
-  private readonly taskExecutor: TaskExecutor;
-  private readonly answerGenerator: AnswerGenerator;
+  private readonly toolMap: Map<string, StructuredToolInterface>;
 
   constructor(options: AgentOptions) {
     this.callbacks = options.callbacks ?? {};
     this.model = options.model;
-    
-    // Create shared tool context manager
+    this.maxIterations = options.maxIterations ?? 5;
     this.toolContextManager = new ToolContextManager('.dexter/context', this.model);
-    
-    // Create collaborators with shared tool context manager
-    this.taskPlanner = new TaskPlanner(this.model);
-    this.taskExecutor = new TaskExecutor(this.toolContextManager, this.model);
-    this.answerGenerator = new AnswerGenerator(this.toolContextManager, this.model);
+    this.toolMap = new Map(TOOLS.map(t => [t.name, t]));
   }
 
   /**
-   * Main entry point - runs the agent on a user query.
-   * 
-   * Flow:
-   * 1. Plan tasks with subtasks (LLM call)
-   * 2. Execute: resolve subtasks to tool calls (LLM call per task), then execute tools
-   * 3. Generate answer from saved contexts
-   * 
-   * @param query - The user's query
-   * @param messageHistory - Optional message history for multi-turn context
+   * Main entry point - runs the agent loop on a user query.
    */
   async run(query: string, messageHistory?: MessageHistory): Promise<string> {
-    this.callbacks.onSpinnerStart?.('Planning...');
-
-    // Generate queryId to scope pointers to this query
+    const summaries: ToolSummary[] = [];
     const queryId = this.toolContextManager.hashQuery(query);
+    let finishReason: string | null = null;
 
-    // Notify that query was received
-    this.callbacks.onUserQuery?.(query);
-
-    // Planning call - creates tasks and subtasks
-    const plannedTasks = await this.taskPlanner.planTasks(
-      query,
-      { onDebug: this.callbacks.onDebug },
-      messageHistory
-    );
-
-    if (plannedTasks.length === 0) {
-      // No tasks planned - answer directly without tools
-      return await this.generateAnswer(query, queryId, messageHistory);
-    }
-
-    // Extract tasks for UI callback
-    const tasks: Task[] = plannedTasks.map(pt => ({
-      id: pt.id,
-      description: pt.description,
-      done: false,
-    }));
-    this.callbacks.onTasksPlanned?.(tasks);
-    this.callbacks.onSubtasksPlanned?.(plannedTasks);
-
-    // Execute tasks: resolve subtasks to tool calls via LLM, then execute
-    await this.taskExecutor.executeTasks(plannedTasks, queryId, {
-      onSubTaskStart: (taskId, subTaskId) => {
-        this.callbacks.onSubTaskStart?.(taskId, subTaskId);
-      },
-      onSubTaskComplete: (taskId, subTaskId, success) => {
-        this.callbacks.onSubTaskComplete?.(taskId, subTaskId, success);
-      },
-      onTaskStart: (taskId) => {
-        this.callbacks.onTaskStart?.(taskId);
-      },
-      onTaskComplete: (taskId, success) => {
-        this.callbacks.onTaskComplete?.(taskId, success);
-      },
+    // Create finish tool with callback to capture finish reason
+    const finishTool = createFinishTool((reason) => {
+      finishReason = reason;
     });
 
-    this.callbacks.onSpinnerStop?.();
+    // All tools available to the agent (including finish)
+    const allTools = [...TOOLS, finishTool];
 
-    // Generate answer from saved contexts
-    return await this.generateAnswer(query, queryId, messageHistory);
+    // Build tool schemas for the system prompt
+    const toolSchemas = this.buildToolSchemas();
+
+    // Select relevant conversation history for context (done once at the start)
+    let conversationContext: string | undefined;
+    if (messageHistory && messageHistory.hasMessages()) {
+      const relevantMessages = await messageHistory.selectRelevantMessages(query);
+      if (relevantMessages.length > 0) {
+        conversationContext = messageHistory.formatForPlanning(relevantMessages);
+      }
+    }
+
+    // Main loop
+    for (let i = 0; i < this.maxIterations; i++) {
+      const iterationNum = i + 1;
+      this.callbacks.onIterationStart?.(iterationNum);
+
+      // Build the prompt for this iteration
+      const systemPrompt = getSystemPrompt(toolSchemas);
+      const userPrompt = buildUserPrompt(query, summaries, iterationNum, conversationContext);
+
+      // Call LLM with tools bound
+      const response = await callLlm(userPrompt, {
+        systemPrompt,
+        tools: allTools,
+        model: this.model,
+      }) as AIMessage;
+
+      // Extract thinking from response content
+      const thought = this.extractThought(response);
+      if (thought) {
+        this.callbacks.onThinking?.(thought);
+      }
+
+      // Check if agent called finish or has no more tool calls
+      const toolCalls = response.tool_calls || [];
+      
+      // Check for finish tool call
+      const finishCall = toolCalls.find(tc => tc.name === 'finish');
+      if (finishCall) {
+        // Execute finish to capture the reason
+        await finishTool.invoke(finishCall.args);
+        this.callbacks.onIterationComplete?.(iterationNum);
+        break;
+      }
+
+      // If no tool calls, agent is done (implicit finish)
+      if (toolCalls.length === 0) {
+        this.callbacks.onIterationComplete?.(iterationNum);
+        break;
+      }
+
+      // Filter out finish calls from tool calls to execute
+      const dataToolCalls = toolCalls.filter(tc => tc.name !== 'finish');
+
+      if (dataToolCalls.length > 0) {
+        // Notify about tool calls starting
+        const toolCallInfos: ToolCallInfo[] = dataToolCalls.map(tc => ({
+          name: tc.name,
+          args: tc.args as Record<string, unknown>,
+        }));
+        this.callbacks.onToolCallsStart?.(toolCallInfos);
+
+        // Execute all tool calls in parallel
+        const results = await Promise.all(
+          dataToolCalls.map(async (toolCall) => {
+            const toolName = toolCall.name;
+            const args = toolCall.args as Record<string, unknown>;
+
+            try {
+              const tool = this.toolMap.get(toolName);
+              if (!tool) {
+                throw new Error(`Tool not found: ${toolName}`);
+              }
+
+              const result = await tool.invoke(args);
+
+              // Save to disk and get summary
+              const summary = this.toolContextManager.saveAndGetSummary(
+                toolName,
+                args,
+                result,
+                queryId
+              );
+
+              const callResult: ToolCallResult = {
+                name: toolName,
+                args,
+                summary: summary.summary,
+                success: true,
+              };
+              this.callbacks.onToolCallComplete?.(callResult);
+
+              return summary;
+            } catch (error) {
+              const callResult: ToolCallResult = {
+                name: toolName,
+                args,
+                summary: `Error: ${error instanceof Error ? error.message : String(error)}`,
+                success: false,
+              };
+              this.callbacks.onToolCallComplete?.(callResult);
+              return null;
+            }
+          })
+        );
+
+        // Add successful summaries to context
+        for (const summary of results) {
+          if (summary) {
+            summaries.push(summary);
+          }
+        }
+      }
+
+      this.callbacks.onIterationComplete?.(iterationNum);
+    }
+
+    // Generate answer from collected data
+    return this.generateAnswer(query, queryId, messageHistory);
   }
 
   /**
-   * Generates the final answer by loading relevant contexts.
+   * Extracts the thinking/reasoning from the LLM response content.
    */
-  private async generateAnswer(query: string, queryId: string, messageHistory?: MessageHistory): Promise<string> {
-    this.callbacks.onSpinnerStart?.('Answering...');
-    const stream = await this.answerGenerator.generateAnswer(query, queryId, messageHistory);
+  private extractThought(response: AIMessage): string | null {
+    const content = response.content;
+    
+    if (typeof content === 'string' && content.trim()) {
+      return content.trim();
+    }
+    
+    // Handle array content (some models return this)
+    if (Array.isArray(content)) {
+      const textParts = content
+        .filter((part): part is { type: 'text'; text: string } => 
+          typeof part === 'object' && part !== null && 'type' in part && part.type === 'text'
+        )
+        .map(part => part.text);
+      
+      if (textParts.length > 0) {
+        return textParts.join('\n').trim();
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Builds tool schemas string for the system prompt.
+   */
+  private buildToolSchemas(): string {
+    return TOOLS.map((tool) => {
+      const jsonSchema = tool.schema as Record<string, unknown>;
+      const properties = (jsonSchema.properties as Record<string, unknown>) || {};
+      const required = (jsonSchema.required as string[]) || [];
+      
+      const paramLines = Object.entries(properties).map(([name, prop]) => {
+        const propObj = prop as { type?: string; description?: string; enum?: string[]; default?: unknown };
+        const isRequired = required.includes(name);
+        const reqLabel = isRequired ? ' (required)' : '';
+        const enumValues = propObj.enum ? ` [${propObj.enum.join(', ')}]` : '';
+        const defaultVal = propObj.default !== undefined ? ` default=${propObj.default}` : '';
+        return `    - ${name}: ${propObj.type || 'any'}${enumValues}${reqLabel}${defaultVal} - ${propObj.description || ''}`;
+      });
+
+      return `${tool.name}: ${tool.description}
+  Parameters:
+${paramLines.join('\n')}`;
+    }).join('\n\n');
+  }
+
+  /**
+   * Generates the final answer by selecting and loading relevant contexts.
+   */
+  private async generateAnswer(
+    query: string,
+    queryId: string,
+    messageHistory?: MessageHistory
+  ): Promise<string> {
+    this.callbacks.onAnswerStart?.();
+
+    const pointers = this.toolContextManager.getPointersForQuery(queryId);
+
+    // Build conversation context from message history
+    let conversationContext = '';
+    if (messageHistory && messageHistory.hasMessages()) {
+      const relevantMessages = await messageHistory.selectRelevantMessages(query);
+      if (relevantMessages.length > 0) {
+        const formattedHistory = messageHistory.formatForAnswerGeneration(relevantMessages);
+        conversationContext = `Previous conversation context (for reference):
+${formattedHistory}
+
+---
+
+`;
+      }
+    }
+
+    if (pointers.length === 0) {
+      // No data collected - generate answer without tool data
+      const stream = await this.generateNoDataAnswer(query, conversationContext);
+      this.callbacks.onAnswerStream?.(stream);
+      return '';
+    }
+
+    // Select relevant contexts using LLM
+    const selectedFilepaths = await this.toolContextManager.selectRelevantContexts(query, pointers);
+    
+    // Load the full context data
+    const selectedContexts = this.toolContextManager.loadContexts(selectedFilepaths);
+
+    if (selectedContexts.length === 0) {
+      const stream = await this.generateNoDataAnswer(query, conversationContext);
+      this.callbacks.onAnswerStream?.(stream);
+      return '';
+    }
+
+    // Format contexts for the prompt
+    const formattedResults = selectedContexts.map(ctx => {
+      const toolName = ctx.toolName || 'unknown';
+      const args = ctx.args || {};
+      const result = ctx.result;
+      const sourceUrls = ctx.sourceUrls || [];
+      const sourceLine = sourceUrls.length > 0 ? `\nSource URLs: ${sourceUrls.join(', ')}` : '';
+      return `Output of ${toolName} with args ${JSON.stringify(args)}:${sourceLine}\n${JSON.stringify(result, null, 2)}`;
+    });
+
+    // Collect all available sources for reference
+    const allSources = selectedContexts
+      .filter(ctx => ctx.sourceUrls && ctx.sourceUrls.length > 0)
+      .map(ctx => ({
+        toolDescription: ctx.toolDescription || ctx.toolName,
+        urls: ctx.sourceUrls!,
+      }));
+
+    const allResults = formattedResults.join('\n\n');
+
+    const prompt = `${conversationContext}Original user query: "${query}"
+
+Data and results collected from tools:
+${allResults}
+
+${allSources.length > 0 ? `Available sources for citation:\n${JSON.stringify(allSources, null, 2)}\n\n` : ''}Based on the data above, provide a comprehensive answer to the user's query.
+Include specific numbers, calculations, and insights.`;
+
+    const stream = callLlmStream(prompt, {
+      systemPrompt: getAnswerSystemPrompt(),
+      model: this.model,
+    });
+
     this.callbacks.onAnswerStream?.(stream);
     return '';
+  }
+
+  /**
+   * Generates a streaming answer when no data was collected.
+   */
+  private async generateNoDataAnswer(
+    query: string,
+    conversationContext: string = ''
+  ): Promise<AsyncGenerator<string>> {
+    const prompt = `${conversationContext}Original user query: "${query}"
+
+No data was collected from tools. Answer the query using your general knowledge, or explain what information would be needed.`;
+
+    return callLlmStream(prompt, {
+      systemPrompt: getAnswerSystemPrompt(),
+      model: this.model,
+    });
   }
 }

@@ -4,7 +4,7 @@ import { createHash } from 'crypto';
 import { callLlm, DEFAULT_MODEL } from '../model/llm.js';
 import { CONTEXT_SELECTION_SYSTEM_PROMPT } from '../agent/prompts.js';
 import { SelectedContextsSchema } from '../agent/schemas.js';
-import type { ToolSummary } from '../agent/schemas_v2.js';
+import type { ToolSummary } from '../agent/schemas.js';
 
 interface ContextPointer {
   filepath: string;

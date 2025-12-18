@@ -1,24 +1,86 @@
 import { z } from 'zod';
 
 // ============================================================================
-// Simple Response Schemas
+// Agent Loop Types
 // ============================================================================
 
-export const IsDoneSchema = z.object({
-  done: z.boolean().describe('Whether the task is done or not.'),
+/**
+ * A thinking step in the agent loop - the agent's reasoning
+ */
+export interface ThinkingStep {
+  thought: string;
+}
+
+/**
+ * A tool call step with its execution status
+ */
+export interface ToolCallStep {
+  toolName: string;
+  args: Record<string, unknown>;
+  summary: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+}
+
+/**
+ * A single iteration in the agent loop
+ */
+export interface Iteration {
+  id: number;
+  thinking: ThinkingStep | null;
+  toolCalls: ToolCallStep[];
+  status: 'thinking' | 'acting' | 'completed';
+}
+
+/**
+ * Overall state of the agent for UI display
+ */
+export interface AgentState {
+  iterations: Iteration[];
+  currentIteration: number;
+  status: 'reasoning' | 'executing' | 'answering' | 'done';
+}
+
+// ============================================================================
+// Tool Summary Types
+// ============================================================================
+
+/**
+ * Lightweight summary of a tool call result (kept in context during loop)
+ */
+export interface ToolSummary {
+  id: string;           // Filepath pointer to full data on disk
+  toolName: string;
+  args: Record<string, unknown>;
+  summary: string;      // Deterministic description
+}
+
+// ============================================================================
+// LLM Response Schemas
+// ============================================================================
+
+/**
+ * Schema for the "finish" tool that signals the agent is ready to answer.
+ * Using a tool for this is cleaner with LangChain's tool binding.
+ */
+export const FinishToolSchema = z.object({
+  reason: z.string().describe('Brief explanation of why you have enough data to answer'),
 });
 
-export type IsDone = z.infer<typeof IsDoneSchema>;
+export type FinishToolArgs = z.infer<typeof FinishToolSchema>;
 
-export const AnswerSchema = z.object({
-  answer: z
-    .string()
-    .describe(
-      "A comprehensive answer to the user's query, including relevant numbers, data, reasoning, and insights."
-    ),
+/**
+ * Schema for extracting the agent's thinking from its response.
+ * The thought explains the reasoning before tool calls.
+ */
+export const ThinkingSchema = z.object({
+  thought: z.string().describe('Your reasoning about what data you need or why you are ready to answer'),
 });
 
-export type Answer = z.infer<typeof AnswerSchema>;
+export type Thinking = z.infer<typeof ThinkingSchema>;
+
+// ============================================================================
+// Context Selection Schema (used by utils/context.ts)
+// ============================================================================
 
 export const SelectedContextsSchema = z.object({
   context_ids: z
@@ -29,54 +91,3 @@ export const SelectedContextsSchema = z.object({
 });
 
 export type SelectedContexts = z.infer<typeof SelectedContextsSchema>;
-
-// ============================================================================
-// Task Planning Schemas
-// ============================================================================
-
-/**
- * Subtask schema - describes what data to fetch.
- * Tool resolution happens at execution time.
- */
-export const SubTaskSchema = z.object({
-  id: z.number().describe('Unique identifier for the subtask'),
-  description: z.string().describe('What data to fetch or action to perform'),
-});
-
-export type SubTask = z.infer<typeof SubTaskSchema>;
-
-/**
- * Planned task schema - a task with its subtasks.
- * Used for planning and validation.
- */
-export const PlannedTaskSchema = z.object({
-  id: z.number().describe('Unique identifier for the task'),
-  description: z.string().describe('High-level description of the research task'),
-  subTasks: z.array(SubTaskSchema).describe('Subtasks to execute'),
-});
-
-export type PlannedTask = z.infer<typeof PlannedTaskSchema>;
-
-/**
- * Execution plan schema - collection of planned tasks.
- * Used as output schema for task planning.
- */
-export const ExecutionPlanSchema = z.object({
-  tasks: z.array(PlannedTaskSchema).describe('Tasks with their subtasks'),
-});
-
-export type ExecutionPlan = z.infer<typeof ExecutionPlanSchema>;
-
-// ============================================================================
-// Runtime Types
-// ============================================================================
-
-/**
- * Result of executing a subtask.
- * Used internally by TaskExecutor to track execution results.
- */
-export interface SubTaskResult {
-  taskId: number;
-  subTaskId: number;
-  success: boolean;
-}

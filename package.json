@@ -10,8 +10,6 @@
   "scripts": {
     "start": "bun run src/index.tsx",
     "dev": "bun --watch run src/index.tsx",
-    "dev:v2": "bun --watch run src/cli_v2.tsx",
-    "start:v2": "bun run src/cli_v2.tsx",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "test:watch": "bun test --watch"

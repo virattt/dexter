@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import InkSpinner from 'ink-spinner';
 import { colors } from '../theme.js';
-import type { AgentState, Iteration } from '../agent/schemas_v2.js';
+import type { AgentState, Iteration } from '../agent/schemas.js';
 
 // ============================================================================
 // Helper Components
