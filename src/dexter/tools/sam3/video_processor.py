@@ -14,10 +14,17 @@ import json
 
 try:
     from PIL import Image
-    import numpy as np
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
+    Image = None
+
+try:
+    import numpy as np
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
+    np = None
 
 try:
     import torch
@@ -297,7 +304,7 @@ class Sam3VideoProcessor:
     
     def _init_tracking(
         self,
-        frame: np.ndarray,
+        frame: Any,
         query: str
     ) -> List[TrackedObject]:
         """Initialize object tracking on first frame."""
@@ -354,7 +361,7 @@ class Sam3VideoProcessor:
     
     def _track_frame(
         self,
-        frame: np.ndarray,
+        frame: Any,
         frame_idx: int,
         tracked_objects: List[TrackedObject]
     ):
@@ -382,7 +389,7 @@ class Sam3VideoProcessor:
         except Exception as e:
             print(f"⚠️ Tracking error at frame {frame_idx}: {e}")
     
-    def _mask_to_box(self, mask: np.ndarray) -> Tuple[int, int, int, int]:
+    def _mask_to_box(self, mask: Any) -> Tuple[int, int, int, int]:
         """Convert mask to bounding box."""
         if mask.sum() == 0:
             return (0, 0, 0, 0)
@@ -405,7 +412,7 @@ class Sam3VideoProcessor:
         
         return (int(x1), int(y1), int(x2), int(y2))
     
-    def _calculate_mask_score(self, mask: np.ndarray) -> float:
+    def _calculate_mask_score(self, mask: Any) -> float:
         """Calculate quality score for mask."""
         if HAS_TORCH and isinstance(mask, torch.Tensor):
             mask = mask.cpu().numpy()
@@ -432,10 +439,10 @@ class Sam3VideoProcessor:
     
     def _visualize_frame(
         self,
-        frame: np.ndarray,
+        frame: Any,
         tracked_objects: List[TrackedObject],
         frame_idx: int
-    ) -> np.ndarray:
+    ) -> Any:
         """Create visualization of tracked objects on frame."""
         vis_frame = frame.copy()
         

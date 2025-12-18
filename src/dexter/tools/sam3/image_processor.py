@@ -15,10 +15,17 @@ from pathlib import Path
 
 try:
     from PIL import Image
-    import numpy as np
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
+    Image = None
+
+try:
+    import numpy as np
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
+    np = None
 
 try:
     import torch
@@ -119,7 +126,7 @@ class Sam3ImageProcessor:
     
     def segment_with_text(
         self,
-        image: Union[str, "Image.Image", np.ndarray],
+        image: Union[str, Any],
         query: str,
         return_visualization: bool = False
     ) -> SegmentationResult:
@@ -149,7 +156,7 @@ class Sam3ImageProcessor:
     
     def segment_with_points(
         self,
-        image: Union[str, "Image.Image", np.ndarray],
+        image: Union[str, Any],
         points: List[Tuple[int, int]],
         labels: List[int],  # 1 for foreground, 0 for background
         return_visualization: bool = False
@@ -175,7 +182,7 @@ class Sam3ImageProcessor:
     
     def segment_with_box(
         self,
-        image: Union[str, "Image.Image", np.ndarray],
+        image: Union[str, Any],
         box: Tuple[int, int, int, int],  # x1, y1, x2, y2
         return_visualization: bool = False
     ) -> SegmentationResult:
@@ -197,7 +204,7 @@ class Sam3ImageProcessor:
         
         return self._segment_with_box_local(img, box, return_visualization)
     
-    def _load_image(self, image: Union[str, "Image.Image", np.ndarray]) -> "Image.Image":
+    def _load_image(self, image: Union[str, Any]) -> "Image.Image":
         """Load image from various sources."""
         if not HAS_PIL:
             raise ImportError("PIL required. Install with: pip install Pillow")
@@ -409,7 +416,7 @@ class Sam3ImageProcessor:
                 metadata={'error': str(e)}
             )
     
-    def _mask_to_box(self, mask: np.ndarray) -> Tuple[int, int, int, int]:
+    def _mask_to_box(self, mask: Any) -> Tuple[int, int, int, int]:
         """Convert binary mask to bounding box."""
         if mask.sum() == 0:
             return (0, 0, 0, 0)
@@ -424,7 +431,7 @@ class Sam3ImageProcessor:
     def _create_visualization(
         self,
         image: "Image.Image",
-        masks: List[np.ndarray],
+        masks: List[Any],
         boxes: List[Tuple[int, int, int, int]]
     ) -> "Image.Image":
         """Create visualization with masks overlaid."""

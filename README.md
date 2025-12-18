@@ -170,11 +170,13 @@ dexter/
 - **[Helius Integration Guide](docs/HELIUS_INTEGRATION.md)**: Complete guide to Helius DAS API integration
 - **[Crossmint & GOAT SDK Guide](docs/CROSSMINT_INTEGRATION.md)**: Comprehensive wallet and DeFi plugin documentation
 - **[User Guide](docs/DARK_DEXTER_USER_GUIDE.md)**: Complete reference for all Dark Dexter features
+- **[SAM 3 Vision Guide](docs/SAM3_INTEGRATION.md)**: Meta AI SAM 3 integration for image/video analysis
 
 ### Examples
 - `examples/helius_example.py`: Helius DAS API operations (getAsset, getAssetBatch, searchAssets, etc.)
 - `examples/crossmint_example.py`: Crossmint wallet creation, balance checking, and transactions
 - `examples/goat_plugins_example.py`: GOAT SDK plugin usage with AI agent integration
+- `examples/sam3_vision_example.py`: SAM 3 image segmentation and video object tracking
 
 ## Configuration
 
