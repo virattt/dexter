@@ -1,47 +1,75 @@
 import { z } from 'zod';
 
 // ============================================================================
-// Agent Loop Types
+// Understand Phase Schema
 // ============================================================================
 
 /**
- * A thinking step in the agent loop - the agent's reasoning
+ * Schema for entity extraction.
  */
-export interface ThinkingStep {
-  thought: string;
-}
+export const EntitySchema = z.object({
+  type: z.enum(['ticker', 'date', 'metric', 'company', 'period', 'other'])
+    .describe('The type of entity'),
+  value: z.string()
+    .describe('The raw value from the query'),
+});
 
 /**
- * A tool call step with its execution status
+ * Schema for the Understanding phase output.
  */
-export interface ToolCallStep {
-  toolName: string;
-  args: Record<string, unknown>;
-  summary: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
-}
+export const UnderstandingSchema = z.object({
+  intent: z.string()
+    .describe('A clear statement of what the user wants to accomplish'),
+  entities: z.array(EntitySchema)
+    .describe('Key entities extracted from the query'),
+});
 
-/**
- * A single iteration in the agent loop
- */
-export interface Iteration {
-  id: number;
-  thinking: ThinkingStep | null;
-  toolCalls: ToolCallStep[];
-  status: 'thinking' | 'acting' | 'completed';
-}
-
-/**
- * Overall state of the agent for UI display
- */
-export interface AgentState {
-  iterations: Iteration[];
-  currentIteration: number;
-  status: 'reasoning' | 'executing' | 'answering' | 'done';
-}
+export type UnderstandingOutput = z.infer<typeof UnderstandingSchema>;
 
 // ============================================================================
-// Tool Summary Types
+// Plan Phase Schema
+// ============================================================================
+
+/**
+ * Schema for a task in the plan.
+ * Includes taskType and dependencies - tool selection happens at execution time.
+ */
+export const PlanTaskSchema = z.object({
+  id: z.string()
+    .describe('Unique identifier (e.g., "task_1")'),
+  description: z.string()
+    .describe('SHORT task description - must be under 10 words'),
+  taskType: z.enum(['use_tools', 'reason'])
+    .describe('use_tools = needs tools to fetch data, reason = LLM analysis only'),
+  dependsOn: z.array(z.string())
+    .describe('IDs of tasks that must complete before this one'),
+});
+
+/**
+ * Schema for the Plan output.
+ */
+export const PlanSchema = z.object({
+  summary: z.string()
+    .describe('One sentence summary under 15 words'),
+  tasks: z.array(PlanTaskSchema)
+    .describe('2-5 tasks with short descriptions'),
+});
+
+export type PlanOutput = z.infer<typeof PlanSchema>;
+
+// ============================================================================
+// Context Selection Schema
+// ============================================================================
+
+export const SelectedContextsSchema = z.object({
+  context_ids: z.array(z.number())
+    .describe('List of context pointer IDs (0-indexed) that are relevant'),
+});
+
+export type SelectedContextsOutput = z.infer<typeof SelectedContextsSchema>;
+
+// ============================================================================
+// Tool Summary Type (used by context manager)
 // ============================================================================
 
 /**
@@ -53,41 +81,3 @@ export interface ToolSummary {
   args: Record<string, unknown>;
   summary: string;      // Deterministic description
 }
-
-// ============================================================================
-// LLM Response Schemas
-// ============================================================================
-
-/**
- * Schema for the "finish" tool that signals the agent is ready to answer.
- * Using a tool for this is cleaner with LangChain's tool binding.
- */
-export const FinishToolSchema = z.object({
-  reason: z.string().describe('Brief explanation of why you have enough data to answer'),
-});
-
-export type FinishToolArgs = z.infer<typeof FinishToolSchema>;
-
-/**
- * Schema for extracting the agent's thinking from its response.
- * The thought explains the reasoning before tool calls.
- */
-export const ThinkingSchema = z.object({
-  thought: z.string().describe('Your reasoning about what data you need or why you are ready to answer'),
-});
-
-export type Thinking = z.infer<typeof ThinkingSchema>;
-
-// ============================================================================
-// Context Selection Schema (used by utils/context.ts)
-// ============================================================================
-
-export const SelectedContextsSchema = z.object({
-  context_ids: z
-    .array(z.number())
-    .describe(
-      'List of context pointer IDs (0-indexed) that are relevant for answering the query.'
-    ),
-});
-
-export type SelectedContexts = z.infer<typeof SelectedContextsSchema>;

@@ -9,6 +9,7 @@ export const colors = {
   accent: 'cyan',
   highlight: 'magenta',
   white: '#ffffff',
+  info: '#6CB6FF',
 } as const;
 
 export const dimensions = {

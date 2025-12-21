@@ -1,28 +1,72 @@
-// Main Agent class and types
-export { Agent, AgentCallbacks, AgentOptions, ToolCallInfo, ToolCallResult } from './agent.js';
+// ============================================================================
+// Agent - Planning with just-in-time tool selection
+// ============================================================================
 
-// Schemas and types
-export {
-  ThinkingStep,
-  ToolCallStep,
-  Iteration,
-  AgentState,
+// Main orchestrator
+export { Agent } from './orchestrator.js';
+export type { AgentOptions, AgentCallbacks } from './orchestrator.js';
+
+// State types
+export type {
+  Phase,
+  TaskStatus,
+  TaskType,
+  EntityType,
+  Entity,
+  UnderstandInput,
+  Understanding,
+  ToolCall,
+  ToolCallStatus,
+  PlanInput,
+  Task,
+  Plan,
+  ExecuteInput,
+  TaskResult,
   ToolSummary,
-  FinishToolSchema,
-  FinishToolArgs,
-  ThinkingSchema,
-  Thinking,
+  AgentState,
+} from './state.js';
+
+export { createInitialState } from './state.js';
+
+// Schemas
+export {
+  EntitySchema,
+  UnderstandingSchema,
+  PlanTaskSchema,
+  PlanSchema,
   SelectedContextsSchema,
-  SelectedContexts,
 } from './schemas.js';
 
-// Prompts (shared utilities)
+export type {
+  UnderstandingOutput,
+  PlanOutput,
+  SelectedContextsOutput,
+} from './schemas.js';
+
+// Phases
 export {
-  DEFAULT_SYSTEM_PROMPT,
+  UnderstandPhase,
+  PlanPhase,
+  ExecutePhase,
+} from './phases/index.js';
+
+export type {
+  UnderstandPhaseOptions,
+  PlanPhaseOptions,
+  ExecutePhaseOptions,
+} from './phases/index.js';
+
+// Prompts
+export {
   getCurrentDate,
-  getAnswerSystemPrompt,
-  getSystemPrompt,
-  formatToolSummaries,
-  buildUserPrompt,
-  CONTEXT_SELECTION_SYSTEM_PROMPT,
+  getUnderstandSystemPrompt,
+  getPlanSystemPrompt,
+  getToolSelectionSystemPrompt,
+  getExecuteSystemPrompt,
+  getFinalAnswerSystemPrompt,
+  buildUnderstandUserPrompt,
+  buildPlanUserPrompt,
+  buildToolSelectionPrompt,
+  buildExecuteUserPrompt,
+  buildFinalAnswerUserPrompt,
 } from './prompts.js';

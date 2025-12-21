@@ -9,4 +9,3 @@ config({ quiet: true });
 
 // Render the CLI app
 render(<CLI />);
-

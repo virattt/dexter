@@ -2,16 +2,38 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import InkSpinner from 'ink-spinner';
 import { colors } from '../theme.js';
-import type { AgentState, Iteration } from '../agent/schemas.js';
+import { TaskListView } from './TaskListView.js';
+import type { Phase, Task } from '../agent/state.js';
 
 // ============================================================================
-// Helper Components
+// Types
 // ============================================================================
 
 /**
- * Status icon - dots spinner when active, checkmark when complete
+ * State for the agent progress view.
  */
-function StatusIcon({ active }: { active: boolean }) {
+export interface AgentProgressState {
+  currentPhase: Phase;
+  understandComplete: boolean;
+  planComplete: boolean;
+  tasks: Task[];
+  isAnswering: boolean;
+}
+
+// ============================================================================
+// Status Icon Component
+// ============================================================================
+
+interface StatusIconProps {
+  complete: boolean;
+  active: boolean;
+  pending?: boolean;
+}
+
+function StatusIcon({ complete, active, pending }: StatusIconProps) {
+  if (complete) {
+    return <Text color={colors.success}>✓</Text>;
+  }
   if (active) {
     return (
       <Text color={colors.accent}>
@@ -19,81 +41,96 @@ function StatusIcon({ active }: { active: boolean }) {
       </Text>
     );
   }
-  return <Text color={colors.success}>✓</Text>;
-}
-
-// ============================================================================
-// Iteration View (Claude Code style)
-// ============================================================================
-
-interface IterationViewProps {
-  iteration: Iteration;
-  isActive: boolean;
-}
-
-const IterationView = React.memo(function IterationView({ iteration, isActive }: IterationViewProps) {
-  if (!iteration.thinking) {
-    return (
-      <Box>
-        <StatusIcon active={true} />
-        <Text color={colors.primary}> Thinking...</Text>
-      </Box>
-    );
+  if (pending) {
+    return <Text color={colors.muted}>○</Text>;
   }
+  return null;
+}
 
+// ============================================================================
+// Phase Indicator Component
+// ============================================================================
+
+interface PhaseIndicatorProps {
+  label: string;
+  complete: boolean;
+  active: boolean;
+}
+
+function PhaseIndicator({ label, complete, active }: PhaseIndicatorProps) {
+  if (!complete && !active) return null;
+  
+  const textColor = complete ? colors.muted : colors.primary;
+  
   return (
-    <Box marginBottom={1}>
-      <StatusIcon active={isActive} />
+    <Box>
+      <StatusIcon complete={complete} active={active} />
       <Text> </Text>
-      <Text color={colors.muted}>{iteration.thinking.thought}</Text>
+      <Text color={textColor}>{label}</Text>
     </Box>
   );
-});
+}
+
 
 // ============================================================================
-// Main Component
+// Agent Progress View
 // ============================================================================
 
 interface AgentProgressViewProps {
-  state: AgentState;
+  state: AgentProgressState;
 }
 
 /**
- * Displays the agent's progress in Claude Code style.
- * Shows tasks with progress circles and nested tool calls.
+ * Displays the agent's progress including:
+ * - Phase indicators (understand, planning)
+ * - Task list with status and tool calls
+ * - Answering indicator
  */
-export const AgentProgressView = React.memo(function AgentProgressView({ state }: AgentProgressViewProps) {
-  if (state.iterations.length === 0) {
-    return (
-      <Box marginTop={1}>
-        <StatusIcon active={true} />
-        <Text color={colors.primary}> Starting...</Text>
-      </Box>
-    );
-  }
-
-  const isAnswering = state.status === 'answering';
-  const isDone = state.status === 'done';
-  const allComplete = isAnswering || isDone;
-
-  // When answering/done, only show iterations that have thinking content
-  const visibleIterations = allComplete
-    ? state.iterations.filter(it => it.thinking)
-    : state.iterations;
+export const AgentProgressView = React.memo(function AgentProgressView({ 
+  state 
+}: AgentProgressViewProps) {
+  const { 
+    currentPhase, 
+    understandComplete,
+    planComplete,
+    tasks,
+    isAnswering 
+  } = state;
 
   return (
     <Box flexDirection="column" marginTop={1}>
-      {visibleIterations.map((iteration) => (
-        <IterationView
-          key={iteration.id}
-          iteration={iteration}
-          isActive={!allComplete && iteration.status !== 'completed'}
-        />
-      ))}
+      {/* Understand phase */}
+      <PhaseIndicator 
+        label="Understanding query..."
+        complete={understandComplete}
+        active={currentPhase === 'understand'}
+      />
+      
+      {/* Planning phase */}
+      <PhaseIndicator 
+        label="Planning..."
+        complete={planComplete}
+        active={currentPhase === 'plan'}
+      />
+
+      {/* Task list */}
+      {tasks.length > 0 && (
+        <Box flexDirection="column" marginTop={1}>
+          <Text color={colors.primary}>Working on your request:</Text>
+          <Box marginTop={1} marginLeft={2} flexDirection="column">
+            <TaskListView tasks={tasks} />
+          </Box>
+        </Box>
+      )}
+
+      {/* Answering indicator */}
       {isAnswering && (
-        <Box>
-          <StatusIcon active={true} />
-          <Text color={colors.primary}> Generating answer...</Text>
+        <Box marginTop={1}>
+          <Text color={colors.accent}>
+            <InkSpinner type="dots" />
+          </Text>
+          <Text> </Text>
+          <Text color={colors.primary}>Generating answer...</Text>
         </Box>
       )}
     </Box>
@@ -101,18 +138,21 @@ export const AgentProgressView = React.memo(function AgentProgressView({ state }
 });
 
 // ============================================================================
-// Current Turn View V2
+// Current Turn View
 // ============================================================================
 
-interface CurrentTurnViewV2Props {
+interface CurrentTurnViewProps {
   query: string;
-  state: AgentState;
+  state: AgentProgressState;
 }
 
 /**
- * Full current turn view including query and progress
+ * Full current turn view including query and progress.
  */
-export const CurrentTurnViewV2 = React.memo(function CurrentTurnViewV2({ query, state }: CurrentTurnViewV2Props) {
+export const CurrentTurnView = React.memo(function CurrentTurnView({ 
+  query, 
+  state 
+}: CurrentTurnViewProps) {
   return (
     <Box flexDirection="column">
       {/* User query */}

@@ -25,7 +25,6 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
 
 // Model provider configuration
 interface ModelOpts {
-  temperature: number;
   streaming: boolean;
 }
 
@@ -63,10 +62,9 @@ const DEFAULT_PROVIDER: ModelFactory = (name, opts) =>
 
 export function getChatModel(
   modelName: string = DEFAULT_MODEL,
-  temperature: number = 0,
   streaming: boolean = false
 ): BaseChatModel {
-  const opts: ModelOpts = { temperature, streaming };
+  const opts: ModelOpts = { streaming };
   const prefix = Object.keys(MODEL_PROVIDERS).find((p) => modelName.startsWith(p));
   const factory = prefix ? MODEL_PROVIDERS[prefix] : DEFAULT_PROVIDER;
   return factory(modelName, opts);
@@ -88,7 +86,7 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
     ['user', '{prompt}'],
   ]);
 
-  const llm = getChatModel(model, 0, false);
+  const llm = getChatModel(model, false);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let runnable: Runnable<any, any> = llm;
@@ -123,7 +121,7 @@ export async function* callLlmStream(
     ['user', '{prompt}'],
   ]);
 
-  const llm = getChatModel(model, 0, true);
+  const llm = getChatModel(model, true);
   const chain = promptTemplate.pipe(llm);
 
   // For streaming, we handle retry at the connection level

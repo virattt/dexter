@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * CLI - Agent Interface
+ * CLI - Multi-phase Agent Interface
  * 
- * Uses the agent with iterative reasoning and progress display.
+ * Uses the agent with Understand, Plan, and Task Loop phases.
  */
 import React from 'react';
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -11,16 +11,18 @@ import { config } from 'dotenv';
 
 import { Intro } from './components/Intro.js';
 import { Input } from './components/Input.js';
-import { AnswerBox, UserQuery } from './components/AnswerBox.js';
+import { AnswerBox } from './components/AnswerBox.js';
 import { ModelSelector } from './components/ModelSelector.js';
 import { QueueDisplay } from './components/QueueDisplay.js';
 import { StatusMessage } from './components/StatusMessage.js';
-import { CurrentTurnViewV2, AgentProgressView } from './components/AgentProgressView.js';
-import type { Iteration } from './agent/schemas.js';
+import { CurrentTurnView, AgentProgressView } from './components/AgentProgressView.js';
+import { TaskListView } from './components/TaskListView.js';
+import type { Task } from './agent/state.js';
+import type { AgentProgressState } from './components/AgentProgressView.js';
 
 import { useQueryQueue } from './hooks/useQueryQueue.js';
 import { useApiKey } from './hooks/useApiKey.js';
-import { useAgentExecution } from './hooks/useAgentExecution.js';
+import { useAgentExecution, ToolError } from './hooks/useAgentExecution.js';
 
 import { getSetting, setSetting } from './utils/config.js';
 import { ensureApiKeyForModel } from './utils/env.js';
@@ -41,17 +43,33 @@ config({ quiet: true });
 interface CompletedTurn {
   id: string;
   query: string;
-  iterations: Iteration[];
+  tasks: Task[];
   answer: string;
 }
 
+// ============================================================================
+// Debug Section Component
+// ============================================================================
+
+const DebugSection = React.memo(function DebugSection({ errors }: { errors: ToolError[] }) {
+  if (errors.length === 0) return null;
+
+  return (
+    <Box flexDirection="column" marginTop={1} paddingX={1} borderStyle="single" borderColor="red">
+      <Text color="red" bold>Debug: Tool Errors</Text>
+      {errors.map((err, i) => (
+        <Box key={i} flexDirection="column" marginTop={i > 0 ? 1 : 0}>
+          <Text color="yellow">Tool: {err.toolName}</Text>
+          <Text color="gray">Error: {err.error}</Text>
+        </Box>
+      ))}
+    </Box>
+  );
+});
+
 const CompletedTurnView = React.memo(function CompletedTurnView({ turn }: { turn: CompletedTurn }) {
-  // Create a "done" state to render the completed iterations
-  const completedState = {
-    iterations: turn.iterations,
-    currentIteration: turn.iterations.length,
-    status: 'done' as const,
-  };
+  // Mark all tasks as completed for display
+  const completedTasks = turn.tasks.map(t => ({ ...t, status: 'completed' as const }));
 
   return (
     <Box flexDirection="column" marginBottom={1}>
@@ -61,8 +79,14 @@ const CompletedTurnView = React.memo(function CompletedTurnView({ turn }: { turn
         <Text>{turn.query}</Text>
       </Box>
 
-      {/* Thinking and tools (chronological) */}
-      <AgentProgressView state={completedState} />
+      {/* Task list (completed) */}
+      {completedTasks.length > 0 && (
+        <Box flexDirection="column" marginTop={1}>
+          <Box marginLeft={2} flexDirection="column">
+            <TaskListView tasks={completedTasks} />
+          </Box>
+        </Box>
+      )}
 
       {/* Answer */}
       <Box marginTop={1}>
@@ -84,8 +108,8 @@ export function CLI() {
   const [history, setHistory] = useState<CompletedTurn[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  // Store the current turn's iterations when answer starts streaming
-  const currentIterationsRef = useRef<Iteration[]>([]);
+  // Store the current turn's tasks when answer starts streaming
+  const currentTasksRef = useRef<Task[]>([]);
 
   const messageHistoryRef = useRef<MessageHistory>(new MessageHistory(model));
 
@@ -96,6 +120,7 @@ export function CLI() {
     currentTurn,
     answerStream,
     isProcessing,
+    toolErrors,
     processQuery,
     handleAnswerComplete: baseHandleAnswerComplete,
     cancelExecution,
@@ -104,10 +129,10 @@ export function CLI() {
     messageHistory: messageHistoryRef.current,
   });
 
-  // Capture iterations when answer stream starts
+  // Capture tasks when answer stream starts
   useEffect(() => {
     if (answerStream && currentTurn) {
-      currentIterationsRef.current = [...currentTurn.state.iterations];
+      currentTasksRef.current = [...currentTurn.state.tasks];
     }
   }, [answerStream, currentTurn]);
 
@@ -119,12 +144,12 @@ export function CLI() {
       setHistory(h => [...h, {
         id: currentTurn.id,
         query: currentTurn.query,
-        iterations: currentIterationsRef.current,
+        tasks: currentTasksRef.current,
         answer,
       }]);
     }
     baseHandleAnswerComplete(answer);
-    currentIterationsRef.current = [];
+    currentTasksRef.current = [];
   }, [currentTurn, baseHandleAnswerComplete]);
 
   /**
@@ -247,13 +272,13 @@ export function CLI() {
       {/* Render current in-progress conversation */}
       {currentTurn && (
         <Box flexDirection="column" marginBottom={1}>
-          {/* Query + thinking + tools */}
-          <CurrentTurnViewV2 
+          {/* Query + phase progress + task list */}
+          <CurrentTurnView 
             query={currentTurn.query} 
             state={currentTurn.state} 
           />
 
-          {/* Streaming answer (appears below progress, chronologically) */}
+          {/* Streaming answer (appears below progress) */}
           {answerStream && (
             <Box marginTop={1}>
               <AnswerBox
@@ -264,6 +289,9 @@ export function CLI() {
           )}
         </Box>
       )}
+
+      {/* Debug: Tool Errors */}
+      <DebugSection errors={toolErrors} />
 
       {/* Queued queries */}
       <QueueDisplay queries={queryQueue} />

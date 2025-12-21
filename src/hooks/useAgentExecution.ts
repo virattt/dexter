@@ -1,20 +1,21 @@
 import { useState, useCallback, useRef } from 'react';
-import { Agent, AgentCallbacks, ToolCallInfo, ToolCallResult } from '../agent/agent.js';
-import { Iteration, AgentState, ToolCallStep } from '../agent/schemas.js';
+import { Agent, AgentCallbacks } from '../agent/orchestrator.js';
 import { MessageHistory } from '../utils/message-history.js';
 import { generateId } from '../cli/types.js';
+import type { Task, Phase, TaskStatus, ToolCallStatus, Plan } from '../agent/state.js';
+import type { AgentProgressState } from '../components/AgentProgressView.js';
 
 // ============================================================================
 // Types
 // ============================================================================
 
 /**
- * Current turn state for the agent
+ * Current turn state for the agent.
  */
 export interface CurrentTurn {
   id: string;
   query: string;
-  state: AgentState;
+  state: AgentProgressState;
 }
 
 interface UseAgentExecutionOptions {
@@ -22,13 +23,40 @@ interface UseAgentExecutionOptions {
   messageHistory: MessageHistory;
 }
 
+/**
+ * A tool error for debugging.
+ */
+export interface ToolError {
+  taskId: string;
+  toolName: string;
+  error: string;
+}
+
 interface UseAgentExecutionResult {
   currentTurn: CurrentTurn | null;
   answerStream: AsyncGenerator<string> | null;
   isProcessing: boolean;
+  toolErrors: ToolError[];
   processQuery: (query: string) => Promise<void>;
   handleAnswerComplete: (answer: string) => void;
   cancelExecution: () => void;
+}
+
+/**
+ * Pending task update to be applied when tasks are available.
+ */
+interface PendingTaskUpdate {
+  taskId: string;
+  status: TaskStatus;
+}
+
+/**
+ * Pending tool call update to be applied when tasks are available.
+ */
+interface PendingToolCallUpdate {
+  taskId: string;
+  toolIndex: number;
+  status: ToolCallStatus['status'];
 }
 
 // ============================================================================
@@ -36,11 +64,8 @@ interface UseAgentExecutionResult {
 // ============================================================================
 
 /**
- * Hook that encapsulates agent execution logic including:
- * - Iteration tracking
- * - Thinking/tool call state management
- * - Query processing
- * - Answer handling
+ * Hook that connects the agent to React state.
+ * Manages phase transitions, task updates, and answer streaming.
  */
 export function useAgentExecution({
   model,
@@ -49,174 +74,234 @@ export function useAgentExecution({
   const [currentTurn, setCurrentTurn] = useState<CurrentTurn | null>(null);
   const [answerStream, setAnswerStream] = useState<AsyncGenerator<string> | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [toolErrors, setToolErrors] = useState<ToolError[]>([]);
 
   const currentQueryRef = useRef<string | null>(null);
   const isProcessingRef = useRef(false);
+  
+  // Track pending updates for race condition handling
+  const pendingTaskUpdatesRef = useRef<PendingTaskUpdate[]>([]);
+  const pendingToolCallUpdatesRef = useRef<PendingToolCallUpdate[]>([]);
 
   /**
-   * Creates a new empty iteration
+   * Updates the current phase.
    */
-  const createIteration = useCallback((id: number): Iteration => ({
-    id,
-    thinking: null,
-    toolCalls: [],
-    status: 'thinking',
-  }), []);
-
-  /**
-   * Updates the current iteration's thinking
-   */
-  const setIterationThinking = useCallback((thought: string) => {
+  const setPhase = useCallback((phase: Phase) => {
     setCurrentTurn(prev => {
       if (!prev) return prev;
-      const iterations = [...prev.state.iterations];
-      const currentIdx = iterations.length - 1;
-      if (currentIdx >= 0) {
-        iterations[currentIdx] = {
-          ...iterations[currentIdx],
-          thinking: { thought },
-        };
-      }
       return {
         ...prev,
         state: {
           ...prev.state,
-          iterations,
+          currentPhase: phase,
         },
       };
     });
   }, []);
 
   /**
-   * Adds tool calls to the current iteration
+   * Marks a phase as complete.
    */
-  const addToolCalls = useCallback((toolCalls: ToolCallInfo[]) => {
+  const markPhaseComplete = useCallback((phase: Phase) => {
     setCurrentTurn(prev => {
       if (!prev) return prev;
-      const iterations = [...prev.state.iterations];
-      const currentIdx = iterations.length - 1;
-      if (currentIdx >= 0) {
-        const newToolCalls: ToolCallStep[] = toolCalls.map(tc => ({
-          toolName: tc.name,
-          args: tc.args,
-          summary: '',
-          status: 'running' as const,
-        }));
-        iterations[currentIdx] = {
-          ...iterations[currentIdx],
-          status: 'acting',
-          toolCalls: newToolCalls,
-        };
+      
+      const updates: Partial<AgentProgressState> = {};
+      
+      switch (phase) {
+        case 'understand':
+          updates.understandComplete = true;
+          break;
+        case 'plan':
+          updates.planComplete = true;
+          break;
       }
+      
       return {
         ...prev,
         state: {
           ...prev.state,
-          status: 'executing',
-          iterations,
+          ...updates,
         },
       };
     });
   }, []);
 
   /**
-   * Updates a tool call's status and summary
+   * Sets the task list after plan creation.
+   * Applies any pending task/tool updates that arrived before tasks were set.
    */
-  const updateToolCall = useCallback((result: ToolCallResult) => {
+  const setTasksFromPlan = useCallback((plan: Plan) => {
     setCurrentTurn(prev => {
       if (!prev) return prev;
-      const iterations = [...prev.state.iterations];
-      const currentIdx = iterations.length - 1;
-      if (currentIdx >= 0) {
-        const toolCalls = iterations[currentIdx].toolCalls.map(tc => {
-          if (tc.toolName === result.name && JSON.stringify(tc.args) === JSON.stringify(result.args)) {
-            return {
-              ...tc,
-              summary: result.summary,
-              status: result.success ? 'completed' as const : 'failed' as const,
-            };
-          }
-          return tc;
+      
+      // Start with plan tasks
+      let tasks = [...plan.tasks];
+      
+      // Apply any pending task status updates
+      const pendingTaskUpdates = pendingTaskUpdatesRef.current;
+      for (const update of pendingTaskUpdates) {
+        tasks = tasks.map(task =>
+          task.id === update.taskId ? { ...task, status: update.status } : task
+        );
+      }
+      pendingTaskUpdatesRef.current = [];
+      
+      // Apply any pending tool call status updates
+      const pendingToolUpdates = pendingToolCallUpdatesRef.current;
+      for (const update of pendingToolUpdates) {
+        tasks = tasks.map(task => {
+          if (task.id !== update.taskId || !task.toolCalls) return task;
+          const toolCalls = task.toolCalls.map((tc, i) =>
+            i === update.toolIndex ? { ...tc, status: update.status } : tc
+          );
+          return { ...task, toolCalls };
         });
-        iterations[currentIdx] = {
-          ...iterations[currentIdx],
-          toolCalls,
-        };
       }
+      pendingToolCallUpdatesRef.current = [];
+      
       return {
         ...prev,
         state: {
           ...prev.state,
-          iterations,
+          tasks,
         },
       };
     });
   }, []);
 
   /**
-   * Marks the current iteration as complete and prepares for next
+   * Updates a task's status.
+   * If tasks aren't set yet, queues the update for later.
    */
-  const completeIteration = useCallback((iterationNum: number) => {
+  const updateTaskStatus = useCallback((taskId: string, status: TaskStatus) => {
     setCurrentTurn(prev => {
       if (!prev) return prev;
-      const iterations = [...prev.state.iterations];
-      const idx = iterationNum - 1;
-      if (idx >= 0 && idx < iterations.length) {
-        iterations[idx] = {
-          ...iterations[idx],
-          status: 'completed',
-        };
+      
+      // If tasks aren't set yet, queue the update
+      if (prev.state.tasks.length === 0) {
+        pendingTaskUpdatesRef.current.push({ taskId, status });
+        return prev;
       }
+      
+      const tasks = prev.state.tasks.map(task => 
+        task.id === taskId ? { ...task, status } : task
+      );
+      
       return {
         ...prev,
         state: {
           ...prev.state,
-          iterations,
+          tasks,
         },
       };
     });
   }, []);
 
   /**
-   * Creates agent callbacks that update the declarative state
+   * Sets the tool calls for a task when they are first selected.
+   */
+  const setTaskToolCalls = useCallback((taskId: string, toolCalls: ToolCallStatus[]) => {
+    setCurrentTurn(prev => {
+      if (!prev) return prev;
+      
+      const tasks = prev.state.tasks.map(task =>
+        task.id === taskId ? { ...task, toolCalls } : task
+      );
+      
+      return {
+        ...prev,
+        state: {
+          ...prev.state,
+          tasks,
+        },
+      };
+    });
+  }, []);
+
+  /**
+   * Updates a tool call's status within a task.
+   * If tasks aren't set yet, queues the update for later.
+   */
+  const updateToolCallStatus = useCallback((
+    taskId: string, 
+    toolIndex: number, 
+    status: ToolCallStatus['status']
+  ) => {
+    setCurrentTurn(prev => {
+      if (!prev) return prev;
+      
+      // If tasks aren't set yet, queue the update
+      if (prev.state.tasks.length === 0) {
+        pendingToolCallUpdatesRef.current.push({ taskId, toolIndex, status });
+        return prev;
+      }
+      
+      const tasks = prev.state.tasks.map(task => {
+        if (task.id !== taskId || !task.toolCalls) return task;
+        
+        const toolCalls = task.toolCalls.map((tc, i) => 
+          i === toolIndex ? { ...tc, status } : tc
+        );
+        
+        return { ...task, toolCalls };
+      });
+      
+      return {
+        ...prev,
+        state: {
+          ...prev.state,
+          tasks,
+        },
+      };
+    });
+  }, []);
+
+  /**
+   * Sets the answering state.
+   */
+  const setAnswering = useCallback((isAnswering: boolean) => {
+    setCurrentTurn(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        state: {
+          ...prev.state,
+          isAnswering,
+        },
+      };
+    });
+  }, []);
+
+  /**
+   * Handles tool call errors for debugging.
+   */
+  const handleToolCallError = useCallback((
+    taskId: string,
+    _toolIndex: number,
+    toolName: string,
+    error: Error
+  ) => {
+    setToolErrors(prev => [...prev, { taskId, toolName, error: error.message }]);
+  }, []);
+
+  /**
+   * Creates agent callbacks that update React state.
    */
   const createAgentCallbacks = useCallback((): AgentCallbacks => ({
-    onIterationStart: (iteration) => {
-      setCurrentTurn(prev => {
-        if (!prev) return prev;
-        const newIteration = createIteration(iteration);
-        return {
-          ...prev,
-          state: {
-            ...prev.state,
-            status: 'reasoning',
-            currentIteration: iteration,
-            iterations: [...prev.state.iterations, newIteration],
-          },
-        };
-      });
-    },
-    onThinking: setIterationThinking,
-    onToolCallsStart: addToolCalls,
-    onToolCallComplete: updateToolCall,
-    onIterationComplete: completeIteration,
-    onAnswerStart: () => {
-      setCurrentTurn(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          state: {
-            ...prev.state,
-            status: 'answering',
-          },
-        };
-      });
-    },
+    onPhaseStart: setPhase,
+    onPhaseComplete: markPhaseComplete,
+    onPlanCreated: setTasksFromPlan,
+    onTaskUpdate: updateTaskStatus,
+    onTaskToolCallsSet: setTaskToolCalls,
+    onToolCallUpdate: updateToolCallStatus,
+    onToolCallError: handleToolCallError,
+    onAnswerStart: () => setAnswering(true),
     onAnswerStream: (stream) => setAnswerStream(stream),
-  }), [createIteration, setIterationThinking, addToolCalls, updateToolCall, completeIteration]);
+  }), [setPhase, markPhaseComplete, setTasksFromPlan, updateTaskStatus, setTaskToolCalls, updateToolCallStatus, handleToolCallError, setAnswering]);
 
   /**
-   * Handles the completed answer
+   * Handles the completed answer.
    */
   const handleAnswerComplete = useCallback((answer: string) => {
     setCurrentTurn(null);
@@ -233,7 +318,7 @@ export function useAgentExecution({
   }, [messageHistory]);
 
   /**
-   * Processes a single query through the agent
+   * Processes a single query through the agent.
    */
   const processQuery = useCallback(
     async (query: string): Promise<void> => {
@@ -243,15 +328,22 @@ export function useAgentExecution({
 
       // Store current query for message history
       currentQueryRef.current = query;
+      
+      // Clear any pending updates and errors from previous run
+      pendingTaskUpdatesRef.current = [];
+      pendingToolCallUpdatesRef.current = [];
+      setToolErrors([]);
 
       // Initialize turn state
       setCurrentTurn({
         id: generateId(),
         query,
         state: {
-          iterations: [],
-          currentIteration: 0,
-          status: 'reasoning',
+          currentPhase: 'understand',
+          understandComplete: false,
+          planComplete: false,
+          tasks: [],
+          isAnswering: false,
         },
       });
 
@@ -273,7 +365,7 @@ export function useAgentExecution({
   );
 
   /**
-   * Cancels the current execution
+   * Cancels the current execution.
    */
   const cancelExecution = useCallback(() => {
     setCurrentTurn(null);
@@ -286,6 +378,7 @@ export function useAgentExecution({
     currentTurn,
     answerStream,
     isProcessing,
+    toolErrors,
     processQuery,
     handleAnswerComplete,
     cancelExecution,
