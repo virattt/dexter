@@ -54,12 +54,19 @@ interface CompletedTurn {
 const DebugSection = React.memo(function DebugSection({ errors }: { errors: ToolError[] }) {
   if (errors.length === 0) return null;
 
+  const formatArgs = (args: Record<string, unknown>): string => {
+    const entries = Object.entries(args);
+    if (entries.length === 0) return '(no args)';
+    return entries.map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join(', ');
+  };
+
   return (
     <Box flexDirection="column" marginTop={1} paddingX={1} borderStyle="single" borderColor="red">
       <Text color="red" bold>Debug: Tool Errors</Text>
       {errors.map((err, i) => (
         <Box key={i} flexDirection="column" marginTop={i > 0 ? 1 : 0}>
           <Text color="yellow">Tool: {err.toolName}</Text>
+          <Text color="cyan">Args: {formatArgs(err.args)}</Text>
           <Text color="gray">Error: {err.error}</Text>
         </Box>
       ))}

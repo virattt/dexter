@@ -52,7 +52,7 @@ export interface AgentCallbacks {
   onTaskUpdate?: (taskId: string, status: TaskStatus) => void;
   onTaskToolCallsSet?: (taskId: string, toolCalls: ToolCallStatus[]) => void;
   onToolCallUpdate?: (taskId: string, toolIndex: number, status: ToolCallStatus['status']) => void;
-  onToolCallError?: (taskId: string, toolIndex: number, toolName: string, error: Error) => void;
+  onToolCallError?: (taskId: string, toolIndex: number, toolName: string, args: Record<string, unknown>, error: Error) => void;
 
   // Answer
   onAnswerStart?: () => void;
@@ -405,7 +405,8 @@ export class Agent {
           this.callbacks.onToolCallError?.(
             task.id, 
             index, 
-            toolCall.tool, 
+            toolCall.tool,
+            toolCall.args,
             error instanceof Error ? error : new Error(String(error))
           );
         }

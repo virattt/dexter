@@ -29,6 +29,7 @@ interface UseAgentExecutionOptions {
 export interface ToolError {
   taskId: string;
   toolName: string;
+  args: Record<string, unknown>;
   error: string;
 }
 
@@ -280,9 +281,10 @@ export function useAgentExecution({
     taskId: string,
     _toolIndex: number,
     toolName: string,
+    args: Record<string, unknown>,
     error: Error
   ) => {
-    setToolErrors(prev => [...prev, { taskId, toolName, error: error.message }]);
+    setToolErrors(prev => [...prev, { taskId, toolName, args, error: error.message }]);
   }, []);
 
   /**

@@ -36,8 +36,8 @@ const PricesInputSchema = z.object({
     .number()
     .default(1)
     .describe('Multiplier for the interval. Defaults to 1.'),
-  start_date: z.string().describe('Start date in YYYY-MM-DD format. Required.'),
-  end_date: z.string().describe('End date in YYYY-MM-DD format. Required.'),
+  start_date: z.string().describe('Start date in YYYY-MM-DD format. Must be in past. Required.'),
+  end_date: z.string().describe('End date in YYYY-MM-DD format. Must be today or in the past. Required.'),
 });
 
 export const getPrices = new DynamicStructuredTool({
