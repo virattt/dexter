@@ -53,12 +53,14 @@ function formatArgs(args: Record<string, unknown>): string {
 function ToolCallRow({ toolCall, isLast }: ToolCallRowProps) {
   const prefix = isLast ? '└─' : '├─';
   const argsStr = formatArgs(toolCall.args);
+  // Completed tool calls get default text color, others stay muted
+  const textColor = toolCall.status === 'completed' ? undefined : colors.muted;
   
   return (
     <Box>
-      <Text color={colors.muted}>{prefix} </Text>
-      <Text color={colors.muted}>{toolCall.tool}</Text>
-      <Text color={colors.muted}>({argsStr}) </Text>
+      <Text color={textColor}>{prefix} </Text>
+      <Text color={textColor}>{toolCall.tool}</Text>
+      <Text color={textColor}>({argsStr}) </Text>
       <StatusIcon status={toolCall.status} />
     </Box>
   );
