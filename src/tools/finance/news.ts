@@ -33,4 +33,3 @@ export const getNews = new DynamicStructuredTool({
     return formatToolResult(data.news || [], [url]);
   },
 });
-
