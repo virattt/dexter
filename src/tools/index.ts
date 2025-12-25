@@ -18,6 +18,7 @@ import {
   getCryptoPriceSnapshot,
   getCryptoPrices,
   getCryptoTickers,
+  getInsiderTrades,
 } from './finance/index.js';
 import { tavilySearch } from './search/index.js';
 
@@ -40,6 +41,7 @@ export const TOOLS: StructuredToolInterface[] = [
   getNews,
   getAnalystEstimates,
   getSegmentedRevenues,
+  getInsiderTrades,
   ...(process.env.TAVILY_API_KEY ? [tavilySearch] : []),
 ];
 
@@ -62,5 +64,6 @@ export {
   getNews,
   getAnalystEstimates,
   getSegmentedRevenues,
+  getInsiderTrades,
   tavilySearch,
 };
