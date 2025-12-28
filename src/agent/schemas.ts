@@ -69,6 +69,28 @@ export const SelectedContextsSchema = z.object({
 export type SelectedContextsOutput = z.infer<typeof SelectedContextsSchema>;
 
 // ============================================================================
+// Reflection Phase Schema
+// ============================================================================
+
+/**
+ * Schema for the Reflection phase output.
+ * All fields are required for OpenAI structured output compatibility.
+ * Use empty array/string when not applicable.
+ */
+export const ReflectionSchema = z.object({
+  isComplete: z.boolean()
+    .describe('Whether we have sufficient information to answer the query fully'),
+  reasoning: z.string()
+    .describe('Explanation of why we are complete or what is missing'),
+  missingInfo: z.array(z.string())
+    .describe('Specific pieces of information still needed (empty array if complete)'),
+  suggestedNextSteps: z.string()
+    .describe('High-level guidance for what to do next (empty string if complete)'),
+});
+
+export type ReflectionOutput = z.infer<typeof ReflectionSchema>;
+
+// ============================================================================
 // Tool Summary Type (used by context manager)
 // ============================================================================
 

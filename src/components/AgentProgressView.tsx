@@ -16,6 +16,7 @@ export interface AgentProgressState {
   currentPhase: Phase;
   understandComplete: boolean;
   planComplete: boolean;
+  reflectComplete: boolean;
   tasks: Task[];
   isAnswering: boolean;
 }
@@ -93,6 +94,7 @@ export const AgentProgressView = React.memo(function AgentProgressView({
     currentPhase, 
     understandComplete,
     planComplete,
+    reflectComplete,
     tasks,
     isAnswering 
   } = state;
@@ -108,9 +110,16 @@ export const AgentProgressView = React.memo(function AgentProgressView({
       
       {/* Planning phase */}
       <PhaseIndicator 
-        label="Planning..."
+        label="Planning next moves..."
         complete={planComplete}
         active={currentPhase === 'plan'}
+      />
+
+      {/* Reflect phase */}
+      <PhaseIndicator 
+        label="Checking work..."
+        complete={reflectComplete}
+        active={currentPhase === 'reflect'}
       />
 
       {/* Task list */}

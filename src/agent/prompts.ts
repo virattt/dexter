@@ -279,15 +279,37 @@ Extract the intent and entities from this query.`;
 export function buildPlanUserPrompt(
   query: string,
   intent: string,
-  entities: string
+  entities: string,
+  priorWorkSummary?: string,
+  guidance?: string
 ): string {
-  return `User query: "${query}"
+  let prompt = `User query: "${query}"
 
 Understanding:
 - Intent: ${intent}
-- Entities: ${entities}
+- Entities: ${entities}`;
 
-Create a goal-oriented task list to answer this query.`;
+  if (priorWorkSummary) {
+    prompt += `
+
+Previous work completed:
+${priorWorkSummary}
+
+Note: Build on prior work - don't repeat tasks already done.`;
+  }
+
+  if (guidance) {
+    prompt += `
+
+Guidance from analysis:
+${guidance}`;
+  }
+
+  prompt += `
+
+Create a goal-oriented task list to ${priorWorkSummary ? 'continue answering' : 'answer'} this query.`;
+
+  return prompt;
 }
 
 export function buildExecuteUserPrompt(
@@ -316,4 +338,74 @@ Completed task outputs:
 ${taskOutputs}
 
 ${sources ? `Available sources:\n${sources}\n\n` : ''}Synthesize a comprehensive answer to the user's query.`;
+}
+
+// ============================================================================
+// Reflect Phase Prompt
+// ============================================================================
+
+export const REFLECT_SYSTEM_PROMPT = `You are the reflection component for Dexter, a financial research agent.
+
+Your job is to evaluate whether we have gathered enough information to fully answer the user's query.
+
+Current date: {current_date}
+
+## Your Task
+
+Analyze:
+1. The original query and what the user is asking for
+2. What tasks have been completed and what data was gathered
+3. Whether there are gaps in the information needed to provide a complete answer
+
+## Decision Criteria
+
+Mark as COMPLETE (isComplete: true) if:
+- All key data points needed to answer the query are available
+- The query can be answered comprehensively with current data
+- Further data gathering would not materially improve the answer
+- When complete: set missingInfo to [] and suggestedNextSteps to ""
+
+Mark as INCOMPLETE (isComplete: false) if:
+- Critical data is missing (e.g., asked about comparison but only have one company's data)
+- The query requires analysis that depends on data not yet gathered
+- There are clear follow-up data needs to fully answer the question
+- When incomplete: populate missingInfo with specific missing data points and suggestedNextSteps with guidance
+
+## Important Rules
+
+- Be thorough but not excessive - don't require perfection
+- Consider whether missing data is essential vs nice-to-have
+- Be pragmatic about what's achievable within the iteration limit
+- If we've made 2+ attempts and still missing data, prefer completing with available info
+
+## Output Format
+
+Return a JSON object with:
+- isComplete: boolean - true if ready to answer, false if more work needed
+- reasoning: string - explanation of your decision
+- missingInfo: string[] - list of specific missing data points (empty array [] if complete)
+- suggestedNextSteps: string - guidance for next iteration (empty string "" if complete)`;
+
+export function getReflectSystemPrompt(): string {
+  return REFLECT_SYSTEM_PROMPT.replace('{current_date}', getCurrentDate());
+}
+
+export function buildReflectUserPrompt(
+  query: string,
+  intent: string,
+  completedWork: string,
+  iteration: number,
+  maxIterations: number
+): string {
+  return `Original query: "${query}"
+
+User intent: ${intent}
+
+Iteration: ${iteration} of ${maxIterations}
+
+Work completed so far:
+${completedWork}
+
+Evaluate: Do we have enough information to fully answer this query?
+If not, what specific information is still missing?`;
 }

@@ -7,7 +7,7 @@ import type { MessageHistory } from '../utils/message-history.js';
 /**
  * The current phase of the agent execution.
  */
-export type Phase = 'understand' | 'plan' | 'execute' | 'complete';
+export type Phase = 'understand' | 'plan' | 'execute' | 'reflect' | 'answer' | 'complete';
 
 /**
  * Status of a task in the task list.
@@ -85,6 +85,9 @@ export interface ToolCallStatus extends ToolCall {
 export interface PlanInput {
   query: string;
   understanding: Understanding;
+  priorPlans?: Plan[];
+  priorResults?: Map<string, TaskResult>;
+  guidanceFromReflection?: string;
 }
 
 /**
@@ -170,4 +173,42 @@ export function createInitialState(query: string): AgentState {
     currentPhase: 'understand',
     taskResults: new Map(),
   };
+}
+
+// ============================================================================
+// Reflect Phase Types
+// ============================================================================
+
+/**
+ * Input to the Reflect phase.
+ */
+export interface ReflectInput {
+  query: string;
+  understanding: Understanding;
+  completedPlans: Plan[];
+  taskResults: Map<string, TaskResult>;
+  iteration: number;
+}
+
+/**
+ * Result of the reflection phase.
+ */
+export interface ReflectionResult {
+  isComplete: boolean;
+  reasoning: string;
+  missingInfo: string[];
+  suggestedNextSteps: string;
+}
+
+// ============================================================================
+// Answer Phase Types
+// ============================================================================
+
+/**
+ * Input to the Answer phase.
+ */
+export interface AnswerInput {
+  query: string;
+  completedPlans: Plan[];
+  taskResults: Map<string, TaskResult>;
 }
