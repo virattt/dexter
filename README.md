@@ -63,7 +63,7 @@ bun install
 3. Set up your environment variables:
 ```bash
 # Copy the example environment file (from parent directory)
-cp ../env.example .env
+cp env.example .env
 
 # Edit .env and add your API keys
 # OPENAI_API_KEY=your-openai-api-key
