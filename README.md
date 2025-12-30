@@ -117,8 +117,19 @@ Dexter uses a multi-agent architecture with specialized components:
 
 ### Changing Models
 
-Type `/model` in the CLI to switch between:
-- GPT 4.1 (OpenAI)
+Type `/model` in the CLI to switch the default model between:
+- GPT 5.2 (OpenAI) - DEFAULT MODEL
+- GPT 5 Mini (OpenAI)
+- Azure OpenAI GPT 4.0 (OpenAI)
+- Azure GPT-5-mini(OpenAI)
+- Claude Sonnet 4.5 (Anthropic)
+- Gemini 3 (Google)
+
+Type `/toolmodel` in the CLI to switch the tool executor model between:
+- GPT 5.2 (OpenAI)
+- GPT 5 Mini (OpenAI) - DEFAULT MODEL
+- Azure OpenAI GPT 4.0 (OpenAI)
+- Azure GPT-5-mini(OpenAI)
 - Claude Sonnet 4.5 (Anthropic)
 - Gemini 3 (Google)
 
