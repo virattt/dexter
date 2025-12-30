@@ -5,11 +5,7 @@ import { ToolContextManager } from '../utils/context.js';
 import { getToolSelectionSystemPrompt, buildToolSelectionPrompt } from './prompts.js';
 import type { Task, ToolCallStatus, Understanding } from './state.js';
 
-// ============================================================================
-// Constants
-// ============================================================================
-
-const SMALL_MODEL = 'gpt-5-mini';
+const DEFAULT_TOOL_EXECUTOR_MODEL = 'gpt-5-mini';
 
 // ============================================================================
 // Tool Executor Options
@@ -18,6 +14,7 @@ const SMALL_MODEL = 'gpt-5-mini';
 export interface ToolExecutorOptions {
   tools: StructuredToolInterface[];
   contextManager: ToolContextManager;
+  model?: string;
 }
 
 // ============================================================================
@@ -35,22 +32,23 @@ export interface ToolExecutorCallbacks {
 
 /**
  * Handles tool selection and execution for tasks.
- * Uses a small, fast model (gpt-5-mini) for tool selection.
+ * Uses a small, fast model for tool selection by default.
  */
 export class ToolExecutor {
+  private readonly model: string;
   private readonly tools: StructuredToolInterface[];
   private readonly toolMap: Map<string, StructuredToolInterface>;
   private readonly contextManager: ToolContextManager;
 
   constructor(options: ToolExecutorOptions) {
+    this.model = options.model ?? DEFAULT_TOOL_EXECUTOR_MODEL;
     this.tools = options.tools;
     this.toolMap = new Map(options.tools.map(t => [t.name, t]));
     this.contextManager = options.contextManager;
   }
 
   /**
-   * Selects tools for a task using gpt-5-mini with bound tools.
-   * Uses a precise, well-defined prompt optimized for small models.
+   * Selects tools for a task using the current session model with bound tools.
    */
   async selectTools(
     task: Task,
@@ -68,7 +66,7 @@ export class ToolExecutor {
     const systemPrompt = getToolSelectionSystemPrompt(this.formatToolDescriptions());
 
     const response = await callLlm(prompt, {
-      model: SMALL_MODEL,
+      model: this.model,
       systemPrompt,
       tools: this.tools,
     });
@@ -134,20 +132,22 @@ export class ToolExecutor {
    * Formats tool descriptions for the prompt.
    */
   private formatToolDescriptions(): string {
-    return this.tools.map(tool => {
-      const schema = tool.schema;
-      let argsDescription = '';
-      
-      if (schema && typeof schema === 'object' && 'shape' in schema) {
-        const shape = schema.shape as Record<string, { description?: string }>;
-        const args = Object.entries(shape)
-          .map(([key, value]) => `  - ${key}: ${value.description || 'No description'}`)
-          .join('\n');
-        argsDescription = args ? `\n  Arguments:\n${args}` : '';
-      }
-      
-      return `- ${tool.name}: ${tool.description}${argsDescription}`;
-    }).join('\n\n');
+    return this.tools
+      .map((tool) => {
+        const schema = tool.schema;
+        let argsDescription = '';
+
+        if (schema && typeof schema === 'object' && 'shape' in schema) {
+          const shape = schema.shape as Record<string, { description?: string }>;
+          const args = Object.entries(shape)
+            .map(([key, value]) => `  - ${key}: ${value.description || 'No description'}`)
+            .join('\n');
+          argsDescription = args ? `\n  Arguments:\n${args}` : '';
+        }
+
+        return `- ${tool.name}: ${tool.description}${argsDescription}`;
+      })
+      .join('\n\n');
   }
 
   /**

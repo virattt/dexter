@@ -1,4 +1,4 @@
-import { ChatOpenAI } from '@langchain/openai';
+import { AzureChatOpenAI, ChatOpenAI } from '@langchain/openai';
 import { ChatAnthropic } from '@langchain/anthropic';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
@@ -9,6 +9,23 @@ import { z } from 'zod';
 import { DEFAULT_SYSTEM_PROMPT } from '../agent/prompts.js';
 
 export const DEFAULT_MODEL = 'gpt-5.2';
+
+function disableLangSmithTracingIfMisconfigured(): void {
+  const tracingFlag = (process.env.LANGSMITH_TRACING ?? process.env.LANGCHAIN_TRACING_V2 ?? '').trim();
+  const tracingEnabled = tracingFlag.toLowerCase() === 'true';
+  if (!tracingEnabled) return;
+
+  const apiKey = (process.env.LANGSMITH_API_KEY ?? '').trim();
+  const placeholder = apiKey === '' || apiKey === 'your-api-key' || apiKey.startsWith('your-api-key');
+  if (!placeholder) return;
+
+  // Prevent noisy 403s like "Failed to send multipart request" from LangSmith.
+  process.env.LANGSMITH_TRACING = 'false';
+  process.env.LANGCHAIN_TRACING_V2 = 'false';
+}
+
+// Run once on module import so even small one-off scripts (bun -e ...) behave.
+disableLangSmithTracingIfMisconfigured();
 
 // Generic retry helper with exponential backoff
 async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
@@ -38,7 +55,41 @@ function getApiKey(envVar: string, providerName: string): string {
   return apiKey;
 }
 
+function getEnvVar(envVar: string): string | undefined {
+  const value = process.env[envVar];
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 const MODEL_PROVIDERS: Record<string, ModelFactory> = {
+  'azure-': (name, opts) => {
+    const deploymentName =
+      getEnvVar('AZURE_OPENAI_API_DEPLOYMENT_NAME') ?? name.slice('azure-'.length);
+
+    if (!deploymentName) {
+      throw new Error(
+        'Azure model name must be in the form azure-<deploymentName> or AZURE_OPENAI_API_DEPLOYMENT_NAME must be set.'
+      );
+    }
+
+    const azureOpenAIBasePath = getEnvVar('AZURE_OPENAI_BASE_PATH');
+
+    if (!azureOpenAIBasePath) {
+      throw new Error(
+        'Azure OpenAI configuration missing. Set AZURE_OPENAI_BASE_PATH (ending with /openai/deployments/).'
+      );
+    }
+
+    return new AzureChatOpenAI({
+      ...opts,
+      // Azure uses a deployment; we also set `model` for compatibility.
+      model: deploymentName,
+      azureOpenAIApiKey: getApiKey('AZURE_OPENAI_API_KEY', 'Azure OpenAI'),
+      azureOpenAIApiDeploymentName: deploymentName,
+      azureOpenAIApiVersion: getEnvVar('AZURE_OPENAI_API_VERSION'),
+      azureOpenAIBasePath,
+    });
+  },
   'claude-': (name, opts) =>
     new ChatAnthropic({
       model: name,

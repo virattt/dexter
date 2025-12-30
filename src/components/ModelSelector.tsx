@@ -15,6 +15,21 @@ const MODELS: Model[] = [
     description: "OpenAI's flagship model",
   },
   {
+    displayName: 'GPT 5 Mini',
+    modelId: 'gpt-5-mini',
+    description: "OpenAI's fast, cost-efficient model",
+  },
+  {
+    displayName: 'Azure GPT-4o',
+    modelId: 'azure-gpt-4o',
+    description: 'Azure OpenAI (deployment: gpt-4o)',
+  },
+   {
+    displayName: 'Azure GPT-5-mini',
+    modelId: 'azure-gpt-5-mini',
+    description: 'Azure OpenAI (deployment: gpt-5-mini)',
+  },
+  {
     displayName: 'Sonnet 4.5',
     modelId: 'claude-sonnet-4-5',
     description: "Anthropic's best model for complex agents",
@@ -28,13 +43,17 @@ const MODELS: Model[] = [
 
 interface ModelSelectorProps {
   model?: string;
+  models?: Model[];
+  title?: string;
+  subtitle?: string;
   onSelect: (modelId: string | null) => void;
 }
 
-export function ModelSelector({ model, onSelect }: ModelSelectorProps) {
+export function ModelSelector({ model, models, title, subtitle, onSelect }: ModelSelectorProps) {
+  const modelList = models ?? MODELS;
   const [selectedIndex, setSelectedIndex] = useState(() => {
     if (model) {
-      const idx = MODELS.findIndex((m) => m.modelId === model);
+      const idx = modelList.findIndex((m) => m.modelId === model);
       return idx >= 0 ? idx : 0;
     }
     return 0;
@@ -44,9 +63,9 @@ export function ModelSelector({ model, onSelect }: ModelSelectorProps) {
     if (key.upArrow || input === 'k') {
       setSelectedIndex((prev) => Math.max(0, prev - 1));
     } else if (key.downArrow || input === 'j') {
-      setSelectedIndex((prev) => Math.min(MODELS.length - 1, prev + 1));
+      setSelectedIndex((prev) => Math.min(modelList.length - 1, prev + 1));
     } else if (key.return) {
-      onSelect(MODELS[selectedIndex].modelId);
+      onSelect(modelList[selectedIndex].modelId);
     } else if (key.escape) {
       onSelect(null);
     }
@@ -55,13 +74,13 @@ export function ModelSelector({ model, onSelect }: ModelSelectorProps) {
   return (
     <Box flexDirection="column" marginTop={1}>
       <Text color={colors.primary} bold>
-        Select model
+        {title ?? 'Select model'}
       </Text>
       <Text color={colors.muted}>
-        Switch between LLM models. Applies to this session and future sessions.
+        {subtitle ?? 'Switch between LLM models. Applies to this session and future sessions.'}
       </Text>
       <Box marginTop={1} flexDirection="column">
-        {MODELS.map((m, idx) => {
+        {modelList.map((m, idx) => {
           const isSelected = idx === selectedIndex;
           const isCurrent = model === m.modelId;
           const prefix = isSelected ? '> ' : '  ';

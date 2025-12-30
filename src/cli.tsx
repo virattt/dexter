@@ -112,6 +112,9 @@ export function CLI() {
 
   const [state, setState] = useState<AppState>('idle');
   const [model, setModel] = useState(() => getSetting('model', DEFAULT_MODEL));
+  const [toolExecutorModel, setToolExecutorModel] = useState(() =>
+    getSetting('toolExecutorModel', 'gpt-5-mini')
+  );
   const [history, setHistory] = useState<CompletedTurn[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
@@ -120,7 +123,9 @@ export function CLI() {
 
   const messageHistoryRef = useRef<MessageHistory>(new MessageHistory(model));
 
-  const { apiKeyReady } = useApiKey(model);
+  // Ensure API keys exist for both models that may be used.
+  useApiKey(model);
+  useApiKey(toolExecutorModel);
   const { queue: queryQueue, enqueue, shift: shiftQueue, clear: clearQueue } = useQueryQueue();
 
   const {
@@ -133,6 +138,7 @@ export function CLI() {
     cancelExecution,
   } = useAgentExecution({
     model,
+    toolExecutorModel,
     messageHistory: messageHistoryRef.current,
   });
 
@@ -205,6 +211,11 @@ export function CLI() {
         return;
       }
 
+      if (query === '/toolmodel') {
+        setState('tool_model_select');
+        return;
+      }
+
       // Queue the query if already running
       if (state === 'running') {
         enqueue(query);
@@ -235,6 +246,23 @@ export function CLI() {
     [model]
   );
 
+  const handleToolModelSelect = useCallback(
+    async (modelId: string | null) => {
+      if (modelId && modelId !== toolExecutorModel) {
+        const ready = await ensureApiKeyForModel(modelId);
+        if (ready) {
+          setToolExecutorModel(modelId);
+          setSetting('toolExecutorModel', modelId);
+          setStatusMessage(`Tool model changed to ${modelId}`);
+        } else {
+          setStatusMessage(`Cannot use model ${modelId} without API key.`);
+        }
+      }
+      setState('idle');
+    },
+    [toolExecutorModel]
+  );
+
   useInput((input, key) => {
     if (key.ctrl && input === 'c') {
       if (state === 'running') {
@@ -252,7 +280,25 @@ export function CLI() {
   if (state === 'model_select') {
     return (
       <Box flexDirection="column">
-        <ModelSelector model={model} onSelect={handleModelSelect} />
+        <ModelSelector
+          title="Default Model"
+          subtitle="Used for planning and answering"
+          model={model}
+          onSelect={handleModelSelect}
+        />
+      </Box>
+    );
+  }
+
+  if (state === 'tool_model_select') {
+    return (
+      <Box flexDirection="column">
+        <ModelSelector
+          title="Tool Execution Model"
+          subtitle="Used for selecting which tools to call"
+          model={toolExecutorModel}
+          onSelect={handleToolModelSelect}
+        />
       </Box>
     );
   }

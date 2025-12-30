@@ -56,6 +56,11 @@ export interface AgentCallbacks extends TaskExecutorCallbacks {
 
 export interface AgentOptions {
   model: string;
+  /**
+   * Optional model to use for tool selection inside ToolExecutor.
+   * Defaults to `model` when not provided.
+   */
+  toolExecutorModel?: string;
   callbacks?: AgentCallbacks;
   maxIterations?: number;
 }
@@ -97,6 +102,8 @@ export class Agent {
     this.maxIterations = options.maxIterations ?? DEFAULT_MAX_ITERATIONS;
     this.contextManager = new ToolContextManager('.dexter/context', this.model);
 
+    const toolExecutorModel = options.toolExecutorModel ?? this.model;
+
     // Initialize phases
     this.understandPhase = new UnderstandPhase({ model: this.model });
     this.planPhase = new PlanPhase({ model: this.model });
@@ -108,6 +115,7 @@ export class Agent {
     const toolExecutor = new ToolExecutor({
       tools: TOOLS,
       contextManager: this.contextManager,
+      model: toolExecutorModel,
     });
 
     this.taskExecutor = new TaskExecutor({

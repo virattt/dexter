@@ -1,7 +1,7 @@
 /**
  * Application state for the CLI
  */
-export type AppState = 'idle' | 'running' | 'model_select';
+export type AppState = 'idle' | 'running' | 'model_select' | 'tool_model_select';
 
 /**
  * Generate a unique ID for turns

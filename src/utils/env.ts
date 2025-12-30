@@ -9,6 +9,7 @@ const MODEL_API_KEY_MAP: Record<string, string> = {
   'gpt-5.2': 'OPENAI_API_KEY',
   'claude-sonnet-4-5': 'ANTHROPIC_API_KEY',
   'gemini-3': 'GOOGLE_API_KEY',
+  'azure-gpt-4o': 'AZURE_OPENAI_API_KEY',
 };
 
 // Map API key names to user-friendly provider names
@@ -16,10 +17,20 @@ const API_KEY_PROVIDER_NAMES: Record<string, string> = {
   OPENAI_API_KEY: 'OpenAI',
   ANTHROPIC_API_KEY: 'Anthropic',
   GOOGLE_API_KEY: 'Google',
+  AZURE_OPENAI_API_KEY: 'Azure OpenAI',
 };
 
 export function getApiKeyName(modelId: string): string | undefined {
-  return MODEL_API_KEY_MAP[modelId];
+  const explicit = MODEL_API_KEY_MAP[modelId];
+  if (explicit) return explicit;
+
+  // Fallback to prefix-based routing for user-provided model ids
+  if (modelId.startsWith('claude-')) return 'ANTHROPIC_API_KEY';
+  if (modelId.startsWith('gemini-')) return 'GOOGLE_API_KEY';
+  if (modelId.startsWith('azure-')) return 'AZURE_OPENAI_API_KEY';
+  if (modelId.startsWith('gpt-')) return 'OPENAI_API_KEY';
+
+  return undefined;
 }
 
 export function checkApiKeyExists(apiKeyName: string): boolean {

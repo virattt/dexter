@@ -20,6 +20,7 @@ export interface CurrentTurn {
 
 interface UseAgentExecutionOptions {
   model: string;
+  toolExecutorModel?: string;
   messageHistory: MessageHistory;
 }
 
@@ -70,6 +71,7 @@ interface PendingToolCallUpdate {
  */
 export function useAgentExecution({
   model,
+  toolExecutorModel,
   messageHistory,
 }: UseAgentExecutionOptions): UseAgentExecutionResult {
   const [currentTurn, setCurrentTurn] = useState<CurrentTurn | null>(null);
@@ -356,7 +358,7 @@ export function useAgentExecution({
       const callbacks = createAgentCallbacks();
 
       try {
-        const agent = new Agent({ model, callbacks });
+        const agent = new Agent({ model, toolExecutorModel, callbacks });
         await agent.run(query, messageHistory);
       } catch (e) {
         setCurrentTurn(null);
@@ -367,7 +369,7 @@ export function useAgentExecution({
         setIsProcessing(false);
       }
     },
-    [model, messageHistory, createAgentCallbacks]
+    [model, toolExecutorModel, messageHistory, createAgentCallbacks]
   );
 
   /**

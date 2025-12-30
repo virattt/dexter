@@ -5,6 +5,7 @@ const SETTINGS_FILE = '.dexter/settings.json';
 
 interface Config {
   model?: string;
+  toolExecutorModel?: string;
   [key: string]: unknown;
 }
 
