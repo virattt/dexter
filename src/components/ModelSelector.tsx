@@ -2,39 +2,53 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { colors } from '../theme.js';
 
-interface Model {
+interface Provider {
   displayName: string;
+  providerId: string;
   modelId: string;
   description: string;
 }
 
-const MODELS: Model[] = [
+const PROVIDERS: Provider[] = [
   {
-    displayName: 'GPT 5.2',
+    displayName: 'OpenAI',
+    providerId: 'openai',
     modelId: 'gpt-5.2',
-    description: "OpenAI's flagship model",
+    description: "GPT 5.2 - OpenAI's flagship model",
   },
   {
-    displayName: 'Sonnet 4.5',
+    displayName: 'Anthropic',
+    providerId: 'anthropic',
     modelId: 'claude-sonnet-4-5',
-    description: "Anthropic's best model for complex agents",
+    description: "Sonnet 4.5 - Best for complex agents",
   },
   {
-    displayName: 'Gemini 3',
+    displayName: 'Google',
+    providerId: 'google',
     modelId: 'gemini-3',
-    description: "Google's most intelligent model",
+    description: "Gemini 3 - Google's most intelligent model",
   },
 ];
 
-interface ModelSelectorProps {
-  model?: string;
-  onSelect: (modelId: string | null) => void;
+export function getModelIdForProvider(providerId: string): string | undefined {
+  const provider = PROVIDERS.find((p) => p.providerId === providerId);
+  return provider?.modelId;
 }
 
-export function ModelSelector({ model, onSelect }: ModelSelectorProps) {
+export function getProviderIdForModel(modelId: string): string | undefined {
+  const provider = PROVIDERS.find((p) => p.modelId === modelId);
+  return provider?.providerId;
+}
+
+interface ProviderSelectorProps {
+  provider?: string;
+  onSelect: (providerId: string | null) => void;
+}
+
+export function ProviderSelector({ provider, onSelect }: ProviderSelectorProps) {
   const [selectedIndex, setSelectedIndex] = useState(() => {
-    if (model) {
-      const idx = MODELS.findIndex((m) => m.modelId === model);
+    if (provider) {
+      const idx = PROVIDERS.findIndex((p) => p.providerId === provider);
       return idx >= 0 ? idx : 0;
     }
     return 0;
@@ -44,9 +58,9 @@ export function ModelSelector({ model, onSelect }: ModelSelectorProps) {
     if (key.upArrow || input === 'k') {
       setSelectedIndex((prev) => Math.max(0, prev - 1));
     } else if (key.downArrow || input === 'j') {
-      setSelectedIndex((prev) => Math.min(MODELS.length - 1, prev + 1));
+      setSelectedIndex((prev) => Math.min(PROVIDERS.length - 1, prev + 1));
     } else if (key.return) {
-      onSelect(MODELS[selectedIndex].modelId);
+      onSelect(PROVIDERS[selectedIndex].providerId);
     } else if (key.escape) {
       onSelect(null);
     }
@@ -55,35 +69,35 @@ export function ModelSelector({ model, onSelect }: ModelSelectorProps) {
   return (
     <Box flexDirection="column" marginTop={1}>
       <Text color={colors.primary} bold>
-        Select model
+        Select provider
       </Text>
       <Text color={colors.muted}>
-        Switch between LLM models. Applies to this session and future sessions.
+        Switch between LLM providers. Applies to this session and future sessions.
       </Text>
       <Box marginTop={1} flexDirection="column">
-        {MODELS.map((m, idx) => {
+        {PROVIDERS.map((p, idx) => {
           const isSelected = idx === selectedIndex;
-          const isCurrent = model === m.modelId;
+          const isCurrent = provider === p.providerId;
           const prefix = isSelected ? '> ' : '  ';
 
           return (
             <Text
-              key={m.modelId}
+              key={p.providerId}
               color={isSelected ? colors.primaryLight : colors.primary}
               bold={isSelected}
             >
               {prefix}
-              {idx + 1}. {m.displayName} · {m.description}
+              {idx + 1}. {p.displayName}
               {isCurrent ? ' ✓' : ''}
             </Text>
           );
         })}
       </Box>
       <Box marginTop={1}>
-        <Text color={colors.muted}>Enter to confirm · Esc to exit</Text>
+        <Text color={colors.muted}>Enter to confirm · esc to exit</Text>
       </Box>
     </Box>
   );
 }
 
-export { MODELS };
+export { PROVIDERS };

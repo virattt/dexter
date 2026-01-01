@@ -8,6 +8,7 @@ import { Runnable } from '@langchain/core/runnables';
 import { z } from 'zod';
 import { DEFAULT_SYSTEM_PROMPT } from '../agent/prompts.js';
 
+export const DEFAULT_PROVIDER = 'openai';
 export const DEFAULT_MODEL = 'gpt-5.2';
 
 // Generic retry helper with exponential backoff
@@ -53,7 +54,7 @@ const MODEL_PROVIDERS: Record<string, ModelFactory> = {
     }),
 };
 
-const DEFAULT_PROVIDER: ModelFactory = (name, opts) =>
+const DEFAULT_MODEL_FACTORY: ModelFactory = (name, opts) =>
   new ChatOpenAI({
     model: name,
     ...opts,
@@ -66,7 +67,7 @@ export function getChatModel(
 ): BaseChatModel {
   const opts: ModelOpts = { streaming };
   const prefix = Object.keys(MODEL_PROVIDERS).find((p) => modelName.startsWith(p));
-  const factory = prefix ? MODEL_PROVIDERS[prefix] : DEFAULT_PROVIDER;
+  const factory = prefix ? MODEL_PROVIDERS[prefix] : DEFAULT_MODEL_FACTORY;
   return factory(modelName, opts);
 }
 

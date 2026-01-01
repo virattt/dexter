@@ -12,7 +12,8 @@ import { config } from 'dotenv';
 import { Intro } from './components/Intro.js';
 import { Input } from './components/Input.js';
 import { AnswerBox } from './components/AnswerBox.js';
-import { ModelSelector } from './components/ModelSelector.js';
+import { ProviderSelector, getModelIdForProvider } from './components/ModelSelector.js';
+import { ApiKeyConfirm, ApiKeyInput } from './components/ApiKeyPrompt.js';
 import { QueueDisplay } from './components/QueueDisplay.js';
 import { StatusMessage } from './components/StatusMessage.js';
 import { CurrentTurnView, AgentProgressView } from './components/AgentProgressView.js';
@@ -25,10 +26,15 @@ import { useApiKey } from './hooks/useApiKey.js';
 import { useAgentExecution, ToolError } from './hooks/useAgentExecution.js';
 
 import { getSetting, setSetting } from './utils/config.js';
-import { ensureApiKeyForModel } from './utils/env.js';
+import { 
+  getApiKeyNameForProvider, 
+  getProviderDisplayName, 
+  checkApiKeyExistsForProvider,
+  saveApiKeyForProvider 
+} from './utils/env.js';
 import { MessageHistory } from './utils/message-history.js';
 
-import { DEFAULT_MODEL } from './model/llm.js';
+import { DEFAULT_PROVIDER } from './model/llm.js';
 import { colors } from './theme.js';
 
 import type { AppState } from './cli/types.js';
@@ -111,9 +117,13 @@ export function CLI() {
   const { exit } = useApp();
 
   const [state, setState] = useState<AppState>('idle');
-  const [model, setModel] = useState(() => getSetting('model', DEFAULT_MODEL));
+  const [provider, setProvider] = useState(() => getSetting('provider', DEFAULT_PROVIDER));
+  const [pendingProvider, setPendingProvider] = useState<string | null>(null);
   const [history, setHistory] = useState<CompletedTurn[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  // Derive model from provider
+  const model = getModelIdForProvider(provider) || getModelIdForProvider(DEFAULT_PROVIDER)!;
 
   // Store the current turn's tasks when answer starts streaming
   const currentTasksRef = useRef<Task[]>([]);
@@ -217,23 +227,72 @@ export function CLI() {
     [state, exit, enqueue, executeQuery]
   );
 
-  const handleModelSelect = useCallback(
-    async (modelId: string | null) => {
-      if (modelId && modelId !== model) {
-        const ready = await ensureApiKeyForModel(modelId);
-        if (ready) {
-          setModel(modelId);
-          setSetting('model', modelId);
-          messageHistoryRef.current.setModel(modelId);
-          setStatusMessage(`Model changed to ${modelId}`);
-        } else {
-          setStatusMessage(`Cannot use model ${modelId} without API key.`);
-        }
-      }
+  /**
+   * Called when user selects a provider from the selector
+   */
+  const handleProviderSelect = useCallback((providerId: string | null) => {
+    if (providerId) {
+      setPendingProvider(providerId);
+      setState('api_key_confirm');
+    } else {
       setState('idle');
-    },
-    [model]
-  );
+    }
+  }, []);
+
+  /**
+   * Called when user confirms/declines setting API key
+   */
+  const handleApiKeyConfirm = useCallback((wantsToSet: boolean) => {
+    if (wantsToSet) {
+      setState('api_key_input');
+    } else {
+      // Check if existing key is available
+      if (pendingProvider && checkApiKeyExistsForProvider(pendingProvider)) {
+        // Use existing key, complete the provider switch
+        setProvider(pendingProvider);
+        setSetting('provider', pendingProvider);
+        const newModel = getModelIdForProvider(pendingProvider);
+        if (newModel) {
+          messageHistoryRef.current.setModel(newModel);
+        }
+      } else {
+        setStatusMessage(`Cannot use ${pendingProvider ? getProviderDisplayName(pendingProvider) : 'provider'} without an API key.`);
+      }
+      setPendingProvider(null);
+      setState('idle');
+    }
+  }, [pendingProvider]);
+
+  /**
+   * Called when user submits API key
+   */
+  const handleApiKeySubmit = useCallback((apiKey: string | null) => {
+    if (apiKey && pendingProvider) {
+      const saved = saveApiKeyForProvider(pendingProvider, apiKey);
+      if (saved) {
+        setProvider(pendingProvider);
+        setSetting('provider', pendingProvider);
+        const newModel = getModelIdForProvider(pendingProvider);
+        if (newModel) {
+          messageHistoryRef.current.setModel(newModel);
+        }
+      } else {
+        setStatusMessage('Failed to save API key.');
+      }
+    } else if (!apiKey && pendingProvider && checkApiKeyExistsForProvider(pendingProvider)) {
+      // Cancelled but existing key available
+      setProvider(pendingProvider);
+      setSetting('provider', pendingProvider);
+      const newModel = getModelIdForProvider(pendingProvider);
+      if (newModel) {
+        messageHistoryRef.current.setModel(newModel);
+      }
+    } else {
+      setStatusMessage('API key not set. Provider unchanged.');
+    }
+    setPendingProvider(null);
+    setState('idle');
+  }, [pendingProvider]);
 
   useInput((input, key) => {
     if (key.ctrl && input === 'c') {
@@ -242,6 +301,10 @@ export function CLI() {
         cancelExecution();
         clearQueue();
         setStatusMessage('Operation cancelled. You can ask a new question or press Ctrl+C again to quit.');
+      } else if (state === 'api_key_confirm' || state === 'api_key_input') {
+        setPendingProvider(null);
+        setState('idle');
+        setStatusMessage('Cancelled.');
       } else {
         console.log('\nGoodbye!');
         exit();
@@ -252,7 +315,31 @@ export function CLI() {
   if (state === 'model_select') {
     return (
       <Box flexDirection="column">
-        <ModelSelector model={model} onSelect={handleModelSelect} />
+        <ProviderSelector provider={provider} onSelect={handleProviderSelect} />
+      </Box>
+    );
+  }
+
+  if (state === 'api_key_confirm' && pendingProvider) {
+    return (
+      <Box flexDirection="column">
+        <ApiKeyConfirm 
+          providerName={getProviderDisplayName(pendingProvider)} 
+          onConfirm={handleApiKeyConfirm} 
+        />
+      </Box>
+    );
+  }
+
+  if (state === 'api_key_input' && pendingProvider) {
+    const apiKeyName = getApiKeyNameForProvider(pendingProvider) || '';
+    return (
+      <Box flexDirection="column">
+        <ApiKeyInput 
+          providerName={getProviderDisplayName(pendingProvider)}
+          apiKeyName={apiKeyName}
+          onSubmit={handleApiKeySubmit} 
+        />
       </Box>
     );
   }
@@ -269,7 +356,7 @@ export function CLI() {
       <Static items={staticItems}>
         {(item) =>
           item.type === 'intro' ? (
-            <Intro key="intro" />
+            <Intro key="intro" provider={provider} />
           ) : (
             <CompletedTurnView key={item.turn.id} turn={item.turn} />
           )
