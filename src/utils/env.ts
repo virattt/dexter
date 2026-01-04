@@ -9,6 +9,7 @@ const PROVIDER_API_KEY_MAP: Record<string, string> = {
   'openai': 'OPENAI_API_KEY',
   'anthropic': 'ANTHROPIC_API_KEY',
   'google': 'GOOGLE_API_KEY',
+  'openrouter': 'OPENROUTER_API_KEY',
 };
 
 // Map model IDs to their required API key environment variable names (for backwards compatibility)
@@ -16,6 +17,7 @@ const MODEL_API_KEY_MAP: Record<string, string> = {
   'gpt-5.2': 'OPENAI_API_KEY',
   'claude-sonnet-4-5': 'ANTHROPIC_API_KEY',
   'gemini-3': 'GOOGLE_API_KEY',
+  'anthropic/claude-3.5-sonnet': 'OPENROUTER_API_KEY',
 };
 
 // Map provider IDs to user-friendly display names
@@ -23,6 +25,7 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   'openai': 'OpenAI',
   'anthropic': 'Anthropic',
   'google': 'Google',
+  'openrouter': 'OpenRouter',
 };
 
 export function getApiKeyNameForProvider(providerId: string): string | undefined {
