@@ -25,7 +25,7 @@ const PROVIDERS: Provider[] = [
   {
     displayName: 'Google',
     providerId: 'google',
-    modelId: 'gemini-3',
+    modelId: 'gemini-3-pro-preview',
     description: "Gemini 3 - Google's most intelligent model",
   },
 ];
