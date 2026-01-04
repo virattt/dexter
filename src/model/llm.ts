@@ -52,6 +52,51 @@ const MODEL_PROVIDERS: Record<string, ModelFactory> = {
       ...opts,
       apiKey: getApiKey('GOOGLE_API_KEY', 'Google'),
     }),
+  'anthropic/': (name, opts) =>
+    new ChatOpenAI({
+      model: name,
+      ...opts,
+      configuration: {
+        baseURL: 'https://openrouter.ai/api/v1',
+      },
+      apiKey: getApiKey('OPENROUTER_API_KEY', 'OpenRouter'),
+    }),
+  'openai/': (name, opts) =>
+    new ChatOpenAI({
+      model: name,
+      ...opts,
+      configuration: {
+        baseURL: 'https://openrouter.ai/api/v1',
+      },
+      apiKey: getApiKey('OPENROUTER_API_KEY', 'OpenRouter'),
+    }),
+  'google/': (name, opts) =>
+    new ChatOpenAI({
+      model: name,
+      ...opts,
+      configuration: {
+        baseURL: 'https://openrouter.ai/api/v1',
+      },
+      apiKey: getApiKey('OPENROUTER_API_KEY', 'OpenRouter'),
+    }),
+  'meta-llama/': (name, opts) =>
+    new ChatOpenAI({
+      model: name,
+      ...opts,
+      configuration: {
+        baseURL: 'https://openrouter.ai/api/v1',
+      },
+      apiKey: getApiKey('OPENROUTER_API_KEY', 'OpenRouter'),
+    }),
+  'mistralai/': (name, opts) =>
+    new ChatOpenAI({
+      model: name,
+      ...opts,
+      configuration: {
+        baseURL: 'https://openrouter.ai/api/v1',
+      },
+      apiKey: getApiKey('OPENROUTER_API_KEY', 'OpenRouter'),
+    }),
 };
 
 const DEFAULT_MODEL_FACTORY: ModelFactory = (name, opts) =>

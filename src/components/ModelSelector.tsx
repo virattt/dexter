@@ -28,6 +28,12 @@ const PROVIDERS: Provider[] = [
     modelId: 'gemini-3',
     description: "Gemini 3 - Google's most intelligent model",
   },
+  {
+    displayName: 'OpenRouter',
+    providerId: 'openrouter',
+    modelId: 'anthropic/claude-3.5-sonnet',
+    description: 'Claude 3.5 Sonnet via OpenRouter',
+  },
 ];
 
 export function getModelIdForProvider(providerId: string): string | undefined {
