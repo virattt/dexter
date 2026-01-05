@@ -27,6 +27,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 - OpenAI API key (get [here](https://platform.openai.com/api-keys))
 - Financial Datasets API key (get [here](https://financialdatasets.ai))
 - Tavily API key (get [here](https://tavily.com)) - optional, for web search
+- OpenRouter API key (get [here](https://openrouter.ai/keys)) - optional, for OpenRouter models
 
 #### Installing Bun
 
@@ -67,6 +68,9 @@ cp env.example .env
 
 # Edit .env and add your API keys
 # OPENAI_API_KEY=your-openai-api-key
+# ANTHROPIC_API_KEY=your-anthropic-api-key
+# GOOGLE_API_KEY=your-google-api-key
+# OPENROUTER_API_KEY=your-openrouter-api-key
 # FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
 # TAVILY_API_KEY=your-tavily-api-key
 ```
@@ -121,6 +125,7 @@ Type `/model` in the CLI to switch between:
 - GPT 4.1 (OpenAI)
 - Claude Sonnet 4.5 (Anthropic)
 - Gemini 3 (Google)
+- Claude 3.5 Sonnet (OpenRouter)
 
 ## How to Contribute
 
