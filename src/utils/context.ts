@@ -31,7 +31,7 @@ interface ContextData {
 export class ToolContextManager {
   private contextDir: string;
   private model: string;
-  public pointers: ContextPointer[] = [];
+  private pointers: Map<string, ContextPointer> = new Map();
 
   constructor(contextDir: string = '.dexter/context', model: string = DEFAULT_MODEL) {
     this.contextDir = contextDir;
@@ -168,7 +168,7 @@ export class ToolContextManager {
       sourceUrls,
     };
 
-    this.pointers.push(pointer);
+    this.pointers.set(pointer.filename, pointer);
 
     return filepath;
   }
@@ -195,12 +195,14 @@ export class ToolContextManager {
   }
 
   getAllPointers(): ContextPointer[] {
-    return [...this.pointers];
-  }
+  return Array.from(this.pointers.values());
+}
+
 
   getPointersForQuery(queryId: string): ContextPointer[] {
-    return this.pointers.filter(p => p.queryId === queryId);
-  }
+  return Array.from(this.pointers.values()).filter(p => p.queryId === queryId);
+}
+
 
   loadContexts(filepaths: string[]): ContextData[] {
     const contexts: ContextData[] = [];
