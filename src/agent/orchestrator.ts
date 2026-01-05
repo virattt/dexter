@@ -8,6 +8,7 @@ import { ReflectPhase } from './phases/reflect.js';
 import { AnswerPhase } from './phases/answer.js';
 import { ToolExecutor } from './tool-executor.js';
 import { TaskExecutor, TaskExecutorCallbacks } from './task-executor.js';
+import type { ModelConfig } from '../components/ModelSelector.js';
 import type { 
   Phase, 
   Plan, 
@@ -55,7 +56,7 @@ export interface AgentCallbacks extends TaskExecutorCallbacks {
 // ============================================================================
 
 export interface AgentOptions {
-  model: string;
+  model: ModelConfig;
   callbacks?: AgentCallbacks;
   maxIterations?: number;
 }
@@ -79,7 +80,7 @@ export interface AgentOptions {
  * we have sufficient data or max iterations is reached.
  */
 export class Agent {
-  private readonly model: string;
+  private readonly modelConfig: ModelConfig;
   private readonly callbacks: AgentCallbacks;
   private readonly contextManager: ToolContextManager;
   private readonly maxIterations: number;
@@ -92,26 +93,27 @@ export class Agent {
   private readonly taskExecutor: TaskExecutor;
 
   constructor(options: AgentOptions) {
-    this.model = options.model;
+    this.modelConfig = options.model;
     this.callbacks = options.callbacks ?? {};
     this.maxIterations = options.maxIterations ?? DEFAULT_MAX_ITERATIONS;
-    this.contextManager = new ToolContextManager('.dexter/context', this.model);
+    this.contextManager = new ToolContextManager('.dexter/context', this.modelConfig.large);
 
     // Initialize phases
-    this.understandPhase = new UnderstandPhase({ model: this.model });
-    this.planPhase = new PlanPhase({ model: this.model });
-    this.executePhase = new ExecutePhase({ model: this.model });
-    this.reflectPhase = new ReflectPhase({ model: this.model, maxIterations: this.maxIterations });
-    this.answerPhase = new AnswerPhase({ model: this.model, contextManager: this.contextManager });
+    this.understandPhase = new UnderstandPhase({ model: this.modelConfig.small });
+    this.planPhase = new PlanPhase({ model: this.modelConfig.large });
+    this.executePhase = new ExecutePhase({ model: this.modelConfig.large });
+    this.reflectPhase = new ReflectPhase({ model: this.modelConfig.large, maxIterations: this.maxIterations });
+    this.answerPhase = new AnswerPhase({ model: this.modelConfig.large, contextManager: this.contextManager });
 
     // Initialize executors
     const toolExecutor = new ToolExecutor({
       tools: TOOLS,
       contextManager: this.contextManager,
+      model: this.modelConfig.small,
     });
 
     this.taskExecutor = new TaskExecutor({
-      model: this.model,
+      model: this.modelConfig.small,
       toolExecutor,
       executePhase: this.executePhase,
       contextManager: this.contextManager,

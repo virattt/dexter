@@ -6,18 +6,13 @@ import { getToolSelectionSystemPrompt, buildToolSelectionPrompt } from './prompt
 import type { Task, ToolCallStatus, Understanding } from './state.js';
 
 // ============================================================================
-// Constants
-// ============================================================================
-
-const SMALL_MODEL = 'gpt-5-mini';
-
-// ============================================================================
 // Tool Executor Options
 // ============================================================================
 
 export interface ToolExecutorOptions {
   tools: StructuredToolInterface[];
   contextManager: ToolContextManager;
+  model: string;
 }
 
 // ============================================================================
@@ -35,21 +30,23 @@ export interface ToolExecutorCallbacks {
 
 /**
  * Handles tool selection and execution for tasks.
- * Uses a small, fast model (gpt-5-mini) for tool selection.
+ * Uses a small, fast model for tool selection.
  */
 export class ToolExecutor {
   private readonly tools: StructuredToolInterface[];
   private readonly toolMap: Map<string, StructuredToolInterface>;
   private readonly contextManager: ToolContextManager;
+  private readonly model: string;
 
   constructor(options: ToolExecutorOptions) {
     this.tools = options.tools;
     this.toolMap = new Map(options.tools.map(t => [t.name, t]));
     this.contextManager = options.contextManager;
+    this.model = options.model;
   }
 
   /**
-   * Selects tools for a task using gpt-5-mini with bound tools.
+   * Selects tools for a task using the configured model with bound tools.
    * Uses a precise, well-defined prompt optimized for small models.
    */
   async selectTools(
@@ -68,7 +65,7 @@ export class ToolExecutor {
     const systemPrompt = getToolSelectionSystemPrompt(this.formatToolDescriptions());
 
     const response = await callLlm(prompt, {
-      model: SMALL_MODEL,
+      model: this.model,
       systemPrompt,
       tools: this.tools,
     });

@@ -12,6 +12,7 @@ const PROVIDER_API_KEY_MAP: Record<string, string> = {
 };
 
 // Map model IDs to their required API key environment variable names (for backwards compatibility)
+// Note: All three sizes (small/medium/large) currently use the same model IDs, so they map to the same API keys
 const MODEL_API_KEY_MAP: Record<string, string> = {
   'gpt-5.2': 'OPENAI_API_KEY',
   'claude-sonnet-4-5': 'ANTHROPIC_API_KEY',
