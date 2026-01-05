@@ -195,12 +195,12 @@ export class ToolContextManager {
   }
 
   getAllPointers(): ContextPointer[] {
-  return Array.from(this.pointers.values());
+    return Array.from(this.pointers.values());
 }
 
 
   getPointersForQuery(queryId: string): ContextPointer[] {
-  return Array.from(this.pointers.values()).filter(p => p.queryId === queryId);
+    return Array.from(this.pointers.values()).filter(p => p.queryId === queryId);
 }
 
 
