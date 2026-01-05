@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { Agent, AgentCallbacks } from '../agent/orchestrator.js';
 import { MessageHistory } from '../utils/message-history.js';
 import { generateId } from '../cli/types.js';
+import type { ModelConfig } from '../components/ModelSelector.js';
 import type { Task, Phase, TaskStatus, ToolCallStatus, Plan } from '../agent/state.js';
 import type { AgentProgressState } from '../components/AgentProgressView.js';
 
@@ -19,7 +20,7 @@ export interface CurrentTurn {
 }
 
 interface UseAgentExecutionOptions {
-  model: string;
+  model: ModelConfig;
   messageHistory: MessageHistory;
 }
 

@@ -2,10 +2,16 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { colors } from '../theme.js';
 
+export interface ModelConfig {
+  small: string;
+  medium: string;
+  large: string;
+}
+
 interface Provider {
   displayName: string;
   providerId: string;
-  modelId: string;
+  modelConfig: ModelConfig;
   description: string;
 }
 
@@ -13,30 +19,59 @@ const PROVIDERS: Provider[] = [
   {
     displayName: 'OpenAI',
     providerId: 'openai',
-    modelId: 'gpt-5.2',
+    modelConfig: {
+      small: 'gpt-5.2',
+      medium: 'gpt-5.2',
+      large: 'gpt-5.2',
+    },
     description: "GPT 5.2 - OpenAI's flagship model",
   },
   {
     displayName: 'Anthropic',
     providerId: 'anthropic',
-    modelId: 'claude-sonnet-4-5',
+    modelConfig: {
+      small: 'claude-sonnet-4-5',
+      medium: 'claude-sonnet-4-5',
+      large: 'claude-sonnet-4-5',
+    },
     description: "Sonnet 4.5 - Best for complex agents",
   },
   {
     displayName: 'Google',
     providerId: 'google',
-    modelId: 'gemini-3',
+    modelConfig: {
+      small: 'gemini-3',
+      medium: 'gemini-3',
+      large: 'gemini-3',
+    },
     description: "Gemini 3 - Google's most intelligent model",
   },
 ];
 
-export function getModelIdForProvider(providerId: string): string | undefined {
+export function getModelConfigForProvider(providerId: string): ModelConfig | undefined {
   const provider = PROVIDERS.find((p) => p.providerId === providerId);
-  return provider?.modelId;
+  return provider?.modelConfig;
+}
+
+export function getModelForProvider(
+  providerId: string,
+  size: 'small' | 'medium' | 'large'
+): string | undefined {
+  const config = getModelConfigForProvider(providerId);
+  return config?.[size];
+}
+
+export function getModelIdForProvider(providerId: string): string | undefined {
+  const config = getModelConfigForProvider(providerId);
+  return config?.large;
 }
 
 export function getProviderIdForModel(modelId: string): string | undefined {
-  const provider = PROVIDERS.find((p) => p.modelId === modelId);
+  const provider = PROVIDERS.find((p) => 
+    p.modelConfig.small === modelId || 
+    p.modelConfig.medium === modelId || 
+    p.modelConfig.large === modelId
+  );
   return provider?.providerId;
 }
 

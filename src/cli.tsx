@@ -12,7 +12,8 @@ import { config } from 'dotenv';
 import { Intro } from './components/Intro.js';
 import { Input } from './components/Input.js';
 import { AnswerBox } from './components/AnswerBox.js';
-import { ProviderSelector, getModelIdForProvider } from './components/ModelSelector.js';
+import { ProviderSelector, getModelIdForProvider, getModelConfigForProvider } from './components/ModelSelector.js';
+import type { ModelConfig } from './components/ModelSelector.js';
 import { ApiKeyConfirm, ApiKeyInput } from './components/ApiKeyPrompt.js';
 import { QueueDisplay } from './components/QueueDisplay.js';
 import { StatusMessage } from './components/StatusMessage.js';
@@ -122,8 +123,9 @@ export function CLI() {
   const [history, setHistory] = useState<CompletedTurn[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  // Derive model from provider
-  const model = getModelIdForProvider(provider) || getModelIdForProvider(DEFAULT_PROVIDER)!;
+  // Derive model config from provider
+  const modelConfig: ModelConfig = getModelConfigForProvider(provider) || getModelConfigForProvider(DEFAULT_PROVIDER)!;
+  const model = modelConfig.large; // For backwards compatibility with messageHistory
 
   // Store the current turn's tasks when answer starts streaming
   const currentTasksRef = useRef<Task[]>([]);
@@ -142,7 +144,7 @@ export function CLI() {
     handleAnswerComplete: baseHandleAnswerComplete,
     cancelExecution,
   } = useAgentExecution({
-    model,
+    model: modelConfig,
     messageHistory: messageHistoryRef.current,
   });
 
@@ -251,9 +253,9 @@ export function CLI() {
         // Use existing key, complete the provider switch
         setProvider(pendingProvider);
         setSetting('provider', pendingProvider);
-        const newModel = getModelIdForProvider(pendingProvider);
-        if (newModel) {
-          messageHistoryRef.current.setModel(newModel);
+        const newModelConfig = getModelConfigForProvider(pendingProvider);
+        if (newModelConfig) {
+          messageHistoryRef.current.setModel(newModelConfig.large);
         }
       } else {
         setStatusMessage(`Cannot use ${pendingProvider ? getProviderDisplayName(pendingProvider) : 'provider'} without an API key.`);
@@ -267,14 +269,14 @@ export function CLI() {
    * Called when user submits API key
    */
   const handleApiKeySubmit = useCallback((apiKey: string | null) => {
-    if (apiKey && pendingProvider) {
+      if (apiKey && pendingProvider) {
       const saved = saveApiKeyForProvider(pendingProvider, apiKey);
       if (saved) {
         setProvider(pendingProvider);
         setSetting('provider', pendingProvider);
-        const newModel = getModelIdForProvider(pendingProvider);
-        if (newModel) {
-          messageHistoryRef.current.setModel(newModel);
+        const newModelConfig = getModelConfigForProvider(pendingProvider);
+        if (newModelConfig) {
+          messageHistoryRef.current.setModel(newModelConfig.large);
         }
       } else {
         setStatusMessage('Failed to save API key.');
@@ -283,9 +285,9 @@ export function CLI() {
       // Cancelled but existing key available
       setProvider(pendingProvider);
       setSetting('provider', pendingProvider);
-      const newModel = getModelIdForProvider(pendingProvider);
-      if (newModel) {
-        messageHistoryRef.current.setModel(newModel);
+      const newModelConfig = getModelConfigForProvider(pendingProvider);
+      if (newModelConfig) {
+        messageHistoryRef.current.setModel(newModelConfig.large);
       }
     } else {
       setStatusMessage('API key not set. Provider unchanged.');
