@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { Agent, AgentCallbacks } from '../agent/orchestrator.js';
 import { MessageHistory } from '../utils/message-history.js';
 import { generateId } from '../cli/types.js';
+import { Laminar, type Span } from '@lmnr-ai/lmnr';
 import type { Task, Phase, TaskStatus, ToolCallStatus, Plan } from '../agent/state.js';
 import type { AgentProgressState } from '../components/AgentProgressView.js';
 
@@ -60,6 +61,22 @@ interface PendingToolCallUpdate {
   status: ToolCallStatus['status'];
 }
 
+interface Deferred<T> {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+  reject: (reason?: unknown) => void;
+}
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 // ============================================================================
 // Hook Implementation
 // ============================================================================
@@ -79,10 +96,51 @@ export function useAgentExecution({
 
   const currentQueryRef = useRef<string | null>(null);
   const isProcessingRef = useRef(false);
+  const answerDoneRef = useRef<Deferred<string> | null>(null);
   
   // Track pending updates for race condition handling
   const pendingTaskUpdatesRef = useRef<PendingTaskUpdate[]>([]);
   const pendingToolCallUpdatesRef = useRef<PendingToolCallUpdate[]>([]);
+
+  const laminarRootSpanRef = useRef<Span | null>(null);
+
+  const startLaminarTrace = useCallback((query: string): void => {
+    if (!Laminar.initialized()) return;
+    laminarRootSpanRef.current = Laminar.startSpan({ name: 'dexter.query', input: { query, model } });
+  }, [model]);
+
+  const endLaminarTrace = useCallback((): void => {
+    const span = laminarRootSpanRef.current;
+    laminarRootSpanRef.current = null;
+
+    if (!span) return;
+
+    span.end();
+    void Laminar.flush().catch(() => {
+      // ignore flush errors
+    });
+  }, []);
+
+  const wrapAnswerStream = useCallback((stream: AsyncGenerator<string>): AsyncGenerator<string> => {
+    const span = laminarRootSpanRef.current;
+    if (!span || !Laminar.initialized()) return stream;
+
+    return (async function* (): AsyncGenerator<string> {
+      try {
+        while (true) {
+          const { value, done } = await Laminar.withSpan(span, () => stream.next());
+          if (done) return;
+          yield value;
+        }
+      } finally {
+        try {
+          await Laminar.withSpan(span, () => stream.return?.(undefined) ?? Promise.resolve({ done: true, value: undefined }));
+        } catch {
+          // ignore return errors
+        }
+      }
+    })();
+  }, []);
 
   /**
    * Updates the current phase.
@@ -302,25 +360,37 @@ export function useAgentExecution({
     onToolCallUpdate: updateToolCallStatus,
     onToolCallError: handleToolCallError,
     onAnswerStart: () => setAnswering(true),
-    onAnswerStream: (stream) => setAnswerStream(stream),
-  }), [setPhase, markPhaseComplete, setTasksFromPlan, updateTaskStatus, setTaskToolCalls, updateToolCallStatus, handleToolCallError, setAnswering]);
+    onAnswerStream: (stream) => setAnswerStream(wrapAnswerStream(stream)),
+  }), [setPhase, markPhaseComplete, setTasksFromPlan, updateTaskStatus, setTaskToolCalls, updateToolCallStatus, handleToolCallError, setAnswering, wrapAnswerStream]);
 
   /**
    * Handles the completed answer.
    */
   const handleAnswerComplete = useCallback((answer: string) => {
+    answerDoneRef.current?.resolve(answer);
+    answerDoneRef.current = null;
+
     setCurrentTurn(null);
     setAnswerStream(null);
 
     // Add to message history for multi-turn context
     const query = currentQueryRef.current;
     if (query && answer) {
-      messageHistory.addMessage(query, answer).catch(() => {
-        // Silently ignore errors in adding to history
-      });
+      const span = laminarRootSpanRef.current;
+      if (span && Laminar.initialized()) {
+        void Laminar.withSpan(span, () => messageHistory.addMessage(query, answer)).catch(() => {
+          // Silently ignore errors in adding to history
+        });
+      } else {
+        messageHistory.addMessage(query, answer).catch(() => {
+          // Silently ignore errors in adding to history
+        });
+      }
     }
     currentQueryRef.current = null;
-  }, [messageHistory]);
+
+    endLaminarTrace();
+  }, [messageHistory, endLaminarTrace]);
 
   /**
    * Processes a single query through the agent.
@@ -333,6 +403,9 @@ export function useAgentExecution({
 
       // Store current query for message history
       currentQueryRef.current = query;
+
+      // One trace per query (covers planning + tool usage + answer streaming)
+      startLaminarTrace(query);
       
       // Clear any pending updates and errors from previous run
       pendingTaskUpdatesRef.current = [];
@@ -354,11 +427,25 @@ export function useAgentExecution({
       });
 
       const callbacks = createAgentCallbacks();
+      const answerDone = createDeferred<string>();
+      answerDoneRef.current = answerDone;
 
       try {
         const agent = new Agent({ model, callbacks });
-        await agent.run(query, messageHistory);
+
+        const span = laminarRootSpanRef.current;
+        if (span && Laminar.initialized()) {
+          await Laminar.withSpan(span, () => agent.run(query, messageHistory));
+        } else {
+          await agent.run(query, messageHistory);
+        }
+
+        // Wait for the streamed answer to finish before returning (prevents overlapping turns)
+        await answerDone.promise;
       } catch (e) {
+        answerDoneRef.current?.reject(e);
+        answerDoneRef.current = null;
+        endLaminarTrace();
         setCurrentTurn(null);
         currentQueryRef.current = null;
         throw e;
@@ -367,18 +454,21 @@ export function useAgentExecution({
         setIsProcessing(false);
       }
     },
-    [model, messageHistory, createAgentCallbacks]
+    [model, messageHistory, createAgentCallbacks, startLaminarTrace, endLaminarTrace]
   );
 
   /**
    * Cancels the current execution.
    */
   const cancelExecution = useCallback(() => {
+    answerDoneRef.current?.reject(new Error('interrupted'));
+    answerDoneRef.current = null;
+    endLaminarTrace();
     setCurrentTurn(null);
     setAnswerStream(null);
     isProcessingRef.current = false;
     setIsProcessing(false);
-  }, []);
+  }, [endLaminarTrace]);
 
   return {
     currentTurn,
