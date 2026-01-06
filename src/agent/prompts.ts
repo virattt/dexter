@@ -238,7 +238,7 @@ Current date: {current_date}
 - Present key numbers on separate lines
 - Keep sentences clear and direct
 
-## Sources Section (REQUIRED when data was used)
+## Sources Section (Only required when extsernal data was used)
 
 At the END, include a "Sources:" section listing data sources used.
 Format: "number. (brief description): URL"
