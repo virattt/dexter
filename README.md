@@ -51,7 +51,7 @@ bun --version
 
 1. Clone the repository:
 ```bash
-git clone git@github.com:SamKomesarook/dexter.git
+git clone https://github.com/virattt/dexter.git
 cd dexter
 ```
 
