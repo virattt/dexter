@@ -51,7 +51,7 @@ bun --version
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/virattt/dexter.git
+git clone git@github.com:SamKomesarook/dexter.git
 cd dexter
 ```
 
@@ -69,6 +69,10 @@ cp env.example .env
 # OPENAI_API_KEY=your-openai-api-key
 # FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
 # TAVILY_API_KEY=your-tavily-api-key
+#
+# Optional observability (Laminar)
+# LMNR_PROJECT_API_KEY=your-laminar-project-api-key
+# Note: when Laminar is enabled, Dexter disables LangSmith tracing env vars to avoid double tracing.
 ```
 
 ### Usage
@@ -82,6 +86,10 @@ Or with watch mode for development:
 ```bash
 bun dev
 ```
+
+### Observability (Laminar)
+
+Dexter supports Laminar tracing. Set `LMNR_PROJECT_API_KEY` in `.env` and run normally. Each user question generates one trace (`dexter.query`) containing all LLM/tool spans.
 
 ### Example Queries
 
@@ -136,4 +144,3 @@ Type `/model` in the CLI to switch between:
 ## License
 
 This project is licensed under the MIT License.
-
