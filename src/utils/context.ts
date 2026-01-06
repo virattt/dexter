@@ -32,6 +32,7 @@ export class ToolContextManager {
   private contextDir: string;
   private model: string;
   private pointers: Map<string, ContextPointer> = new Map();
+  private pointersByQuery: Map<string, Set<string>> = new Map();
 
   constructor(contextDir: string = '.dexter/context', model: string = DEFAULT_MODEL) {
     this.contextDir = contextDir;
@@ -58,53 +59,42 @@ export class ToolContextManager {
       : `${toolName}_${argsHash}.json`;
   }
 
-  /**
-   * Creates a simple description string for the tool using the tool name and arguments.
-   * The description string is used to identify the tool and is used to select relevant context for the query.
-   */
   getToolDescription(toolName: string, args: Record<string, unknown>): string {
     const parts: string[] = [];
     const usedKeys = new Set<string>();
 
-    // Add ticker if present (most common identifier)
     if (args.ticker) {
       parts.push(String(args.ticker).toUpperCase());
       usedKeys.add('ticker');
     }
 
-    // Add search query if present
     if (args.query) {
       parts.push(`"${args.query}"`);
       usedKeys.add('query');
     }
 
-    // Format tool name: get_income_statements -> income statements
     const formattedToolName = toolName
       .replace(/^get_/, '')
       .replace(/^search_/, '')
       .replace(/_/g, ' ');
     parts.push(formattedToolName);
 
-    // Add period qualifier if present
     if (args.period) {
       parts.push(`(${args.period})`);
       usedKeys.add('period');
     }
 
-    // Add limit if present
     if (args.limit && typeof args.limit === 'number') {
       parts.push(`- ${args.limit} periods`);
       usedKeys.add('limit');
     }
 
-    // Add date range if present
     if (args.start_date && args.end_date) {
       parts.push(`from ${args.start_date} to ${args.end_date}`);
       usedKeys.add('start_date');
       usedKeys.add('end_date');
     }
 
-    // Append any remaining args not explicitly handled
     const remainingArgs = Object.entries(args)
       .filter(([key]) => !usedKeys.has(key))
       .map(([key, value]) => `${key}=${value}`);
@@ -128,7 +118,6 @@ export class ToolContextManager {
 
     const toolDescription = this.getToolDescription(toolName, args);
 
-    // Extract sourceUrls from ToolResult format
     let sourceUrls: string[] | undefined;
     let actualResult = result;
 
@@ -140,18 +129,18 @@ export class ToolContextManager {
           actualResult = parsed.data;
         }
       } catch {
-        // Result is not JSON, use as-is
+        // Not JSON, use as-is
       }
     }
 
     const contextData: ContextData = {
-      toolName: toolName,
-      args: args,
-      toolDescription: toolDescription,
+      toolName,
+      args,
+      toolDescription,
       timestamp: new Date().toISOString(),
-      taskId: taskId,
-      queryId: queryId,
-      sourceUrls: sourceUrls,
+      taskId,
+      queryId,
+      sourceUrls,
       result: actualResult,
     };
 
@@ -168,15 +157,20 @@ export class ToolContextManager {
       sourceUrls,
     };
 
-    this.pointers.set(pointer.filename, pointer);
+    // Use filepath as Map key (stable ID)
+    this.pointers.set(pointer.filepath, pointer);
+
+    // Index by queryId for O(1) retrieval
+    if (queryId) {
+      if (!this.pointersByQuery.has(queryId)) {
+        this.pointersByQuery.set(queryId, new Set());
+      }
+      this.pointersByQuery.get(queryId)!.add(pointer.filepath);
+    }
 
     return filepath;
   }
 
-  /**
-   * Saves context to disk and returns a lightweight ToolSummary for the agent loop.
-   * Combines saveContext + deterministic summary generation in one call.
-   */
   saveAndGetSummary(
     toolName: string,
     args: Record<string, unknown>,
@@ -196,13 +190,13 @@ export class ToolContextManager {
 
   getAllPointers(): ContextPointer[] {
     return Array.from(this.pointers.values());
-}
-
+  }
 
   getPointersForQuery(queryId: string): ContextPointer[] {
-    return Array.from(this.pointers.values()).filter(p => p.queryId === queryId);
-}
-
+    const ids = this.pointersByQuery.get(queryId);
+    if (!ids) return [];
+    return Array.from(ids).map(id => this.pointers.get(id)!);
+  }
 
   loadContexts(filepaths: string[]): ContextData[] {
     const contexts: ContextData[] = [];
@@ -221,12 +215,11 @@ export class ToolContextManager {
     query: string,
     availablePointers: ContextPointer[]
   ): Promise<string[]> {
-    if (availablePointers.length === 0) {
-      return [];
-    }
+    if (availablePointers.length === 0) return [];
 
-    const pointersInfo = availablePointers.map((ptr, i) => ({
-      id: i,
+    // Use filepath as stable ID for the LLM
+    const pointersInfo = availablePointers.map(ptr => ({
+      id: ptr.filepath,
       toolName: ptr.toolName,
       toolDescription: ptr.toolDescription,
       args: ptr.args,
@@ -239,7 +232,7 @@ export class ToolContextManager {
     ${JSON.stringify(pointersInfo, null, 2)}
     
     Select which tool outputs are relevant for answering the query.
-    Return a JSON object with a "context_ids" field containing a list of IDs (0-indexed) of the relevant outputs.
+    Return a JSON object with a "context_ids" field containing a list of IDs (filepaths) of the relevant outputs.
     Only select outputs that contain data directly relevant to answering the query.
     `;
 
@@ -250,15 +243,15 @@ export class ToolContextManager {
         outputSchema: SelectedContextsSchema,
       });
 
-      const selectedIds = (response as { context_ids: number[] }).context_ids || [];
+      const selectedIds = (response as { context_ids: string[] }).context_ids || [];
 
       return selectedIds
-        .filter((idx) => idx >= 0 && idx < availablePointers.length)
-        .map((idx) => availablePointers[idx].filepath);
+        .map(id => this.pointers.get(id))
+        .filter(Boolean)
+        .map(ptr => ptr!.filepath);
     } catch (e) {
       console.warn(`Warning: Context selection failed: ${e}, loading all contexts`);
-      return availablePointers.map((ptr) => ptr.filepath);
+      return availablePointers.map(ptr => ptr.filepath);
     }
   }
 }
-
