@@ -28,6 +28,12 @@ const PROVIDERS: Provider[] = [
     modelId: 'gemini-3-pro-preview',
     description: "Gemini 3 - Google's most intelligent model",
   },
+  {
+    displayName: 'Ollama',
+    providerId: 'ollama',
+    modelId: 'ollama:llama3.1',
+    description: 'Local models via Ollama (no API key)',
+  },
 ];
 
 export function getModelIdForProvider(providerId: string): string | undefined {
