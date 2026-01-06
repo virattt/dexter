@@ -16,6 +16,7 @@ const MODEL_API_KEY_MAP: Record<string, string> = {
   'gpt-5.2': 'OPENAI_API_KEY',
   'claude-sonnet-4-5': 'ANTHROPIC_API_KEY',
   'gemini-3': 'GOOGLE_API_KEY',
+  // ollama:* models are local and keyless
 };
 
 // Map provider IDs to user-friendly display names
@@ -23,7 +24,10 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   'openai': 'OpenAI',
   'anthropic': 'Anthropic',
   'google': 'Google',
+  'ollama': 'Ollama',
 };
+
+const KEYLESS_PROVIDERS = new Set(['ollama']);
 
 export function getApiKeyNameForProvider(providerId: string): string | undefined {
   return PROVIDER_API_KEY_MAP[providerId];
@@ -34,10 +38,12 @@ export function getProviderDisplayName(providerId: string): string {
 }
 
 export function getApiKeyName(modelId: string): string | undefined {
+  if (modelId.startsWith('ollama:')) return undefined;
   return MODEL_API_KEY_MAP[modelId];
 }
 
 export function checkApiKeyExistsForProvider(providerId: string): boolean {
+  if (KEYLESS_PROVIDERS.has(providerId)) return true;
   const apiKeyName = getApiKeyNameForProvider(providerId);
   if (!apiKeyName) return false;
   return checkApiKeyExists(apiKeyName);
@@ -119,6 +125,7 @@ export function saveApiKeyToEnv(apiKeyName: string, apiKeyValue: string): boolea
 }
 
 export function saveApiKeyForProvider(providerId: string, apiKey: string): boolean {
+  if (KEYLESS_PROVIDERS.has(providerId)) return false;
   const apiKeyName = getApiKeyNameForProvider(providerId);
   if (!apiKeyName) return false;
   return saveApiKeyToEnv(apiKeyName, apiKey);
