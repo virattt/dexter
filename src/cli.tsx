@@ -215,6 +215,48 @@ export function CLI() {
         return;
       }
 
+      if (query === '/history') {
+        const sessions = messageHistoryRef.current.getSessions();
+        if (sessions.length === 0) {
+          setStatusMessage('No sessions found.');
+        } else {
+          const currentId = messageHistoryRef.current.getCurrentSessionId();
+          const list = sessions.map(s => {
+            const marker = s.id === currentId ? '→ ' : '  ';
+            const date = new Date(s.lastActiveAt).toLocaleDateString();
+            return `${marker}${s.id} | ${s.name} | ${s.messageCount} msgs | ${date}`;
+          }).join('\n');
+          setStatusMessage(`Sessions:\n${list}`);
+        }
+        return;
+      }
+
+      if (query.startsWith('/session ')) {
+        const sessionId = query.slice(9).trim();
+        const success = messageHistoryRef.current.switchSession(sessionId);
+        if (success) {
+          setHistory([]);
+          setStatusMessage(`Switched to session: ${sessionId}`);
+        } else {
+          setStatusMessage(`Session not found: ${sessionId}`);
+        }
+        return;
+      }
+
+      if (query === '/new') {
+        const sessionId = messageHistoryRef.current.newSession();
+        setHistory([]);
+        setStatusMessage(`Started new session: ${sessionId}`);
+        return;
+      }
+
+      if (query === '/clear') {
+        messageHistoryRef.current.clear();
+        setHistory([]);
+        setStatusMessage('Session cleared.');
+        return;
+      }
+
       // Queue the query if already running
       if (state === 'running') {
         enqueue(query);

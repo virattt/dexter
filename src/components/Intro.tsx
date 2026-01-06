@@ -40,7 +40,7 @@ export function Intro({ provider }: IntroProps) {
 
       <Box marginTop={1} flexDirection="column">
         <Text>Your AI assistant for deep financial research.</Text>
-        <Text color={colors.muted}>Current model provider: {getProviderDisplayName(provider)}. Type /model to change the provider.</Text>
+        <Text color={colors.muted}>Current model provider: {getProviderDisplayName(provider)}. Type /model to change the provider. /history to see sessions. /new for new session.</Text>
       </Box>
     </Box>
   );
