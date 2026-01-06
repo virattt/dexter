@@ -71,6 +71,42 @@ cp env.example .env
 # TAVILY_API_KEY=your-tavily-api-key
 ```
 
+### Run Dextex Cli Using Docker 
+1. Clone the repository:
+```bash
+git clone https://github.com/virattt/dexter.git
+cd dexter
+```
+2. Build docker image from the project root : 
+```bash
+docker build -t dextex-ts .
+```
+### OPTION 1: Run the docker image pass the enviroment variable
+```bash
+docker run -t \
+-e OPENAI_API_KEY=your-openai-api-key \
+-e FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key \
+- TAVILY_API_KEY=your-tavily-api-key \
+dextex-ts
+```
+### OPTION 2: Create a .env file in the project root :
+```bash
+# Edit .env and add your API keys
+# OPENAI_API_KEY=your-openai-api-key
+# FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
+# TAVILY_API_KEY=your-tavily-api-key``bash
+```
+
+- Now run the container using env file
+```bash
+docker run -it --env-file .env dexter-ts
+```
+
+Once the container is running , you can use the CLI just like normal: 
+```bash
+dextex-ts --help
+```
+
 ### Usage
 
 Run Dexter in interactive mode:
