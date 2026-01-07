@@ -17,24 +17,12 @@ const PROVIDERS: Record<string, ProviderConfig> = {
   ollama: { displayName: 'Ollama' },
 };
 
-// Map model IDs to their required API key environment variable names (for backwards compatibility)
-const MODEL_API_KEY_MAP: Record<string, string> = {
-  'gpt-5.2': 'OPENAI_API_KEY',
-  'claude-sonnet-4-5': 'ANTHROPIC_API_KEY',
-  'gemini-3': 'GOOGLE_API_KEY',
-};
-
 export function getApiKeyNameForProvider(providerId: string): string | undefined {
   return PROVIDERS[providerId]?.apiKeyEnvVar;
 }
 
 export function getProviderDisplayName(providerId: string): string {
   return PROVIDERS[providerId]?.displayName || providerId;
-}
-
-export function getApiKeyName(modelId: string): string | undefined {
-  if (modelId.startsWith('ollama:')) return undefined;
-  return MODEL_API_KEY_MAP[modelId];
 }
 
 export function checkApiKeyExistsForProvider(providerId: string): boolean {

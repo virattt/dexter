@@ -22,7 +22,6 @@ import type { Task } from './agent/state.js';
 import type { AgentProgressState } from './components/AgentProgressView.js';
 
 import { useQueryQueue } from './hooks/useQueryQueue.js';
-import { useApiKey } from './hooks/useApiKey.js';
 import { useAgentExecution, ToolError } from './hooks/useAgentExecution.js';
 
 import { getSetting, setSetting } from './utils/config.js';
@@ -138,7 +137,6 @@ export function CLI() {
 
   const messageHistoryRef = useRef<MessageHistory>(new MessageHistory(model));
 
-  const { apiKeyReady } = useApiKey(model);
   const { queue: queryQueue, enqueue, shift: shiftQueue, clear: clearQueue } = useQueryQueue();
 
   const {
