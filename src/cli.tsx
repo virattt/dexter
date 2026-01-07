@@ -12,7 +12,7 @@ import { config } from 'dotenv';
 import { Intro } from './components/Intro.js';
 import { Input } from './components/Input.js';
 import { AnswerBox } from './components/AnswerBox.js';
-import { ProviderSelector, getModelIdForProvider } from './components/ModelSelector.js';
+import { ProviderSelector, ModelSelector, getModelsForProvider, getDefaultModelForProvider } from './components/ModelSelector.js';
 import { ApiKeyConfirm, ApiKeyInput } from './components/ApiKeyPrompt.js';
 import { QueueDisplay } from './components/QueueDisplay.js';
 import { StatusMessage } from './components/StatusMessage.js';
@@ -22,7 +22,6 @@ import type { Task } from './agent/state.js';
 import type { AgentProgressState } from './components/AgentProgressView.js';
 
 import { useQueryQueue } from './hooks/useQueryQueue.js';
-import { useApiKey } from './hooks/useApiKey.js';
 import { useAgentExecution, ToolError } from './hooks/useAgentExecution.js';
 
 import { getSetting, setSetting } from './utils/config.js';
@@ -32,6 +31,7 @@ import {
   checkApiKeyExistsForProvider,
   saveApiKeyForProvider 
 } from './utils/env.js';
+import { getOllamaModels } from './utils/ollama.js';
 import { MessageHistory } from './utils/message-history.js';
 
 import { DEFAULT_PROVIDER } from './model/llm.js';
@@ -118,19 +118,25 @@ export function CLI() {
 
   const [state, setState] = useState<AppState>('idle');
   const [provider, setProvider] = useState(() => getSetting('provider', DEFAULT_PROVIDER));
+  const [model, setModel] = useState(() => {
+    const savedModel = getSetting('modelId', null) as string | null;
+    const savedProvider = getSetting('provider', DEFAULT_PROVIDER) as string;
+    if (savedModel) {
+      return savedModel;
+    }
+    // Default to first model for the provider
+    return getDefaultModelForProvider(savedProvider) || 'gpt-5.2';
+  });
   const [pendingProvider, setPendingProvider] = useState<string | null>(null);
+  const [pendingModels, setPendingModels] = useState<string[]>([]);
   const [history, setHistory] = useState<CompletedTurn[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-
-  // Derive model from provider
-  const model = getModelIdForProvider(provider) || getModelIdForProvider(DEFAULT_PROVIDER)!;
 
   // Store the current turn's tasks when answer starts streaming
   const currentTasksRef = useRef<Task[]>([]);
 
   const messageHistoryRef = useRef<MessageHistory>(new MessageHistory(model));
 
-  const { apiKeyReady } = useApiKey(model);
   const { queue: queryQueue, enqueue, shift: shiftQueue, clear: clearQueue } = useQueryQueue();
 
   const {
@@ -211,7 +217,7 @@ export function CLI() {
       }
 
       if (query === '/model') {
-        setState('model_select');
+        setState('provider_select');
         return;
       }
 
@@ -230,14 +236,70 @@ export function CLI() {
   /**
    * Called when user selects a provider from the selector
    */
-  const handleProviderSelect = useCallback((providerId: string | null) => {
+  const handleProviderSelect = useCallback(async (providerId: string | null) => {
     if (providerId) {
       setPendingProvider(providerId);
-      setState('api_key_confirm');
+      
+      // Fetch models for the provider
+      if (providerId === 'ollama') {
+        // For Ollama, fetch locally downloaded models
+        const ollamaModels = await getOllamaModels();
+        setPendingModels(ollamaModels);
+      } else {
+        // For cloud providers, use predefined models
+        setPendingModels(getModelsForProvider(providerId));
+      }
+      
+      setState('model_select');
     } else {
       setState('idle');
     }
   }, []);
+
+  /**
+   * Called when user selects a model from the selector
+   */
+  const handleModelSelect = useCallback((modelId: string | null) => {
+    if (!modelId || !pendingProvider) {
+      // User cancelled - go back to provider select
+      setPendingProvider(null);
+      setPendingModels([]);
+      setState('provider_select');
+      return;
+    }
+
+    // For Ollama, skip API key flow entirely
+    if (pendingProvider === 'ollama') {
+      const fullModelId = `ollama:${modelId}`;
+      setProvider(pendingProvider);
+      setModel(fullModelId);
+      setSetting('provider', pendingProvider);
+      setSetting('modelId', fullModelId);
+      messageHistoryRef.current.setModel(fullModelId);
+      setPendingProvider(null);
+      setPendingModels([]);
+      setState('idle');
+      return;
+    }
+
+    // For cloud providers, check API key
+    if (checkApiKeyExistsForProvider(pendingProvider)) {
+      // API key exists, complete the switch
+      setProvider(pendingProvider);
+      setModel(modelId);
+      setSetting('provider', pendingProvider);
+      setSetting('modelId', modelId);
+      messageHistoryRef.current.setModel(modelId);
+      setPendingProvider(null);
+      setPendingModels([]);
+      setState('idle');
+    } else {
+      // Need to get API key
+      // Store the selected model temporarily
+      setPendingModels([modelId]); // Reuse to store selected model
+      setState('api_key_confirm');
+    }
+  }, [pendingProvider]);
 
   /**
    * Called when user confirms/declines setting API key
@@ -249,50 +311,52 @@ export function CLI() {
       // Check if existing key is available
       if (pendingProvider && checkApiKeyExistsForProvider(pendingProvider)) {
         // Use existing key, complete the provider switch
+        const selectedModel = pendingModels[0]; // Model was stored here
         setProvider(pendingProvider);
+        setModel(selectedModel);
         setSetting('provider', pendingProvider);
-        const newModel = getModelIdForProvider(pendingProvider);
-        if (newModel) {
-          messageHistoryRef.current.setModel(newModel);
-        }
+        setSetting('modelId', selectedModel);
+        messageHistoryRef.current.setModel(selectedModel);
       } else {
         setStatusMessage(`Cannot use ${pendingProvider ? getProviderDisplayName(pendingProvider) : 'provider'} without an API key.`);
       }
       setPendingProvider(null);
+      setPendingModels([]);
       setState('idle');
     }
-  }, [pendingProvider]);
+  }, [pendingProvider, pendingModels]);
 
   /**
    * Called when user submits API key
    */
   const handleApiKeySubmit = useCallback((apiKey: string | null) => {
+    const selectedModel = pendingModels[0]; // Model was stored here
+    
     if (apiKey && pendingProvider) {
       const saved = saveApiKeyForProvider(pendingProvider, apiKey);
       if (saved) {
         setProvider(pendingProvider);
+        setModel(selectedModel);
         setSetting('provider', pendingProvider);
-        const newModel = getModelIdForProvider(pendingProvider);
-        if (newModel) {
-          messageHistoryRef.current.setModel(newModel);
-        }
+        setSetting('modelId', selectedModel);
+        messageHistoryRef.current.setModel(selectedModel);
       } else {
         setStatusMessage('Failed to save API key.');
       }
     } else if (!apiKey && pendingProvider && checkApiKeyExistsForProvider(pendingProvider)) {
       // Cancelled but existing key available
       setProvider(pendingProvider);
+      setModel(selectedModel);
       setSetting('provider', pendingProvider);
-      const newModel = getModelIdForProvider(pendingProvider);
-      if (newModel) {
-        messageHistoryRef.current.setModel(newModel);
-      }
+      setSetting('modelId', selectedModel);
+      messageHistoryRef.current.setModel(selectedModel);
     } else {
       setStatusMessage('API key not set. Provider unchanged.');
     }
     setPendingProvider(null);
+    setPendingModels([]);
     setState('idle');
-  }, [pendingProvider]);
+  }, [pendingProvider, pendingModels]);
 
   useInput((input, key) => {
     if (key.ctrl && input === 'c') {
@@ -301,8 +365,9 @@ export function CLI() {
         cancelExecution();
         clearQueue();
         setStatusMessage('Operation cancelled. You can ask a new question or press Ctrl+C again to quit.');
-      } else if (state === 'api_key_confirm' || state === 'api_key_input') {
+      } else if (state === 'provider_select' || state === 'model_select' || state === 'api_key_confirm' || state === 'api_key_input') {
         setPendingProvider(null);
+        setPendingModels([]);
         setState('idle');
         setStatusMessage('Cancelled.');
       } else {
@@ -312,10 +377,23 @@ export function CLI() {
     }
   });
 
-  if (state === 'model_select') {
+  if (state === 'provider_select') {
     return (
       <Box flexDirection="column">
         <ProviderSelector provider={provider} onSelect={handleProviderSelect} />
+      </Box>
+    );
+  }
+
+  if (state === 'model_select' && pendingProvider) {
+    return (
+      <Box flexDirection="column">
+        <ModelSelector
+          providerId={pendingProvider}
+          models={pendingModels}
+          currentModel={provider === pendingProvider ? model : undefined}
+          onSelect={handleModelSelect}
+        />
       </Box>
     );
   }
@@ -356,7 +434,7 @@ export function CLI() {
       <Static items={staticItems}>
         {(item) =>
           item.type === 'intro' ? (
-            <Intro key="intro" provider={provider} />
+            <Intro key="intro" provider={provider} model={model} />
           ) : (
             <CompletedTurnView key={item.turn.id} turn={item.turn} />
           )

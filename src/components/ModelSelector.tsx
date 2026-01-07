@@ -5,35 +5,53 @@ import { colors } from '../theme.js';
 interface Provider {
   displayName: string;
   providerId: string;
-  modelId: string;
+  models: string[];
 }
 
 const PROVIDERS: Provider[] = [
   {
     displayName: 'OpenAI',
     providerId: 'openai',
-    modelId: 'gpt-5.2',
+    models: ['gpt-5.2', 'gpt-4.1'],
   },
   {
     displayName: 'Anthropic',
     providerId: 'anthropic',
-    modelId: 'claude-sonnet-4-5',
+    models: ['claude-sonnet-4-5', 'claude-opus-4-5'],
   },
   {
     displayName: 'Google',
     providerId: 'google',
-    modelId: 'gemini-3-pro-preview',
+    models: ['gemini-3-flash-preview', 'gemini-3-pro-preview'],
+  },
+  {
+    displayName: 'Ollama',
+    providerId: 'ollama',
+    models: [], // Populated dynamically from local Ollama API
   },
 ];
 
-export function getModelIdForProvider(providerId: string): string | undefined {
+export function getModelsForProvider(providerId: string): string[] {
   const provider = PROVIDERS.find((p) => p.providerId === providerId);
-  return provider?.modelId;
+  return provider?.models ?? [];
+}
+
+export function getDefaultModelForProvider(providerId: string): string | undefined {
+  const models = getModelsForProvider(providerId);
+  return models[0];
 }
 
 export function getProviderIdForModel(modelId: string): string | undefined {
-  const provider = PROVIDERS.find((p) => p.modelId === modelId);
-  return provider?.providerId;
+  // For ollama models, they're prefixed with "ollama:"
+  if (modelId.startsWith('ollama:')) {
+    return 'ollama';
+  }
+  for (const provider of PROVIDERS) {
+    if (provider.models.includes(modelId)) {
+      return provider.providerId;
+    }
+  }
+  return undefined;
 }
 
 interface ProviderSelectorProps {
@@ -91,6 +109,96 @@ export function ProviderSelector({ provider, onSelect }: ProviderSelectorProps) 
       </Box>
       <Box marginTop={1}>
         <Text color={colors.muted}>Enter to confirm · esc to exit</Text>
+      </Box>
+    </Box>
+  );
+}
+
+interface ModelSelectorProps {
+  providerId: string;
+  models: string[];
+  currentModel?: string;
+  onSelect: (modelId: string | null) => void;
+}
+
+export function ModelSelector({ providerId, models, currentModel, onSelect }: ModelSelectorProps) {
+  // For Ollama, the currentModel is stored with "ollama:" prefix, but models list doesn't have it
+  const normalizedCurrentModel = providerId === 'ollama' && currentModel?.startsWith('ollama:')
+    ? currentModel.replace(/^ollama:/, '')
+    : currentModel;
+
+  const [selectedIndex, setSelectedIndex] = useState(() => {
+    if (normalizedCurrentModel) {
+      const idx = models.findIndex((m) => m === normalizedCurrentModel);
+      return idx >= 0 ? idx : 0;
+    }
+    return 0;
+  });
+
+  const provider = PROVIDERS.find((p) => p.providerId === providerId);
+  const providerName = provider?.displayName ?? providerId;
+
+  useInput((input, key) => {
+    if (key.upArrow || input === 'k') {
+      setSelectedIndex((prev) => Math.max(0, prev - 1));
+    } else if (key.downArrow || input === 'j') {
+      setSelectedIndex((prev) => Math.min(models.length - 1, prev + 1));
+    } else if (key.return) {
+      if (models.length > 0) {
+        onSelect(models[selectedIndex]);
+      }
+    } else if (key.escape) {
+      onSelect(null);
+    }
+  });
+
+  if (models.length === 0) {
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <Text color={colors.primary} bold>
+          Select model for {providerName}
+        </Text>
+        <Box marginTop={1}>
+          <Text color={colors.muted}>No models available. </Text>
+          {providerId === 'ollama' && (
+            <Text color={colors.muted}>
+              Make sure Ollama is running and you have models downloaded.
+            </Text>
+          )}
+        </Box>
+        <Box marginTop={1}>
+          <Text color={colors.muted}>esc to go back</Text>
+        </Box>
+      </Box>
+    );
+  }
+
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      <Text color={colors.primary} bold>
+        Select model for {providerName}
+      </Text>
+      <Box marginTop={1} flexDirection="column">
+        {models.map((model, idx) => {
+          const isSelected = idx === selectedIndex;
+          const isCurrent = normalizedCurrentModel === model;
+          const prefix = isSelected ? '> ' : '  ';
+
+          return (
+            <Text
+              key={model}
+              color={isSelected ? colors.primaryLight : colors.primary}
+              bold={isSelected}
+            >
+              {prefix}
+              {idx + 1}. {model}
+              {isCurrent ? ' ✓' : ''}
+            </Text>
+          );
+        })}
+      </Box>
+      <Box marginTop={1}>
+        <Text color={colors.muted}>Enter to confirm · esc to go back</Text>
       </Box>
     </Box>
   );
