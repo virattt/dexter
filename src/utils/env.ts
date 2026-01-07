@@ -4,11 +4,17 @@ import { config } from 'dotenv';
 // Load .env on module import
 config({ quiet: true });
 
-// Map provider IDs to their required API key environment variable names
-const PROVIDER_API_KEY_MAP: Record<string, string> = {
-  'openai': 'OPENAI_API_KEY',
-  'anthropic': 'ANTHROPIC_API_KEY',
-  'google': 'GOOGLE_API_KEY',
+type ProviderConfig = {
+  displayName: string;
+  apiKeyEnvVar?: string;
+};
+
+// Single source of truth for all provider configuration
+const PROVIDERS: Record<string, ProviderConfig> = {
+  openai: { displayName: 'OpenAI', apiKeyEnvVar: 'OPENAI_API_KEY' },
+  anthropic: { displayName: 'Anthropic', apiKeyEnvVar: 'ANTHROPIC_API_KEY' },
+  google: { displayName: 'Google', apiKeyEnvVar: 'GOOGLE_API_KEY' },
+  ollama: { displayName: 'Ollama' },
 };
 
 // Map model IDs to their required API key environment variable names (for backwards compatibility)
@@ -16,25 +22,14 @@ const MODEL_API_KEY_MAP: Record<string, string> = {
   'gpt-5.2': 'OPENAI_API_KEY',
   'claude-sonnet-4-5': 'ANTHROPIC_API_KEY',
   'gemini-3': 'GOOGLE_API_KEY',
-  // ollama:* models are local and keyless
 };
-
-// Map provider IDs to user-friendly display names
-const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
-  'openai': 'OpenAI',
-  'anthropic': 'Anthropic',
-  'google': 'Google',
-  'ollama': 'Ollama',
-};
-
-const KEYLESS_PROVIDERS = new Set(['ollama']);
 
 export function getApiKeyNameForProvider(providerId: string): string | undefined {
-  return PROVIDER_API_KEY_MAP[providerId];
+  return PROVIDERS[providerId]?.apiKeyEnvVar;
 }
 
 export function getProviderDisplayName(providerId: string): string {
-  return PROVIDER_DISPLAY_NAMES[providerId] || providerId;
+  return PROVIDERS[providerId]?.displayName || providerId;
 }
 
 export function getApiKeyName(modelId: string): string | undefined {
@@ -43,9 +38,8 @@ export function getApiKeyName(modelId: string): string | undefined {
 }
 
 export function checkApiKeyExistsForProvider(providerId: string): boolean {
-  if (KEYLESS_PROVIDERS.has(providerId)) return true;
   const apiKeyName = getApiKeyNameForProvider(providerId);
-  if (!apiKeyName) return false;
+  if (!apiKeyName) return true;
   return checkApiKeyExists(apiKeyName);
 }
 
@@ -125,7 +119,6 @@ export function saveApiKeyToEnv(apiKeyName: string, apiKeyValue: string): boolea
 }
 
 export function saveApiKeyForProvider(providerId: string, apiKey: string): boolean {
-  if (KEYLESS_PROVIDERS.has(providerId)) return false;
   const apiKeyName = getApiKeyNameForProvider(providerId);
   if (!apiKeyName) return false;
   return saveApiKeyToEnv(apiKeyName, apiKey);
