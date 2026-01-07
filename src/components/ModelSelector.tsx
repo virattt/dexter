@@ -6,7 +6,6 @@ interface Provider {
   displayName: string;
   providerId: string;
   modelId: string;
-  description: string;
 }
 
 const PROVIDERS: Provider[] = [
@@ -14,19 +13,16 @@ const PROVIDERS: Provider[] = [
     displayName: 'OpenAI',
     providerId: 'openai',
     modelId: 'gpt-5.2',
-    description: "GPT 5.2 - OpenAI's flagship model",
   },
   {
     displayName: 'Anthropic',
     providerId: 'anthropic',
     modelId: 'claude-sonnet-4-5',
-    description: "Sonnet 4.5 - Best for complex agents",
   },
   {
     displayName: 'Google',
     providerId: 'google',
     modelId: 'gemini-3-pro-preview',
-    description: "Gemini 3 - Google's most intelligent model",
   },
 ];
 
