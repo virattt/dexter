@@ -1,6 +1,7 @@
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatAnthropic } from '@langchain/anthropic';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { ChatOllama } from '@langchain/ollama';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { StructuredToolInterface } from '@langchain/core/tools';
@@ -51,6 +52,12 @@ const MODEL_PROVIDERS: Record<string, ModelFactory> = {
       model: name,
       ...opts,
       apiKey: getApiKey('GOOGLE_API_KEY', 'Google'),
+    }),
+  'ollama:': (name, opts) =>
+    new ChatOllama({
+      model: name.replace(/^ollama:/, ''),
+      ...opts,
+      ...(process.env.OLLAMA_BASE_URL ? { baseUrl: process.env.OLLAMA_BASE_URL } : {}),
     }),
 };
 

@@ -12,7 +12,8 @@ const MODEL_TO_PROVIDER_MAP: Record<string, string> = {
 
 interface Config {
   provider?: string;
-  model?: string; // Legacy key, kept for migration
+  modelId?: string;  // Selected model ID (e.g., "gpt-5.2", "ollama:llama3.1")
+  model?: string;    // Legacy key, kept for migration
   [key: string]: unknown;
 }
 

@@ -6,9 +6,10 @@ import { getProviderDisplayName } from '../utils/env.js';
 
 interface IntroProps {
   provider: string;
+  model: string;
 }
 
-export function Intro({ provider }: IntroProps) {
+export function Intro({ provider, model }: IntroProps) {
   const { introWidth } = dimensions;
   const welcomeText = 'Welcome to Dexter';
   const versionText = ` v${packageJson.version}`;

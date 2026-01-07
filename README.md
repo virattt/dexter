@@ -65,8 +65,15 @@ bun install
 # Copy the example environment file (from parent directory)
 cp env.example .env
 
-# Edit .env and add your API keys
+# Edit .env and add your API keys (if using cloud providers)
 # OPENAI_API_KEY=your-openai-api-key
+# ANTHROPIC_API_KEY=your-anthropic-api-key
+# GOOGLE_API_KEY=your-google-api-key
+
+# (Optional) If using Ollama locally
+# OLLAMA_BASE_URL=http://127.0.0.1:11434
+
+# Other required keys
 # FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
 # TAVILY_API_KEY=your-tavily-api-key
 ```
