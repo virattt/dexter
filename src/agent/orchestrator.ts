@@ -48,6 +48,9 @@ export interface AgentCallbacks extends TaskExecutorCallbacks {
   // Answer
   onAnswerStart?: () => void;
   onAnswerStream?: (stream: AsyncGenerator<string>) => void;
+
+  // Progress
+  onProgressMessage?: (message: string) => void;
 }
 
 // ============================================================================
@@ -144,12 +147,13 @@ export class Agent {
     // ========================================================================
     this.checkAborted();
     this.callbacks.onPhaseStart?.('understand');
-    
+    this.callbacks.onProgressMessage?.('Analyzing your query...');
+
     const understanding = await this.understandPhase.run({
       query,
       conversationHistory: messageHistory,
     });
-    
+
     this.checkAborted();
     this.callbacks.onUnderstandingComplete?.(understanding);
     this.callbacks.onPhaseComplete?.('understand');
@@ -168,7 +172,12 @@ export class Agent {
       // Phase 2: Plan
       // ======================================================================
       this.callbacks.onPhaseStart?.('plan');
-      
+      this.callbacks.onProgressMessage?.(
+        iteration > 1
+          ? `Planning next steps (iteration ${iteration})...`
+          : 'Planning approach...'
+      );
+
       const plan = await this.planPhase.run({
         query,
         understanding,
@@ -176,7 +185,7 @@ export class Agent {
         priorResults: taskResults.size > 0 ? taskResults : undefined,
         guidanceFromReflection,
       });
-      
+
       this.checkAborted();
       this.callbacks.onPlanCreated?.(plan, iteration);
       this.callbacks.onPhaseComplete?.('plan');
@@ -185,6 +194,7 @@ export class Agent {
       // Phase 3: Execute
       // ======================================================================
       this.callbacks.onPhaseStart?.('execute');
+      this.callbacks.onProgressMessage?.(`Executing ${plan.tasks.length} task${plan.tasks.length !== 1 ? 's' : ''}...`);
 
       await this.taskExecutor.executeTasks(
         query,

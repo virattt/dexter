@@ -19,6 +19,7 @@ export interface AgentProgressState {
   reflectComplete: boolean;
   tasks: Task[];
   isAnswering: boolean;
+  progressMessage?: string;
 }
 
 // ============================================================================
@@ -87,40 +88,56 @@ interface AgentProgressViewProps {
  * - Task list with status and tool calls
  * - Answering indicator
  */
-export const AgentProgressView = React.memo(function AgentProgressView({ 
-  state 
+export const AgentProgressView = React.memo(function AgentProgressView({
+  state
 }: AgentProgressViewProps) {
-  const { 
-    currentPhase, 
+  const {
+    currentPhase,
     understandComplete,
     planComplete,
     reflectComplete,
     tasks,
-    isAnswering 
+    isAnswering,
+    progressMessage
   } = state;
+
+  // Show thinking indicator during execute phase when not actively working on tasks
+  const isThinking = currentPhase === 'execute' && !isAnswering && tasks.every(t => t.status !== 'in_progress');
 
   return (
     <Box flexDirection="column" marginTop={1}>
       {/* Understand phase */}
-      <PhaseIndicator 
+      <PhaseIndicator
         label="Understanding query..."
         complete={understandComplete}
         active={currentPhase === 'understand'}
       />
-      
+
       {/* Planning phase */}
-      <PhaseIndicator 
+      <PhaseIndicator
         label="Planning next moves..."
         complete={planComplete}
         active={currentPhase === 'plan'}
       />
 
       {/* Reflect phase */}
-      <PhaseIndicator 
+      <PhaseIndicator
         label="Checking work..."
         complete={reflectComplete}
         active={currentPhase === 'reflect'}
       />
+
+
+      {/* Thinking indicator */}
+      {isThinking && (
+        <Box marginTop={1}>
+          <Text color={colors.accent}>
+            <InkSpinner type="dots" />
+          </Text>
+          <Text> </Text>
+          <Text color={colors.primary}>Thinking...</Text>
+        </Box>
+      )}
 
       {/* Task list */}
       {tasks.length > 0 && (

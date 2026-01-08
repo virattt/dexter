@@ -73,6 +73,8 @@ export interface ToolCall {
  */
 export interface ToolCallStatus extends ToolCall {
   status: 'pending' | 'running' | 'completed' | 'failed';
+  output?: string;
+  error?: string;
 }
 
 // ============================================================================
@@ -102,6 +104,9 @@ export interface Task {
   taskType?: TaskType;
   toolCalls?: ToolCallStatus[];
   dependsOn?: string[];
+  error?: string;
+  startTime?: number;
+  endTime?: number;
 }
 
 /**

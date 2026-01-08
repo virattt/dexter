@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Box, Text } from 'ink';
 import { colors } from '../theme.js';
+import { MarkdownText } from './MarkdownText.js';
 
 interface AnswerBoxProps {
   stream?: AsyncGenerator<string>;
@@ -44,10 +45,8 @@ export const AnswerBox = React.memo(function AnswerBox({ stream, text, onStart, 
 
   return (
     <Box flexDirection="column" marginTop={1}>
-      <Text>
-        {content}
-        {isStreaming && '▌'}
-      </Text>
+      <MarkdownText>{content}</MarkdownText>
+      {isStreaming && <Text>▌</Text>}
     </Box>
   );
 });

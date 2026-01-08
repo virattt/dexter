@@ -25,7 +25,7 @@ export interface ToolExecutorOptions {
 // ============================================================================
 
 export interface ToolExecutorCallbacks {
-  onToolCallUpdate?: (taskId: string, toolIndex: number, status: ToolCallStatus['status']) => void;
+  onToolCallUpdate?: (taskId: string, toolIndex: number, status: ToolCallStatus['status'], output?: string, error?: string) => void;
   onToolCallError?: (taskId: string, toolIndex: number, toolName: string, args: Record<string, unknown>, error: Error) => void;
 }
 
@@ -106,9 +106,9 @@ export class ToolExecutor {
           error.name = 'AbortError';
           throw error;
         }
-        
+
         callbacks?.onToolCallUpdate?.(task.id, index, 'running');
-        
+
         try {
           const tool = this.toolMap.get(toolCall.tool);
           if (!tool) {
@@ -132,20 +132,25 @@ export class ToolExecutor {
             queryId
           );
 
+          // Capture output for UI display
+          const output = typeof result === 'string' ? result : JSON.stringify(result);
           toolCall.status = 'completed';
-          callbacks?.onToolCallUpdate?.(task.id, index, 'completed');
+          toolCall.output = output;
+          callbacks?.onToolCallUpdate?.(task.id, index, 'completed', output);
         } catch (error) {
           // Re-throw abort errors immediately
           if ((error as Error).name === 'AbortError') {
             throw error;
           }
-          
+
           allSucceeded = false;
+          const errorMessage = error instanceof Error ? error.message : String(error);
           toolCall.status = 'failed';
-          callbacks?.onToolCallUpdate?.(task.id, index, 'failed');
+          toolCall.error = errorMessage;
+          callbacks?.onToolCallUpdate?.(task.id, index, 'failed', undefined, errorMessage);
           callbacks?.onToolCallError?.(
-            task.id, 
-            index, 
+            task.id,
+            index,
             toolCall.tool,
             toolCall.args,
             error instanceof Error ? error : new Error(String(error))

@@ -182,17 +182,28 @@ export function useAgentExecution({
   const updateTaskStatus = useCallback((taskId: string, status: TaskStatus) => {
     setCurrentTurn(prev => {
       if (!prev) return prev;
-      
+
       // If tasks aren't set yet, queue the update
       if (prev.state.tasks.length === 0) {
         pendingTaskUpdatesRef.current.push({ taskId, status });
         return prev;
       }
-      
-      const tasks = prev.state.tasks.map(task => 
-        task.id === taskId ? { ...task, status } : task
-      );
-      
+
+      const now = Date.now();
+      const tasks = prev.state.tasks.map(task => {
+        if (task.id !== taskId) return task;
+
+        // Add timestamps based on status
+        const updates: Partial<Task> = { status };
+        if (status === 'in_progress' && !task.startTime) {
+          updates.startTime = now;
+        } else if (status === 'completed' || status === 'failed') {
+          updates.endTime = now;
+        }
+
+        return { ...task, ...updates };
+      });
+
       return {
         ...prev,
         state: {
@@ -229,29 +240,31 @@ export function useAgentExecution({
    * If tasks aren't set yet, queues the update for later.
    */
   const updateToolCallStatus = useCallback((
-    taskId: string, 
-    toolIndex: number, 
-    status: ToolCallStatus['status']
+    taskId: string,
+    toolIndex: number,
+    status: ToolCallStatus['status'],
+    output?: string,
+    error?: string
   ) => {
     setCurrentTurn(prev => {
       if (!prev) return prev;
-      
+
       // If tasks aren't set yet, queue the update
       if (prev.state.tasks.length === 0) {
         pendingToolCallUpdatesRef.current.push({ taskId, toolIndex, status });
         return prev;
       }
-      
+
       const tasks = prev.state.tasks.map(task => {
         if (task.id !== taskId || !task.toolCalls) return task;
-        
-        const toolCalls = task.toolCalls.map((tc, i) => 
-          i === toolIndex ? { ...tc, status } : tc
+
+        const toolCalls = task.toolCalls.map((tc, i) =>
+          i === toolIndex ? { ...tc, status, output, error } : tc
         );
-        
+
         return { ...task, toolCalls };
       });
-      
+
       return {
         ...prev,
         state: {
@@ -273,6 +286,22 @@ export function useAgentExecution({
         state: {
           ...prev.state,
           isAnswering,
+        },
+      };
+    });
+  }, []);
+
+  /**
+   * Sets a progress message.
+   */
+  const setProgressMessage = useCallback((message: string) => {
+    setCurrentTurn(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        state: {
+          ...prev.state,
+          progressMessage: message,
         },
       };
     });
@@ -304,7 +333,8 @@ export function useAgentExecution({
     onToolCallError: handleToolCallError,
     onAnswerStart: () => setAnswering(true),
     onAnswerStream: (stream) => setAnswerStream(stream),
-  }), [setPhase, markPhaseComplete, setTasksFromPlan, updateTaskStatus, setTaskToolCalls, updateToolCallStatus, handleToolCallError, setAnswering]);
+    onProgressMessage: setProgressMessage,
+  }), [setPhase, markPhaseComplete, setTasksFromPlan, updateTaskStatus, setTaskToolCalls, updateToolCallStatus, handleToolCallError, setAnswering, setProgressMessage]);
 
   /**
    * Handles the completed answer.
@@ -355,6 +385,7 @@ export function useAgentExecution({
           reflectComplete: false,
           tasks: [],
           isAnswering: false,
+          progressMessage: undefined,
         },
       });
 

@@ -50,20 +50,68 @@ function formatArgs(args: Record<string, unknown>): string {
     .join(', ');
 }
 
+function formatToolDescription(toolCall: ToolCallStatus): string {
+  const { tool, args } = toolCall;
+
+  // Format based on tool type for better readability
+  switch (tool) {
+    case 'read_file':
+      return `Reading ${args.file_path || 'file'}`;
+    case 'write_file':
+      return `Writing ${args.file_path || 'file'}`;
+    case 'edit_file':
+      return `Editing ${args.file_path || 'file'}`;
+    case 'bash':
+      return `Running: ${args.command || 'command'}`;
+    case 'search_files':
+      return `Searching for "${args.query || args.pattern || 'pattern'}"`;
+    case 'list_files':
+      return `Listing files in ${args.path || 'directory'}`;
+    case 'get_stock_price':
+      return `Getting stock price for ${args.ticker || 'ticker'}`;
+    case 'get_financial_data':
+      return `Getting financial data for ${args.ticker || 'ticker'}`;
+    default:
+      // Fallback: replace underscores with spaces and add args
+      const displayName = tool.replace(/_/g, ' ');
+      const argsStr = formatArgs(args);
+      return argsStr ? `${displayName} (${argsStr})` : displayName;
+  }
+}
+
+function truncateOutput(output: string, maxLength: number): string {
+  if (output.length <= maxLength) return output;
+  return output.slice(0, maxLength) + '...';
+}
+
 function ToolCallRow({ toolCall, isLast }: ToolCallRowProps) {
   const prefix = isLast ? '└─' : '├─';
-  const argsStr = formatArgs(toolCall.args);
-  // Replace underscores with spaces for readability
-  const toolName = toolCall.tool.replace(/_/g, ' ');
+  const description = formatToolDescription(toolCall);
   // Completed tool calls get default text color, others stay muted
   const textColor = toolCall.status === 'completed' ? undefined : colors.muted;
-  
+
   return (
-    <Box>
-      <Text color={textColor}>{prefix} </Text>
-      <Text color={textColor}>{toolName} </Text>
-      <Text color={textColor}>({argsStr}) </Text>
-      <StatusIcon status={toolCall.status} />
+    <Box flexDirection="column">
+      {/* Main tool call line */}
+      <Box>
+        <Text color={textColor}>{prefix} </Text>
+        <Text color={textColor}>{description} </Text>
+        <StatusIcon status={toolCall.status} />
+      </Box>
+
+      {/* Show truncated output for completed tools */}
+      {toolCall.status === 'completed' && toolCall.output && (
+        <Box marginLeft={4}>
+          <Text dimColor>{truncateOutput(toolCall.output, 100)}</Text>
+        </Box>
+      )}
+
+      {/* Show error for failed tools */}
+      {toolCall.status === 'failed' && toolCall.error && (
+        <Box marginLeft={4}>
+          <Text color={colors.error}>{toolCall.error}</Text>
+        </Box>
+      )}
     </Box>
   );
 }
@@ -102,10 +150,10 @@ const TaskRow = React.memo(function TaskRow({ task }: TaskRowProps) {
   const textColor = task.status === 'pending' ? colors.muted : undefined;
   const hasToolCalls = task.toolCalls && task.toolCalls.length > 0;
   const isActive = task.status === 'in_progress' || task.status === 'completed';
-  
+
   // Show tool calls tree for active tasks with tool calls
   const showToolCalls = hasToolCalls && isActive;
-  
+
   return (
     <Box flexDirection="column">
       {/* Main task row */}
@@ -114,10 +162,17 @@ const TaskRow = React.memo(function TaskRow({ task }: TaskRowProps) {
         <Text> </Text>
         <Text color={textColor}>{task.description}</Text>
       </Box>
-      
+
       {/* Tool calls tree */}
       {showToolCalls && task.toolCalls && (
         <ToolCallsTree toolCalls={task.toolCalls} />
+      )}
+
+      {/* Task error display */}
+      {task.status === 'failed' && task.error && (
+        <Box marginLeft={4} paddingX={1} borderStyle="single" borderColor="red">
+          <Text color={colors.error}>{task.error}</Text>
+        </Box>
       )}
     </Box>
   );

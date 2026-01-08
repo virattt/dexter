@@ -92,12 +92,14 @@ const CompletedTurnView = React.memo(function CompletedTurnView({ turn }: { turn
         <Text>{turn.query}</Text>
       </Box>
 
-      {/* Task list (completed) */}
+      {/* Compact task summary instead of full list */}
       {completedTasks.length > 0 && (
-        <Box flexDirection="column" marginTop={1}>
-          <Box marginLeft={2} flexDirection="column">
-            <TaskListView tasks={completedTasks} />
-          </Box>
+        <Box marginLeft={2} marginTop={1}>
+          <Text color={colors.success}>✓</Text>
+          <Text> </Text>
+          <Text dimColor>
+            Completed {completedTasks.length} task{completedTasks.length !== 1 ? 's' : ''}
+          </Text>
         </Box>
       )}
 
@@ -184,11 +186,7 @@ export function CLI() {
       try {
         await processQuery(query);
       } catch (e) {
-        if ((e as Error).message?.includes('interrupted')) {
-          setStatusMessage('Operation cancelled.');
-        } else {
-          setStatusMessage(`Error: ${e}`);
-        }
+        setStatusMessage(`Error: ${e}`);
       } finally {
         setState('idle');
       }
@@ -365,7 +363,6 @@ export function CLI() {
         setState('idle');
         cancelExecution();
         clearQueue();
-        setStatusMessage('Operation cancelled.');
       } else if (state === 'provider_select' || state === 'model_select' || state === 'api_key_confirm' || state === 'api_key_input') {
         setPendingProvider(null);
         setPendingModels([]);
@@ -381,7 +378,6 @@ export function CLI() {
         setState('idle');
         cancelExecution();
         clearQueue();
-        setStatusMessage('Operation cancelled.');
       } else if (state === 'provider_select' || state === 'model_select' || state === 'api_key_confirm' || state === 'api_key_input') {
         setPendingProvider(null);
         setPendingModels([]);
