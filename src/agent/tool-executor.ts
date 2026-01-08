@@ -4,12 +4,33 @@ import { callLlm } from '../model/llm.js';
 import { ToolContextManager } from '../utils/context.js';
 import { getToolSelectionSystemPrompt, buildToolSelectionPrompt } from './prompts.js';
 import type { Task, ToolCallStatus, Understanding } from './state.js';
+import { loadConfig } from '../utils/config.js';
 
 // ============================================================================
 // Constants
 // ============================================================================
 
-const SMALL_MODEL = 'gpt-5-mini';
+// Use the user's selected model instead of hardcoding OpenAI
+function getToolSelectionModel(): string {
+  const config = loadConfig();
+  const userModel = config.modelId;
+
+  // If user is using Ollama, use their model for tool selection too
+  if (userModel?.startsWith('ollama:')) {
+    return userModel;
+  }
+
+  // Otherwise fall back to a small fast model for the provider
+  if (userModel?.startsWith('claude-')) {
+    return 'claude-3-5-haiku-latest';
+  }
+  if (userModel?.startsWith('gemini-')) {
+    return 'gemini-2.0-flash';
+  }
+
+  // Default to OpenAI small model
+  return 'gpt-5-mini';
+}
 
 // ============================================================================
 // Tool Executor Options
@@ -59,7 +80,7 @@ export class ToolExecutor {
     const tickers = understanding.entities
       .filter(e => e.type === 'ticker')
       .map(e => e.value);
-    
+
     const periods = understanding.entities
       .filter(e => e.type === 'period')
       .map(e => e.value);
@@ -68,7 +89,7 @@ export class ToolExecutor {
     const systemPrompt = getToolSelectionSystemPrompt(this.formatToolDescriptions());
 
     const response = await callLlm(prompt, {
-      model: SMALL_MODEL,
+      model: getToolSelectionModel(),
       systemPrompt,
       tools: this.tools,
     });
@@ -93,7 +114,7 @@ export class ToolExecutor {
     await Promise.all(
       task.toolCalls.map(async (toolCall, index) => {
         callbacks?.onToolCallUpdate?.(task.id, index, 'running');
-        
+
         try {
           const tool = this.toolMap.get(toolCall.tool);
           if (!tool) {
@@ -117,8 +138,8 @@ export class ToolExecutor {
           toolCall.status = 'failed';
           callbacks?.onToolCallUpdate?.(task.id, index, 'failed');
           callbacks?.onToolCallError?.(
-            task.id, 
-            index, 
+            task.id,
+            index,
             toolCall.tool,
             toolCall.args,
             error instanceof Error ? error : new Error(String(error))
@@ -137,7 +158,7 @@ export class ToolExecutor {
     return this.tools.map(tool => {
       const schema = tool.schema;
       let argsDescription = '';
-      
+
       if (schema && typeof schema === 'object' && 'shape' in schema) {
         const shape = schema.shape as Record<string, { description?: string }>;
         const args = Object.entries(shape)
@@ -145,7 +166,7 @@ export class ToolExecutor {
           .join('\n');
         argsDescription = args ? `\n  Arguments:\n${args}` : '';
       }
-      
+
       return `- ${tool.name}: ${tool.description}${argsDescription}`;
     }).join('\n\n');
   }
@@ -155,7 +176,7 @@ export class ToolExecutor {
    */
   private extractToolCalls(response: unknown): Array<{ tool: string; args: Record<string, unknown> }> {
     if (!response || typeof response !== 'object') return [];
-    
+
     const message = response as AIMessage;
     if (!message.tool_calls || !Array.isArray(message.tool_calls)) return [];
 
