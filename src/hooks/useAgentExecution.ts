@@ -79,6 +79,7 @@ export function useAgentExecution({
 
   const currentQueryRef = useRef<string | null>(null);
   const isProcessingRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   // Track pending updates for race condition handling
   const pendingTaskUpdatesRef = useRef<PendingTaskUpdate[]>([]);
@@ -331,6 +332,10 @@ export function useAgentExecution({
       isProcessingRef.current = true;
       setIsProcessing(true);
 
+      // Create abort controller for this execution
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
       // Store current query for message history
       currentQueryRef.current = query;
       
@@ -356,13 +361,18 @@ export function useAgentExecution({
       const callbacks = createAgentCallbacks();
 
       try {
-        const agent = new Agent({ model, callbacks });
+        const agent = new Agent({ model, callbacks, signal: abortController.signal });
         await agent.run(query, messageHistory);
       } catch (e) {
+        // Don't rethrow abort errors - they're expected during cancellation
+        if ((e as Error).name === 'AbortError') {
+          return;
+        }
         setCurrentTurn(null);
         currentQueryRef.current = null;
         throw e;
       } finally {
+        abortControllerRef.current = null;
         isProcessingRef.current = false;
         setIsProcessing(false);
       }
@@ -374,8 +384,15 @@ export function useAgentExecution({
    * Cancels the current execution.
    */
   const cancelExecution = useCallback(() => {
+    // Abort the current agent execution
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    
     setCurrentTurn(null);
     setAnswerStream(null);
+    currentQueryRef.current = null;
     isProcessingRef.current = false;
     setIsProcessing(false);
   }, []);

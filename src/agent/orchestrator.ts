@@ -58,6 +58,7 @@ export interface AgentOptions {
   model: string;
   callbacks?: AgentCallbacks;
   maxIterations?: number;
+  signal?: AbortSignal;
 }
 
 // ============================================================================
@@ -83,6 +84,7 @@ export class Agent {
   private readonly callbacks: AgentCallbacks;
   private readonly contextManager: ToolContextManager;
   private readonly maxIterations: number;
+  private readonly signal?: AbortSignal;
   
   private readonly understandPhase: UnderstandPhase;
   private readonly planPhase: PlanPhase;
@@ -95,6 +97,7 @@ export class Agent {
     this.model = options.model;
     this.callbacks = options.callbacks ?? {};
     this.maxIterations = options.maxIterations ?? DEFAULT_MAX_ITERATIONS;
+    this.signal = options.signal;
     this.contextManager = new ToolContextManager('.dexter/context', this.model);
 
     // Initialize phases
@@ -119,6 +122,17 @@ export class Agent {
   }
 
   /**
+   * Throws if the abort signal has been triggered.
+   */
+  private checkAborted(): void {
+    if (this.signal?.aborted) {
+      const error = new Error('Operation was cancelled');
+      error.name = 'AbortError';
+      throw error;
+    }
+  }
+
+  /**
    * Main entry point - runs the agent with iterative reflection.
    */
   async run(query: string, messageHistory?: MessageHistory): Promise<string> {
@@ -128,6 +142,7 @@ export class Agent {
     // ========================================================================
     // Phase 1: Understand (only once)
     // ========================================================================
+    this.checkAborted();
     this.callbacks.onPhaseStart?.('understand');
     
     const understanding = await this.understandPhase.run({
@@ -135,6 +150,7 @@ export class Agent {
       conversationHistory: messageHistory,
     });
     
+    this.checkAborted();
     this.callbacks.onUnderstandingComplete?.(understanding);
     this.callbacks.onPhaseComplete?.('understand');
 
@@ -145,6 +161,7 @@ export class Agent {
     let guidanceFromReflection: string | undefined;
 
     while (iteration <= this.maxIterations) {
+      this.checkAborted();
       this.callbacks.onIterationStart?.(iteration);
 
       // ======================================================================
@@ -160,6 +177,7 @@ export class Agent {
         guidanceFromReflection,
       });
       
+      this.checkAborted();
       this.callbacks.onPlanCreated?.(plan, iteration);
       this.callbacks.onPhaseComplete?.('plan');
 
@@ -173,9 +191,11 @@ export class Agent {
         plan,
         understanding,
         taskResults,
-        this.callbacks
+        this.callbacks,
+        this.signal
       );
 
+      this.checkAborted();
       this.callbacks.onPhaseComplete?.('execute');
       
       // Track completed plan
@@ -194,6 +214,7 @@ export class Agent {
         iteration,
       });
 
+      this.checkAborted();
       this.callbacks.onReflectionComplete?.(reflection, iteration);
       this.callbacks.onPhaseComplete?.('reflect');
 
@@ -211,6 +232,7 @@ export class Agent {
     // ========================================================================
     // Phase 5: Generate Final Answer
     // ========================================================================
+    this.checkAborted();
     this.callbacks.onPhaseStart?.('answer');
     this.callbacks.onAnswerStart?.();
 

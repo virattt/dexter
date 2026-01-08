@@ -61,6 +61,17 @@ export class TaskExecutor {
   }
 
   /**
+   * Throws if the abort signal has been triggered.
+   */
+  private checkAborted(signal?: AbortSignal): void {
+    if (signal?.aborted) {
+      const error = new Error('Operation was cancelled');
+      error.name = 'AbortError';
+      throw error;
+    }
+  }
+
+  /**
    * Executes all tasks with dependency-aware parallelization.
    */
   async executeTasks(
@@ -68,7 +79,8 @@ export class TaskExecutor {
     plan: Plan,
     understanding: Understanding,
     taskResults: Map<string, TaskResult>,
-    callbacks?: TaskExecutorCallbacks
+    callbacks?: TaskExecutorCallbacks,
+    signal?: AbortSignal
   ): Promise<void> {
     const nodes = new Map<string, TaskNode>();
     for (const task of plan.tasks) {
@@ -76,6 +88,8 @@ export class TaskExecutor {
     }
 
     while (this.hasPendingTasks(nodes)) {
+      this.checkAborted(signal);
+      
       const readyTasks = this.getReadyTasks(nodes);
       
       if (readyTasks.length === 0) {
@@ -84,7 +98,7 @@ export class TaskExecutor {
 
       await Promise.all(
         readyTasks.map(task => 
-          this.executeTask(query, task, plan, understanding, taskResults, nodes, callbacks)
+          this.executeTask(query, task, plan, understanding, taskResults, nodes, callbacks, signal)
         )
       );
     }
@@ -133,10 +147,13 @@ export class TaskExecutor {
     understanding: Understanding,
     taskResults: Map<string, TaskResult>,
     nodes: Map<string, TaskNode>,
-    callbacks?: TaskExecutorCallbacks
+    callbacks?: TaskExecutorCallbacks,
+    signal?: AbortSignal
   ): Promise<void> {
     const node = nodes.get(task.id);
     if (!node) return;
+    
+    this.checkAborted(signal);
     
     node.status = 'running';
     callbacks?.onTaskUpdate?.(task.id, 'in_progress');
@@ -144,6 +161,7 @@ export class TaskExecutor {
     const queryId = this.contextManager.hashQuery(query);
 
     if (task.taskType === 'use_tools') {
+      this.checkAborted(signal);
       const toolCalls = await this.toolExecutor.selectTools(task, understanding);
       task.toolCalls = toolCalls;
       
@@ -151,9 +169,10 @@ export class TaskExecutor {
         callbacks?.onTaskToolCallsSet?.(task.id, toolCalls);
       }
 
+      this.checkAborted(signal);
       let toolsSucceeded = true;
       if (toolCalls.length > 0) {
-        toolsSucceeded = await this.toolExecutor.executeTools(task, queryId, callbacks);
+        toolsSucceeded = await this.toolExecutor.executeTools(task, queryId, callbacks, signal);
       }
 
       if (toolsSucceeded) {
@@ -176,6 +195,7 @@ export class TaskExecutor {
     }
 
     if (task.taskType === 'reason') {
+      this.checkAborted(signal);
       const contextData = this.buildContextData(query, taskResults, plan);
       
       const result = await this.executePhase.run({

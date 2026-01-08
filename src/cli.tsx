@@ -359,12 +359,29 @@ export function CLI() {
   }, [pendingProvider, pendingModels]);
 
   useInput((input, key) => {
+    // Escape key - cancel running operations
+    if (key.escape) {
+      if (state === 'running') {
+        setState('idle');
+        cancelExecution();
+        clearQueue();
+        setStatusMessage('Operation cancelled.');
+      } else if (state === 'provider_select' || state === 'model_select' || state === 'api_key_confirm' || state === 'api_key_input') {
+        setPendingProvider(null);
+        setPendingModels([]);
+        setState('idle');
+        setStatusMessage('Cancelled.');
+      }
+      return;
+    }
+
+    // Ctrl+C - cancel or exit
     if (key.ctrl && input === 'c') {
       if (state === 'running') {
         setState('idle');
         cancelExecution();
         clearQueue();
-        setStatusMessage('Operation cancelled. You can ask a new question or press Ctrl+C again to quit.');
+        setStatusMessage('Operation cancelled.');
       } else if (state === 'provider_select' || state === 'model_select' || state === 'api_key_confirm' || state === 'api_key_input') {
         setPendingProvider(null);
         setPendingModels([]);

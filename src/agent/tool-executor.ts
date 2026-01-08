@@ -84,14 +84,29 @@ export class ToolExecutor {
   async executeTools(
     task: Task,
     queryId: string,
-    callbacks?: ToolExecutorCallbacks
+    callbacks?: ToolExecutorCallbacks,
+    signal?: AbortSignal
   ): Promise<boolean> {
     if (!task.toolCalls) return true;
+
+    // Check for abort before starting
+    if (signal?.aborted) {
+      const error = new Error('Operation was cancelled');
+      error.name = 'AbortError';
+      throw error;
+    }
 
     let allSucceeded = true;
 
     await Promise.all(
       task.toolCalls.map(async (toolCall, index) => {
+        // Check for abort before each tool call
+        if (signal?.aborted) {
+          const error = new Error('Operation was cancelled');
+          error.name = 'AbortError';
+          throw error;
+        }
+        
         callbacks?.onToolCallUpdate?.(task.id, index, 'running');
         
         try {
@@ -101,6 +116,13 @@ export class ToolExecutor {
           }
 
           const result = await tool.invoke(toolCall.args);
+
+          // Check for abort after tool execution
+          if (signal?.aborted) {
+            const error = new Error('Operation was cancelled');
+            error.name = 'AbortError';
+            throw error;
+          }
 
           this.contextManager.saveContext(
             toolCall.tool,
@@ -113,6 +135,11 @@ export class ToolExecutor {
           toolCall.status = 'completed';
           callbacks?.onToolCallUpdate?.(task.id, index, 'completed');
         } catch (error) {
+          // Re-throw abort errors immediately
+          if ((error as Error).name === 'AbortError') {
+            throw error;
+          }
+          
           allSucceeded = false;
           toolCall.status = 'failed';
           callbacks?.onToolCallUpdate?.(task.id, index, 'failed');
