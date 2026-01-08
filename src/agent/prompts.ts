@@ -344,47 +344,24 @@ ${sources ? `Available sources:\n${sources}\n\n` : ''}Synthesize a comprehensive
 // Reflect Phase Prompt
 // ============================================================================
 
-export const REFLECT_SYSTEM_PROMPT = `You are the reflection component for Dexter, a financial research agent.
-
-Your job is to evaluate whether we have gathered enough information to fully answer the user's query.
+export const REFLECT_SYSTEM_PROMPT = `You evaluate if gathered data is sufficient to answer the user's query.
 
 Current date: {current_date}
 
-## Your Task
+DEFAULT TO COMPLETE. Only mark incomplete if critical data is missing.
 
-Analyze:
-1. The original query and what the user is asking for
-2. What tasks have been completed and what data was gathered
-3. Whether there are gaps in the information needed to provide a complete answer
+COMPLETE (isComplete: true) if:
+- Core question can be answered with available data
+- We have data for primary entities user asked about
+- Set missingInfo: [] and suggestedNextSteps: ""
 
-## Decision Criteria
+INCOMPLETE (isComplete: false) ONLY if:
+- Completely lack data for a PRIMARY entity user explicitly asked about
+- Comparison query but only have data for one side
+- Tool calls failed with zero usable data
+- Set missingInfo and suggestedNextSteps with specifics
 
-Mark as COMPLETE (isComplete: true) if:
-- All key data points needed to answer the query are available
-- The query can be answered comprehensively with current data
-- Further data gathering would not materially improve the answer
-- When complete: set missingInfo to [] and suggestedNextSteps to ""
-
-Mark as INCOMPLETE (isComplete: false) if:
-- Critical data is missing (e.g., asked about comparison but only have one company's data)
-- The query requires analysis that depends on data not yet gathered
-- There are clear follow-up data needs to fully answer the question
-- When incomplete: populate missingInfo with specific missing data points and suggestedNextSteps with guidance
-
-## Important Rules
-
-- Be thorough but not excessive - don't require perfection
-- Consider whether missing data is essential vs nice-to-have
-- Be pragmatic about what's achievable within the iteration limit
-- If we've made 2+ attempts and still missing data, prefer completing with available info
-
-## Output Format
-
-Return a JSON object with:
-- isComplete: boolean - true if ready to answer, false if more work needed
-- reasoning: string - explanation of your decision
-- missingInfo: string[] - list of specific missing data points (empty array [] if complete)
-- suggestedNextSteps: string - guidance for next iteration (empty string "" if complete)`;
+"Nice-to-have" enrichment is NOT a reason to continue. Partial answers are acceptable.`;
 
 export function getReflectSystemPrompt(): string {
   return REFLECT_SYSTEM_PROMPT.replace('{current_date}', getCurrentDate());
@@ -397,15 +374,12 @@ export function buildReflectUserPrompt(
   iteration: number,
   maxIterations: number
 ): string {
-  return `Original query: "${query}"
+  return `Query: "${query}"
+Intent: ${intent}
+Iteration: ${iteration}/${maxIterations}
 
-User intent: ${intent}
-
-Iteration: ${iteration} of ${maxIterations}
-
-Work completed so far:
+Completed work:
 ${completedWork}
 
-Evaluate: Do we have enough information to fully answer this query?
-If not, what specific information is still missing?`;
+Is this sufficient to answer the query?`;
 }

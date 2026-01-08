@@ -122,7 +122,7 @@ export const AgentProgressView = React.memo(function AgentProgressView({
 
       {/* Reflect phase */}
       <PhaseIndicator
-        label="Checking work..."
+        label="Thinking..."
         complete={reflectComplete}
         active={currentPhase === 'reflect'}
       />

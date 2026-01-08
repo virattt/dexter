@@ -92,14 +92,12 @@ const CompletedTurnView = React.memo(function CompletedTurnView({ turn }: { turn
         <Text>{turn.query}</Text>
       </Box>
 
-      {/* Compact task summary instead of full list */}
+      {/* Task list (completed) */}
       {completedTasks.length > 0 && (
-        <Box marginLeft={2} marginTop={1}>
-          <Text color={colors.success}>✓</Text>
-          <Text> </Text>
-          <Text dimColor>
-            Completed {completedTasks.length} task{completedTasks.length !== 1 ? 's' : ''}
-          </Text>
+        <Box flexDirection="column" marginTop={1}>
+          <Box marginLeft={2} flexDirection="column">
+            <TaskListView tasks={completedTasks} />
+          </Box>
         </Box>
       )}
 
