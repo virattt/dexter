@@ -1,0 +1,21 @@
+name: CD Pipeline
+
+on:
+    push:
+        branches: [ main ]
+    
+jobs:
+    verify:
+        runs-on: ubuntu-latest
+        steps:
+         -  name: checkout the code
+            uses: actions/checkout/@v2
+            with: 
+                node-version: 
+
+         -  name: Install dependencies
+            run: npm install --legacy-peer-deps
+
+         -  name: Type check
+            run: npx tsc --noEmit
+        
