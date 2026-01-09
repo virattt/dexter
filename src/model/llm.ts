@@ -40,6 +40,8 @@ function getApiKey(envVar: string, providerName: string): string {
   return apiKey;
 }
 
+const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
+
 const MODEL_PROVIDERS: Record<string, ModelFactory> = {
   'claude-': (name, opts) =>
     new ChatAnthropic({
@@ -58,6 +60,27 @@ const MODEL_PROVIDERS: Record<string, ModelFactory> = {
       model: name.replace(/^ollama:/, ''),
       ...opts,
       ...(process.env.OLLAMA_BASE_URL ? { baseUrl: process.env.OLLAMA_BASE_URL } : {}),
+    }),
+  'openai/': (name, opts) =>
+    new ChatOpenAI({
+      model: name,
+      ...opts,
+      apiKey: getApiKey('OPENROUTER_API_KEY', 'OpenRouter'),
+      configuration: { baseURL: OPENROUTER_BASE_URL },
+    }),
+  'anthropic/': (name, opts) =>
+    new ChatOpenAI({
+      model: name,
+      ...opts,
+      apiKey: getApiKey('OPENROUTER_API_KEY', 'OpenRouter'),
+      configuration: { baseURL: OPENROUTER_BASE_URL },
+    }),
+  'google/': (name, opts) =>
+    new ChatOpenAI({
+      model: name,
+      ...opts,
+      apiKey: getApiKey('OPENROUTER_API_KEY', 'OpenRouter'),
+      configuration: { baseURL: OPENROUTER_BASE_URL },
     }),
 };
 
