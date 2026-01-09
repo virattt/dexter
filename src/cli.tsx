@@ -464,7 +464,7 @@ export function CLI() {
 
       {/* Show interrupted query if cancelled */}
       {interruptedQuery && !currentTurn && (
-        <Box flexDirection="column" marginBottom={1}>
+        <Box flexDirection="column">
           {/* Original query */}
           <Box>
             <Text color={colors.primary} bold>{'❯ '}</Text>
@@ -480,7 +480,7 @@ export function CLI() {
 
       {/* Render current in-progress conversation */}
       {currentTurn && (
-        <Box flexDirection="column" marginBottom={1}>
+        <Box flexDirection="column" marginTop={1} marginBottom={1}>
           {/* Query + phase progress + task list */}
           <CurrentTurnView 
             query={currentTurn.query} 
