@@ -6,5 +6,6 @@ export { ApiKeyConfirm, ApiKeyInput } from './ApiKeyPrompt.js';
 export { QueueDisplay } from './QueueDisplay.js';
 export { StatusMessage } from './StatusMessage.js';
 export { AgentProgressView, CurrentTurnView } from './AgentProgressView.js';
+export { PhaseStatusBar, phaseLabels } from './PhaseStatusBar.js';
 export { TaskListView } from './TaskListView.js';
 export type { AgentProgressState } from './AgentProgressView.js';

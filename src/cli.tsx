@@ -17,6 +17,7 @@ import { ApiKeyConfirm, ApiKeyInput } from './components/ApiKeyPrompt.js';
 import { QueueDisplay } from './components/QueueDisplay.js';
 import { StatusMessage } from './components/StatusMessage.js';
 import { CurrentTurnView, AgentProgressView } from './components/AgentProgressView.js';
+import { PhaseStatusBar } from './components/PhaseStatusBar.js';
 import { TaskListView } from './components/TaskListView.js';
 import type { Task } from './agent/state.js';
 import type { AgentProgressState } from './components/AgentProgressView.js';
@@ -507,6 +508,16 @@ export function CLI() {
 
       {/* Status message */}
       <StatusMessage message={statusMessage} />
+
+      {/* Phase status bar - shows current phase above input when running */}
+      {state === 'running' && currentTurn && (
+        <Box marginTop={1}>
+          <PhaseStatusBar 
+            phase={currentTurn.state.currentPhase}
+            isAnswering={currentTurn.state.isAnswering}
+          />
+        </Box>
+      )}
 
       {/* Input bar - always visible and interactive */}
       <Box marginTop={1}>

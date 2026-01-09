@@ -11,6 +11,7 @@ export const colors = {
   white: '#ffffff',
   info: '#6CB6FF',
   queryBg: '#3D3D3D',
+  claude: '#E5896A',
 } as const;
 
 export const dimensions = {
