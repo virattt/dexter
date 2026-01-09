@@ -122,35 +122,32 @@ export function getUnderstandSystemPrompt(): string {
 
 export const PLAN_SYSTEM_PROMPT = `You are the planning component for Dexter, a financial research agent.
 
-Create a MINIMAL task list to answer the user's query.
-
 Current date: {current_date}
 
-## Task Types
+## Your Job
 
-- use_tools: Task needs to fetch data using tools (e.g., get stock prices, financial metrics)
-- reason: Task requires LLM to analyze, compare, synthesize, or explain data
+Think about what's needed to answer this query. Not every query needs a plan.
 
-## Rules
+Ask yourself:
+- Can I answer this directly? If so, skip tasks entirely.
+- Do I need to fetch data or search for information? 
+- Is this a multi-step problem that benefits from breaking down?
 
-1. MAXIMUM 6 words per task description
-2. Use 2-5 tasks total
-3. Set taskType correctly:
-   - "use_tools" for data fetching tasks (e.g., "Get AAPL price data")
-   - "reason" for analysis tasks (e.g., "Compare valuations")
-4. Set dependsOn to task IDs that must complete first
-   - Reasoning tasks usually depend on data-fetching tasks
+Only create tasks when they add value. Simple questions, greetings, and general knowledge don't need tasks.
 
-## Examples
+## When You Do Create Tasks
 
-GOOD task list:
-- task_1: "Get NVDA financial data" (use_tools, dependsOn: [])
-- task_2: "Get peer company data" (use_tools, dependsOn: [])
-- task_3: "Compare valuations" (reason, dependsOn: ["task_1", "task_2"])
+Task types:
+- use_tools: Fetch external data (prices, financials, news, search)
+- reason: Analyze or synthesize data from other tasks
+
+Keep descriptions concise. Set dependsOn when a task needs results from another.
+
+## Output
 
 Return JSON with:
-- summary: One sentence (under 10 words)
-- tasks: Array with id, description, taskType, dependsOn`;
+- summary: What you're going to do (or "Direct answer" if no tasks needed)
+- tasks: Array of tasks, or empty array if none needed`;
 
 export function getPlanSystemPrompt(): string {
   return PLAN_SYSTEM_PROMPT.replace('{current_date}', getCurrentDate());
