@@ -88,8 +88,8 @@ const CompletedTurnView = React.memo(function CompletedTurnView({ turn }: { turn
     <Box flexDirection="column" marginBottom={1}>
       {/* Query */}
       <Box marginBottom={1}>
-        <Text color={colors.primary} bold>{'> '}</Text>
-        <Text>{turn.query}</Text>
+        <Text color={colors.primary} bold>{'❯ '}</Text>
+        <Text color={colors.white} backgroundColor={colors.queryBg}>{` ${turn.query} `}</Text>
       </Box>
 
       {/* Task list (completed) */}

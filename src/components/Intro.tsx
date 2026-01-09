@@ -39,7 +39,7 @@ export function Intro({ provider, model }: IntroProps) {
         </Text>
       </Box>
 
-      <Box marginTop={1} flexDirection="column">
+      <Box marginY={1} flexDirection="column">
         <Text>Your AI assistant for deep financial research.</Text>
         <Text color={colors.muted}>Current model: <Text color={colors.primary}>{model}</Text></Text>
         {/* <Text color={colors.muted}>Current provider: <Text color={colors.primary}>{getProviderDisplayName(provider)}</Text></Text> */}

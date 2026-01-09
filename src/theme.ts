@@ -10,6 +10,7 @@ export const colors = {
   highlight: 'magenta',
   white: '#ffffff',
   info: '#6CB6FF',
+  queryBg: '#3D3D3D',
 } as const;
 
 export const dimensions = {

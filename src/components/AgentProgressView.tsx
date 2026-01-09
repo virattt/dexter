@@ -183,8 +183,8 @@ export const CurrentTurnView = React.memo(function CurrentTurnView({
     <Box flexDirection="column">
       {/* User query */}
       <Box marginBottom={1}>
-        <Text color={colors.primary} bold>{'> '}</Text>
-        <Text>{query}</Text>
+        <Text color={colors.primary} bold>{'❯ '}</Text>
+        <Text color={colors.white} backgroundColor={colors.queryBg}>{` ${query} `}</Text>
       </Box>
 
       {/* Agent progress */}
