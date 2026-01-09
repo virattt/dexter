@@ -23,21 +23,10 @@ interface UseAgentExecutionOptions {
   messageHistory: MessageHistory;
 }
 
-/**
- * A tool error for debugging.
- */
-export interface ToolError {
-  taskId: string;
-  toolName: string;
-  args: Record<string, unknown>;
-  error: string;
-}
-
 interface UseAgentExecutionResult {
   currentTurn: CurrentTurn | null;
   answerStream: AsyncGenerator<string> | null;
   isProcessing: boolean;
-  toolErrors: ToolError[];
   processQuery: (query: string) => Promise<void>;
   handleAnswerComplete: (answer: string) => void;
   cancelExecution: () => void;
@@ -75,7 +64,6 @@ export function useAgentExecution({
   const [currentTurn, setCurrentTurn] = useState<CurrentTurn | null>(null);
   const [answerStream, setAnswerStream] = useState<AsyncGenerator<string> | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [toolErrors, setToolErrors] = useState<ToolError[]>([]);
 
   const currentQueryRef = useRef<string | null>(null);
   const isProcessingRef = useRef(false);
@@ -311,19 +299,6 @@ export function useAgentExecution({
   }, []);
 
   /**
-   * Handles tool call errors for debugging.
-   */
-  const handleToolCallError = useCallback((
-    taskId: string,
-    _toolIndex: number,
-    toolName: string,
-    args: Record<string, unknown>,
-    error: Error
-  ) => {
-    setToolErrors(prev => [...prev, { taskId, toolName, args, error: error.message }]);
-  }, []);
-
-  /**
    * Creates agent callbacks that update React state.
    */
   const createAgentCallbacks = useCallback((): AgentCallbacks => ({
@@ -333,11 +308,10 @@ export function useAgentExecution({
     onTaskUpdate: updateTaskStatus,
     onTaskToolCallsSet: setTaskToolCalls,
     onToolCallUpdate: updateToolCallStatus,
-    onToolCallError: handleToolCallError,
     onAnswerStart: () => setAnswering(true),
     onAnswerStream: (stream) => setAnswerStream(stream),
     onProgressMessage: setProgressMessage,
-  }), [setPhase, markPhaseComplete, setTasksFromPlan, updateTaskStatus, setTaskToolCalls, updateToolCallStatus, handleToolCallError, setAnswering, setProgressMessage]);
+  }), [setPhase, markPhaseComplete, setTasksFromPlan, updateTaskStatus, setTaskToolCalls, updateToolCallStatus, setAnswering, setProgressMessage]);
 
   /**
    * Handles the completed answer.
@@ -372,10 +346,9 @@ export function useAgentExecution({
       // Store current query for message history
       currentQueryRef.current = query;
       
-      // Clear any pending updates and errors from previous run
+      // Clear any pending updates from previous run
       pendingTaskUpdatesRef.current = [];
       pendingToolCallUpdatesRef.current = [];
-      setToolErrors([]);
 
       // Initialize turn state
       setCurrentTurn({
@@ -436,7 +409,6 @@ export function useAgentExecution({
     currentTurn,
     answerStream,
     isProcessing,
-    toolErrors,
     processQuery,
     handleAnswerComplete,
     cancelExecution,

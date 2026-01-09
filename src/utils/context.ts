@@ -208,8 +208,8 @@ export class ToolContextManager {
       try {
         const content = readFileSync(filepath, 'utf-8');
         contexts.push(JSON.parse(content));
-      } catch (e) {
-        console.warn(`Warning: Failed to load context file ${filepath}: ${e}`);
+      } catch {
+        // Skip failed files silently
       }
     }
     return contexts;
@@ -253,8 +253,8 @@ export class ToolContextManager {
       return selectedIds
         .filter((idx) => idx >= 0 && idx < availablePointers.length)
         .map((idx) => availablePointers[idx].filepath);
-    } catch (e) {
-      console.warn(`Warning: Context selection failed: ${e}, loading all contexts`);
+    } catch {
+      // Fall back to loading all contexts on selection failure
       return availablePointers.map((ptr) => ptr.filepath);
     }
   }

@@ -23,7 +23,7 @@ import type { Task } from './agent/state.js';
 import type { AgentProgressState } from './components/AgentProgressView.js';
 
 import { useQueryQueue } from './hooks/useQueryQueue.js';
-import { useAgentExecution, ToolError } from './hooks/useAgentExecution.js';
+import { useAgentExecution } from './hooks/useAgentExecution.js';
 
 import { getSetting, setSetting } from './utils/config.js';
 import { 
@@ -53,33 +53,6 @@ interface CompletedTurn {
   tasks: Task[];
   answer: string;
 }
-
-// ============================================================================
-// Debug Section Component
-// ============================================================================
-
-const DebugSection = React.memo(function DebugSection({ errors }: { errors: ToolError[] }) {
-  if (errors.length === 0) return null;
-
-  const formatArgs = (args: Record<string, unknown>): string => {
-    const entries = Object.entries(args);
-    if (entries.length === 0) return '(no args)';
-    return entries.map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join(', ');
-  };
-
-  return (
-    <Box flexDirection="column" marginTop={1} paddingX={1} borderStyle="single" borderColor="red">
-      <Text color="red" bold>Debug: Tool Errors</Text>
-      {errors.map((err, i) => (
-        <Box key={i} flexDirection="column" marginTop={i > 0 ? 1 : 0}>
-          <Text color="yellow">Tool: {err.toolName}</Text>
-          <Text color="cyan">Args: {formatArgs(err.args)}</Text>
-          <Text color="gray">Error: {err.error}</Text>
-        </Box>
-      ))}
-    </Box>
-  );
-});
 
 const CompletedTurnView = React.memo(function CompletedTurnView({ turn }: { turn: CompletedTurn }) {
   // Mark all tasks as completed for display
@@ -145,7 +118,6 @@ export function CLI() {
     currentTurn,
     answerStream,
     isProcessing,
-    toolErrors,
     processQuery,
     handleAnswerComplete: baseHandleAnswerComplete,
     cancelExecution,
@@ -499,9 +471,6 @@ export function CLI() {
           )}
         </Box>
       )}
-
-      {/* Debug: Tool Errors */}
-      <DebugSection errors={toolErrors} />
 
       {/* Queued queries */}
       <QueueDisplay queries={queryQueue} />

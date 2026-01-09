@@ -26,7 +26,6 @@ export interface ToolExecutorOptions {
 
 export interface ToolExecutorCallbacks {
   onToolCallUpdate?: (taskId: string, toolIndex: number, status: ToolCallStatus['status'], output?: string, error?: string) => void;
-  onToolCallError?: (taskId: string, toolIndex: number, toolName: string, args: Record<string, unknown>, error: Error) => void;
 }
 
 // ============================================================================
@@ -148,13 +147,6 @@ export class ToolExecutor {
           toolCall.status = 'failed';
           toolCall.error = errorMessage;
           callbacks?.onToolCallUpdate?.(task.id, index, 'failed', undefined, errorMessage);
-          callbacks?.onToolCallError?.(
-            task.id,
-            index,
-            toolCall.tool,
-            toolCall.args,
-            error instanceof Error ? error : new Error(String(error))
-          );
         }
       })
     );
