@@ -117,6 +117,9 @@ export function useAgentExecution({
         case 'plan':
           updates.planComplete = true;
           break;
+        case 'execute':
+          updates.executeComplete = true;
+          break;
         case 'reflect':
           updates.reflectComplete = true;
           break;
@@ -382,6 +385,7 @@ export function useAgentExecution({
           currentPhase: 'understand',
           understandComplete: false,
           planComplete: false,
+          executeComplete: false,
           reflectComplete: false,
           tasks: [],
           isAnswering: false,

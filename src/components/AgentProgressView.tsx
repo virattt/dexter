@@ -16,6 +16,7 @@ export interface AgentProgressState {
   currentPhase: Phase;
   understandComplete: boolean;
   planComplete: boolean;
+  executeComplete: boolean;
   reflectComplete: boolean;
   tasks: Task[];
   isAnswering: boolean;
@@ -95,14 +96,12 @@ export const AgentProgressView = React.memo(function AgentProgressView({
     currentPhase,
     understandComplete,
     planComplete,
+    executeComplete,
     reflectComplete,
     tasks,
     isAnswering,
     progressMessage
   } = state;
-
-  // Show thinking indicator during execute phase when not actively working on tasks
-  const isThinking = currentPhase === 'execute' && !isAnswering && tasks.every(t => t.status !== 'in_progress');
 
   return (
     <Box flexDirection="column" marginTop={1}>
@@ -120,6 +119,13 @@ export const AgentProgressView = React.memo(function AgentProgressView({
         active={currentPhase === 'plan'}
       />
 
+      {/* Execute phase */}
+      <PhaseIndicator
+        label="Working..."
+        complete={executeComplete}
+        active={currentPhase === 'execute'}
+      />
+
       {/* Reflect phase */}
       <PhaseIndicator
         label="Thinking..."
@@ -127,22 +133,9 @@ export const AgentProgressView = React.memo(function AgentProgressView({
         active={currentPhase === 'reflect'}
       />
 
-
-      {/* Thinking indicator */}
-      {isThinking && (
-        <Box marginTop={1}>
-          <Text color={colors.accent}>
-            <InkSpinner type="dots" />
-          </Text>
-          <Text> </Text>
-          <Text color={colors.primary}>Thinking...</Text>
-        </Box>
-      )}
-
       {/* Task list */}
       {tasks.length > 0 && (
         <Box flexDirection="column" marginTop={1}>
-          <Text color={colors.primary}>Working on your request:</Text>
           <Box marginTop={1} marginLeft={2} flexDirection="column">
             <TaskListView tasks={tasks} />
           </Box>

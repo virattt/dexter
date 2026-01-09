@@ -131,6 +131,7 @@ export function CLI() {
   const [pendingModels, setPendingModels] = useState<string[]>([]);
   const [history, setHistory] = useState<CompletedTurn[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [interruptedQuery, setInterruptedQuery] = useState<string | null>(null);
 
   // Store the current turn's tasks when answer starts streaming
   const currentTasksRef = useRef<Task[]>([]);
@@ -205,6 +206,9 @@ export function CLI() {
 
   const handleSubmit = useCallback(
     (query: string) => {
+      // Clear interrupted state when user submits a new query
+      setInterruptedQuery(null);
+
       // Handle special commands even while running
       if (query.toLowerCase() === 'exit' || query.toLowerCase() === 'quit') {
         console.log('Goodbye!');
@@ -358,9 +362,12 @@ export function CLI() {
     // Escape key - cancel running operations
     if (key.escape) {
       if (state === 'running') {
+        // Capture the query before cancelling
+        const queryToInterrupt = currentTurn?.query || null;
         setState('idle');
         cancelExecution();
         clearQueue();
+        setInterruptedQuery(queryToInterrupt);
       } else if (state === 'provider_select' || state === 'model_select' || state === 'api_key_confirm' || state === 'api_key_input') {
         setPendingProvider(null);
         setPendingModels([]);
@@ -373,9 +380,12 @@ export function CLI() {
     // Ctrl+C - cancel or exit
     if (key.ctrl && input === 'c') {
       if (state === 'running') {
+        // Capture the query before cancelling
+        const queryToInterrupt = currentTurn?.query || null;
         setState('idle');
         cancelExecution();
         clearQueue();
+        setInterruptedQuery(queryToInterrupt);
       } else if (state === 'provider_select' || state === 'model_select' || state === 'api_key_confirm' || state === 'api_key_input') {
         setPendingProvider(null);
         setPendingModels([]);
@@ -451,6 +461,22 @@ export function CLI() {
           )
         }
       </Static>
+
+      {/* Show interrupted query if cancelled */}
+      {interruptedQuery && !currentTurn && (
+        <Box flexDirection="column" marginBottom={1}>
+          {/* Original query */}
+          <Box>
+            <Text color={colors.primary} bold>{'❯ '}</Text>
+            <Text color={colors.white} backgroundColor={colors.queryBg}>{` ${interruptedQuery} `}</Text>
+          </Box>
+          
+          {/* Interrupted message */}
+          <Box marginLeft={2}>
+            <Text color={colors.muted}>⎿  Interrupted · What should Dexter do instead?</Text>
+          </Box>
+        </Box>
+      )}
 
       {/* Render current in-progress conversation */}
       {currentTurn && (
