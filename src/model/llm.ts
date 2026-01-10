@@ -59,6 +59,20 @@ const MODEL_PROVIDERS: Record<string, ModelFactory> = {
       ...opts,
       ...(process.env.OLLAMA_BASE_URL ? { baseUrl: process.env.OLLAMA_BASE_URL } : {}),
     }),
+  'lmstudio:': (name, opts) => {
+    // Strip /v1 suffix if present, we'll add it back
+    const rawBaseUrl = process.env.LMSTUDIO_BASE_URL || 'http://localhost:1234';
+    const baseUrl = rawBaseUrl.replace(/\/v1\/?$/, '') + '/v1';
+    return new ChatOpenAI({
+      model: name.replace(/^lmstudio:/, ''),
+      ...opts,
+      apiKey: 'lm-studio', // LM Studio doesn't require a real API key
+      configuration: {
+        baseURL: baseUrl,
+        apiKey: 'lm-studio', // Override at client level too
+      },
+    });
+  },
 };
 
 const DEFAULT_MODEL_FACTORY: ModelFactory = (name, opts) =>

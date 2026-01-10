@@ -33,6 +33,7 @@ import {
   saveApiKeyForProvider 
 } from './utils/env.js';
 import { getOllamaModels } from './utils/ollama.js';
+import { getLMStudioModels } from './utils/lmstudio.js';
 import { MessageHistory } from './utils/message-history.js';
 
 import { DEFAULT_PROVIDER } from './model/llm.js';
@@ -218,6 +219,10 @@ export function CLI() {
         // For Ollama, fetch locally downloaded models
         const ollamaModels = await getOllamaModels();
         setPendingModels(ollamaModels);
+      } else if (providerId === 'lmstudio') {
+        // For LM Studio, fetch loaded models from local server
+        const lmstudioModels = await getLMStudioModels();
+        setPendingModels(lmstudioModels);
       } else {
         // For cloud providers, use predefined models
         setPendingModels(getModelsForProvider(providerId));
@@ -244,6 +249,20 @@ export function CLI() {
     // For Ollama, skip API key flow entirely
     if (pendingProvider === 'ollama') {
       const fullModelId = `ollama:${modelId}`;
+      setProvider(pendingProvider);
+      setModel(fullModelId);
+      setSetting('provider', pendingProvider);
+      setSetting('modelId', fullModelId);
+      messageHistoryRef.current.setModel(fullModelId);
+      setPendingProvider(null);
+      setPendingModels([]);
+      setState('idle');
+      return;
+    }
+
+    // For LM Studio, skip API key flow entirely
+    if (pendingProvider === 'lmstudio') {
+      const fullModelId = `lmstudio:${modelId}`;
       setProvider(pendingProvider);
       setModel(fullModelId);
       setSetting('provider', pendingProvider);
