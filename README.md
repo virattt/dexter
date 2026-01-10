@@ -73,6 +73,9 @@ cp env.example .env
 # (Optional) If using Ollama locally
 # OLLAMA_BASE_URL=http://127.0.0.1:11434
 
+# (Optional) If using LM Studio locally
+# LMSTUDIO_BASE_URL=http://localhost:1234/v1
+
 # Other required keys
 # FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
 # TAVILY_API_KEY=your-tavily-api-key
@@ -128,6 +131,8 @@ Type `/model` in the CLI to switch between:
 - GPT 4.1 (OpenAI)
 - Claude Sonnet 4.5 (Anthropic)
 - Gemini 3 (Google)
+- Ollama (Local)
+- LM Studio (Local)
 
 ## How to Contribute
 
