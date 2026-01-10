@@ -24,7 +24,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 ### Prerequisites
 
 - [Bun](https://bun.com) runtime (v1.0 or higher)
-- OpenAI API key (get [here](https://platform.openai.com/api-keys))
+- Anthropic API key (get [here]([https://console.anthropic.com](https://console.anthropic.com/settings/keys))) or OpenAI API key (get [here](https://platform.openai.com/api-keys))
 - Financial Datasets API key (get [here](https://financialdatasets.ai))
 - Tavily API key (get [here](https://tavily.com)) - optional, for web search
 
