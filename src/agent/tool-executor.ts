@@ -6,16 +6,11 @@ import { getToolSelectionSystemPrompt, buildToolSelectionPrompt } from './prompt
 import type { Task, ToolCallStatus, Understanding } from './state.js';
 
 // ============================================================================
-// Constants
-// ============================================================================
-
-const SMALL_MODEL = 'gpt-5-mini';
-
-// ============================================================================
 // Tool Executor Options
 // ============================================================================
 
 export interface ToolExecutorOptions {
+  model: string;
   tools: StructuredToolInterface[];
   contextManager: ToolContextManager;
 }
@@ -34,22 +29,40 @@ export interface ToolExecutorCallbacks {
 
 /**
  * Handles tool selection and execution for tasks.
- * Uses a small, fast model (gpt-5-mini) for tool selection.
+ * Uses TOOL_SELECTION_MODEL env var if set, otherwise falls back to the configured model.
  */
 export class ToolExecutor {
+  private readonly model: string;
+  private readonly toolSelectionModel: string;
   private readonly tools: StructuredToolInterface[];
   private readonly toolMap: Map<string, StructuredToolInterface>;
   private readonly contextManager: ToolContextManager;
 
   constructor(options: ToolExecutorOptions) {
+    this.model = options.model;
+    // Allow overriding the tool selection model via env vars
+    const toolProvider = process.env.TOOL_SELECTION_PROVIDER;
+    const toolModel = process.env.TOOL_SELECTION_MODEL;
+    if (toolProvider && toolModel) {
+      // Add provider prefix for local LLMs
+      if (toolProvider === 'ollama') {
+        this.toolSelectionModel = `ollama:${toolModel}`;
+      } else if (toolProvider === 'lmstudio') {
+        this.toolSelectionModel = `lmstudio:${toolModel}`;
+      } else {
+        this.toolSelectionModel = toolModel;
+      }
+    } else {
+      this.toolSelectionModel = options.model;
+    }
     this.tools = options.tools;
     this.toolMap = new Map(options.tools.map(t => [t.name, t]));
     this.contextManager = options.contextManager;
   }
 
   /**
-   * Selects tools for a task using gpt-5-mini with bound tools.
-   * Uses a precise, well-defined prompt optimized for small models.
+   * Selects tools for a task using the configured model with bound tools.
+   * Uses a precise, well-defined prompt optimized for tool selection.
    */
   async selectTools(
     task: Task,
@@ -67,7 +80,7 @@ export class ToolExecutor {
     const systemPrompt = getToolSelectionSystemPrompt(this.formatToolDescriptions());
 
     const response = await callLlm(prompt, {
-      model: SMALL_MODEL,
+      model: this.toolSelectionModel,
       systemPrompt,
       tools: this.tools,
     });

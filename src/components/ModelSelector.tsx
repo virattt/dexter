@@ -29,6 +29,11 @@ const PROVIDERS: Provider[] = [
     providerId: 'ollama',
     models: [], // Populated dynamically from local Ollama API
   },
+  {
+    displayName: 'LM Studio',
+    providerId: 'lmstudio',
+    models: [], // Populated dynamically from local LM Studio API
+  },
 ];
 
 export function getModelsForProvider(providerId: string): string[] {
@@ -45,6 +50,10 @@ export function getProviderIdForModel(modelId: string): string | undefined {
   // For ollama models, they're prefixed with "ollama:"
   if (modelId.startsWith('ollama:')) {
     return 'ollama';
+  }
+  // For lmstudio models, they're prefixed with "lmstudio:"
+  if (modelId.startsWith('lmstudio:')) {
+    return 'lmstudio';
   }
   for (const provider of PROVIDERS) {
     if (provider.models.includes(modelId)) {
@@ -122,10 +131,16 @@ interface ModelSelectorProps {
 }
 
 export function ModelSelector({ providerId, models, currentModel, onSelect }: ModelSelectorProps) {
-  // For Ollama, the currentModel is stored with "ollama:" prefix, but models list doesn't have it
-  const normalizedCurrentModel = providerId === 'ollama' && currentModel?.startsWith('ollama:')
-    ? currentModel.replace(/^ollama:/, '')
-    : currentModel;
+  // For Ollama/LM Studio, the currentModel is stored with prefix, but models list doesn't have it
+  const normalizedCurrentModel = (() => {
+    if (providerId === 'ollama' && currentModel?.startsWith('ollama:')) {
+      return currentModel.replace(/^ollama:/, '');
+    }
+    if (providerId === 'lmstudio' && currentModel?.startsWith('lmstudio:')) {
+      return currentModel.replace(/^lmstudio:/, '');
+    }
+    return currentModel;
+  })();
 
   const [selectedIndex, setSelectedIndex] = useState(() => {
     if (normalizedCurrentModel) {
@@ -163,6 +178,11 @@ export function ModelSelector({ providerId, models, currentModel, onSelect }: Mo
           {providerId === 'ollama' && (
             <Text color={colors.muted}>
               Make sure Ollama is running and you have models downloaded.
+            </Text>
+          )}
+          {providerId === 'lmstudio' && (
+            <Text color={colors.muted}>
+              Make sure LM Studio is running with a model loaded.
             </Text>
           )}
         </Box>
