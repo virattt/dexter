@@ -13,7 +13,6 @@ import type {
   Plan, 
   Understanding,
   TaskResult,
-  ToolCallStatus,
   ReflectionResult,
 } from './state.js';
 

@@ -2,7 +2,6 @@ import { callLlm } from '../../model/llm.js';
 import { UnderstandingSchema } from '../schemas.js';
 import { getUnderstandSystemPrompt, buildUnderstandUserPrompt } from '../prompts.js';
 import type { UnderstandInput, Understanding } from '../state.js';
-import type { MessageHistory } from '../../utils/message-history.js';
 
 // ============================================================================
 // Understand Phase
