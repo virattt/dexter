@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { colors } from '../theme.js';
+import { getLMStudioModels } from '../utils/lmstudio.js';
 
 interface Provider {
   displayName: string;
@@ -29,6 +30,11 @@ const PROVIDERS: Provider[] = [
     providerId: 'ollama',
     models: [], // Populated dynamically from local Ollama API
   },
+  {
+    displayName: 'LM Studio',
+    providerId: 'lmstudio',
+    models: [], // Populated dynamically from local LM Studio API
+  },
 ];
 
 export function getModelsForProvider(providerId: string): string[] {
@@ -45,6 +51,10 @@ export function getProviderIdForModel(modelId: string): string | undefined {
   // For ollama models, they're prefixed with "ollama:"
   if (modelId.startsWith('ollama:')) {
     return 'ollama';
+  }
+  // For lmstudio models, they're prefixed with "lmstudio:"
+  if (modelId.startsWith('lmstudio:')) {
+    return 'lmstudio';
   }
   for (const provider of PROVIDERS) {
     if (provider.models.includes(modelId)) {
@@ -122,10 +132,12 @@ interface ModelSelectorProps {
 }
 
 export function ModelSelector({ providerId, models, currentModel, onSelect }: ModelSelectorProps) {
-  // For Ollama, the currentModel is stored with "ollama:" prefix, but models list doesn't have it
-  const normalizedCurrentModel = providerId === 'ollama' && currentModel?.startsWith('ollama:')
-    ? currentModel.replace(/^ollama:/, '')
-    : currentModel;
+  // For Ollama and LM Studio, the currentModel is stored with prefix, but models list doesn't have it
+  const normalizedCurrentModel =
+    ((providerId === 'ollama' && currentModel?.startsWith('ollama:')) ||
+     (providerId === 'lmstudio' && currentModel?.startsWith('lmstudio:')))
+      ? currentModel.replace(/^(ollama|lmstudio):/, '')
+      : currentModel;
 
   const [selectedIndex, setSelectedIndex] = useState(() => {
     if (normalizedCurrentModel) {
@@ -163,6 +175,11 @@ export function ModelSelector({ providerId, models, currentModel, onSelect }: Mo
           {providerId === 'ollama' && (
             <Text color={colors.muted}>
               Make sure Ollama is running and you have models downloaded.
+            </Text>
+          )}
+          {providerId === 'lmstudio' && (
+            <Text color={colors.muted}>
+              Make sure LM Studio is running and you have a model loaded.
             </Text>
           )}
         </Box>

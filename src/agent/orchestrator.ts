@@ -114,6 +114,7 @@ export class Agent {
     const toolExecutor = new ToolExecutor({
       tools: TOOLS,
       contextManager: this.contextManager,
+      model: this.model,
     });
 
     this.taskExecutor = new TaskExecutor({
