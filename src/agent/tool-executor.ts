@@ -52,6 +52,13 @@ export class ToolExecutor {
       } else {
         this.toolSelectionModel = toolModel;
       }
+    } else if (toolProvider || toolModel) {
+      // Warn on partial configuration and fall back to the default model
+      console.warn(
+        'ToolExecutor: Both TOOL_SELECTION_PROVIDER and TOOL_SELECTION_MODEL must be set to override the tool selection model. ' +
+        'Received a partial configuration; falling back to the default model.'
+      );
+      this.toolSelectionModel = options.model;
     } else {
       this.toolSelectionModel = options.model;
     }
