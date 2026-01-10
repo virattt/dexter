@@ -27,6 +27,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 - OpenAI API key (get [here](https://platform.openai.com/api-keys))
 - Financial Datasets API key (get [here](https://financialdatasets.ai))
 - Tavily API key (get [here](https://tavily.com)) - optional, for web search
+- OpenRouter API key (get [here](https://openrouter.ai/keys)) - optional, unified access to multiple providers
 
 #### Installing Bun
 
@@ -117,7 +118,7 @@ Dexter uses a multi-agent architecture with specialized components:
 
 - **Runtime**: [Bun](https://bun.sh)
 - **UI Framework**: [React](https://react.dev) + [Ink](https://github.com/vadimdemedes/ink) (terminal UI)
-- **LLM Integration**: [LangChain.js](https://js.langchain.com) with multi-provider support (OpenAI, Anthropic, Google)
+- **LLM Integration**: [LangChain.js](https://js.langchain.com) with multi-provider support (OpenAI, Anthropic, Google, OpenRouter)
 - **Schema Validation**: [Zod](https://zod.dev)
 - **Language**: TypeScript
 
@@ -128,6 +129,7 @@ Type `/model` in the CLI to switch between:
 - GPT 4.1 (OpenAI)
 - Claude Sonnet 4.5 (Anthropic)
 - Gemini 3 (Google)
+- OpenRouter (unified access to GPT-5.2, Claude Opus 4.5, Gemini 3 Pro)
 
 ## How to Contribute
 
