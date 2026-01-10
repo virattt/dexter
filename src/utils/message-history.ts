@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import { callLlm, DEFAULT_MODEL } from '../model/llm.js';
 import { MESSAGE_SUMMARY_SYSTEM_PROMPT, MESSAGE_SELECTION_SYSTEM_PROMPT } from '../agent/prompts.js';
 import { z } from 'zod';
+import { ConversationStore, type SessionSummary } from './conversation-store.js';
 
 /**
  * Represents a single conversation turn (query + answer + summary)
@@ -29,9 +30,49 @@ export class MessageHistory {
   private messages: Message[] = [];
   private model: string;
   private relevantMessagesByQuery: Map<string, Message[]> = new Map();
+  private store: ConversationStore;
+  private sessionId: string;
 
-  constructor(model: string = DEFAULT_MODEL) {
+  constructor(model: string = DEFAULT_MODEL, store?: ConversationStore) {
     this.model = model;
+    this.store = store ?? new ConversationStore();
+    
+    const currentId = this.store.getCurrentSessionId();
+    if (currentId && this.store.loadSession(currentId)) {
+      this.sessionId = currentId;
+    } else {
+      this.sessionId = this.store.createSession().id;
+    }
+    
+    this.loadFromStore();
+  }
+
+  private loadFromStore(): void {
+    const session = this.store.loadSession(this.sessionId);
+    if (session) {
+      this.messages = session.messages.map(m => ({
+        id: m.id,
+        query: m.query,
+        answer: m.answer,
+        summary: m.summary,
+      }));
+    }
+  }
+
+  private saveToStore(): void {
+    const session = this.store.loadSession(this.sessionId);
+    if (session) {
+      session.messages = this.messages.map(m => ({
+        id: m.id,
+        query: m.query,
+        answer: m.answer,
+        summary: m.summary,
+        timestamp: new Date().toISOString(),
+        model: this.model,
+      }));
+      session.lastActiveAt = new Date().toISOString();
+      this.store.saveSession(session);
+    }
   }
 
   /**
@@ -85,6 +126,8 @@ Generate a brief 1-2 sentence summary of this answer.`;
       answer,
       summary,
     });
+    
+    this.saveToStore();
   }
 
   /**
@@ -185,5 +228,48 @@ Select which previous messages are relevant to understanding or answering the cu
   clear(): void {
     this.messages = [];
     this.relevantMessagesByQuery.clear();
+    this.saveToStore();
+  }
+
+  /**
+   * Returns all available sessions
+   */
+  getSessions(): SessionSummary[] {
+    return this.store.listSessions();
+  }
+
+  /**
+   * Returns the current session ID
+   */
+  getCurrentSessionId(): string {
+    return this.sessionId;
+  }
+
+  /**
+   * Switches to a different session
+   */
+  switchSession(sessionId: string): boolean {
+    const session = this.store.loadSession(sessionId);
+    if (!session) {
+      return false;
+    }
+
+    this.sessionId = sessionId;
+    this.store.setCurrentSessionId(sessionId);
+    this.messages = [];
+    this.relevantMessagesByQuery.clear();
+    this.loadFromStore();
+    return true;
+  }
+
+  /**
+   * Creates a new session and switches to it
+   */
+  newSession(): string {
+    const session = this.store.createSession();
+    this.sessionId = session.id;
+    this.messages = [];
+    this.relevantMessagesByQuery.clear();
+    return session.id;
   }
 }
