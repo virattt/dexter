@@ -6,8 +6,11 @@ const SETTINGS_FILE = '.dexter/settings.json';
 // Map legacy model IDs to provider IDs for migration
 const MODEL_TO_PROVIDER_MAP: Record<string, string> = {
   'gpt-5.2': 'openai',
+  'gpt-4.1': 'openai',
   'claude-sonnet-4-5': 'anthropic',
-  'gemini-3': 'google',
+  'claude-opus-4-5': 'anthropic',
+  'gemini-3-flash-preview': 'google',
+  'gemini-3-pro-preview': 'google',
 };
 
 interface Config {
