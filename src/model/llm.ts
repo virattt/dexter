@@ -59,6 +59,15 @@ const MODEL_PROVIDERS: Record<string, ModelFactory> = {
       ...opts,
       ...(process.env.OLLAMA_BASE_URL ? { baseUrl: process.env.OLLAMA_BASE_URL } : {}),
     }),
+  'openrouter:': (name, opts) =>
+    new ChatOpenAI({
+      model: name.replace(/^openrouter:/, ''),
+      ...opts,
+      apiKey: getApiKey('OPENROUTER_API_KEY', 'OpenRouter'),
+      configuration: {
+        baseURL: 'https://openrouter.ai/api/v1',
+      },
+    }),
 };
 
 const DEFAULT_MODEL_FACTORY: ModelFactory = (name, opts) =>

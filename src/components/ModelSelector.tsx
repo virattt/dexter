@@ -25,6 +25,17 @@ const PROVIDERS: Provider[] = [
     models: ['gemini-3-flash-preview', 'gemini-3-pro-preview'],
   },
   {
+    displayName: 'OpenRouter',
+    providerId: 'openrouter',
+    models: [
+      'openrouter:anthropic/claude-3.5-sonnet',
+      'openrouter:openai/gpt-4o',
+      'openrouter:google/gemini-2.0-flash-exp:free',
+      'openrouter:deepseek/deepseek-r1',
+      'openrouter:meta-llama/llama-3.3-70b-instruct',
+    ],
+  },
+  {
     displayName: 'Ollama',
     providerId: 'ollama',
     models: [], // Populated dynamically from local Ollama API
@@ -45,6 +56,10 @@ export function getProviderIdForModel(modelId: string): string | undefined {
   // For ollama models, they're prefixed with "ollama:"
   if (modelId.startsWith('ollama:')) {
     return 'ollama';
+  }
+  // For openrouter models, they're prefixed with "openrouter:"
+  if (modelId.startsWith('openrouter:')) {
+    return 'openrouter';
   }
   for (const provider of PROVIDERS) {
     if (provider.models.includes(modelId)) {

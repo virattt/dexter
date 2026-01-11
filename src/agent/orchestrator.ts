@@ -75,7 +75,7 @@ export interface AgentOptions {
  * Architecture:
  * 1. Understand: Extract intent and entities from query (once)
  * 2. Plan: Create task list with taskType and dependencies
- * 3. Execute: Run tasks with just-in-time tool selection (gpt-5-mini)
+ * 3. Execute: Run tasks with just-in-time tool selection
  * 4. Reflect: Evaluate if we have enough data or need another iteration
  * 5. Answer: Synthesize final answer from all task results
  * 
@@ -112,6 +112,7 @@ export class Agent {
 
     // Initialize executors
     const toolExecutor = new ToolExecutor({
+      model: this.model,
       tools: TOOLS,
       contextManager: this.contextManager,
     });
