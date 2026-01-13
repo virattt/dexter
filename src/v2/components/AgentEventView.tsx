@@ -1,0 +1,233 @@
+import React from 'react';
+import { Box, Text } from 'ink';
+import Spinner from 'ink-spinner';
+import { colors } from '../../theme.js';
+import type { AgentEvent } from '../types.js';
+
+/**
+ * Format tool arguments for display
+ */
+function formatArgs(args: Record<string, unknown>): string {
+  return Object.entries(args)
+    .map(([key, value]) => `${key}=${value}`)
+    .join(', ');
+}
+
+/**
+ * Format duration in human-readable form
+ */
+function formatDuration(ms: number): string {
+  if (ms < 1000) {
+    return `${ms}ms`;
+  }
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+/**
+ * Truncate result for display
+ */
+function truncateResult(result: string, maxLength: number = 100): string {
+  if (result.length <= maxLength) {
+    return result;
+  }
+  return result.slice(0, maxLength) + '...';
+}
+
+interface ThinkingViewProps {
+  message: string;
+}
+
+export function ThinkingView({ message }: ThinkingViewProps) {
+  // Truncate long thinking messages
+  const displayMessage = message.length > 200 
+    ? message.slice(0, 200) + '...' 
+    : message;
+  
+  return (
+    <Box>
+      <Text color={colors.primary}>⏺ </Text>
+      <Text color={colors.white}>{displayMessage}</Text>
+    </Box>
+  );
+}
+
+interface ToolStartViewProps {
+  tool: string;
+  args: Record<string, unknown>;
+  isActive?: boolean;
+}
+
+export function ToolStartView({ tool, args, isActive = false }: ToolStartViewProps) {
+  return (
+    <Box flexDirection="column">
+      <Box>
+        <Text color={colors.primary}>⏺ </Text>
+        <Text color={colors.info}>{tool}</Text>
+        <Text color={colors.muted}>({formatArgs(args)})</Text>
+      </Box>
+      {isActive && (
+        <Box marginLeft={2}>
+          <Text color={colors.muted}>⎿  </Text>
+          <Text color={colors.primary}>
+            <Spinner type="dots" />
+          </Text>
+          <Text color={colors.muted}> Fetching…</Text>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+interface ToolEndViewProps {
+  tool: string;
+  args: Record<string, unknown>;
+  result: string;
+  duration: number;
+}
+
+export function ToolEndView({ tool, args, result, duration }: ToolEndViewProps) {
+  // Parse result to get a summary
+  let summary = 'Received data';
+  try {
+    const parsed = JSON.parse(result);
+    if (parsed.data) {
+      if (Array.isArray(parsed.data)) {
+        summary = `Received ${parsed.data.length} items`;
+      } else if (typeof parsed.data === 'object') {
+        const keys = Object.keys(parsed.data);
+        summary = `Received ${keys.length} fields`;
+      }
+    }
+  } catch {
+    // Not JSON, use truncated result
+    summary = truncateResult(result, 50);
+  }
+  
+  return (
+    <Box flexDirection="column">
+      <Box>
+        <Text color={colors.primary}>⏺ </Text>
+        <Text color={colors.info}>{tool}</Text>
+        <Text color={colors.muted}>({formatArgs(args)})</Text>
+      </Box>
+      <Box marginLeft={2}>
+        <Text color={colors.muted}>⎿  </Text>
+        <Text color={colors.success}>{summary}</Text>
+        <Text color={colors.muted}> in {formatDuration(duration)}</Text>
+      </Box>
+    </Box>
+  );
+}
+
+interface ToolErrorViewProps {
+  tool: string;
+  error: string;
+}
+
+export function ToolErrorView({ tool, error }: ToolErrorViewProps) {
+  return (
+    <Box flexDirection="column">
+      <Box>
+        <Text color={colors.primary}>⏺ </Text>
+        <Text color={colors.info}>{tool}</Text>
+      </Box>
+      <Box marginLeft={2}>
+        <Text color={colors.muted}>⎿  </Text>
+        <Text color={colors.error}>Error: {truncateResult(error, 80)}</Text>
+      </Box>
+    </Box>
+  );
+}
+
+interface AgentEventViewProps {
+  event: AgentEvent;
+  isActive?: boolean;
+}
+
+/**
+ * Renders a single agent event in Claude Code style
+ */
+export function AgentEventView({ event, isActive = false }: AgentEventViewProps) {
+  switch (event.type) {
+    case 'thinking':
+      return <ThinkingView message={event.message} />;
+    
+    case 'tool_start':
+      return <ToolStartView tool={event.tool} args={event.args} isActive={isActive} />;
+    
+    case 'tool_end':
+      return <ToolEndView tool={event.tool} args={event.args} result={event.result} duration={event.duration} />;
+    
+    case 'tool_error':
+      return <ToolErrorView tool={event.tool} error={event.error} />;
+    
+    case 'answer_start':
+    case 'answer_chunk':
+    case 'done':
+      // These are handled separately by the parent component
+      return null;
+    
+    default:
+      return null;
+  }
+}
+
+/**
+ * Accumulated event for display
+ * Combines tool_start and tool_end into a single view
+ */
+export interface DisplayEvent {
+  id: string;
+  event: AgentEvent;
+  completed?: boolean;
+  endEvent?: AgentEvent;
+}
+
+interface EventListViewProps {
+  events: DisplayEvent[];
+  activeToolId?: string;
+}
+
+/**
+ * Renders a list of agent events
+ */
+export function EventListView({ events, activeToolId }: EventListViewProps) {
+  return (
+    <Box flexDirection="column" gap={0} marginTop={1}>
+      {events.map((displayEvent) => {
+        const { id, event, completed, endEvent } = displayEvent;
+        
+        // For tool events, show the end state if completed
+        if (event.type === 'tool_start' && completed && endEvent?.type === 'tool_end') {
+          return (
+            <Box key={id} marginBottom={1}>
+              <ToolEndView 
+                tool={endEvent.tool} 
+                args={event.args} 
+                result={endEvent.result} 
+                duration={endEvent.duration} 
+              />
+            </Box>
+          );
+        }
+        
+        if (event.type === 'tool_start' && completed && endEvent?.type === 'tool_error') {
+          return (
+            <Box key={id} marginBottom={1}>
+              <ToolErrorView tool={endEvent.tool} error={endEvent.error} />
+            </Box>
+          );
+        }
+        
+        return (
+          <Box key={id} marginBottom={1}>
+            <AgentEventView 
+              event={event} 
+              isActive={!completed && id === activeToolId} 
+            />
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
