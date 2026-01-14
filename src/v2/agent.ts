@@ -5,7 +5,7 @@ import { ContextManager } from './context.js';
 import { loadSkills, getToolsFromSkills, buildSkillsPromptSection, executeTool } from './skill-loader.js';
 import { buildSystemPrompt, buildIterationPrompt } from './prompts.js';
 import { extractTextContent, hasToolCalls } from './utils/ai-message.js';
-import type { AgentConfig, Skill, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent } from './types.js';
+import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent } from './types.js';
 
 
 const DEFAULT_MAX_ITERATIONS = 10;
