@@ -23,7 +23,7 @@ export function Input({ onSubmit }: InputProps) {
       flexDirection="column" 
       marginBottom={1}
       borderStyle="single"
-      borderColor={colors.muted}
+      borderColor={colors.mutedDark}
       borderLeft={false}
       borderRight={false}
       width="100%"

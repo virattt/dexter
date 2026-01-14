@@ -30,6 +30,8 @@ export interface AgentConfig {
   model?: string;
   /** Maximum agent loop iterations (default: 10) */
   maxIterations?: number;
+  /** AbortSignal for cancelling agent execution */
+  signal?: AbortSignal;
 }
 
 /**

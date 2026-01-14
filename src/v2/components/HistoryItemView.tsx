@@ -21,7 +21,7 @@ function formatDuration(ms: number): string {
   return `${minutes}m ${seconds}s`;
 }
 
-export type HistoryItemStatus = 'processing' | 'complete' | 'error';
+export type HistoryItemStatus = 'processing' | 'complete' | 'error' | 'interrupted';
 
 export interface HistoryItem {
   id: string;
@@ -42,12 +42,19 @@ interface HistoryItemViewProps {
 
 export function HistoryItemView({ item }: HistoryItemViewProps) {
   return (
-    <Box flexDirection="column" marginBottom={1}>
+    <Box flexDirection="column">
       {/* Query */}
       <Box>
-        <Text color={colors.primary} bold>{'❯ '}</Text>
-        <Text color={colors.white} backgroundColor={colors.queryBg}>{` ${item.query} `}</Text>
+        <Text color={colors.muted} backgroundColor={colors.queryBg}>{'❯ '}</Text>
+        <Text color={colors.white} backgroundColor={colors.queryBg}>{`${item.query} `}</Text>
       </Box>
+            
+      {/* Interrupted indicator */}
+      {item.status === 'interrupted' && (
+        <Box marginLeft={2}>
+          <Text color={colors.muted}>⎿  Interrupted · What should Dexter do instead?</Text>
+        </Box>
+      )}
       
       {/* Events (tool calls, thinking) */}
       <EventListView 

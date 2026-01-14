@@ -169,7 +169,8 @@ ${sections.join('\n\n')}`;
  */
 export async function executeTool(
   toolName: string,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
+  signal?: AbortSignal
 ): Promise<string> {
   const tool = TOOL_REGISTRY[toolName];
   
@@ -178,7 +179,7 @@ export async function executeTool(
   }
   
   try {
-    const result = await tool.invoke(args);
+    const result = await tool.invoke(args, signal ? { signal } : undefined);
     return typeof result === 'string' ? result : JSON.stringify(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

@@ -83,10 +83,11 @@ interface CallLlmOptions {
   systemPrompt?: string;
   outputSchema?: z.ZodType<unknown>;
   tools?: StructuredToolInterface[];
+  signal?: AbortSignal;
 }
 
 export async function callLlm(prompt: string, options: CallLlmOptions = {}): Promise<unknown> {
-  const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools } = options;
+  const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools, signal } = options;
   const finalSystemPrompt = systemPrompt || DEFAULT_SYSTEM_PROMPT;
 
   const promptTemplate = ChatPromptTemplate.fromMessages([
@@ -107,7 +108,7 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
 
   const chain = promptTemplate.pipe(runnable);
 
-  const result = await withRetry(() => chain.invoke({ prompt }));
+  const result = await withRetry(() => chain.invoke({ prompt }, signal ? { signal } : undefined));
 
   // If no outputSchema and no tools, extract content from AIMessage
   // When tools are provided, return the full AIMessage to preserve tool_calls

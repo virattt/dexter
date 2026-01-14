@@ -45,6 +45,7 @@ function App() {
     error,
     isProcessing,
     runQuery,
+    cancelExecution,
     setError,
   } = useAgentRunner({ model, maxIterations: 10 }, messageHistoryRef);
   
@@ -71,21 +72,28 @@ function App() {
   
   // Handle keyboard shortcuts
   useInput((input, key) => {
-    // Escape key - cancel selection flows
-    if (key.escape && isInSelectionFlow()) {
-      cancelSelection();
-      return;
+    // Escape key - cancel selection flows or running agent
+    if (key.escape) {
+      if (isInSelectionFlow()) {
+        cancelSelection();
+        return;
+      }
+      if (isProcessing) {
+        cancelExecution();
+        return;
+      }
     }
     
     // Ctrl+C - cancel or exit
     if (key.ctrl && input === 'c') {
       if (isInSelectionFlow()) {
         cancelSelection();
-      } else if (workingState.status === 'idle') {
+      } else if (isProcessing) {
+        cancelExecution();
+      } else {
         console.log('\nGoodbye!');
         exit();
       }
-      // TODO: Add cancellation support for processing state
     }
   });
   

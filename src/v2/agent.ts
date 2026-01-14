@@ -45,6 +45,7 @@ export class Agent {
   private readonly contextManager: ContextManager;
   private readonly tools: StructuredToolInterface[];
   private readonly systemPrompt: string;
+  private readonly signal?: AbortSignal;
 
   private constructor(
     config: AgentConfig,
@@ -56,6 +57,7 @@ export class Agent {
     this.contextManager = new ContextManager();
     this.tools = tools;
     this.systemPrompt = systemPrompt;
+    this.signal = config.signal;
   }
 
   /**
@@ -90,16 +92,16 @@ export class Agent {
       iteration++;
 
       const response = await this.callModel(currentPrompt);
-      const thinkingText = extractTextContent(response);
+      const responseText = extractTextContent(response);
 
       // Emit thinking if there are also tool calls
-      if (thinkingText && hasToolCalls(response)) {
-        yield { type: 'thinking', message: thinkingText };
+      if (responseText && hasToolCalls(response)) {
+        yield { type: 'thinking', message: responseText };
       }
 
       // No tool calls = final answer
       if (!hasToolCalls(response)) {
-        yield { type: 'done', answer: thinkingText || 'No response generated.', toolCalls: allToolCalls, iterations: iteration };
+        yield { type: 'done', answer: responseText || 'No response generated.', toolCalls: allToolCalls, iterations: iteration };
         return;
       }
 
@@ -136,6 +138,7 @@ export class Agent {
       model: this.model,
       systemPrompt: this.systemPrompt,
       tools: this.tools,
+      signal: this.signal,
     }) as AIMessage;
   }
 
@@ -179,7 +182,7 @@ export class Agent {
     const startTime = Date.now();
 
     try {
-      const result = await executeTool(toolName, toolArgs);
+      const result = await executeTool(toolName, toolArgs, this.signal);
       const duration = Date.now() - startTime;
 
       this.contextManager.saveToolResult(toolName, toolArgs, result);
