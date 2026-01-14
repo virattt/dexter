@@ -103,6 +103,8 @@ export function useAgentRunner(
         break;
         
       case 'answer_chunk':
+        // Hide "Writing response..." once text starts appearing
+        setWorkingState({ status: 'idle' });
         updateLastHistoryItem(item => ({
           answer: item.answer + event.text,
         }));

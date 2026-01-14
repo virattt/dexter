@@ -42,7 +42,7 @@ interface HistoryItemViewProps {
 
 export function HistoryItemView({ item }: HistoryItemViewProps) {
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" marginBottom={1}>
       {/* Query */}
       <Box>
         <Text color={colors.muted} backgroundColor={colors.queryBg}>{'❯ '}</Text>

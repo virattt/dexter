@@ -11,6 +11,7 @@ import { Input } from './components/Input.js';
 import { Intro } from './components/Intro.js';
 import { ProviderSelector, ModelSelector } from './components/ModelSelector.js';
 import { ApiKeyConfirm, ApiKeyInput } from './components/ApiKeyPrompt.js';
+import { DebugPanel } from './components/DebugPanel.js';
 import { HistoryItemView, WorkingIndicator } from './v2/components/index.js';
 import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js';
 
@@ -47,7 +48,7 @@ function App() {
     runQuery,
     cancelExecution,
     setError,
-  } = useAgentRunner({ model, maxIterations: 10 }, messageHistoryRef);
+  } = useAgentRunner({ model, modelProvider: provider, maxIterations: 10 }, messageHistoryRef);
   
   // Handle user input submission
   const handleSubmit = useCallback(async (query: string) => {
@@ -169,6 +170,9 @@ function App() {
       <Box marginTop={1}>
         <Input onSubmit={handleSubmit} />
       </Box>
+      
+      {/* Debug Panel - set show={false} to hide */}
+      <DebugPanel maxLines={8} show={true} />
     </Box>
   );
 }

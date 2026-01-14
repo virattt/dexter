@@ -12,6 +12,21 @@ import { DEFAULT_SYSTEM_PROMPT } from '../agent/prompts.js';
 export const DEFAULT_PROVIDER = 'openai';
 export const DEFAULT_MODEL = 'gpt-5.2';
 
+// Fast model variants by provider for lightweight tasks like summarization
+const FAST_MODELS: Record<string, string> = {
+  openai: 'gpt-5-mini',
+  anthropic: 'claude-haiku-4-5',
+  google: 'gemini-3-flash-preview',
+};
+
+/**
+ * Gets the fast model variant for the given provider.
+ * Falls back to the provided model if no fast variant is configured (e.g., Ollama).
+ */
+export function getFastModel(modelProvider: string, fallbackModel: string): string {
+  return FAST_MODELS[modelProvider] ?? fallbackModel;
+}
+
 // Generic retry helper with exponential backoff
 async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {

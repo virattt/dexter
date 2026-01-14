@@ -19,6 +19,13 @@ export const AnswerBox = React.memo(function AnswerBox({ stream, text, onStart, 
   onStartRef.current = onStart;
   onCompleteRef.current = onComplete;
 
+  // Sync content with text prop when not streaming (used by V2 CLI)
+  useEffect(() => {
+    if (!stream && text !== undefined) {
+      setContent(text);
+    }
+  }, [stream, text]);
+
   useEffect(() => {
     if (!stream) return;
 
@@ -44,10 +51,13 @@ export const AnswerBox = React.memo(function AnswerBox({ stream, text, onStart, 
 
   return (
     <Box flexDirection="column" marginTop={1}>
-      <Text>
-        {content}
-        {isStreaming && '▌'}
-      </Text>
+      <Box>
+        <Text color={colors.muted}>⏺ </Text>
+        <Text>
+          {content}
+          {isStreaming && '▌'}
+        </Text>
+      </Box>
     </Box>
   );
 });

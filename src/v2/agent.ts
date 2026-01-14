@@ -1,12 +1,15 @@
 import { AIMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
-import { callLlm } from '../model/llm.js';
+import { callLlm, getFastModel } from '../model/llm.js';
 import { ContextManager } from './context.js';
+import { Scratchpad } from './scratchpad.js';
 import { loadSkills, getToolsFromSkills, buildSkillsPromptSection, executeTool } from './skill-loader.js';
-import { buildSystemPrompt, buildIterationPrompt } from './prompts.js';
+import { buildSystemPrompt, buildIterationPrompt, getFinalAnswerSystemPrompt, buildFinalAnswerPrompt, buildToolSummaryPrompt } from './prompts.js';
 import { extractTextContent, hasToolCalls } from './utils/ai-message.js';
+import { streamLlmResponse } from './utils/llm.js';
 import { MessageHistory } from '../utils/message-history.js';
-import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent } from './types.js';
+import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent, ToolSummary, AnswerStartEvent, AnswerChunkEvent } from './types.js';
+import { logger } from '../utils/logger.js';
 
 
 const DEFAULT_MAX_ITERATIONS = 10;
@@ -19,11 +22,13 @@ interface ToolCallRecord {
 
 interface ToolExecutionResult {
   record: ToolCallRecord;
+  summary: ToolSummary;
   promptEntry: string;
 }
 
 interface ToolCallsExecutionResult {
   records: ToolCallRecord[];
+  summaries: ToolSummary[];
   promptEntries: string[];
 }
 
@@ -41,6 +46,7 @@ interface ToolCallsExecutionResult {
  */
 export class Agent {
   private readonly model: string;
+  private readonly modelProvider: string;
   private readonly maxIterations: number;
   private readonly contextManager: ContextManager;
   private readonly tools: StructuredToolInterface[];
@@ -53,6 +59,7 @@ export class Agent {
     systemPrompt: string
   ) {
     this.model = config.model ?? 'gpt-4o';
+    this.modelProvider = config.modelProvider ?? 'openai';
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
     this.contextManager = new ContextManager();
     this.tools = tools;
@@ -72,7 +79,8 @@ export class Agent {
   }
 
   /**
-   * Run the agent and yield events for real-time UI updates
+   * Run the agent and yield events for real-time UI updates.
+   * Uses context compaction: summaries during loop, full data for final answer.
    */
   async *run(query: string, messageHistory?: MessageHistory): AsyncGenerator<AgentEvent> {
     if (this.tools.length === 0) {
@@ -81,6 +89,10 @@ export class Agent {
     }
 
     const allToolCalls: ToolCallRecord[] = [];
+    const allSummaries: ToolSummary[] = [];
+    
+    // Create scratchpad for this query (append-only log of work done)
+    const scratchpad = new Scratchpad(query);
     
     // Build initial prompt with conversation history context
     let currentPrompt = this.buildInitialPrompt(query, messageHistory);
@@ -96,17 +108,38 @@ export class Agent {
 
       // Emit thinking if there are also tool calls
       if (responseText && hasToolCalls(response)) {
+        scratchpad.addThinking(responseText);
         yield { type: 'thinking', message: responseText };
       }
 
-      // No tool calls = final answer
+      // No tool calls = ready to generate final answer
       if (!hasToolCalls(response)) {
-        yield { type: 'done', answer: responseText || 'No response generated.', toolCalls: allToolCalls, iterations: iteration };
+        // If no tools were called at all, just use the direct response
+        // This handles greetings, clarifying questions, etc.
+        if (allSummaries.length === 0 && responseText) {
+          yield { type: 'answer_start' };
+          yield { type: 'answer_chunk', text: responseText };
+          yield { type: 'done', answer: responseText, toolCalls: [], iterations: iteration };
+          return;
+        }
+
+        // Stream final answer with full context
+        const answerGenerator = this.generateFinalAnswer(query, allSummaries);
+        let fullAnswer = '';
+        
+        for await (const event of answerGenerator) {
+          yield event;
+          if (event.type === 'answer_chunk') {
+            fullAnswer += event.text;
+          }
+        }
+        
+        yield { type: 'done', answer: fullAnswer, toolCalls: allToolCalls, iterations: iteration };
         return;
       }
 
       // Execute tools and collect results
-      const generator = this.executeToolCalls(response);
+      const generator = this.executeToolCalls(response, query);
       let result = await generator.next();
 
       // Execute tool calls and yield events
@@ -115,16 +148,31 @@ export class Agent {
         result = await generator.next();
       }
 
-      // Collect tool calls and update prompt
+      // Add tool entries to scratchpad and collect summaries
+      for (const entry of result.value.promptEntries) {
+        scratchpad.addToolEntry(entry);
+      }
       allToolCalls.push(...result.value.records);
-      currentPrompt = buildIterationPrompt(query, result.value.promptEntries);
+      allSummaries.push(...result.value.summaries);
+      
+      // Build iteration prompt from scratchpad (always has full accumulated history)
+      currentPrompt = buildIterationPrompt(query, scratchpad.getToolSummaries());
     }
 
-    // Max iterations reached
-    const summary = this.contextManager.getSummary();
+    // Max iterations reached - still generate proper final answer
+    const answerGenerator = this.generateFinalAnswer(query, allSummaries);
+    let fullAnswer = '';
+    
+    for await (const event of answerGenerator) {
+      yield event;
+      if (event.type === 'answer_chunk') {
+        fullAnswer += event.text;
+      }
+    }
+    
     yield {
       type: 'done',
-      answer: `Reached maximum iterations (${this.maxIterations}). Here's what I found:\n\n${summary}`,
+      answer: fullAnswer || `Reached maximum iterations (${this.maxIterations}). ${this.contextManager.getSummary()}`,
       toolCalls: allToolCalls,
       iterations: iteration
     };
@@ -143,19 +191,43 @@ export class Agent {
   }
 
   /**
+   * Generate an LLM summary of a tool result for context compaction.
+   * The LLM summarizes what it learned, making the summary meaningful for subsequent iterations.
+   * Uses a fast model variant for the current provider to improve speed.
+   */
+  private async summarizeToolResult(
+    query: string,
+    toolName: string,
+    toolArgs: Record<string, unknown>,
+    result: string
+  ): Promise<string> {
+    logger.debug(`Summarizing tool result for ${toolName} with args ${JSON.stringify(toolArgs)} and result ${result}`);
+    // If toolName is empty, return an empty string
+    const prompt = buildToolSummaryPrompt(query, toolName, toolArgs, result);
+    const summary = await callLlm(prompt, {
+      model: getFastModel(this.modelProvider, this.model),
+      systemPrompt: 'You are a concise data summarizer.',
+      signal: this.signal,
+    });
+    return String(summary);
+  }
+
+  /**
    * Execute all tool calls from an LLM response
    */
   private async *executeToolCalls(
-    response: AIMessage
+    response: AIMessage,
+    query: string
   ): AsyncGenerator<ToolStartEvent | ToolEndEvent | ToolErrorEvent, ToolCallsExecutionResult> {
     const records: ToolCallRecord[] = [];
+    const summaries: ToolSummary[] = [];
     const promptEntries: string[] = [];
 
     for (const toolCall of response.tool_calls!) {
       const toolName = toolCall.name;
       const toolArgs = toolCall.args as Record<string, unknown>;
 
-      const generator = this.executeToolCall(toolName, toolArgs);
+      const generator = this.executeToolCall(toolName, toolArgs, query);
       let result = await generator.next();
 
       while (!result.done) {
@@ -164,18 +236,21 @@ export class Agent {
       }
 
       records.push(result.value.record);
+      summaries.push(result.value.summary);
       promptEntries.push(result.value.promptEntry);
     }
 
-    return { records, promptEntries };
+    return { records, summaries, promptEntries };
   }
 
   /**
-   * Execute a single tool call and yield start/end/error events
+   * Execute a single tool call and yield start/end/error events.
+   * Returns an LLM-generated summary for context compaction.
    */
   private async *executeToolCall(
     toolName: string,
-    toolArgs: Record<string, unknown>
+    toolArgs: Record<string, unknown>,
+    query: string
   ): AsyncGenerator<ToolStartEvent | ToolEndEvent | ToolErrorEvent, ToolExecutionResult> {
     yield { type: 'tool_start', tool: toolName, args: toolArgs };
 
@@ -185,21 +260,36 @@ export class Agent {
       const result = await executeTool(toolName, toolArgs, this.signal);
       const duration = Date.now() - startTime;
 
-      this.contextManager.saveToolResult(toolName, toolArgs, result);
+      // Save full result to disk and get lightweight summary
+      const summary = this.contextManager.saveAndGetSummary(toolName, toolArgs, result);
 
       yield { type: 'tool_end', tool: toolName, args: toolArgs, result, duration };
 
+      // Generate LLM summary for context compaction
+      const llmSummary = await this.summarizeToolResult(query, toolName, toolArgs, result);
+
       return {
         record: { tool: toolName, args: toolArgs, result },
-        promptEntry: `Tool: ${toolName}\nResult: ${result}`,
+        summary,
+        // Use LLM-generated summary for better context understanding
+        promptEntry: llmSummary,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       yield { type: 'tool_error', tool: toolName, error: errorMessage };
 
+      // Create error summary
+      const errorSummary: ToolSummary = {
+        id: '',
+        toolName,
+        args: toolArgs,
+        summary: `${this.contextManager.getToolDescription(toolName, toolArgs)} [FAILED]`,
+      };
+
       return {
         record: { tool: toolName, args: toolArgs, result: `Error: ${errorMessage}` },
-        promptEntry: `Tool: ${toolName}\nError: ${errorMessage}`,
+        summary: errorSummary,
+        promptEntry: `- ${errorSummary.summary}: ${errorMessage}`,
       };
     }
   }
@@ -222,5 +312,65 @@ export class Agent {
 
     const historyContext = userMessages.map((msg, i) => `${i + 1}. ${msg}`).join('\n');
     return `Current query to answer: ${query}\n\nPrevious user queries for context:\n${historyContext}`;
+  }
+
+  /**
+   * Generate the final answer by loading full context data and streaming the response.
+   * This is the final step after context compaction - we load all data from disk.
+   */
+  private async *generateFinalAnswer(
+    query: string,
+    summaries: ToolSummary[]
+  ): AsyncGenerator<AnswerStartEvent | AnswerChunkEvent> {
+    yield { type: 'answer_start' };
+
+    // Load full context data from disk
+    const fullContext = this.buildFullContextForAnswer(summaries);
+
+    // Build the final answer prompt
+    const prompt = buildFinalAnswerPrompt(query, fullContext);
+    const systemPrompt = getFinalAnswerSystemPrompt();
+
+    // Stream the final answer using V2's provider-agnostic streaming
+    const stream = streamLlmResponse(prompt, {
+      model: this.model,
+      systemPrompt,
+    });
+
+    for await (const chunk of stream) {
+      yield { type: 'answer_chunk', text: chunk };
+    }
+  }
+
+  /**
+   * Build full context data for final answer generation.
+   * Loads full tool results from disk using the summaries' file pointers.
+   */
+  private buildFullContextForAnswer(summaries: ToolSummary[]): string {
+    if (summaries.length === 0) {
+      return 'No data was gathered.';
+    }
+
+    // Get filepaths from summaries (filter out error summaries with empty ids)
+    const filepaths = summaries
+      .map(s => s.id)
+      .filter(id => id.length > 0);
+
+    if (filepaths.length === 0) {
+      return 'No data was successfully gathered.';
+    }
+
+    // Load full contexts from disk
+    const contexts = this.contextManager.loadFullContexts(filepaths);
+
+    if (contexts.length === 0) {
+      return 'Failed to load context data.';
+    }
+
+    // Format contexts for the prompt
+    return contexts.map(ctx => {
+      const description = this.contextManager.getToolDescription(ctx.toolName, ctx.args);
+      return `### ${description}\n\`\`\`json\n${JSON.stringify(JSON.parse(ctx.result), null, 2)}\n\`\`\``;
+    }).join('\n\n');
   }
 }

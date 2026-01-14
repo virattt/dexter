@@ -8,4 +8,5 @@ export { StatusMessage } from './StatusMessage.js';
 export { AgentProgressView, CurrentTurnView } from './AgentProgressView.js';
 export { PhaseStatusBar, phaseLabels } from './PhaseStatusBar.js';
 export { TaskListView } from './TaskListView.js';
+export { DebugPanel } from './DebugPanel.js';
 export type { AgentProgressState } from './AgentProgressView.js';

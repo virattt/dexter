@@ -24,10 +24,8 @@ export function WorkingIndicator({ state }: WorkingIndicatorProps) {
   let statusText: string;
   switch (state.status) {
     case 'thinking':
-      statusText = 'Thinking... (esc to interrupt)';
-      break;
     case 'tool':
-      statusText = `Calling ${state.toolName}...`;
+      statusText = 'Thinking... (esc to interrupt)';
       break;
     case 'answering':
       statusText = 'Writing response...';

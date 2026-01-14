@@ -9,4 +9,6 @@ export {
 } from './env.js';
 export { ToolContextManager } from './context.js';
 export { MessageHistory } from './message-history.js';
+export { logger } from './logger.js';
+export type { LogEntry, LogLevel } from './logger.js';
 
