@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
-import { Agent } from '../v2/agent.js';
-import { MessageHistory } from '../utils/message-history.js';
-import type { HistoryItem, WorkingState } from '../v2/components/index.js';
-import type { AgentConfig, AgentEvent, DoneEvent } from '../v2/index.js';
+import { Agent } from '../agent.js';
+import { MessageHistory } from '../../utils/message-history.js';
+import type { HistoryItem, WorkingState } from '../components/index.js';
+import type { AgentConfig, AgentEvent, DoneEvent } from '../index.js';
 
 // ============================================================================
 // Types

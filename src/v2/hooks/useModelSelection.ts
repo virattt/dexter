@@ -1,10 +1,10 @@
 import { useState, useCallback, useRef } from 'react';
-import { getSetting, setSetting } from '../utils/config.js';
-import { getProviderDisplayName, checkApiKeyExistsForProvider, saveApiKeyForProvider } from '../utils/env.js';
-import { getModelsForProvider, getDefaultModelForProvider } from '../components/ModelSelector.js';
-import { getOllamaModels } from '../utils/ollama.js';
-import { DEFAULT_MODEL, DEFAULT_PROVIDER } from '../model/llm.js';
-import { MessageHistory } from '../utils/message-history.js';
+import { getSetting, setSetting } from '../../utils/config.js';
+import { getProviderDisplayName, checkApiKeyExistsForProvider, saveApiKeyForProvider } from '../../utils/env.js';
+import { getModelsForProvider, getDefaultModelForProvider } from '../../components/ModelSelector.js';
+import { getOllamaModels } from '../../utils/ollama.js';
+import { DEFAULT_MODEL, DEFAULT_PROVIDER } from '../../model/llm.js';
+import { MessageHistory } from '../../utils/message-history.js';
 
 // ============================================================================
 // Types
