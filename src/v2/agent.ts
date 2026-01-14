@@ -5,6 +5,7 @@ import { ContextManager } from './context.js';
 import { loadSkills, getToolsFromSkills, buildSkillsPromptSection, executeTool } from './skill-loader.js';
 import { buildSystemPrompt, buildIterationPrompt } from './prompts.js';
 import { extractTextContent, hasToolCalls } from './utils/ai-message.js';
+import { MessageHistory } from '../utils/message-history.js';
 import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent } from './types.js';
 
 
@@ -71,14 +72,17 @@ export class Agent {
   /**
    * Run the agent and yield events for real-time UI updates
    */
-  async *run(query: string): AsyncGenerator<AgentEvent> {
+  async *run(query: string, messageHistory?: MessageHistory): AsyncGenerator<AgentEvent> {
     if (this.tools.length === 0) {
       yield { type: 'done', answer: 'No tools available. Please check your skills configuration.', toolCalls: [], iterations: 0 };
       return;
     }
 
     const allToolCalls: ToolCallRecord[] = [];
-    let currentPrompt = query;
+    
+    // Build initial prompt with conversation history context
+    let currentPrompt = this.buildInitialPrompt(query, messageHistory);
+    
     let iteration = 0;
 
     while (iteration < this.maxIterations) {
@@ -192,5 +196,25 @@ export class Agent {
         promptEntry: `Tool: ${toolName}\nError: ${errorMessage}`,
       };
     }
+  }
+
+  /**
+   * Build initial prompt with conversation history context if available
+   */
+  private buildInitialPrompt(
+    query: string,
+    messageHistory?: MessageHistory
+  ): string {
+    if (!messageHistory?.hasMessages()) {
+      return query;
+    }
+
+    const userMessages = messageHistory.getUserMessages();
+    if (userMessages.length === 0) {
+      return query;
+    }
+
+    const historyContext = userMessages.map((msg, i) => `${i + 1}. ${msg}`).join('\n');
+    return `Current query to answer: ${query}\n\nPrevious user queries for context:\n${historyContext}`;
   }
 }

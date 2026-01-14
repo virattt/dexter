@@ -3,7 +3,7 @@
  * CLI V2 - Real-time agentic loop interface
  * Shows tool calls and progress in Claude Code style
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { render, Box, Text, useApp, useInput } from 'ink';
 import { config } from 'dotenv';
 
@@ -14,6 +14,7 @@ import { HistoryItemView, WorkingIndicator } from './v2/components/index.js';
 import type { HistoryItem, WorkingState } from './v2/components/index.js';
 import type { AgentConfig, AgentEvent, DoneEvent } from './v2/index.js';
 import { DEFAULT_MODEL } from './model/llm.js';
+import { MessageHistory } from './utils/message-history.js';
 
 // Load environment variables
 config({ quiet: true });
@@ -26,6 +27,9 @@ function App() {
   const { exit } = useApp();
   
   const [model] = useState(() => process.env.DEXTER_MODEL || DEFAULT_MODEL);
+  
+  // Message history for multi-turn conversations
+  const messageHistoryRef = useRef<MessageHistory>(new MessageHistory(model));
   
   // All queries, events, and answers live in history - no separate "current" state
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -111,11 +115,19 @@ function App() {
         
       case 'done': {
         const doneEvent = event as DoneEvent;
-        updateLastHistoryItem(item => ({
-          answer: doneEvent.answer,
-          status: 'complete' as const,
-          duration: item.startTime ? Date.now() - item.startTime : undefined,
-        }));
+        updateLastHistoryItem(item => {
+          // Add to message history for multi-turn context
+          if (item.query && doneEvent.answer) {
+            messageHistoryRef.current.addMessage(item.query, doneEvent.answer).catch(() => {
+              // Silently ignore errors in adding to history
+            });
+          }
+          return {
+            answer: doneEvent.answer,
+            status: 'complete' as const,
+            duration: item.startTime ? Date.now() - item.startTime : undefined,
+          };
+        });
         setWorkingState({ status: 'idle' });
         break;
       }
@@ -149,7 +161,7 @@ function App() {
     
     try {
       const agent = await Agent.create(agentConfig);
-      const stream = agent.run(query);
+      const stream = agent.run(query, messageHistoryRef.current);
       
       for await (const event of stream) {
         handleEvent(event);

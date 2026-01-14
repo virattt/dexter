@@ -173,6 +173,13 @@ Select which previous messages are relevant to understanding or answering the cu
   }
 
   /**
+   * Returns user queries in chronological order (no LLM call)
+   */
+  getUserMessages(): string[] {
+    return this.messages.map((message) => message.query);
+  }
+
+  /**
    * Returns true if there are any messages
    */
   hasMessages(): boolean {
