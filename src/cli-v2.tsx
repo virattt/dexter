@@ -3,137 +3,52 @@
  * CLI V2 - Real-time agentic loop interface
  * Shows tool calls and progress in Claude Code style
  */
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useCallback } from 'react';
 import { render, Box, Text, useApp, useInput } from 'ink';
 import { config } from 'dotenv';
 
 import { Input } from './components/Input.js';
 import { Intro } from './components/Intro.js';
-import { Agent } from './v2/agent.js';
+import { ProviderSelector, ModelSelector } from './components/ModelSelector.js';
+import { ApiKeyConfirm, ApiKeyInput } from './components/ApiKeyPrompt.js';
 import { HistoryItemView, WorkingIndicator } from './v2/components/index.js';
-import type { HistoryItem, WorkingState } from './v2/components/index.js';
-import type { AgentConfig, AgentEvent, DoneEvent } from './v2/index.js';
-import { DEFAULT_MODEL } from './model/llm.js';
-import { MessageHistory } from './utils/message-history.js';
+import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js';
+
+import { useModelSelection } from './v2/hooks/useModelSelection.js';
+import { useAgentRunner } from './v2/hooks/useAgentRunner.js';
 
 // Load environment variables
 config({ quiet: true });
 
-// ============================================================================
-// Main App
-// ============================================================================
-
 function App() {
   const { exit } = useApp();
   
-  const [model] = useState(() => process.env.DEXTER_MODEL || DEFAULT_MODEL);
-  
-  // Message history for multi-turn conversations
-  const messageHistoryRef = useRef<MessageHistory>(new MessageHistory(model));
-  
-  // All queries, events, and answers live in history - no separate "current" state
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [workingState, setWorkingState] = useState<WorkingState>({ status: 'idle' });
-  const [error, setError] = useState<string | null>(null);
-  
-  const agentConfig: AgentConfig = {
+  // Model selection state and handlers
+  const {
+    selectionState,
+    provider,
     model,
-    maxIterations: 10,
-  };
+    messageHistoryRef,
+    startSelection,
+    cancelSelection,
+    handleProviderSelect,
+    handleModelSelect,
+    handleApiKeyConfirm,
+    handleApiKeySubmit,
+    isInSelectionFlow,
+  } = useModelSelection((errorMsg) => setError(errorMsg));
   
-  // Helper to update the last (processing) history item
-  const updateLastHistoryItem = useCallback((
-    updater: (item: HistoryItem) => Partial<HistoryItem>
-  ) => {
-    setHistory(prev => {
-      const last = prev[prev.length - 1];
-      if (!last || last.status !== 'processing') return prev;
-      return [...prev.slice(0, -1), { ...last, ...updater(last) }];
-    });
-  }, []);
+  // Agent execution state and handlers
+  const {
+    history,
+    workingState,
+    error,
+    isProcessing,
+    runQuery,
+    setError,
+  } = useAgentRunner({ model, maxIterations: 10 }, messageHistoryRef);
   
-  const handleEvent = useCallback((event: AgentEvent) => {
-    switch (event.type) {
-      case 'thinking':
-        setWorkingState({ status: 'thinking' });
-        updateLastHistoryItem(item => ({
-          events: [...item.events, {
-            id: `thinking-${Date.now()}`,
-            event,
-            completed: true,
-          }],
-        }));
-        break;
-        
-      case 'tool_start': {
-        const toolId = `tool-${event.tool}-${Date.now()}`;
-        setWorkingState({ status: 'tool', toolName: event.tool });
-        updateLastHistoryItem(item => ({
-          activeToolId: toolId,
-          events: [...item.events, {
-            id: toolId,
-            event,
-            completed: false,
-          }],
-        }));
-        break;
-      }
-        
-      case 'tool_end':
-        setWorkingState({ status: 'thinking' });
-        updateLastHistoryItem(item => ({
-          activeToolId: undefined,
-          events: item.events.map(e => 
-            e.id === item.activeToolId
-              ? { ...e, completed: true, endEvent: event }
-              : e
-          ),
-        }));
-        break;
-        
-      case 'tool_error':
-        setWorkingState({ status: 'thinking' });
-        updateLastHistoryItem(item => ({
-          activeToolId: undefined,
-          events: item.events.map(e => 
-            e.id === item.activeToolId
-              ? { ...e, completed: true, endEvent: event }
-              : e
-          ),
-        }));
-        break;
-        
-      case 'answer_start':
-        setWorkingState({ status: 'answering' });
-        break;
-        
-      case 'answer_chunk':
-        updateLastHistoryItem(item => ({
-          answer: item.answer + event.text,
-        }));
-        break;
-        
-      case 'done': {
-        const doneEvent = event as DoneEvent;
-        updateLastHistoryItem(item => {
-          // Add to message history for multi-turn context
-          if (item.query && doneEvent.answer) {
-            messageHistoryRef.current.addMessage(item.query, doneEvent.answer).catch(() => {
-              // Silently ignore errors in adding to history
-            });
-          }
-          return {
-            answer: doneEvent.answer,
-            status: 'complete' as const,
-            duration: item.startTime ? Date.now() - item.startTime : undefined,
-          };
-        });
-        setWorkingState({ status: 'idle' });
-        break;
-      }
-    }
-  }, [updateLastHistoryItem]);
-  
+  // Handle user input submission
   const handleSubmit = useCallback(async (query: string) => {
     // Handle exit
     if (query.toLowerCase() === 'exit' || query.toLowerCase() === 'quit') {
@@ -142,60 +57,90 @@ function App() {
       return;
     }
     
-    // Ignore if already processing
-    if (workingState.status !== 'idle') return;
-    
-    // Add to history immediately - this IS the message history
-    const itemId = Date.now().toString();
-    const startTime = Date.now();
-    setHistory(prev => [...prev, {
-      id: itemId,
-      query,
-      events: [],
-      answer: '',
-      status: 'processing',
-      startTime,
-    }]);
-    setError(null);
-    setWorkingState({ status: 'thinking' });
-    
-    try {
-      const agent = await Agent.create(agentConfig);
-      const stream = agent.run(query, messageHistoryRef.current);
-      
-      for await (const event of stream) {
-        handleEvent(event);
-      }
-    } catch (e) {
-      const errorMsg = e instanceof Error ? e.message : String(e);
-      setError(errorMsg);
-      // Mark the history item as error
-      setHistory(prev => {
-        const last = prev[prev.length - 1];
-        if (!last || last.status !== 'processing') return prev;
-        return [...prev.slice(0, -1), { ...last, status: 'error' }];
-      });
-      setWorkingState({ status: 'idle' });
+    // Handle model selection command
+    if (query === '/model') {
+      startSelection();
+      return;
     }
-  }, [workingState.status, agentConfig, exit, handleEvent]);
+    
+    // Ignore if not idle (processing or in selection flow)
+    if (isInSelectionFlow() || workingState.status !== 'idle') return;
+    
+    await runQuery(query);
+  }, [exit, startSelection, isInSelectionFlow, workingState.status, runQuery]);
   
-  // Handle Ctrl+C
+  // Handle keyboard shortcuts
   useInput((input, key) => {
+    // Escape key - cancel selection flows
+    if (key.escape && isInSelectionFlow()) {
+      cancelSelection();
+      return;
+    }
+    
+    // Ctrl+C - cancel or exit
     if (key.ctrl && input === 'c') {
-      if (workingState.status === 'idle') {
+      if (isInSelectionFlow()) {
+        cancelSelection();
+      } else if (workingState.status === 'idle') {
         console.log('\nGoodbye!');
         exit();
       }
-      // TODO: Add cancellation support
+      // TODO: Add cancellation support for processing state
     }
   });
   
-  // Check if we're currently processing (last item is processing)
-  const isProcessing = history.length > 0 && history[history.length - 1].status === 'processing';
+  // Render selection screens
+  const { appState, pendingProvider, pendingModels } = selectionState;
   
+  if (appState === 'provider_select') {
+    return (
+      <Box flexDirection="column">
+        <ProviderSelector provider={provider} onSelect={handleProviderSelect} />
+      </Box>
+    );
+  }
+  
+  if (appState === 'model_select' && pendingProvider) {
+    return (
+      <Box flexDirection="column">
+        <ModelSelector
+          providerId={pendingProvider}
+          models={pendingModels}
+          currentModel={provider === pendingProvider ? model : undefined}
+          onSelect={handleModelSelect}
+        />
+      </Box>
+    );
+  }
+  
+  if (appState === 'api_key_confirm' && pendingProvider) {
+    return (
+      <Box flexDirection="column">
+        <ApiKeyConfirm 
+          providerName={getProviderDisplayName(pendingProvider)} 
+          onConfirm={handleApiKeyConfirm} 
+        />
+      </Box>
+    );
+  }
+  
+  if (appState === 'api_key_input' && pendingProvider) {
+    const apiKeyName = getApiKeyNameForProvider(pendingProvider) || '';
+    return (
+      <Box flexDirection="column">
+        <ApiKeyInput 
+          providerName={getProviderDisplayName(pendingProvider)}
+          apiKeyName={apiKeyName}
+          onSubmit={handleApiKeySubmit} 
+        />
+      </Box>
+    );
+  }
+  
+  // Main chat interface
   return (
     <Box flexDirection="column">
-      <Intro provider="anthropic" model={model} />
+      <Intro provider={provider} model={model} />
       
       {/* All history items (queries, events, answers) */}
       {history.map(item => (
