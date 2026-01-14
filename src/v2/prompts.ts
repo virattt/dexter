@@ -42,7 +42,8 @@ Your output is displayed on a command line interface. Keep responses short and c
 
 - Keep casual responses brief and direct
 - For research: lead with the key finding and include specific data points
-- Don't narrate your actions or ask leading questions about what the user wants`;
+- Don't narrate your actions or ask leading questions about what the user wants
+- Do not use markdown formatting (no **bold**, *italics*, or other markup) - output is plain text`;
 
 /**
  * Build the system prompt with skill information
@@ -96,7 +97,8 @@ Synthesize a clear answer to the user's query using the data provided.
 
 - Lead with the direct answer
 - Support with specific data points
-- If data is incomplete or conflicting, acknowledge this`;
+- If data is incomplete or conflicting, acknowledge this
+- Do not use markdown formatting (no **bold**, *italics*, or other markup) - output is plain text`;
 
 /**
  * Get the system prompt for final answer generation.

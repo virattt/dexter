@@ -14,7 +14,7 @@ export const DEFAULT_MODEL = 'gpt-5.2';
 
 // Fast model variants by provider for lightweight tasks like summarization
 const FAST_MODELS: Record<string, string> = {
-  openai: 'gpt-5-mini',
+  openai: 'gpt-4.1',
   anthropic: 'claude-haiku-4-5',
   google: 'gemini-3-flash-preview',
 };

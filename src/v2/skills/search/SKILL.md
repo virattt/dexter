@@ -2,7 +2,7 @@
 name: search
 description: Web search for current information, news, and general knowledge. Use when you need up-to-date information not available through financial data tools.
 tools:
-  - tavily_search
+  - web_search
 ---
 
 # Search Skill
@@ -22,7 +22,7 @@ Use this skill for:
 ## Workflow Patterns
 
 ### Company Research
-Use `tavily_search` with the company name and specific topic:
+Use `web_search` with the company name and specific topic:
 - "Apple AI strategy 2024"
 - "Tesla manufacturing expansion plans"
 
@@ -51,4 +51,4 @@ Research competitors and market dynamics:
 
 | Tool | Use Case |
 |------|----------|
-| tavily_search | Web search for current information and news |
+| web_search | Web search for current information and news |

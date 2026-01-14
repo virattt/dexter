@@ -54,7 +54,7 @@ const TOOL_REGISTRY: Record<string, StructuredToolInterface> = {
   get_analyst_estimates: getAnalystEstimates,
   get_segmented_revenues: getSegmentedRevenues,
   get_insider_trades: getInsiderTrades,
-  tavily_search: tavilySearch,
+  web_search: tavilySearch,
 };
 
 /**

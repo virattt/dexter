@@ -41,7 +41,7 @@ interface ToolCallsExecutionResult {
  * 3. Yield events for real-time UI updates
  *
  * Usage:
- *   const agent = await Agent.create({ model: 'gpt-4o' });
+ *   const agent = await Agent.create({ model: 'gpt-5.2' });
  *   for await (const event of agent.run(query)) { ... }
  */
 export class Agent {
@@ -58,7 +58,7 @@ export class Agent {
     tools: StructuredToolInterface[],
     systemPrompt: string
   ) {
-    this.model = config.model ?? 'gpt-4o';
+    this.model = config.model ?? 'gpt-5.2';
     this.modelProvider = config.modelProvider ?? 'openai';
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
     this.contextManager = new ContextManager();
@@ -201,7 +201,6 @@ export class Agent {
     toolArgs: Record<string, unknown>,
     result: string
   ): Promise<string> {
-    logger.debug(`Summarizing tool result for ${toolName} with args ${JSON.stringify(toolArgs)} and result ${result}`);
     // If toolName is empty, return an empty string
     const prompt = buildToolSummaryPrompt(query, toolName, toolArgs, result);
     const summary = await callLlm(prompt, {

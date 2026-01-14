@@ -5,6 +5,17 @@ import { colors } from '../../theme.js';
 import type { AgentEvent } from '../types.js';
 
 /**
+ * Format tool name from snake_case to Title Case
+ * e.g., get_financial_metrics_snapshot -> Get Financial Metrics Snapshot
+ */
+function formatToolName(name: string): string {
+  return name
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+/**
  * Format tool arguments for display
  */
 function formatArgs(args: Record<string, unknown>): string {
@@ -62,7 +73,7 @@ export function ToolStartView({ tool, args, isActive = false }: ToolStartViewPro
     <Box flexDirection="column">
       <Box>
         <Text color={colors.primary}>⏺ </Text>
-        <Text color={colors.info}>{tool}</Text>
+        <Text color={colors.info}>{formatToolName(tool)}</Text>
         <Text color={colors.muted}>({formatArgs(args)})</Text>
       </Box>
       {isActive && (
@@ -107,7 +118,7 @@ export function ToolEndView({ tool, args, result, duration }: ToolEndViewProps) 
     <Box flexDirection="column">
       <Box>
         <Text color={colors.primary}>⏺ </Text>
-        <Text color={colors.info}>{tool}</Text>
+        <Text color={colors.info}>{formatToolName(tool)}</Text>
         <Text color={colors.muted}>({formatArgs(args)})</Text>
       </Box>
       <Box marginLeft={2}>
@@ -129,7 +140,7 @@ export function ToolErrorView({ tool, error }: ToolErrorViewProps) {
     <Box flexDirection="column">
       <Box>
         <Text color={colors.primary}>⏺ </Text>
-        <Text color={colors.info}>{tool}</Text>
+        <Text color={colors.info}>{formatToolName(tool)}</Text>
       </Box>
       <Box marginLeft={2}>
         <Text color={colors.muted}>⎿  </Text>
