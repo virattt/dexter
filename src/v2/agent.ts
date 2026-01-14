@@ -7,15 +7,8 @@ import { buildSystemPrompt, buildIterationPrompt } from './prompts.js';
 import { extractTextContent, hasToolCalls } from './utils/ai-message.js';
 import type { AgentConfig, Skill, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent } from './types.js';
 
-// ============================================================================
-// Constants
-// ============================================================================
 
 const DEFAULT_MAX_ITERATIONS = 10;
-
-// ============================================================================
-// Internal Types
-// ============================================================================
 
 interface ToolCallRecord {
   tool: string;
@@ -49,20 +42,17 @@ export class Agent {
   private readonly model: string;
   private readonly maxIterations: number;
   private readonly contextManager: ContextManager;
-  private readonly skills: Skill[];
   private readonly tools: StructuredToolInterface[];
   private readonly systemPrompt: string;
 
   private constructor(
     config: AgentConfig,
-    skills: Skill[],
     tools: StructuredToolInterface[],
     systemPrompt: string
   ) {
     this.model = config.model ?? 'gpt-4o';
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
     this.contextManager = new ContextManager();
-    this.skills = skills;
     this.tools = tools;
     this.systemPrompt = systemPrompt;
   }
@@ -75,7 +65,7 @@ export class Agent {
     const tools = getToolsFromSkills(skills);
     const skillsSection = buildSkillsPromptSection(skills);
     const systemPrompt = buildSystemPrompt(skillsSection);
-    return new Agent(config, skills, tools, systemPrompt);
+    return new Agent(config, tools, systemPrompt);
   }
 
   /**
