@@ -154,11 +154,11 @@ export function getPlanSystemPrompt(): string {
 }
 
 // ============================================================================
-// Tool Selection Prompt (for gpt-5-mini during execution)
+// Tool Selection Prompt
 // ============================================================================
 
 /**
- * System prompt for tool selection - kept minimal and precise for gpt-5-mini.
+ * System prompt for tool selection.
  */
 export const TOOL_SELECTION_SYSTEM_PROMPT = `Select and call tools to complete the task. Use the provided tickers and parameters.
 

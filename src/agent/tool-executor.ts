@@ -6,16 +6,11 @@ import { getToolSelectionSystemPrompt, buildToolSelectionPrompt } from './prompt
 import type { Task, ToolCallStatus, Understanding } from './state.js';
 
 // ============================================================================
-// Constants
-// ============================================================================
-
-const SMALL_MODEL = 'gpt-5-mini';
-
-// ============================================================================
 // Tool Executor Options
 // ============================================================================
 
 export interface ToolExecutorOptions {
+  model: string;
   tools: StructuredToolInterface[];
   contextManager: ToolContextManager;
 }
@@ -34,22 +29,23 @@ export interface ToolExecutorCallbacks {
 
 /**
  * Handles tool selection and execution for tasks.
- * Uses a small, fast model (gpt-5-mini) for tool selection.
+ * Uses the user's selected model for tool selection.
  */
 export class ToolExecutor {
+  private readonly model: string;
   private readonly tools: StructuredToolInterface[];
   private readonly toolMap: Map<string, StructuredToolInterface>;
   private readonly contextManager: ToolContextManager;
 
   constructor(options: ToolExecutorOptions) {
+    this.model = options.model;
     this.tools = options.tools;
     this.toolMap = new Map(options.tools.map(t => [t.name, t]));
     this.contextManager = options.contextManager;
   }
 
   /**
-   * Selects tools for a task using gpt-5-mini with bound tools.
-   * Uses a precise, well-defined prompt optimized for small models.
+   * Selects tools for a task using the user's selected model with bound tools.
    */
   async selectTools(
     task: Task,
@@ -58,7 +54,7 @@ export class ToolExecutor {
     const tickers = understanding.entities
       .filter(e => e.type === 'ticker')
       .map(e => e.value);
-    
+
     const periods = understanding.entities
       .filter(e => e.type === 'period')
       .map(e => e.value);
@@ -67,7 +63,7 @@ export class ToolExecutor {
     const systemPrompt = getToolSelectionSystemPrompt(this.formatToolDescriptions());
 
     const response = await callLlm(prompt, {
-      model: SMALL_MODEL,
+      model: this.model,
       systemPrompt,
       tools: this.tools,
     });
