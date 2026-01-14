@@ -1,204 +1,206 @@
 import { AIMessage } from '@langchain/core/messages';
+import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlm } from '../model/llm.js';
 import { ContextManager } from './context.js';
 import { loadSkills, getToolsFromSkills, buildSkillsPromptSection, executeTool } from './skill-loader.js';
-import type { AgentConfig, Skill, AgentEvent } from './types.js';
+import { buildSystemPrompt, buildIterationPrompt } from './prompts.js';
+import { extractTextContent, hasToolCalls } from './utils/ai-message.js';
+import type { AgentConfig, Skill, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent } from './types.js';
+
+// ============================================================================
+// Constants
+// ============================================================================
 
 const DEFAULT_MAX_ITERATIONS = 10;
 
-/**
- * Get current date formatted for prompts
- */
-function getCurrentDate(): string {
-  const options: Intl.DateTimeFormatOptions = {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  };
-  return new Date().toLocaleDateString('en-US', options);
+// ============================================================================
+// Internal Types
+// ============================================================================
+
+interface ToolCallRecord {
+  tool: string;
+  args: Record<string, unknown>;
+  result: string;
+}
+
+interface ToolExecutionResult {
+  record: ToolCallRecord;
+  promptEntry: string;
+}
+
+interface ToolCallsExecutionResult {
+  records: ToolCallRecord[];
+  promptEntries: string[];
 }
 
 /**
- * Build the system prompt with skill information
+ * Agent - A simple ReAct-style agent that uses skills/tools to answer queries.
+ *
+ * Architecture:
+ * 1. Load skills and build system prompt (via factory method)
+ * 2. Agent loop: Call LLM -> Execute tools -> Repeat until done
+ * 3. Yield events for real-time UI updates
+ *
+ * Usage:
+ *   const agent = await Agent.create({ model: 'gpt-4o' });
+ *   for await (const event of agent.run(query)) { ... }
  */
-function buildSystemPrompt(skills: Skill[]): string {
-  const skillsSection = buildSkillsPromptSection(skills);
-  
-  return `You are Dexter, an AI research assistant specialized in financial analysis.
+export class Agent {
+  private readonly model: string;
+  private readonly maxIterations: number;
+  private readonly contextManager: ContextManager;
+  private readonly skills: Skill[];
+  private readonly tools: StructuredToolInterface[];
+  private readonly systemPrompt: string;
 
-Current date: ${getCurrentDate()}
-
-${skillsSection}
-
-## Guidelines
-
-1. Use the available tools to gather data needed to answer the user's question
-2. Be thorough but efficient - call multiple tools if needed
-3. When you have enough information, provide a clear, well-structured answer
-4. Include specific numbers and data points from your research
-5. If a tool fails, try an alternative approach or explain what data is unavailable
-
-## Response Format
-
-When providing your final answer:
-- Lead with the key finding
-- Include relevant data points
-- Be concise but comprehensive
-- Cite the sources of your data when applicable`;
-}
-
-/**
- * Extract text content from an AIMessage
- */
-function extractTextContent(message: AIMessage): string {
-  if (typeof message.content === 'string') {
-    return message.content;
+  private constructor(
+    config: AgentConfig,
+    skills: Skill[],
+    tools: StructuredToolInterface[],
+    systemPrompt: string
+  ) {
+    this.model = config.model ?? 'gpt-4o';
+    this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
+    this.contextManager = new ContextManager();
+    this.skills = skills;
+    this.tools = tools;
+    this.systemPrompt = systemPrompt;
   }
-  
-  if (Array.isArray(message.content)) {
-    return message.content
-      .filter(block => typeof block === 'object' && 'type' in block && block.type === 'text')
-      .map(block => (block as { text: string }).text)
-      .join('\n');
+
+  /**
+   * Create a new Agent instance with loaded skills and tools.
+   */
+  static async create(config: AgentConfig = {}): Promise<Agent> {
+    const skills = await loadSkills();
+    const tools = getToolsFromSkills(skills);
+    const skillsSection = buildSkillsPromptSection(skills);
+    const systemPrompt = buildSystemPrompt(skillsSection);
+    return new Agent(config, skills, tools, systemPrompt);
   }
-  
-  return '';
-}
 
-/**
- * Check if an AIMessage has tool calls
- */
-function hasToolCalls(message: AIMessage): boolean {
-  return Array.isArray(message.tool_calls) && message.tool_calls.length > 0;
-}
-
-export interface AgentResult {
-  /** Final answer text */
-  answer: string;
-  /** All tool calls made during execution */
-  toolCalls: Array<{ tool: string; args: Record<string, unknown>; result: string }>;
-  /** Number of iterations taken */
-  iterations: number;
-}
-
-/**
- * Run the agent and yield events for real-time UI updates
- */
-export async function* runAgent(
-  query: string,
-  config: AgentConfig
-): AsyncGenerator<AgentEvent> {
-  const context = new ContextManager();
-  const maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
-  
-  // Load skills and tools
-  const skills = await loadSkills();
-  const systemPrompt = buildSystemPrompt(skills);
-  const tools = getToolsFromSkills(skills);
-  
-  if (tools.length === 0) {
-    yield {
-      type: 'done',
-      answer: 'No tools available. Please check your skills configuration.',
-      toolCalls: [],
-      iterations: 0,
-    };
-    return;
-  }
-  
-  const allToolCalls: Array<{ tool: string; args: Record<string, unknown>; result: string }> = [];
-  let currentPrompt = query;
-  let iteration = 0;
-  
-  // Agent loop
-  while (iteration < maxIterations) {
-    iteration++;
-    
-    const response = await callLlm(currentPrompt, {
-      model: config.model,
-      systemPrompt,
-      tools,
-    }) as AIMessage;
-    
-    // Extract any thinking/text content
-    const thinkingText = extractTextContent(response);
-    if (thinkingText && hasToolCalls(response)) {
-      // Only emit thinking if there's also tool calls (otherwise it's the final answer)
-      yield { type: 'thinking', message: thinkingText };
-    }
-    
-    // Check if model wants to use tools
-    if (!hasToolCalls(response)) {
-      // No tool calls - this is the final answer
-      const answer = thinkingText || 'No response generated.';
-      
-      yield {
-        type: 'done',
-        answer,
-        toolCalls: allToolCalls,
-        iterations: iteration,
-      };
+  /**
+   * Run the agent and yield events for real-time UI updates
+   */
+  async *run(query: string): AsyncGenerator<AgentEvent> {
+    if (this.tools.length === 0) {
+      yield { type: 'done', answer: 'No tools available. Please check your skills configuration.', toolCalls: [], iterations: 0 };
       return;
     }
-    
-    // Execute tool calls
-    const toolResults: string[] = [];
-    
+
+    const allToolCalls: ToolCallRecord[] = [];
+    let currentPrompt = query;
+    let iteration = 0;
+
+    while (iteration < this.maxIterations) {
+      iteration++;
+
+      const response = await this.callModel(currentPrompt);
+      const thinkingText = extractTextContent(response);
+
+      // Emit thinking if there are also tool calls
+      if (thinkingText && hasToolCalls(response)) {
+        yield { type: 'thinking', message: thinkingText };
+      }
+
+      // No tool calls = final answer
+      if (!hasToolCalls(response)) {
+        yield { type: 'done', answer: thinkingText || 'No response generated.', toolCalls: allToolCalls, iterations: iteration };
+        return;
+      }
+
+      // Execute tools and collect results
+      const generator = this.executeToolCalls(response);
+      let result = await generator.next();
+
+      while (!result.done) {
+        yield result.value;
+        result = await generator.next();
+      }
+
+      allToolCalls.push(...result.value.records);
+      currentPrompt = buildIterationPrompt(query, result.value.promptEntries);
+    }
+
+    // Max iterations reached
+    const summary = this.contextManager.getSummary();
+    yield {
+      type: 'done',
+      answer: `Reached maximum iterations (${this.maxIterations}). Here's what I found:\n\n${summary}`,
+      toolCalls: allToolCalls,
+      iterations: iteration
+    };
+  }
+
+  /**
+   * Call the LLM with the current prompt
+   */
+  private async callModel(prompt: string): Promise<AIMessage> {
+    return await callLlm(prompt, {
+      model: this.model,
+      systemPrompt: this.systemPrompt,
+      tools: this.tools,
+    }) as AIMessage;
+  }
+
+  /**
+   * Execute all tool calls from an LLM response
+   */
+  private async *executeToolCalls(
+    response: AIMessage
+  ): AsyncGenerator<ToolStartEvent | ToolEndEvent | ToolErrorEvent, ToolCallsExecutionResult> {
+    const records: ToolCallRecord[] = [];
+    const promptEntries: string[] = [];
+
     for (const toolCall of response.tool_calls!) {
       const toolName = toolCall.name;
       const toolArgs = toolCall.args as Record<string, unknown>;
-      
-      // Emit tool start event
-      yield { type: 'tool_start', tool: toolName, args: toolArgs };
-      
-      const startTime = Date.now();
-      
-      try {
-        const result = await executeTool(toolName, toolArgs);
-        const duration = Date.now() - startTime;
-        
-        context.saveToolResult(toolName, toolArgs, result);
-        
-        allToolCalls.push({
-          tool: toolName,
-          args: toolArgs,
-          result,
-        });
-        
-        // Emit tool end event
-        yield { type: 'tool_end', tool: toolName, args: toolArgs, result, duration };
-        
-        // Truncate very long results for the prompt
-        const truncatedResult = result.length > 2000 
-          ? result.slice(0, 2000) + '\n... (truncated)'
-          : result;
-        
-        toolResults.push(`Tool: ${toolName}\nResult: ${truncatedResult}`);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        yield { type: 'tool_error', tool: toolName, error: errorMessage };
-        toolResults.push(`Tool: ${toolName}\nError: ${errorMessage}`);
+
+      const generator = this.executeToolCall(toolName, toolArgs);
+      let result = await generator.next();
+
+      while (!result.done) {
+        yield result.value;
+        result = await generator.next();
       }
+
+      records.push(result.value.record);
+      promptEntries.push(result.value.promptEntry);
     }
-    
-    // Build prompt for next iteration with tool results
-    currentPrompt = `Original query: ${query}
 
-Tool results from previous step:
-${toolResults.join('\n\n')}
-
-Based on these results, either:
-1. Call additional tools if more data is needed
-2. Provide your final answer to the user's query`;
+    return { records, promptEntries };
   }
-  
-  // Max iterations reached
-  const summary = context.getSummary();
-  yield {
-    type: 'done',
-    answer: `Reached maximum iterations (${maxIterations}). Here's what I found:\n\n${summary}`,
-    toolCalls: allToolCalls,
-    iterations: iteration,
-  };
+
+  /**
+   * Execute a single tool call and yield start/end/error events
+   */
+  private async *executeToolCall(
+    toolName: string,
+    toolArgs: Record<string, unknown>
+  ): AsyncGenerator<ToolStartEvent | ToolEndEvent | ToolErrorEvent, ToolExecutionResult> {
+    yield { type: 'tool_start', tool: toolName, args: toolArgs };
+
+    const startTime = Date.now();
+
+    try {
+      const result = await executeTool(toolName, toolArgs);
+      const duration = Date.now() - startTime;
+
+      this.contextManager.saveToolResult(toolName, toolArgs, result);
+
+      yield { type: 'tool_end', tool: toolName, args: toolArgs, result, duration };
+
+      return {
+        record: { tool: toolName, args: toolArgs, result },
+        promptEntry: `Tool: ${toolName}\nResult: ${result}`,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      yield { type: 'tool_error', tool: toolName, error: errorMessage };
+
+      return {
+        record: { tool: toolName, args: toolArgs, result: `Error: ${errorMessage}` },
+        promptEntry: `Tool: ${toolName}\nError: ${errorMessage}`,
+      };
+    }
+  }
 }

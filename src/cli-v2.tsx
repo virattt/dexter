@@ -9,7 +9,7 @@ import { config } from 'dotenv';
 
 import { Input } from './components/Input.js';
 import { Intro } from './components/Intro.js';
-import { runAgent } from './v2/agent.js';
+import { Agent } from './v2/agent.js';
 import { HistoryItemView, WorkingIndicator } from './v2/components/index.js';
 import type { HistoryItem, WorkingState } from './v2/components/index.js';
 import type { AgentConfig, AgentEvent, DoneEvent } from './v2/index.js';
@@ -148,7 +148,8 @@ function App() {
     setWorkingState({ status: 'thinking' });
     
     try {
-      const stream = runAgent(query, agentConfig);
+      const agent = await Agent.create(agentConfig);
+      const stream = agent.run(query);
       
       for await (const event of stream) {
         handleEvent(event);

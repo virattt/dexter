@@ -1,11 +1,13 @@
 // V2 Agent - Simple agentic loop with Skills pattern
 
-export { runAgent, runAgentStreaming, runAgentStream } from './agent.js';
+export { Agent } from './agent.js';
 export type { AgentResult } from './agent.js';
 
 export { loadSkills, getToolsFromSkills, buildSkillsPromptSection, executeTool } from './skill-loader.js';
 
 export { ContextManager } from './context.js';
+
+export { getCurrentDate, buildSystemPrompt, buildIterationPrompt, SYSTEM_PROMPT_TEMPLATE } from './prompts.js';
 
 export type { 
   Skill, 
