@@ -85,6 +85,7 @@ export class Agent {
     
     let iteration = 0;
 
+    // Main agent loop
     while (iteration < this.maxIterations) {
       iteration++;
 
@@ -106,11 +107,13 @@ export class Agent {
       const generator = this.executeToolCalls(response);
       let result = await generator.next();
 
+      // Execute tool calls and yield events
       while (!result.done) {
         yield result.value;
         result = await generator.next();
       }
 
+      // Collect tool calls and update prompt
       allToolCalls.push(...result.value.records);
       currentPrompt = buildIterationPrompt(query, result.value.promptEntries);
     }
