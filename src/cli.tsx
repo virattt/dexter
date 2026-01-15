@@ -30,7 +30,7 @@ export function CLI() {
     selectionState,
     provider,
     model,
-    messageHistoryRef,
+    inMemoryChatHistoryRef,
     startSelection,
     cancelSelection,
     handleProviderSelect,
@@ -49,7 +49,7 @@ export function CLI() {
     runQuery,
     cancelExecution,
     setError,
-  } = useAgentRunner({ model, modelProvider: provider, maxIterations: 10 }, messageHistoryRef);
+  } = useAgentRunner({ model, modelProvider: provider, maxIterations: 10 }, inMemoryChatHistoryRef);
   
   // Input history for up/down arrow navigation
   const {
@@ -57,6 +57,7 @@ export function CLI() {
     navigateUp,
     navigateDown,
     saveMessage,
+    updateAgentResponse,
     resetNavigation,
   } = useInputHistory();
   
@@ -87,12 +88,16 @@ export function CLI() {
     // Ignore if not idle (processing or in selection flow)
     if (isInSelectionFlow() || workingState.status !== 'idle') return;
     
-    // Save message to history and reset navigation
+    // Save user message to history immediately and reset navigation
     await saveMessage(query);
     resetNavigation();
     
-    await runQuery(query);
-  }, [exit, startSelection, isInSelectionFlow, workingState.status, runQuery, saveMessage, resetNavigation]);
+    // Run query and save agent response when complete
+    const result = await runQuery(query);
+    if (result?.answer) {
+      await updateAgentResponse(result.answer);
+    }
+  }, [exit, startSelection, isInSelectionFlow, workingState.status, runQuery, saveMessage, updateAgentResponse, resetNavigation]);
   
   // Handle keyboard shortcuts
   useInput((input, key) => {

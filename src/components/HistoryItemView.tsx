@@ -41,8 +41,11 @@ interface HistoryItemViewProps {
 }
 
 export function HistoryItemView({ item }: HistoryItemViewProps) {
+  // Add spacing after completed items, but not during processing
+  const isComplete = item.status === 'complete' || item.status === 'error' || item.status === 'interrupted';
+  
   return (
-    <Box flexDirection="column" marginBottom={1}>
+    <Box flexDirection="column" marginBottom={isComplete ? 1 : 0}>
       {/* Query */}
       <Box>
         <Text color={colors.muted} backgroundColor={colors.queryBg}>{'❯ '}</Text>

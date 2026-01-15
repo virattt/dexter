@@ -50,7 +50,7 @@ export const AnswerBox = React.memo(function AnswerBox({ stream, text, onStart, 
   }, [stream, text]);
 
   return (
-    <Box flexDirection="column" marginTop={1}>
+    <Box flexDirection="column">
       <Box>
         <Text color={colors.muted}>⏺ </Text>
         <Text>

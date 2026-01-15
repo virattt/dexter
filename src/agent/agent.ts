@@ -3,12 +3,12 @@ import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlm, getFastModel } from '../model/llm.js';
 import { ContextManager } from './context.js';
 import { Scratchpad } from './scratchpad.js';
-import { loadSkills, getToolsFromSkills, buildSkillsPromptSection, executeTool } from './skill-loader.js';
-import { buildSystemPrompt, buildIterationPrompt, getFinalAnswerSystemPrompt, buildFinalAnswerPrompt, buildToolSummaryPrompt } from './prompts.js';
+import { loadSkills, getToolsFromSkills, buildSkillsPromptSection, executeTool } from '../agent/skill-loader.js';
+import { buildSystemPrompt, buildIterationPrompt, getFinalAnswerSystemPrompt, buildFinalAnswerPrompt, buildToolSummaryPrompt } from '../agent/prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { streamLlmResponse } from '../utils/llm-stream.js';
-import { MessageHistory } from '../utils/message-history.js';
-import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent, ToolSummary, AnswerStartEvent, AnswerChunkEvent } from './types.js';
+import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
+import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent, ToolSummary, AnswerStartEvent, AnswerChunkEvent } from '../agent/types.js';
 
 
 const DEFAULT_MAX_ITERATIONS = 10;
@@ -81,7 +81,7 @@ export class Agent {
    * Run the agent and yield events for real-time UI updates.
    * Uses context compaction: summaries during loop, full data for final answer.
    */
-  async *run(query: string, messageHistory?: MessageHistory): AsyncGenerator<AgentEvent> {
+  async *run(query: string, inMemoryHistory?: InMemoryChatHistory): AsyncGenerator<AgentEvent> {
     if (this.tools.length === 0) {
       yield { type: 'done', answer: 'No tools available. Please check your skills configuration.', toolCalls: [], iterations: 0 };
       return;
@@ -94,7 +94,7 @@ export class Agent {
     const scratchpad = new Scratchpad(query);
     
     // Build initial prompt with conversation history context
-    let currentPrompt = this.buildInitialPrompt(query, messageHistory);
+    let currentPrompt = this.buildInitialPrompt(query, inMemoryHistory);
     
     let iteration = 0;
 
@@ -297,13 +297,13 @@ export class Agent {
    */
   private buildInitialPrompt(
     query: string,
-    messageHistory?: MessageHistory
+    inMemoryChatHistory?: InMemoryChatHistory
   ): string {
-    if (!messageHistory?.hasMessages()) {
+    if (!inMemoryChatHistory?.hasMessages()) {
       return query;
     }
 
-    const userMessages = messageHistory.getUserMessages();
+    const userMessages = inMemoryChatHistory.getUserMessages();
     if (userMessages.length === 0) {
       return query;
     }

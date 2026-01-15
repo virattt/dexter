@@ -1,12 +1,16 @@
 import { useState, useCallback, useRef } from 'react';
 import { Agent } from '../agent/agent.js';
-import { MessageHistory } from '../utils/message-history.js';
+import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import type { HistoryItem, WorkingState } from '../components/index.js';
 import type { AgentConfig, AgentEvent, DoneEvent } from '../agent/index.js';
 
 // ============================================================================
 // Types
 // ============================================================================
+
+export interface RunQueryResult {
+  answer: string;
+}
 
 export interface UseAgentRunnerResult {
   // State
@@ -16,7 +20,7 @@ export interface UseAgentRunnerResult {
   isProcessing: boolean;
   
   // Actions
-  runQuery: (query: string) => Promise<void>;
+  runQuery: (query: string) => Promise<RunQueryResult | undefined>;
   cancelExecution: () => void;
   setError: (error: string | null) => void;
 }
@@ -27,7 +31,7 @@ export interface UseAgentRunnerResult {
 
 export function useAgentRunner(
   agentConfig: AgentConfig,
-  messageHistoryRef: React.RefObject<MessageHistory>
+  inMemoryChatHistoryRef: React.RefObject<InMemoryChatHistory>
 ): UseAgentRunnerResult {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [workingState, setWorkingState] = useState<WorkingState>({ status: 'idle' });
@@ -115,7 +119,7 @@ export function useAgentRunner(
         updateLastHistoryItem(item => {
           // Add to message history for multi-turn context
           if (item.query && doneEvent.answer) {
-            messageHistoryRef.current?.addMessage(item.query, doneEvent.answer).catch(() => {
+            inMemoryChatHistoryRef.current?.addMessage(item.query, doneEvent.answer).catch(() => {
               // Silently ignore errors in adding to history
             });
           }
@@ -129,13 +133,16 @@ export function useAgentRunner(
         break;
       }
     }
-  }, [updateLastHistoryItem, messageHistoryRef]);
+  }, [updateLastHistoryItem, inMemoryChatHistoryRef]);
   
   // Run a query through the agent
-  const runQuery = useCallback(async (query: string) => {
+  const runQuery = useCallback(async (query: string): Promise<RunQueryResult | undefined> => {
     // Create abort controller for this execution
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
+    
+    // Track the final answer to return
+    let finalAnswer: string | undefined;
     
     // Add to history immediately
     const itemId = Date.now().toString();
@@ -156,10 +163,19 @@ export function useAgentRunner(
         ...agentConfig,
         signal: abortController.signal,
       });
-      const stream = agent.run(query, messageHistoryRef.current!);
+      const stream = agent.run(query, inMemoryChatHistoryRef.current!);
       
       for await (const event of stream) {
+        // Capture the final answer from the done event
+        if (event.type === 'done') {
+          finalAnswer = (event as DoneEvent).answer;
+        }
         handleEvent(event);
+      }
+      
+      // Return the answer if we got one
+      if (finalAnswer) {
+        return { answer: finalAnswer };
       }
     } catch (e) {
       // Handle abort gracefully - mark as interrupted, not error
@@ -170,7 +186,7 @@ export function useAgentRunner(
           return [...prev.slice(0, -1), { ...last, status: 'interrupted' }];
         });
         setWorkingState({ status: 'idle' });
-        return;
+        return undefined;
       }
       
       const errorMsg = e instanceof Error ? e.message : String(e);
@@ -182,10 +198,11 @@ export function useAgentRunner(
         return [...prev.slice(0, -1), { ...last, status: 'error' }];
       });
       setWorkingState({ status: 'idle' });
+      return undefined;
     } finally {
       abortControllerRef.current = null;
     }
-  }, [agentConfig, messageHistoryRef, handleEvent]);
+  }, [agentConfig, inMemoryChatHistoryRef, handleEvent]);
   
   // Cancel the current execution
   const cancelExecution = useCallback(() => {

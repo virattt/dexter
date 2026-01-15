@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { UserMessageStore } from '../utils/user-message-store.js';
+import { LongTermChatHistory } from '../utils/long-term-chat-history.js';
 
 export interface UseInputHistoryResult {
   /** Current history value to display (null = user is typing fresh input) */
@@ -8,8 +8,10 @@ export interface UseInputHistoryResult {
   navigateUp: () => void;
   /** Navigate to newer message (down arrow) */
   navigateDown: () => void;
-  /** Save a message to history */
+  /** Save a user message to history */
   saveMessage: (message: string) => Promise<void>;
+  /** Update the agent response for the most recent conversation */
+  updateAgentResponse: (response: string) => Promise<void>;
   /** Reset navigation back to typing mode */
   resetNavigation: () => void;
 }
@@ -18,13 +20,13 @@ export interface UseInputHistoryResult {
  * Hook for managing input history navigation.
  * Allows users to scroll through previous messages using up/down arrows.
  * 
- * Navigation uses an index from the end of the messages array:
+ * Uses stack ordering (newest first) for O(1) access:
  * - historyIndex = -1: User is typing (not navigating history)
  * - historyIndex = 0: Most recent message
  * - historyIndex = N: N messages back from most recent
  */
 export function useInputHistory(): UseInputHistoryResult {
-  const storeRef = useRef<UserMessageStore>(new UserMessageStore());
+  const storeRef = useRef<LongTermChatHistory>(new LongTermChatHistory());
   const [messages, setMessages] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
 
@@ -71,10 +73,15 @@ export function useInputHistory(): UseInputHistoryResult {
     });
   }, []);
 
-  // Save a new message to history
+  // Save a new user message to history
   const saveMessage = useCallback(async (message: string) => {
-    await storeRef.current.append(message);
+    await storeRef.current.addUserMessage(message);
     setMessages(storeRef.current.getMessageStrings());
+  }, []);
+
+  // Update agent response for most recent conversation
+  const updateAgentResponse = useCallback(async (response: string) => {
+    await storeRef.current.updateAgentResponse(response);
   }, []);
 
   // Reset navigation to typing mode
@@ -83,16 +90,17 @@ export function useInputHistory(): UseInputHistoryResult {
   }, []);
 
   // Compute the current history value based on index
-  // Messages are stored oldest-to-newest, so we read from the end
+  // Stack ordering: messages[0] is most recent, direct access
   const historyValue = historyIndex === -1 
     ? null 
-    : messages[messages.length - 1 - historyIndex] ?? null;
+    : messages[historyIndex] ?? null;
 
   return {
     historyValue,
     navigateUp,
     navigateDown,
     saveMessage,
+    updateAgentResponse,
     resetNavigation,
   };
 }

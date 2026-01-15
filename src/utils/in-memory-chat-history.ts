@@ -35,7 +35,7 @@ Return only message IDs that contain information directly useful for answering t
  * Manages in-memory conversation history for multi-turn conversations.
  * Stores user queries, final answers, and LLM-generated summaries.
  */
-export class MessageHistory {
+export class InMemoryChatHistory {
   private messages: Message[] = [];
   private model: string;
   private relevantMessagesByQuery: Map<string, Message[]> = new Map();
