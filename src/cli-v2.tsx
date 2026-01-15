@@ -17,6 +17,7 @@ import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js
 
 import { useModelSelection } from './v2/hooks/useModelSelection.js';
 import { useAgentRunner } from './v2/hooks/useAgentRunner.js';
+import { useInputHistory } from './v2/hooks/useInputHistory.js';
 
 // Load environment variables
 config({ quiet: true });
@@ -50,6 +51,24 @@ function App() {
     setError,
   } = useAgentRunner({ model, modelProvider: provider, maxIterations: 10 }, messageHistoryRef);
   
+  // Input history for up/down arrow navigation
+  const {
+    historyValue,
+    navigateUp,
+    navigateDown,
+    saveMessage,
+    resetNavigation,
+  } = useInputHistory();
+  
+  // Handle history navigation from Input component
+  const handleHistoryNavigate = useCallback((direction: 'up' | 'down') => {
+    if (direction === 'up') {
+      navigateUp();
+    } else {
+      navigateDown();
+    }
+  }, [navigateUp, navigateDown]);
+  
   // Handle user input submission
   const handleSubmit = useCallback(async (query: string) => {
     // Handle exit
@@ -68,8 +87,12 @@ function App() {
     // Ignore if not idle (processing or in selection flow)
     if (isInSelectionFlow() || workingState.status !== 'idle') return;
     
+    // Save message to history and reset navigation
+    await saveMessage(query);
+    resetNavigation();
+    
     await runQuery(query);
-  }, [exit, startSelection, isInSelectionFlow, workingState.status, runQuery]);
+  }, [exit, startSelection, isInSelectionFlow, workingState.status, runQuery, saveMessage, resetNavigation]);
   
   // Handle keyboard shortcuts
   useInput((input, key) => {
@@ -168,7 +191,11 @@ function App() {
       
       {/* Input */}
       <Box marginTop={1}>
-        <Input onSubmit={handleSubmit} />
+        <Input 
+          onSubmit={handleSubmit} 
+          historyValue={historyValue}
+          onHistoryNavigate={handleHistoryNavigate}
+        />
       </Box>
       
       {/* Debug Panel - set show={false} to hide */}
