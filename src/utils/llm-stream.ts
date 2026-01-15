@@ -1,5 +1,5 @@
 import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { getChatModel } from '../../model/llm.js';
+import { getChatModel } from '../model/llm.js';
 
 /**
  * Extract text content from LLM streaming chunk content.

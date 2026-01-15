@@ -1,9 +1,9 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { colors } from '../../theme.js';
+import { colors } from '../theme.js';
 import { EventListView } from './AgentEventView.js';
 import type { DisplayEvent } from './AgentEventView.js';
-import { AnswerBox } from '../../components/AnswerBox.js';
+import { AnswerBox } from './AnswerBox.js';
 
 /**
  * Format duration in milliseconds to human-readable string

@@ -1,8 +1,8 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import Spinner from 'ink-spinner';
-import { colors } from '../../theme.js';
-import type { AgentEvent } from '../types.js';
+import { colors } from '../theme.js';
+import type { AgentEvent } from '../agent/types.js';
 
 /**
  * Format tool name from snake_case to Title Case

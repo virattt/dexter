@@ -1,72 +1,24 @@
-// ============================================================================
-// Agent - Planning with just-in-time tool selection
-// ============================================================================
+// Agent - Simple agentic loop with Skills pattern
 
-// Main orchestrator
-export { Agent } from './orchestrator.js';
-export type { AgentOptions, AgentCallbacks } from './orchestrator.js';
+export { Agent } from './agent.js';
 
-// State types
-export type {
-  Phase,
-  TaskStatus,
-  TaskType,
-  EntityType,
-  Entity,
-  UnderstandInput,
-  Understanding,
-  ToolCall,
-  ToolCallStatus,
-  PlanInput,
-  Task,
-  Plan,
-  ExecuteInput,
-  TaskResult,
-  ToolSummary,
-  AgentState,
-} from './state.js';
+export { loadSkills, getToolsFromSkills, buildSkillsPromptSection, executeTool } from './skill-loader.js';
 
-export { createInitialState } from './state.js';
+export { ContextManager } from './context.js';
 
-// Schemas
-export {
-  EntitySchema,
-  UnderstandingSchema,
-  PlanTaskSchema,
-  PlanSchema,
-  SelectedContextsSchema,
-} from './schemas.js';
+export { getCurrentDate, buildSystemPrompt, buildIterationPrompt, SYSTEM_PROMPT_TEMPLATE, DEFAULT_SYSTEM_PROMPT } from './prompts.js';
 
-export type {
-  UnderstandingOutput,
-  PlanOutput,
-  SelectedContextsOutput,
-} from './schemas.js';
-
-// Phases
-export {
-  UnderstandPhase,
-  PlanPhase,
-  ExecutePhase,
-} from './phases/index.js';
-
-export type {
-  UnderstandPhaseOptions,
-  PlanPhaseOptions,
-  ExecutePhaseOptions,
-} from './phases/index.js';
-
-// Prompts
-export {
-  getCurrentDate,
-  getUnderstandSystemPrompt,
-  getPlanSystemPrompt,
-  getToolSelectionSystemPrompt,
-  getExecuteSystemPrompt,
-  getFinalAnswerSystemPrompt,
-  buildUnderstandUserPrompt,
-  buildPlanUserPrompt,
-  buildToolSelectionPrompt,
-  buildExecuteUserPrompt,
-  buildFinalAnswerUserPrompt,
-} from './prompts.js';
+export type { 
+  Skill, 
+  ToolCallResult, 
+  AgentConfig, 
+  Message,
+  AgentEvent,
+  ThinkingEvent,
+  ToolStartEvent,
+  ToolEndEvent,
+  ToolErrorEvent,
+  AnswerStartEvent,
+  AnswerChunkEvent,
+  DoneEvent,
+} from './types.js';

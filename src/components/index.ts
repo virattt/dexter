@@ -3,10 +3,21 @@ export { Input } from './Input.js';
 export { AnswerBox, UserQuery } from './AnswerBox.js';
 export { ProviderSelector, ModelSelector, PROVIDERS, getModelsForProvider, getDefaultModelForProvider, getProviderIdForModel } from './ModelSelector.js';
 export { ApiKeyConfirm, ApiKeyInput } from './ApiKeyPrompt.js';
-export { QueueDisplay } from './QueueDisplay.js';
-export { StatusMessage } from './StatusMessage.js';
-export { AgentProgressView, CurrentTurnView } from './AgentProgressView.js';
-export { PhaseStatusBar, phaseLabels } from './PhaseStatusBar.js';
-export { TaskListView } from './TaskListView.js';
 export { DebugPanel } from './DebugPanel.js';
-export type { AgentProgressState } from './AgentProgressView.js';
+
+// V2 components
+export { 
+  AgentEventView, 
+  EventListView, 
+  ThinkingView, 
+  ToolStartView, 
+  ToolEndView, 
+  ToolErrorView 
+} from './AgentEventView.js';
+export type { DisplayEvent } from './AgentEventView.js';
+
+export { WorkingIndicator } from './WorkingIndicator.js';
+export type { WorkingState } from './WorkingIndicator.js';
+
+export { HistoryItemView } from './HistoryItemView.js';
+export type { HistoryItem, HistoryItemStatus } from './HistoryItemView.js';

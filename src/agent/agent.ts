@@ -5,11 +5,10 @@ import { ContextManager } from './context.js';
 import { Scratchpad } from './scratchpad.js';
 import { loadSkills, getToolsFromSkills, buildSkillsPromptSection, executeTool } from './skill-loader.js';
 import { buildSystemPrompt, buildIterationPrompt, getFinalAnswerSystemPrompt, buildFinalAnswerPrompt, buildToolSummaryPrompt } from './prompts.js';
-import { extractTextContent, hasToolCalls } from './utils/ai-message.js';
-import { streamLlmResponse } from './utils/llm.js';
+import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
+import { streamLlmResponse } from '../utils/llm-stream.js';
 import { MessageHistory } from '../utils/message-history.js';
 import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent, ToolSummary, AnswerStartEvent, AnswerChunkEvent } from './types.js';
-import { logger } from '../utils/logger.js';
 
 
 const DEFAULT_MAX_ITERATIONS = 10;
@@ -330,7 +329,7 @@ export class Agent {
     const prompt = buildFinalAnswerPrompt(query, fullContext);
     const systemPrompt = getFinalAnswerSystemPrompt();
 
-    // Stream the final answer using V2's provider-agnostic streaming
+    // Stream the final answer using provider-agnostic streaming
     const stream = streamLlmResponse(prompt, {
       model: this.model,
       systemPrompt,

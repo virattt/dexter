@@ -1,6 +1,5 @@
 import { createHash } from 'crypto';
 import { callLlm, DEFAULT_MODEL } from '../model/llm.js';
-import { MESSAGE_SUMMARY_SYSTEM_PROMPT, MESSAGE_SELECTION_SYSTEM_PROMPT } from '../agent/prompts.js';
 import { z } from 'zod';
 
 /**
@@ -21,9 +20,20 @@ export const SelectedMessagesSchema = z.object({
 });
 
 /**
+ * System prompt for generating message summaries
+ */
+const MESSAGE_SUMMARY_SYSTEM_PROMPT = `You are a concise summarizer. Generate brief summaries of conversation answers.
+Keep summaries to 1-2 sentences that capture the key information.`;
+
+/**
+ * System prompt for selecting relevant messages
+ */
+const MESSAGE_SELECTION_SYSTEM_PROMPT = `You are a relevance evaluator. Select which previous conversation messages are relevant to the current query.
+Return only message IDs that contain information directly useful for answering the current query.`;
+
+/**
  * Manages in-memory conversation history for multi-turn conversations.
  * Stores user queries, final answers, and LLM-generated summaries.
- * Follows a similar pattern to ToolContextManager: save with summary, select relevant, load full content.
  */
 export class MessageHistory {
   private messages: Message[] = [];

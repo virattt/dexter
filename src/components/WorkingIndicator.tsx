@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import Spinner from 'ink-spinner';
-import { colors } from '../../theme.js';
+import { colors } from '../theme.js';
 
 export type WorkingState = 
   | { status: 'idle' }

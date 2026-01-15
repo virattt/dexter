@@ -7,8 +7,10 @@ export {
   saveApiKeyToEnv,
   saveApiKeyForProvider,
 } from './env.js';
-export { ToolContextManager } from './context.js';
 export { MessageHistory } from './message-history.js';
 export { logger } from './logger.js';
 export type { LogEntry, LogLevel } from './logger.js';
-
+export { extractTextContent, hasToolCalls } from './ai-message.js';
+export { extractChunkText, streamLlmResponse } from './llm-stream.js';
+export { UserMessageStore } from './user-message-store.js';
+export type { UserMessage } from './user-message-store.js';

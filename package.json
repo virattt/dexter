@@ -9,9 +9,7 @@
   },
   "scripts": {
     "start": "bun run src/index.tsx",
-    "start:v2": "bun run src/cli-v2.tsx",
     "dev": "bun --watch run src/index.tsx",
-    "dev:v2": "bun --watch run src/cli-v2.tsx",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "test:watch": "bun test --watch"
