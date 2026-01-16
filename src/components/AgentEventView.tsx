@@ -16,11 +16,39 @@ function formatToolName(name: string): string {
 }
 
 /**
- * Format tool arguments for display
+ * Truncate string at word boundary (before exceeding maxLength)
+ */
+function truncateAtWord(str: string, maxLength: number): string {
+  if (str.length <= maxLength) return str;
+  
+  // Find last space before maxLength
+  const lastSpace = str.lastIndexOf(' ', maxLength);
+  
+  // If there's a space in a reasonable position (at least 50% of maxLength), use it
+  if (lastSpace > maxLength * 0.5) {
+    return str.slice(0, lastSpace) + '...';
+  }
+  
+  // No good word boundary - truncate at maxLength
+  return str.slice(0, maxLength) + '...';
+}
+
+/**
+ * Format tool arguments for display - truncate long values at word boundaries
  */
 function formatArgs(args: Record<string, unknown>): string {
+  // For tools with a single 'query' arg, show it in a clean format
+  if (Object.keys(args).length === 1 && 'query' in args) {
+    const query = String(args.query);
+    return `"${truncateAtWord(query, 40)}"`;
+  }
+  
+  // For other tools, format key=value pairs with truncation
   return Object.entries(args)
-    .map(([key, value]) => `${key}=${value}`)
+    .map(([key, value]) => {
+      const strValue = String(value);
+      return `${key}=${truncateAtWord(strValue, 40)}`;
+    })
     .join(', ');
 }
 
@@ -105,8 +133,18 @@ export function ToolEndView({ tool, args, result, duration }: ToolEndViewProps) 
       if (Array.isArray(parsed.data)) {
         summary = `Received ${parsed.data.length} items`;
       } else if (typeof parsed.data === 'object') {
-        const keys = Object.keys(parsed.data);
-        summary = `Received ${keys.length} fields`;
+        const keys = Object.keys(parsed.data).filter(k => !k.startsWith('_')); // Exclude _errors
+        
+        // Tool-specific summaries
+        if (tool === 'financial_search') {
+          summary = keys.length === 1 
+            ? `Called 1 data source` 
+            : `Called ${keys.length} data sources`;
+        } else if (tool === 'web_search') {
+          summary = `Did 1 search`;
+        } else {
+          summary = `Received ${keys.length} fields`;
+        }
       }
     }
   } catch {

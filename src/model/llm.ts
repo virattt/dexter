@@ -7,7 +7,7 @@ import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { Runnable } from '@langchain/core/runnables';
 import { z } from 'zod';
-import { DEFAULT_SYSTEM_PROMPT } from '../agent/prompts.js';
+import { DEFAULT_SYSTEM_PROMPT } from '@/agent/prompts';
 
 export const DEFAULT_PROVIDER = 'openai';
 export const DEFAULT_MODEL = 'gpt-5.2';
@@ -116,7 +116,7 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
   let runnable: Runnable<any, any> = llm;
 
   if (outputSchema) {
-    runnable = llm.withStructuredOutput(outputSchema);
+    runnable = llm.withStructuredOutput(outputSchema, { strict: false });
   } else if (tools && tools.length > 0 && llm.bindTools) {
     runnable = llm.bindTools(tools);
   }

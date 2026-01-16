@@ -1,17 +1,3 @@
-import { StructuredToolInterface } from '@langchain/core/tools';
-
-/**
- * Parsed skill metadata from SKILL.md frontmatter
- */
-export interface Skill {
-  name: string;
-  description: string;
-  toolNames: string[];
-  tools: StructuredToolInterface[];
-  /** Raw markdown content (instructions) from SKILL.md body */
-  instructions: string;
-}
-
 /**
  * Result of a tool execution for conversation history
  */

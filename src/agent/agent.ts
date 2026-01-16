@@ -3,7 +3,7 @@ import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlm, getFastModel } from '../model/llm.js';
 import { ContextManager } from './context.js';
 import { Scratchpad } from './scratchpad.js';
-import { loadSkills, getToolsFromSkills, buildSkillsPromptSection, executeTool } from '../agent/skill-loader.js';
+import { createFinancialSearch, tavilySearch } from '../tools/index.js';
 import { buildSystemPrompt, buildIterationPrompt, getFinalAnswerSystemPrompt, buildFinalAnswerPrompt, buildToolSummaryPrompt } from '../agent/prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { streamLlmResponse } from '../utils/llm-stream.js';
@@ -32,15 +32,15 @@ interface ToolCallsExecutionResult {
 }
 
 /**
- * Agent - A simple ReAct-style agent that uses skills/tools to answer queries.
+ * Agent - A simple ReAct-style agent that uses tools to answer queries.
  *
  * Architecture:
- * 1. Load skills and build system prompt (via factory method)
+ * 1. Initialize with financial_search and web_search tools
  * 2. Agent loop: Call LLM -> Execute tools -> Repeat until done
  * 3. Yield events for real-time UI updates
  *
  * Usage:
- *   const agent = await Agent.create({ model: 'gpt-5.2' });
+ *   const agent = Agent.create({ model: 'gpt-5.2' });
  *   for await (const event of agent.run(query)) { ... }
  */
 export class Agent {
@@ -49,6 +49,7 @@ export class Agent {
   private readonly maxIterations: number;
   private readonly contextManager: ContextManager;
   private readonly tools: StructuredToolInterface[];
+  private readonly toolMap: Map<string, StructuredToolInterface>;
   private readonly systemPrompt: string;
   private readonly signal?: AbortSignal;
 
@@ -62,18 +63,21 @@ export class Agent {
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
     this.contextManager = new ContextManager();
     this.tools = tools;
+    this.toolMap = new Map(tools.map(t => [t.name, t]));
     this.systemPrompt = systemPrompt;
     this.signal = config.signal;
   }
 
   /**
-   * Create a new Agent instance with loaded skills and tools.
+   * Create a new Agent instance with tools.
    */
-  static async create(config: AgentConfig = {}): Promise<Agent> {
-    const skills = await loadSkills();
-    const tools = getToolsFromSkills(skills);
-    const skillsSection = buildSkillsPromptSection(skills);
-    const systemPrompt = buildSystemPrompt(skillsSection);
+  static create(config: AgentConfig = {}): Agent {
+    const model = config.model ?? 'gpt-5.2';
+    const tools: StructuredToolInterface[] = [
+      createFinancialSearch(model),
+      ...(process.env.TAVILY_API_KEY ? [tavilySearch] : []),
+    ];
+    const systemPrompt = buildSystemPrompt();
     return new Agent(config, tools, systemPrompt);
   }
 
@@ -83,7 +87,7 @@ export class Agent {
    */
   async *run(query: string, inMemoryHistory?: InMemoryChatHistory): AsyncGenerator<AgentEvent> {
     if (this.tools.length === 0) {
-      yield { type: 'done', answer: 'No tools available. Please check your skills configuration.', toolCalls: [], iterations: 0 };
+      yield { type: 'done', answer: 'No tools available. Please check your API key configuration.', toolCalls: [], iterations: 0 };
       return;
     }
 
@@ -255,7 +259,13 @@ export class Agent {
     const startTime = Date.now();
 
     try {
-      const result = await executeTool(toolName, toolArgs, this.signal);
+      // Invoke tool directly from toolMap
+      const tool = this.toolMap.get(toolName);
+      if (!tool) {
+        throw new Error(`Tool '${toolName}' not found`);
+      }
+      const rawResult = await tool.invoke(toolArgs, this.signal ? { signal: this.signal } : undefined);
+      const result = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
       const duration = Date.now() - startTime;
 
       // Save full result to disk and get lightweight summary
@@ -269,7 +279,6 @@ export class Agent {
       return {
         record: { tool: toolName, args: toolArgs, result },
         summary,
-        // Use LLM-generated summary for better context understanding
         promptEntry: llmSummary,
       };
     } catch (error) {
