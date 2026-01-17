@@ -27,7 +27,12 @@ const PROVIDERS: Provider[] = [
   {
     displayName: 'Ollama',
     providerId: 'ollama',
-    models: [], // Populated dynamically from local Ollama API
+    models: [],
+  },
+  {
+    displayName: 'OpenRouter',
+    providerId: 'openrouter',
+    models: ['openai/gpt-5.2', 'anthropic/claude-opus-4.5', 'google/gemini-3-pro-preview'],
   },
 ];
 
@@ -42,9 +47,11 @@ export function getDefaultModelForProvider(providerId: string): string | undefin
 }
 
 export function getProviderIdForModel(modelId: string): string | undefined {
-  // For ollama models, they're prefixed with "ollama:"
   if (modelId.startsWith('ollama:')) {
     return 'ollama';
+  }
+  if (modelId.includes('/')) {
+    return 'openrouter';
   }
   for (const provider of PROVIDERS) {
     if (provider.models.includes(modelId)) {
