@@ -25,6 +25,11 @@ const PROVIDERS: Provider[] = [
     models: ['gemini-3-flash-preview', 'gemini-3-pro-preview'],
   },
   {
+    displayName: 'xAI',
+    providerId: 'xai',
+    models: ['grok-4-0709', 'grok-4-1-fast-reasoning'],
+  },
+  {
     displayName: 'Ollama',
     providerId: 'ollama',
     models: [], // Populated dynamically from local Ollama API
@@ -45,6 +50,10 @@ export function getProviderIdForModel(modelId: string): string | undefined {
   // For ollama models, they're prefixed with "ollama:"
   if (modelId.startsWith('ollama:')) {
     return 'ollama';
+  }
+  // For xAI models, they're prefixed with "grok-"
+  if (modelId.startsWith('grok-')) {
+    return 'xai';
   }
   for (const provider of PROVIDERS) {
     if (provider.models.includes(modelId)) {

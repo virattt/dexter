@@ -17,6 +17,7 @@ const FAST_MODELS: Record<string, string> = {
   openai: 'gpt-4.1',
   anthropic: 'claude-haiku-4-5',
   google: 'gemini-3-flash-preview',
+  xai: 'grok-4-1-fast-reasoning',
 };
 
 /**
@@ -67,6 +68,15 @@ const MODEL_PROVIDERS: Record<string, ModelFactory> = {
       model: name,
       ...opts,
       apiKey: getApiKey('GOOGLE_API_KEY', 'Google'),
+    }),
+  'grok-': (name, opts) =>
+    new ChatOpenAI({
+      model: name,
+      ...opts,
+      apiKey: getApiKey('XAI_API_KEY', 'xAI'),
+      configuration: {
+        baseURL: 'https://api.x.ai/v1',
+      },
     }),
   'ollama:': (name, opts) =>
     new ChatOllama({

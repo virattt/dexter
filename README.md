@@ -25,6 +25,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 
 - [Bun](https://bun.com) runtime (v1.0 or higher)
 - OpenAI API key (get [here](https://platform.openai.com/api-keys))
+- xAI API key (get [here](https://console.x.ai)) - optional, for Grok models
 - Financial Datasets API key (get [here](https://financialdatasets.ai))
 - Tavily API key (get [here](https://tavily.com)) - optional, for web search
 
@@ -69,6 +70,7 @@ cp env.example .env
 # OPENAI_API_KEY=your-openai-api-key
 # ANTHROPIC_API_KEY=your-anthropic-api-key
 # GOOGLE_API_KEY=your-google-api-key
+# XAI_API_KEY=your-xai-api-key
 
 # (Optional) If using Ollama locally
 # OLLAMA_BASE_URL=http://127.0.0.1:11434
@@ -117,7 +119,7 @@ Dexter uses a multi-agent architecture with specialized components:
 
 - **Runtime**: [Bun](https://bun.sh)
 - **UI Framework**: [React](https://react.dev) + [Ink](https://github.com/vadimdemedes/ink) (terminal UI)
-- **LLM Integration**: [LangChain.js](https://js.langchain.com) with multi-provider support (OpenAI, Anthropic, Google)
+- **LLM Integration**: [LangChain.js](https://js.langchain.com) with multi-provider support (OpenAI, Anthropic, Google, xAI, Ollama)
 - **Schema Validation**: [Zod](https://zod.dev)
 - **Language**: TypeScript
 
@@ -128,6 +130,8 @@ Type `/model` in the CLI to switch between:
 - GPT 4.1 (OpenAI)
 - Claude Sonnet 4.5 (Anthropic)
 - Gemini 3 (Google)
+- Grok 4 (xAI)
+- Local models (Ollama)
 
 ## How to Contribute
 
