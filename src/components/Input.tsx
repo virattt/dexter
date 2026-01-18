@@ -16,6 +16,14 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
   // Input manages its own state - typing won't cause parent re-renders
   const [value, setValue] = useState('');
 
+  // Debug: Log when component mounts
+  useEffect(() => {
+    console.log('[DEBUG Input] Component mounted, focus should be on TextInput');
+    return () => {
+      console.log('[DEBUG Input] Component unmounting');
+    };
+  }, []);
+
   // Update input value when history navigation changes
   useEffect(() => {
     if (historyValue === null) {
@@ -29,6 +37,7 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
 
   // Intercept up/down arrow keys for history navigation
   useInput((input, key) => {
+    console.log('[DEBUG Input] useInput captured:', { input, key });
     if (!onHistoryNavigate) return;
 
     if (key.upArrow) {
@@ -39,14 +48,25 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
   });
 
   const handleSubmit = (val: string) => {
+    console.log('[DEBUG Input] handleSubmit called with:', val);
     if (!val.trim()) return;
     onSubmit(val);
     setValue('');
   };
 
+  // Debug: Log value changes
+  useEffect(() => {
+    console.log('[DEBUG Input] Value changed to:', value);
+  }, [value]);
+
+  const handleChange = (newValue: string) => {
+    console.log('[DEBUG Input] TextInput onChange:', newValue);
+    setValue(newValue);
+  };
+
   return (
-    <Box 
-      flexDirection="column" 
+    <Box
+      flexDirection="column"
       marginBottom={1}
       borderStyle="single"
       borderColor={colors.mutedDark}
@@ -60,7 +80,7 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
         </Text>
         <TextInput
           value={value}
-          onChange={setValue}
+          onChange={handleChange}
           onSubmit={handleSubmit}
           focus={true}
         />
