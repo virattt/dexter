@@ -10,6 +10,18 @@ interface Provider {
 
 const PROVIDERS: Provider[] = [
   {
+    displayName: 'OpenRouter',
+    providerId: 'openrouter',
+    models: [
+      'anthropic/claude-opus-4-5',
+      'anthropic/claude-sonnet-4-5',
+      'openai/gpt-5.2',
+      'openai/gpt-4.1',
+      'google/gemini-3-pro-preview',
+      'x-ai/grok-4-1-fast-reasoning',
+    ],
+  },
+  {
     displayName: 'OpenAI',
     providerId: 'openai',
     models: ['gpt-5.2', 'gpt-4.1'],
@@ -50,6 +62,10 @@ export function getProviderIdForModel(modelId: string): string | undefined {
   // For ollama models, they're prefixed with "ollama:"
   if (modelId.startsWith('ollama:')) {
     return 'ollama';
+  }
+  // For OpenRouter models, they contain "/"
+  if (modelId.includes('/')) {
+    return 'openrouter';
   }
   // For xAI models, they're prefixed with "grok-"
   if (modelId.startsWith('grok-')) {

@@ -9,11 +9,12 @@ import { Runnable } from '@langchain/core/runnables';
 import { z } from 'zod';
 import { DEFAULT_SYSTEM_PROMPT } from '@/agent/prompts';
 
-export const DEFAULT_PROVIDER = 'openai';
-export const DEFAULT_MODEL = 'gpt-5.2';
+export const DEFAULT_PROVIDER = 'openrouter';
+export const DEFAULT_MODEL = 'anthropic/claude-sonnet-4-5';
 
 // Fast model variants by provider for lightweight tasks like summarization
 const FAST_MODELS: Record<string, string> = {
+  openrouter: 'anthropic/claude-sonnet-4-5',
   openai: 'gpt-4.1',
   anthropic: 'claude-haiku-4-5',
   google: 'gemini-3-flash-preview',
@@ -57,6 +58,42 @@ function getApiKey(envVar: string, providerName: string): string {
 }
 
 const MODEL_PROVIDERS: Record<string, ModelFactory> = {
+  'anthropic/': (name, opts) =>
+    new ChatOpenAI({
+      model: name,
+      ...opts,
+      apiKey: getApiKey('OPENROUTER_API_KEY', 'OpenRouter'),
+      configuration: {
+        baseURL: 'https://openrouter.ai/api/v1',
+      },
+    }),
+  'openai/': (name, opts) =>
+    new ChatOpenAI({
+      model: name,
+      ...opts,
+      apiKey: getApiKey('OPENROUTER_API_KEY', 'OpenRouter'),
+      configuration: {
+        baseURL: 'https://openrouter.ai/api/v1',
+      },
+    }),
+  'google/': (name, opts) =>
+    new ChatOpenAI({
+      model: name,
+      ...opts,
+      apiKey: getApiKey('OPENROUTER_API_KEY', 'OpenRouter'),
+      configuration: {
+        baseURL: 'https://openrouter.ai/api/v1',
+      },
+    }),
+  'x-ai/': (name, opts) =>
+    new ChatOpenAI({
+      model: name,
+      ...opts,
+      apiKey: getApiKey('OPENROUTER_API_KEY', 'OpenRouter'),
+      configuration: {
+        baseURL: 'https://openrouter.ai/api/v1',
+      },
+    }),
   'claude-': (name, opts) =>
     new ChatAnthropic({
       model: name,
@@ -90,7 +127,10 @@ const DEFAULT_MODEL_FACTORY: ModelFactory = (name, opts) =>
   new ChatOpenAI({
     model: name,
     ...opts,
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: getApiKey('OPENROUTER_API_KEY', 'OpenRouter'),
+    configuration: {
+      baseURL: 'https://openrouter.ai/api/v1',
+    },
   });
 
 export function getChatModel(
