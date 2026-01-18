@@ -89,6 +89,12 @@ Run Dexter in interactive mode:
 bun start
 ```
 
+**Basic Controls:**
+- Type `exit` or `quit` - Close the application
+- `/model` - Switch AI model/provider
+- `Ctrl+C` - Cancel current operation
+- `Escape` - Cancel a running query
+
 Or with watch mode for development:
 ```bash
 bun dev

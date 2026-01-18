@@ -16,6 +16,24 @@
 
 ---
 
+## Quick Reference
+
+**Essential Commands**
+
+| Command | Action |
+|---------|--------|
+| Type `exit` or `quit` | Close the application |
+| `/model` | Switch AI model/provider |
+| `Ctrl+C` | Cancel current operation |
+| `Escape` | Cancel a running query |
+
+**Getting Help**
+
+- Check this USER_GUIDE.md for detailed documentation
+- Visit [GitHub Issues](https://github.com/virattt/dexter/issues) for bugs and feature requests
+
+---
+
 ## 1. Introduction & Overview
 
 ### What is Dexter?
@@ -180,6 +198,8 @@ Dexter will:
 2. **Execute**: Fetch Apple's latest income statement
 3. **Validate**: Verify the data is complete
 4. **Answer**: Present the revenue figure with context
+
+> **🛑 How to Exit**: Type `exit` or `quit` and press Enter to close Dexter.
 
 ### Understanding the Interface
 
