@@ -26,6 +26,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 - [Bun](https://bun.com) runtime (v1.0 or higher)
 - OpenAI API key (get [here](https://platform.openai.com/api-keys))
 - xAI API key (get [here](https://console.x.ai)) - optional, for Grok models
+- DeepSeek API key (get [here](https://platform.deepseek.com)) - optional, for DeepSeek models
 - Financial Datasets API key (get [here](https://financialdatasets.ai))
 - Tavily API key (get [here](https://tavily.com)) - optional, for web search
 
@@ -119,7 +120,7 @@ Dexter uses a multi-agent architecture with specialized components:
 
 - **Runtime**: [Bun](https://bun.sh)
 - **UI Framework**: [React](https://react.dev) + [Ink](https://github.com/vadimdemedes/ink) (terminal UI)
-- **LLM Integration**: [LangChain.js](https://js.langchain.com) with multi-provider support (OpenAI, Anthropic, Google, xAI, Ollama)
+- **LLM Integration**: [LangChain.js](https://js.langchain.com) with multi-provider support (OpenAI, Anthropic, Google, xAI, DeepSeek, Ollama)
 - **Schema Validation**: [Zod](https://zod.dev)
 - **Language**: TypeScript
 
@@ -131,6 +132,7 @@ Type `/model` in the CLI to switch between:
 - Claude Sonnet 4.5 (Anthropic)
 - Gemini 3 (Google)
 - Grok 4 (xAI)
+- DeepSeek Reasoner/Chat (DeepSeek)
 - Local models (Ollama)
 
 ## How to Contribute

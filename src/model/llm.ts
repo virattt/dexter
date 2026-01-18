@@ -2,6 +2,7 @@ import { ChatOpenAI } from '@langchain/openai';
 import { ChatAnthropic } from '@langchain/anthropic';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { ChatOllama } from '@langchain/ollama';
+import { ChatDeepSeek } from '@langchain/deepseek';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { StructuredToolInterface } from '@langchain/core/tools';
@@ -18,6 +19,7 @@ const FAST_MODELS: Record<string, string> = {
   anthropic: 'claude-haiku-4-5',
   google: 'gemini-3-flash-preview',
   xai: 'grok-4-1-fast-reasoning',
+  deepseek: 'deepseek-chat',
 };
 
 /**
@@ -77,6 +79,12 @@ const MODEL_PROVIDERS: Record<string, ModelFactory> = {
       configuration: {
         baseURL: 'https://api.x.ai/v1',
       },
+    }),
+  'deepseek-': (name, opts) =>
+    new ChatDeepSeek({
+      model: name,
+      ...opts,
+      apiKey: getApiKey('DEEPSEEK_API_KEY', 'DeepSeek'),
     }),
   'ollama:': (name, opts) =>
     new ChatOllama({

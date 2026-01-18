@@ -30,6 +30,11 @@ const PROVIDERS: Provider[] = [
     models: ['grok-4-0709', 'grok-4-1-fast-reasoning'],
   },
   {
+    displayName: 'DeepSeek',
+    providerId: 'deepseek',
+    models: ['deepseek-chat', 'deepseek-reasoner'],
+  },
+  {
     displayName: 'Ollama',
     providerId: 'ollama',
     models: [], // Populated dynamically from local Ollama API
@@ -54,6 +59,10 @@ export function getProviderIdForModel(modelId: string): string | undefined {
   // For xAI models, they're prefixed with "grok-"
   if (modelId.startsWith('grok-')) {
     return 'xai';
+  }
+  // For DeepSeek models, they're prefixed with "deepseek-"
+  if (modelId.startsWith('deepseek-')) {
+    return 'deepseek';
   }
   for (const provider of PROVIDERS) {
     if (provider.models.includes(modelId)) {
