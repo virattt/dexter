@@ -37,9 +37,13 @@ Your output is displayed on a command line interface. Keep responses short and c
 ## Response Format
 
 - Keep responses brief and direct
-- For tabular data, use Unicode box-drawing tables (max ~12 chars/cell, use abbreviations: OCF, FCF, Op Inc, Net Inc, Rev, GM, OM)
-- Format numbers compactly: $102.5B not $102,466,000,000
-- Do not use markdown text formatting (no **bold**, *italics*, headers, or bullets) - use plain text and box-drawing tables`;
+- For comparative/tabular data, use Unicode box-drawing tables:
+  - Size columns appropriately: numeric data can be compact, text columns should be wider for readability
+  - Tables render in a terminal, so keep total width reasonable (~80-120 chars) and visually pleasing
+  - Use abbreviations for financial metrics: OCF, FCF, Op Inc, Net Inc, Rev, GM, OM
+  - Format numbers compactly: $102.5B not $102,466,000,000
+- For non-comparative information, prefer plain text or simple lists over tables
+- Do not use markdown text formatting (no **bold**, *italics*, headers) - use plain text, lists, and box-drawing tables`;
 
 // ============================================================================
 // System Prompt
@@ -73,13 +77,16 @@ Your output is displayed on a command line interface. Keep responses short and c
 
 - Keep casual responses brief and direct
 - For research: lead with the key finding and include specific data points
-- For tabular/comparative data, use Unicode box-drawing tables:
-  - Max ~12 chars per cell; use abbreviations: OCF, FCF, Op Inc, Net Inc, Rev, GM, OM, EPS, Mkt Cap
+- For comparative/tabular data, use Unicode box-drawing tables:
+  - Tables render in a terminal, so ensure they are visually pleasing and readable
+  - Size columns appropriately: numeric data can be compact, text columns should be wider
+  - Keep total table width reasonable (~80-120 chars); prefer multiple small tables over one wide table
+  - Use abbreviations for financial metrics: OCF, FCF, Op Inc, Net Inc, Rev, GM, OM, EPS, Mkt Cap
   - Dates as "Q4 FY25" not "2025-09-27" or "TTM @ 2025-09-27"
   - Numbers compactly: $102.5B not $102,466,000,000
-  - Prefer multiple small tables over one wide table
+- For non-comparative information, prefer plain text or simple lists over tables
 - Don't narrate your actions or ask leading questions about what the user wants
-- Do not use markdown text formatting (no **bold**, *italics*, headers, or bullets) - use plain text and box-drawing tables`;
+- Do not use markdown text formatting (no **bold**, *italics*, headers) - use plain text, lists, and box-drawing tables`;
 }
 
 // ============================================================================
@@ -125,22 +132,24 @@ Synthesize a clear answer to the user's query using the data provided.
 
 - Lead with the direct answer
 - Support with specific data points
-- For tabular/comparative data, use Unicode box-drawing tables:
-  ┌──────────┬──────────┬──────────┐
-  │ Metric   │ Q4 FY25  │ Q3 FY25  │
-  ├──────────┼──────────┼──────────┤
-  │ Revenue  │ $102.5B  │ $94.0B   │
-  │ Net Inc  │ $27.5B   │ $23.4B   │
-  │ FCF      │ $25.1B   │ $24.0B   │
-  └──────────┴──────────┴──────────┘
+- For comparative/tabular data, use Unicode box-drawing tables:
+  ┌────────────┬────────────┬────────────┐
+  │ Metric     │ Q4 FY25    │ Q3 FY25    │
+  ├────────────┼────────────┼────────────┤
+  │ Revenue    │ $102.5B    │ $94.0B     │
+  │ Net Inc    │ $27.5B     │ $23.4B     │
+  │ FCF        │ $25.1B     │ $24.0B     │
+  └────────────┴────────────┴────────────┘
   Table rules:
-  - Max ~12 chars per cell (truncate or abbreviate to fit)
-  - Use standard abbreviations: OCF, FCF, Op Inc, Net Inc, Rev, GM, OM, EPS, P/E, P/S, Mkt Cap, EV, YoY
-  - Dates as "Q4 FY25" not "TTM @ 2025-09-27" or "FY25 Q4 (2025-09-27)"
-  - "Total Assets" → "Assets", "Shareholders' Equity" → "Equity", "Operating Cash Flow" → "OCF"
-  - Prefer multiple small tables over one wide table
+  - Tables render in a terminal, so ensure they are visually pleasing and readable
+  - Size columns appropriately: numeric data can be compact, text columns should be wider
+  - Keep total table width reasonable (~80-120 chars); prefer multiple small tables over one wide table
+  - Use abbreviations for financial metrics: OCF, FCF, Op Inc, Net Inc, Rev, GM, OM, EPS, P/E, Mkt Cap
+  - Dates as "Q4 FY25" not "TTM @ 2025-09-27"
+  - Numbers compactly: $102.5B not $102,466,000,000
+- For non-comparative information, prefer plain text or simple lists over tables
 - If data is incomplete or conflicting, acknowledge this
-- Do not use markdown text formatting (no **bold**, *italics*, headers, or bullets) - use plain text and box-drawing tables`;
+- Do not use markdown text formatting (no **bold**, *italics*, headers) - use plain text, lists, and box-drawing tables`;
 
 /**
  * Get the system prompt for final answer generation.
