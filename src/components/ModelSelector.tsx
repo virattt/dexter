@@ -46,23 +46,6 @@ export function getDefaultModelForProvider(providerId: string): string | undefin
   return models[0];
 }
 
-export function getProviderIdForModel(modelId: string): string | undefined {
-  // For ollama models, they're prefixed with "ollama:"
-  if (modelId.startsWith('ollama:')) {
-    return 'ollama';
-  }
-  // For xAI models, they're prefixed with "grok-"
-  if (modelId.startsWith('grok-')) {
-    return 'xai';
-  }
-  for (const provider of PROVIDERS) {
-    if (provider.models.includes(modelId)) {
-      return provider.providerId;
-    }
-  }
-  return undefined;
-}
-
 interface ProviderSelectorProps {
   provider?: string;
   onSelect: (providerId: string | null) => void;

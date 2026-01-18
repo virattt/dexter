@@ -142,39 +142,3 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
   }
   return result;
 }
-
-export async function* callLlmStream(
-  prompt: string,
-  options: { model?: string; systemPrompt?: string } = {}
-): AsyncGenerator<string> {
-  const { model = DEFAULT_MODEL, systemPrompt } = options;
-  const finalSystemPrompt = systemPrompt || DEFAULT_SYSTEM_PROMPT;
-
-  const promptTemplate = ChatPromptTemplate.fromMessages([
-    ['system', finalSystemPrompt],
-    ['user', '{prompt}'],
-  ]);
-
-  const llm = getChatModel(model, true);
-  const chain = promptTemplate.pipe(llm);
-
-  // For streaming, we handle retry at the connection level
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const stream = await chain.stream({ prompt });
-
-      for await (const chunk of stream) {
-        if (chunk && typeof chunk === 'object' && 'content' in chunk) {
-          const content = chunk.content;
-          if (content && typeof content === 'string') {
-            yield content;
-          }
-        }
-      }
-      return;
-    } catch (e) {
-      if (attempt === 2) throw e;
-      await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
-    }
-  }
-}

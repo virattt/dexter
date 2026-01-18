@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { createHash } from 'crypto';
 import type { ToolCallResult, ToolSummary } from './types.js';
@@ -69,13 +69,6 @@ export class ContextManager {
   }
 
   /**
-   * Get all results from this session
-   */
-  getResults(): ToolCallResult[] {
-    return [...this.results];
-  }
-
-  /**
    * Get a summary of all tool results for context injection
    */
   getSummary(): string {
@@ -95,50 +88,6 @@ export class ContextManager {
       
       return `[${i + 1}] ${r.toolName}(${argsStr}):\n${resultPreview}`;
     }).join('\n\n');
-  }
-
-  /**
-   * Get the most recent N results
-   */
-  getRecentResults(n: number = 5): ToolCallResult[] {
-    return this.results.slice(-n);
-  }
-
-  /**
-   * Load a stored context file
-   */
-  loadContext(filename: string): StoredContext | null {
-    const filepath = join(this.contextDir, filename);
-    
-    if (!existsSync(filepath)) {
-      return null;
-    }
-    
-    try {
-      const content = readFileSync(filepath, 'utf-8');
-      return JSON.parse(content) as StoredContext;
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * List all stored context files
-   */
-  listStoredContexts(): string[] {
-    if (!existsSync(this.contextDir)) {
-      return [];
-    }
-    
-    return readdirSync(this.contextDir)
-      .filter(f => f.endsWith('.json'));
-  }
-
-  /**
-   * Clear all results from this session (doesn't delete files)
-   */
-  clear(): void {
-    this.results.length = 0;
   }
 
   /**
