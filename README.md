@@ -7,7 +7,9 @@ Dexter is an autonomous financial research agent that thinks, plans, and learns 
 
 ## Overview
 
-Dexter takes complex financial questions and turns them into clear, step-by-step research plans. It runs those tasks using live market data, checks its own work, and refines the results until it has a confident, data-backed answer.  
+Dexter takes complex financial questions and turns them into clear, step-by-step research plans. It runs those tasks using live market data, checks its own work, and refines the results until it has a confident, data-backed answer.
+
+> **📖 Documentation**: For comprehensive documentation, see the [USER_GUIDE.md](USER_GUIDE.md)
 
 **Key Capabilities:**
 - **Intelligent Task Planning**: Automatically decomposes complex queries into structured research steps
@@ -142,6 +144,8 @@ Type `/model` in the CLI to switch between:
 5. Create a Pull Request
 
 **Important**: Please keep your pull requests small and focused.  This will make it easier to review and merge.
+
+> **💡 Developer Guide**: See the [Developer Guide section in USER_GUIDE.md](USER_GUIDE.md#6-developer-guide) for architecture, adding tools, and development workflow.
 
 
 ## License
