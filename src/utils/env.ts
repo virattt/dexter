@@ -11,6 +11,7 @@ type ProviderConfig = {
 
 // Single source of truth for all provider configuration
 const PROVIDERS: Record<string, ProviderConfig> = {
+  openrouter: { displayName: 'OpenRouter', apiKeyEnvVar: 'OPENROUTER_API_KEY' },
   openai: { displayName: 'OpenAI', apiKeyEnvVar: 'OPENAI_API_KEY' },
   anthropic: { displayName: 'Anthropic', apiKeyEnvVar: 'ANTHROPIC_API_KEY' },
   google: { displayName: 'Google', apiKeyEnvVar: 'GOOGLE_API_KEY' },
