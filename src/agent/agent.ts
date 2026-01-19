@@ -32,16 +32,7 @@ interface ToolCallsExecutionResult {
 }
 
 /**
- * Agent - A simple ReAct-style agent that uses tools to answer queries.
- *
- * Architecture:
- * 1. Initialize with financial_search and web_search tools
- * 2. Agent loop: Call LLM -> Execute tools -> Repeat until done
- * 3. Yield events for real-time UI updates
- *
- * Usage:
- *   const agent = Agent.create({ model: 'gpt-5.2' });
- *   for await (const event of agent.run(query)) { ... }
+ * The core agent class that handles the agent loop and tool execution.
  */
 export class Agent {
   private readonly model: string;
