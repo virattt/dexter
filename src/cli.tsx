@@ -11,6 +11,7 @@ import { Input } from './components/Input.js';
 import { Intro } from './components/Intro.js';
 import { ProviderSelector, ModelSelector } from './components/ModelSelector.js';
 import { ApiKeyConfirm, ApiKeyInput } from './components/ApiKeyPrompt.js';
+import { CustomProviderPrompt } from './components/CustomProviderPrompt.js';
 import { DebugPanel } from './components/DebugPanel.js';
 import { HistoryItemView, WorkingIndicator } from './components/index.js';
 import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js';
@@ -37,6 +38,7 @@ export function CLI() {
     handleModelSelect,
     handleApiKeyConfirm,
     handleApiKeySubmit,
+    handleCustomProviderSubmit,
     isInSelectionFlow,
   } = useModelSelection((errorMsg) => setError(errorMsg));
   
@@ -170,6 +172,14 @@ export function CLI() {
           apiKeyName={apiKeyName}
           onSubmit={handleApiKeySubmit} 
         />
+      </Box>
+    );
+  }
+  
+  if (appState === 'custom_provider_config') {
+    return (
+      <Box flexDirection="column">
+        <CustomProviderPrompt onSubmit={handleCustomProviderSubmit} />
       </Box>
     );
   }

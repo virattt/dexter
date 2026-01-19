@@ -3,6 +3,7 @@ export { Input } from './Input.js';
 export { AnswerBox, UserQuery } from './AnswerBox.js';
 export { ProviderSelector, ModelSelector, PROVIDERS, getModelsForProvider, getDefaultModelForProvider, getProviderIdForModel } from './ModelSelector.js';
 export { ApiKeyConfirm, ApiKeyInput } from './ApiKeyPrompt.js';
+export { CustomProviderPrompt } from './CustomProviderPrompt.js';
 export { DebugPanel } from './DebugPanel.js';
 
 // V2 components
