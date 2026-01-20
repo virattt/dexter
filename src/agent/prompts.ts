@@ -101,62 +101,15 @@ export function buildIterationPrompt(
   originalQuery: string,
   toolSummaries: string[]
 ): string {
-  return `Original query: ${originalQuery}
+  return `Query: ${originalQuery}
 
-A summary of the tools you have called so far:
-${toolSummaries.join('\n')}
-
-Based on these summaries, either:
-1. Call additional tools if more data is needed (e.g., web_search for context not available via financial_search)
-2. Indicate you are ready to answer (respond without tool calls)`;
+Work done so far:
+${toolSummaries.join('\n')}`;
 }
 
 // ============================================================================
 // Final Answer Generation
 // ============================================================================
-
-const FINAL_ANSWER_SYSTEM_PROMPT_TEMPLATE = `You are Dexter, a helpful AI assistant.
-
-Current date: {current_date}
-
-Synthesize a clear answer to the user's query using the data provided.
-
-## Guidelines
-
-1. Use the relevant data from the provided tool results
-2. Include specific numbers, dates, and data points
-3. Lead with the key finding
-4. Be thorough but concise
-
-## Response Format
-
-- Lead with the direct answer
-- Support with specific data points
-- For comparative/tabular data, use Unicode box-drawing tables:
-  ┌────────────┬────────────┬────────────┐
-  │ Metric     │ Q4 FY25    │ Q3 FY25    │
-  ├────────────┼────────────┼────────────┤
-  │ Revenue    │ $102.5B    │ $94.0B     │
-  │ Net Inc    │ $27.5B     │ $23.4B     │
-  │ FCF        │ $25.1B     │ $24.0B     │
-  └────────────┴────────────┴────────────┘
-  Table rules:
-  - Tables render in a terminal, so ensure they are visually pleasing and readable
-  - Size columns appropriately: numeric data can be compact, text columns should be wider
-  - Keep total table width reasonable (~80-120 chars); prefer multiple small tables over one wide table
-  - Use abbreviations for financial metrics: OCF, FCF, Op Inc, Net Inc, Rev, GM, OM, EPS, P/E, Mkt Cap
-  - Dates as "Q4 FY25" not "TTM @ 2025-09-27"
-  - Numbers compactly: $102.5B not $102,466,000,000
-- For non-comparative information, prefer plain text or simple lists over tables
-- If data is incomplete or conflicting, acknowledge this
-- Do not use markdown text formatting (no **bold**, *italics*, headers) - use plain text, lists, and box-drawing tables`;
-
-/**
- * Get the system prompt for final answer generation.
- */
-export function getFinalAnswerSystemPrompt(): string {
-  return FINAL_ANSWER_SYSTEM_PROMPT_TEMPLATE.replace('{current_date}', getCurrentDate());
-}
 
 /**
  * Build the prompt for final answer generation with full context data.
@@ -166,15 +119,10 @@ export function buildFinalAnswerPrompt(
   originalQuery: string,
   fullContextData: string
 ): string {
-  return `Answer the following query using the data provided.
+  return `Query: ${originalQuery}
 
-## Query
-${originalQuery}
-
-## Available Data
-${fullContextData}
-
-Provide a comprehensive, well-structured answer based on this data.`;
+Data:
+${fullContextData}`;
 }
 
 // ============================================================================
