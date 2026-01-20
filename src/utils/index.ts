@@ -2,9 +2,7 @@ export { loadConfig, saveConfig, getSetting, setSetting } from './config.js';
 export {
   getApiKeyNameForProvider,
   getProviderDisplayName,
-  checkApiKeyExists,
   checkApiKeyExistsForProvider,
-  saveApiKeyToEnv,
   saveApiKeyForProvider,
 } from './env.js';
 export { InMemoryChatHistory } from './in-memory-chat-history.js';
