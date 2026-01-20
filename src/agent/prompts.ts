@@ -122,7 +122,9 @@ export function buildFinalAnswerPrompt(
   return `Query: ${originalQuery}
 
 Data:
-${fullContextData}`;
+${fullContextData}
+
+Answer proportionally - match depth to the question's complexity.`;
 }
 
 // ============================================================================
