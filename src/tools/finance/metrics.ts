@@ -135,3 +135,101 @@ export const getEarnings = new DynamicStructuredTool({
     return formatToolResult(result, [url]);
   },
 });
+
+const DividendsInputSchema = z.object({
+  ticker: z
+    .string()
+    .describe(
+      "The stock ticker symbol to fetch dividend history for. For example, 'IBM' for IBM."
+    ),
+});
+
+export const getDividends = new DynamicStructuredTool({
+  name: 'get_dividends',
+  description: `Retrieves historical dividend data for a company, including dividend amounts, ex-dividend dates, declaration dates, and record dates. Useful for income investing analysis and dividend growth tracking.`,
+  schema: DividendsInputSchema,
+  func: async (input) => {
+    const params = { symbol: input.ticker };
+    const { data, url } = await callApi('DIVIDENDS', params);
+
+    const dividends = data['data'] as Array<Record<string, string>> | undefined;
+    const result = (dividends || []).map((d) => ({
+      exDividendDate: d['ex_dividend_date'],
+      declarationDate: d['declaration_date'],
+      recordDate: d['record_date'],
+      paymentDate: d['payment_date'],
+      amount: parseNumber(d['amount']),
+    }));
+
+    return formatToolResult(result, [url]);
+  },
+});
+
+const SplitsInputSchema = z.object({
+  ticker: z
+    .string()
+    .describe(
+      "The stock ticker symbol to fetch split history for. For example, 'AAPL' for Apple."
+    ),
+});
+
+export const getSplits = new DynamicStructuredTool({
+  name: 'get_splits',
+  description: `Retrieves historical stock split data for a company. Shows split ratios and effective dates. Useful for understanding historical price adjustments and corporate actions.`,
+  schema: SplitsInputSchema,
+  func: async (input) => {
+    const params = { symbol: input.ticker };
+    const { data, url } = await callApi('SPLITS', params);
+
+    const splits = data['data'] as Array<Record<string, string>> | undefined;
+    const result = (splits || []).map((s) => ({
+      effectiveDate: s['effective_date'],
+      splitRatio: s['split_ratio'],
+    }));
+
+    return formatToolResult(result, [url]);
+  },
+});
+
+const EarningsCalendarInputSchema = z.object({
+  ticker: z
+    .string()
+    .optional()
+    .describe(
+      "Optional: The stock ticker symbol to fetch earnings calendar for. If not provided, returns earnings across all tickers for the next 3 months."
+    ),
+  horizon: z
+    .enum(['3month', '6month', '12month'])
+    .default('3month')
+    .describe(
+      "The time horizon for earnings calendar. Defaults to '3month'."
+    ),
+});
+
+export const getEarningsCalendar = new DynamicStructuredTool({
+  name: 'get_earnings_calendar',
+  description: `Retrieves upcoming earnings dates and EPS estimates. Can get earnings calendar for a specific company or all companies in the market. Useful for tracking when companies will report earnings and what analysts expect.`,
+  schema: EarningsCalendarInputSchema,
+  func: async (input) => {
+    const params: Record<string, string | undefined> = {
+      symbol: input.ticker,
+      horizon: input.horizon,
+    };
+    const { data, url } = await callApi('EARNINGS_CALENDAR', params);
+
+    // EARNINGS_CALENDAR returns CSV data, but we handle it as JSON after our API wrapper
+    return formatToolResult(data, [url]);
+  },
+});
+
+const IPOCalendarInputSchema = z.object({});
+
+export const getIPOCalendar = new DynamicStructuredTool({
+  name: 'get_ipo_calendar',
+  description: `Retrieves upcoming and recent IPO dates, including expected price ranges, share counts, and exchange listings. Useful for tracking new companies entering the public market.`,
+  schema: IPOCalendarInputSchema,
+  func: async () => {
+    const { data, url } = await callApi('IPO_CALENDAR', {});
+    return formatToolResult(data, [url]);
+  },
+});

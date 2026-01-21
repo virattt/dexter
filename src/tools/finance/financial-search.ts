@@ -8,9 +8,14 @@ import { getCurrentDate } from '../../agent/prompts.js';
 // Import all finance tools directly (avoid circular deps with index.ts)
 import { getIncomeStatements, getBalanceSheets, getCashFlowStatements, getAllFinancialStatements } from './fundamentals.js';
 import { getPriceSnapshot, getPrices, searchTicker } from './prices.js';
-import { getFinancialMetricsSnapshot, getEarnings } from './metrics.js';
+import { getFinancialMetricsSnapshot, getEarnings, getDividends, getSplits, getEarningsCalendar, getIPOCalendar } from './metrics.js';
 import { getNews } from './news.js';
 import { getCryptoPriceSnapshot, getCryptoPrices } from './crypto.js';
+import { getTopGainersLosers, getInsiderTransactions } from './alpha-intelligence.js';
+import { getMarketStatus } from './market-status.js';
+import { getSMA, getEMA, getRSI, getMACD, getBBANDS, getADX, getSTOCH } from './technical-indicators.js';
+import { getRealGDP, getRealGDPPerCapita, getTreasuryYield, getFederalFundsRate, getCPI, getInflation, getRetailSales, getDurables, getUnemployment, getNonfarmPayroll } from './economic-indicators.js';
+import { getCurrencyExchangeRate, getFXDaily, getFXWeekly, getFXMonthly, getFXIntraday } from './forex.js';
 
 // All finance tools available for routing (powered by Alpha Vantage API)
 const FINANCE_TOOLS: StructuredToolInterface[] = [
@@ -29,6 +34,40 @@ const FINANCE_TOOLS: StructuredToolInterface[] = [
   // Metrics & Earnings
   getFinancialMetricsSnapshot,
   getEarnings,
+  getDividends,
+  getSplits,
+  getEarningsCalendar,
+  getIPOCalendar,
+  // Alpha Intelligence
+  getTopGainersLosers,
+  getInsiderTransactions,
+  // Market Status
+  getMarketStatus,
+  // Technical Indicators
+  getSMA,
+  getEMA,
+  getRSI,
+  getMACD,
+  getBBANDS,
+  getADX,
+  getSTOCH,
+  // Economic Indicators
+  getRealGDP,
+  getRealGDPPerCapita,
+  getTreasuryYield,
+  getFederalFundsRate,
+  getCPI,
+  getInflation,
+  getRetailSales,
+  getDurables,
+  getUnemployment,
+  getNonfarmPayroll,
+  // Forex
+  getCurrencyExchangeRate,
+  getFXDaily,
+  getFXWeekly,
+  getFXMonthly,
+  getFXIntraday,
   // News
   getNews,
 ];
@@ -51,16 +90,20 @@ Given a user's natural language query about financial data, call the appropriate
    - If unsure, use search_ticker to find the correct symbol
 
 2. **Tool Selection**:
-   - For "current" or "latest" price → get_price_snapshot
-   - For "historical" prices → get_prices (supports daily, weekly, monthly, intraday)
-   - For P/E ratio, market cap, valuation, company overview → get_financial_metrics_snapshot
-   - For earnings history and EPS data → get_earnings
-   - For revenue, expenses, profitability → get_income_statements
-   - For assets, liabilities, equity → get_balance_sheets
-   - For cash flow analysis → get_cash_flow_statements
-   - For comprehensive financial analysis → get_all_financial_statements
-   - For news and sentiment → get_news
-   - For cryptocurrency prices → get_crypto_price_snapshot or get_crypto_prices
+   - **Stock Prices**: get_price_snapshot (current), get_prices (historical daily/weekly/monthly/intraday)
+   - **Company Overview & Valuation**: get_financial_metrics_snapshot (P/E, market cap, analyst ratings)
+   - **Earnings**: get_earnings (history), get_earnings_calendar (upcoming)
+   - **Dividends & Splits**: get_dividends, get_splits
+   - **IPOs**: get_ipo_calendar
+   - **Financial Statements**: get_income_statements, get_balance_sheets, get_cash_flow_statements
+   - **Comprehensive Financials**: get_all_financial_statements
+   - **Alpha Intelligence**: get_top_gainers_losers (market movers), get_insider_transactions
+   - **Technical Analysis**: get_sma, get_ema, get_rsi, get_macd, get_bbands, get_adx, get_stoch
+   - **Economic Data**: get_real_gdp, get_treasury_yield, get_federal_funds_rate, get_cpi, get_inflation, get_unemployment, get_nonfarm_payroll
+   - **Forex**: get_currency_exchange_rate, get_fx_daily, get_fx_weekly, get_fx_monthly, get_fx_intraday
+   - **Cryptocurrency**: get_crypto_price_snapshot, get_crypto_prices
+   - **Market Status**: get_market_status (check if markets are open)
+   - **News**: get_news (with sentiment analysis)
 
 3. **Efficiency**:
    - Prefer specific tools over general ones when possible
@@ -86,9 +129,15 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
 - Stock prices (current quotes, historical daily/weekly/monthly/intraday)
 - Company financials (income statements, balance sheets, cash flow)
 - Financial metrics (P/E ratio, market cap, EPS, dividend yield, analyst ratings)
-- Earnings data (quarterly and annual EPS, estimates, surprises)
-- Company news with sentiment analysis
+- Earnings data (quarterly/annual EPS, estimates, surprises, upcoming calendar)
+- Dividends, stock splits, and IPO calendar
+- Alpha Intelligence (top gainers/losers, insider transactions)
+- Technical indicators (SMA, EMA, RSI, MACD, Bollinger Bands, ADX, Stochastic)
+- Economic indicators (GDP, Treasury yields, Fed funds rate, CPI, inflation, unemployment)
+- Forex exchange rates and currency pair history
 - Cryptocurrency prices and exchange rates
+- Market status (global exchange trading hours)
+- Company news with sentiment analysis
 - Ticker symbol search`,
     schema: FinancialSearchInputSchema,
     func: async (input) => {
