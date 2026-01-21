@@ -1,26 +1,4 @@
 /**
- * Result of a tool execution for conversation history
- */
-export interface ToolCallResult {
-  toolName: string;
-  args: Record<string, unknown>;
-  result: string;
-  timestamp: Date;
-}
-
-/**
- * Lightweight summary of a tool call (used during agent loop for context compaction)
- */
-export interface ToolSummary {
-  /** Filepath pointer to full data on disk */
-  id: string;
-  toolName: string;
-  args: Record<string, unknown>;
-  /** Deterministic human-readable description, e.g., "AAPL income statements (annual) - 5 periods" */
-  summary: string;
-}
-
-/**
  * Agent configuration
  */
 export interface AgentConfig {

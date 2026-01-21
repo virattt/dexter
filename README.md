@@ -3,7 +3,8 @@
 Ubbex is an agentic coding assistant that lives in your terminal. Built in the style of Claude Code, it thinks in steps, streams tool calls, and supports Triton natively. It pairs a TypeScript + Bun CLI with extensible MCP (Model Context Protocol) integration for powerful development workflows.
 
 
-<img width="979" height="651" alt="Screenshot 2025-10-14 at 6 12 35 PM" src="https://github.com/user-attachments/assets/5a2859d4-53cf-4638-998a-15cef3c98038" />
+<img width="1098" height="659" alt="Screenshot 2026-01-21 at 5 25 10 PM" src="https://github.com/user-attachments/assets/3bcc3a7f-b68a-4f5e-8735-9d22196ff76e" />
+
 
 ## Overview
 
@@ -22,7 +23,7 @@ Ubbex is an intelligent coding assistant that understands your entire codebase, 
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt)
 
-<img width="996" height="639" alt="Screenshot 2025-11-22 at 1 45 07 PM" src="https://github.com/user-attachments/assets/8915fd70-82c9-4775-bdf9-78d5baf28a8a" />
+<img width="875" height="558" alt="Screenshot 2026-01-21 at 5 22 19 PM" src="https://github.com/user-attachments/assets/72d28363-69ea-4c74-a297-dfa60aa347f7" />
 
 
 ### Prerequisites
