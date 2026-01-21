@@ -90,6 +90,23 @@ export function ThinkingView({ message }: ThinkingViewProps) {
   );
 }
 
+interface StepViewProps {
+  message: string;
+}
+
+export function StepView({ message }: StepViewProps) {
+  const displayMessage = message.length > 200
+    ? message.slice(0, 200) + '...'
+    : message;
+
+  return (
+    <Box>
+      <Text color={colors.accent}>➤ </Text>
+      <Text color={colors.white}>{displayMessage}</Text>
+    </Box>
+  );
+}
+
 interface ToolStartViewProps {
   tool: string;
   args: Record<string, unknown>;
@@ -200,6 +217,9 @@ export function AgentEventView({ event, isActive = false }: AgentEventViewProps)
   switch (event.type) {
     case 'thinking':
       return <ThinkingView message={event.message} />;
+
+    case 'step':
+      return <StepView message={event.message} />;
     
     case 'tool_start':
       return <ToolStartView tool={event.tool} args={event.args} isActive={isActive} />;

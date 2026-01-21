@@ -22,7 +22,7 @@ export function getCurrentDate(): string {
 /**
  * Default system prompt used when no specific prompt is provided.
  */
-export const DEFAULT_SYSTEM_PROMPT = `You are Dexter, a helpful AI assistant.
+export const DEFAULT_SYSTEM_PROMPT = `You are Ubbex, a helpful AI assistant.
 
 Current date: ${getCurrentDate()}
 
@@ -53,7 +53,7 @@ Your output is displayed on a command line interface. Keep responses short and c
  * Build the system prompt for the agent.
  */
 export function buildSystemPrompt(): string {
-  return `You are Dexter, a CLI assistant with access to financial research and web search tools.
+  return `You are Ubbex, a CLI assistant with access to financial research and web search tools.
 
 Current date: ${getCurrentDate()}
 
@@ -63,6 +63,7 @@ Your output is displayed on a command line interface. Keep responses short and c
 
 - financial_search: Intelligent meta-tool for financial data. Pass your complete query - it internally routes to multiple data sources (stock prices, financials, SEC filings, metrics, estimates, news, crypto). For comparisons or multi-company queries, pass the full query and let it handle the complexity.
 - web_search: Search the web for current information, news, and general knowledge
+- MCP tools: Optional tools provided by local MCP servers (e.g., python_eval for quick calculations)
 
 ## Behavior
 
@@ -153,4 +154,30 @@ ${result}
 
 Write a 1 sentence summary of what was retrieved. Include specific values (numbers, dates) if relevant.
 Format: "[tool_call] -> [what was learned]"`;
+}
+
+// ============================================================================
+// Step Summary Generation (no chain-of-thought)
+// ============================================================================
+
+/**
+ * Build prompt for a concise step summary that avoids chain-of-thought.
+ */
+export function buildStepSummaryPrompt(
+  originalQuery: string,
+  toolNames: string[],
+  modelNotes: string
+): string {
+  const toolsLine = toolNames.length > 0 ? toolNames.join(', ') : 'none';
+  return `Summarize the next action in one short sentence (<= 16 words).
+
+Query: ${originalQuery}
+Tools requested: ${toolsLine}
+Model notes (may be empty):
+${modelNotes}
+
+Rules:
+- Do NOT reveal chain-of-thought or internal reasoning.
+- Do NOT include tool arguments or user data.
+- Focus on the high-level intent (e.g., "Gathering market data for X").`;
 }

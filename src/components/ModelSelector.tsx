@@ -30,6 +30,15 @@ const PROVIDERS: Provider[] = [
     models: ['grok-4-0709', 'grok-4-1-fast-reasoning'],
   },
   {
+    displayName: 'Triton',
+    providerId: 'triton',
+    models: [
+      'triton:llama-3.1-70b-instruct',
+      'triton:mixtral-8x7b-instruct',
+      'triton:deepseek-r1',
+    ],
+  },
+  {
     displayName: 'Ollama',
     providerId: 'ollama',
     models: [], // Populated dynamically from local Ollama API
