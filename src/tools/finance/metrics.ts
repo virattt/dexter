@@ -3,84 +3,135 @@ import { z } from 'zod';
 import { callApi } from './api.js';
 import { formatToolResult } from '../types.js';
 
+/**
+ * Parse a number from Alpha Vantage response (handles 'None' and undefined)
+ */
+function parseNumber(value: unknown): number | null {
+  if (value === undefined || value === null || value === 'None' || value === '-') {
+    return null;
+  }
+  const num = parseFloat(String(value));
+  return isNaN(num) ? null : num;
+}
+
+/**
+ * Transform Alpha Vantage OVERVIEW response to a consistent format
+ */
+function transformOverview(data: Record<string, unknown>): Record<string, unknown> {
+  return {
+    symbol: data['Symbol'],
+    name: data['Name'],
+    description: data['Description'],
+    exchange: data['Exchange'],
+    currency: data['Currency'],
+    country: data['Country'],
+    sector: data['Sector'],
+    industry: data['Industry'],
+    // Valuation Metrics
+    marketCapitalization: parseNumber(data['MarketCapitalization']),
+    peRatio: parseNumber(data['PERatio']),
+    pegRatio: parseNumber(data['PEGRatio']),
+    bookValue: parseNumber(data['BookValue']),
+    priceToBookRatio: parseNumber(data['PriceToBookRatio']),
+    priceToSalesRatioTTM: parseNumber(data['PriceToSalesRatioTTM']),
+    evToRevenue: parseNumber(data['EVToRevenue']),
+    evToEbitda: parseNumber(data['EVToEBITDA']),
+    // Dividend Data
+    dividendPerShare: parseNumber(data['DividendPerShare']),
+    dividendYield: parseNumber(data['DividendYield']),
+    dividendDate: data['DividendDate'],
+    exDividendDate: data['ExDividendDate'],
+    // Earnings & Profitability
+    eps: parseNumber(data['EPS']),
+    revenuePerShareTTM: parseNumber(data['RevenuePerShareTTM']),
+    profitMargin: parseNumber(data['ProfitMargin']),
+    operatingMarginTTM: parseNumber(data['OperatingMarginTTM']),
+    returnOnAssetsTTM: parseNumber(data['ReturnOnAssetsTTM']),
+    returnOnEquityTTM: parseNumber(data['ReturnOnEquityTTM']),
+    // Financial Health
+    revenueTTM: parseNumber(data['RevenueTTM']),
+    grossProfitTTM: parseNumber(data['GrossProfitTTM']),
+    ebitda: parseNumber(data['EBITDA']),
+    quarterlyRevenueGrowthYOY: parseNumber(data['QuarterlyRevenueGrowthYOY']),
+    quarterlyEarningsGrowthYOY: parseNumber(data['QuarterlyEarningsGrowthYOY']),
+    // Analyst Data
+    analystTargetPrice: parseNumber(data['AnalystTargetPrice']),
+    analystRatingStrongBuy: parseNumber(data['AnalystRatingStrongBuy']),
+    analystRatingBuy: parseNumber(data['AnalystRatingBuy']),
+    analystRatingHold: parseNumber(data['AnalystRatingHold']),
+    analystRatingSell: parseNumber(data['AnalystRatingSell']),
+    analystRatingStrongSell: parseNumber(data['AnalystRatingStrongSell']),
+    // Stock Data
+    beta: parseNumber(data['Beta']),
+    fiftyTwoWeekHigh: parseNumber(data['52WeekHigh']),
+    fiftyTwoWeekLow: parseNumber(data['52WeekLow']),
+    fiftyDayMovingAverage: parseNumber(data['50DayMovingAverage']),
+    twoHundredDayMovingAverage: parseNumber(data['200DayMovingAverage']),
+    sharesOutstanding: parseNumber(data['SharesOutstanding']),
+    // Fiscal Information
+    fiscalYearEnd: data['FiscalYearEnd'],
+    latestQuarter: data['LatestQuarter'],
+  };
+}
+
 const FinancialMetricsSnapshotInputSchema = z.object({
-  ticker: z
-    .string()
-    .describe(
-      "The stock ticker symbol to fetch financial metrics snapshot for. For example, 'AAPL' for Apple."
-    ),
-});
-
-export const getFinancialMetricsSnapshot = new DynamicStructuredTool({
-  name: 'get_financial_metrics_snapshot',
-  description: `Fetches a snapshot of the most current financial metrics for a company, including key indicators like market capitalization, P/E ratio, and dividend yield. Useful for a quick overview of a company's financial health.`,
-  schema: FinancialMetricsSnapshotInputSchema,
-  func: async (input) => {
-    const params = { ticker: input.ticker };
-    const { data, url } = await callApi('/financial-metrics/snapshot/', params);
-    return formatToolResult(data.snapshot || {}, [url]);
-  },
-});
-
-const FinancialMetricsInputSchema = z.object({
   ticker: z
     .string()
     .describe(
       "The stock ticker symbol to fetch financial metrics for. For example, 'AAPL' for Apple."
     ),
-  period: z
-    .enum(['annual', 'quarterly', 'ttm'])
-    .default('ttm')
-    .describe(
-      "The reporting period. 'annual' for yearly, 'quarterly' for quarterly, and 'ttm' for trailing twelve months."
-    ),
-  limit: z
-    .number()
-    .default(4)
-    .describe('The number of past financial statements to retrieve.'),
-  report_period: z
-    .string()
-    .optional()
-    .describe('Filter for financial metrics with an exact report period date (YYYY-MM-DD).'),
-  report_period_gt: z
-    .string()
-    .optional()
-    .describe('Filter for financial metrics with report periods after this date (YYYY-MM-DD).'),
-  report_period_gte: z
-    .string()
-    .optional()
-    .describe(
-      'Filter for financial metrics with report periods on or after this date (YYYY-MM-DD).'
-    ),
-  report_period_lt: z
-    .string()
-    .optional()
-    .describe('Filter for financial metrics with report periods before this date (YYYY-MM-DD).'),
-  report_period_lte: z
-    .string()
-    .optional()
-    .describe(
-      'Filter for financial metrics with report periods on or before this date (YYYY-MM-DD).'
-    ),
 });
 
-export const getFinancialMetrics = new DynamicStructuredTool({
-  name: 'get_financial_metrics',
-  description: `Retrieves historical financial metrics for a company, such as P/E ratio, revenue per share, and enterprise value, over a specified period. Useful for trend analysis and historical performance evaluation.`,
-  schema: FinancialMetricsInputSchema,
+export const getFinancialMetricsSnapshot = new DynamicStructuredTool({
+  name: 'get_financial_metrics_snapshot',
+  description: `Fetches comprehensive company overview and financial metrics, including:
+- Valuation metrics: P/E ratio, PEG ratio, price-to-book, market cap, EV/EBITDA
+- Dividend data: dividend yield, dividend per share, ex-dividend date
+- Profitability: profit margin, ROA, ROE, operating margin
+- Growth: quarterly revenue growth, earnings growth
+- Analyst data: target price, buy/sell/hold ratings
+- Stock data: beta, 52-week high/low, moving averages
+Useful for a comprehensive snapshot of a company's financial health and valuation.`,
+  schema: FinancialMetricsSnapshotInputSchema,
   func: async (input) => {
-    const params: Record<string, string | number | undefined> = {
-      ticker: input.ticker,
-      period: input.period,
-      limit: input.limit,
-      report_period: input.report_period,
-      report_period_gt: input.report_period_gt,
-      report_period_gte: input.report_period_gte,
-      report_period_lt: input.report_period_lt,
-      report_period_lte: input.report_period_lte,
-    };
-    const { data, url } = await callApi('/financial-metrics/', params);
-    return formatToolResult(data.financial_metrics || [], [url]);
+    const params = { symbol: input.ticker };
+    const { data, url } = await callApi('OVERVIEW', params);
+    return formatToolResult(transformOverview(data), [url]);
   },
 });
 
+const EarningsInputSchema = z.object({
+  ticker: z
+    .string()
+    .describe(
+      "The stock ticker symbol to fetch earnings for. For example, 'AAPL' for Apple."
+    ),
+});
+
+export const getEarnings = new DynamicStructuredTool({
+  name: 'get_earnings',
+  description: `Retrieves quarterly and annual earnings data for a company, including reported EPS, estimated EPS, and surprise percentage. Useful for analyzing earnings performance and tracking earnings surprises.`,
+  schema: EarningsInputSchema,
+  func: async (input) => {
+    const params = { symbol: input.ticker };
+    const { data, url } = await callApi('EARNINGS', params);
+
+    const result = {
+      symbol: data['symbol'],
+      annualEarnings: (data['annualEarnings'] as Array<Record<string, string>> || []).map((e) => ({
+        fiscalDateEnding: e['fiscalDateEnding'],
+        reportedEPS: parseNumber(e['reportedEPS']),
+      })),
+      quarterlyEarnings: (data['quarterlyEarnings'] as Array<Record<string, string>> || []).map((e) => ({
+        fiscalDateEnding: e['fiscalDateEnding'],
+        reportedDate: e['reportedDate'],
+        reportedEPS: parseNumber(e['reportedEPS']),
+        estimatedEPS: parseNumber(e['estimatedEPS']),
+        surprise: parseNumber(e['surprise']),
+        surprisePercentage: parseNumber(e['surprisePercentage']),
+      })),
+    };
+
+    return formatToolResult(result, [url]);
+  },
+});

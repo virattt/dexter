@@ -7,41 +7,30 @@ import { getCurrentDate } from '../../agent/prompts.js';
 
 // Import all finance tools directly (avoid circular deps with index.ts)
 import { getIncomeStatements, getBalanceSheets, getCashFlowStatements, getAllFinancialStatements } from './fundamentals.js';
-import { getFilings, get10KFilingItems, get10QFilingItems, get8KFilingItems } from './filings.js';
-import { getPriceSnapshot, getPrices } from './prices.js';
-import { getFinancialMetricsSnapshot, getFinancialMetrics } from './metrics.js';
+import { getPriceSnapshot, getPrices, searchTicker } from './prices.js';
+import { getFinancialMetricsSnapshot, getEarnings } from './metrics.js';
 import { getNews } from './news.js';
-import { getAnalystEstimates } from './estimates.js';
-import { getSegmentedRevenues } from './segments.js';
-import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
-import { getInsiderTrades } from './insider_trades.js';
+import { getCryptoPriceSnapshot, getCryptoPrices } from './crypto.js';
 
-// All finance tools available for routing
+// All finance tools available for routing (powered by Alpha Vantage API)
 const FINANCE_TOOLS: StructuredToolInterface[] = [
   // Price Data
   getPriceSnapshot,
   getPrices,
+  searchTicker,
+  // Cryptocurrency
   getCryptoPriceSnapshot,
   getCryptoPrices,
-  getCryptoTickers,
   // Fundamentals
   getIncomeStatements,
   getBalanceSheets,
   getCashFlowStatements,
   getAllFinancialStatements,
-  // Metrics & Estimates
+  // Metrics & Earnings
   getFinancialMetricsSnapshot,
-  getFinancialMetrics,
-  getAnalystEstimates,
-  // SEC Filings
-  getFilings,
-  get10KFilingItems,
-  get10QFilingItems,
-  get8KFilingItems,
-  // Other Data
+  getEarnings,
+  // News
   getNews,
-  getInsiderTrades,
-  getSegmentedRevenues,
 ];
 
 // Create a map for quick tool lookup by name
@@ -49,7 +38,7 @@ const FINANCE_TOOL_MAP = new Map(FINANCE_TOOLS.map(t => [t.name, t]));
 
 // Build the router system prompt - simplified since LLM sees tool schemas
 function buildRouterPrompt(): string {
-  return `You are a financial data routing assistant.
+  return `You are a financial data routing assistant powered by Alpha Vantage API.
 Current date: ${getCurrentDate()}
 
 Given a user's natural language query about financial data, call the appropriate financial tool(s).
@@ -59,23 +48,21 @@ Given a user's natural language query about financial data, call the appropriate
 1. **Ticker Resolution**: Convert company names to ticker symbols:
    - Apple → AAPL, Tesla → TSLA, Microsoft → MSFT, Amazon → AMZN
    - Google/Alphabet → GOOGL, Meta/Facebook → META, Nvidia → NVDA
+   - If unsure, use search_ticker to find the correct symbol
 
-2. **Date Inference**: Convert relative dates to YYYY-MM-DD format:
-   - "last year" → start_date 1 year ago, end_date today
-   - "last quarter" → start_date 3 months ago, end_date today
-   - "past 5 years" → start_date 5 years ago, end_date today
-   - "YTD" → start_date Jan 1 of current year, end_date today
+2. **Tool Selection**:
+   - For "current" or "latest" price → get_price_snapshot
+   - For "historical" prices → get_prices (supports daily, weekly, monthly, intraday)
+   - For P/E ratio, market cap, valuation, company overview → get_financial_metrics_snapshot
+   - For earnings history and EPS data → get_earnings
+   - For revenue, expenses, profitability → get_income_statements
+   - For assets, liabilities, equity → get_balance_sheets
+   - For cash flow analysis → get_cash_flow_statements
+   - For comprehensive financial analysis → get_all_financial_statements
+   - For news and sentiment → get_news
+   - For cryptocurrency prices → get_crypto_price_snapshot or get_crypto_prices
 
-3. **Tool Selection**:
-   - For "current" or "latest" data, use snapshot tools (get_price_snapshot, get_financial_metrics_snapshot)
-   - For "historical" or "over time" data, use date-range tools
-   - For P/E ratio, market cap, valuation metrics → get_financial_metrics_snapshot
-   - For revenue, earnings, profitability → get_income_statements
-   - For debt, assets, equity → get_balance_sheets
-   - For cash flow, free cash flow → get_cash_flow_statements
-   - For comprehensive analysis → get_all_financial_statements
-
-4. **Efficiency**:
+3. **Efficiency**:
    - Prefer specific tools over general ones when possible
    - Use get_all_financial_statements only when multiple statement types needed
    - For comparisons between companies, call the same tool for each ticker
@@ -95,15 +82,14 @@ const FinancialSearchInputSchema = z.object({
 export function createFinancialSearch(model: string): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: 'financial_search',
-    description: `Intelligent agentic search for financial data. Takes a natural language query and automatically routes to appropriate financial data tools. Use for:
-- Stock prices (current or historical)
+    description: `Intelligent agentic search for financial data powered by Alpha Vantage API. Takes a natural language query and automatically routes to appropriate financial data tools. Use for:
+- Stock prices (current quotes, historical daily/weekly/monthly/intraday)
 - Company financials (income statements, balance sheets, cash flow)
-- Financial metrics (P/E ratio, market cap, EPS, dividend yield)
-- SEC filings (10-K, 10-Q, 8-K)
-- Analyst estimates and price targets
-- Company news
-- Insider trading activity
-- Cryptocurrency prices`,
+- Financial metrics (P/E ratio, market cap, EPS, dividend yield, analyst ratings)
+- Earnings data (quarterly and annual EPS, estimates, surprises)
+- Company news with sentiment analysis
+- Cryptocurrency prices and exchange rates
+- Ticker symbol search`,
     schema: FinancialSearchInputSchema,
     func: async (input) => {
       // 1. Call LLM with finance tools bound (native tool calling)
@@ -162,7 +148,8 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
       for (const result of successfulResults) {
         // Use tool name as key, or tool_ticker for multiple calls to same tool
         const ticker = (result.args as Record<string, unknown>).ticker as string | undefined;
-        const key = ticker ? `${result.tool}_${ticker}` : result.tool;
+        const symbol = (result.args as Record<string, unknown>).symbol as string | undefined;
+        const key = ticker || symbol ? `${result.tool}_${ticker || symbol}` : result.tool;
         combinedData[key] = result.data;
       }
 
