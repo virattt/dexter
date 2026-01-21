@@ -79,9 +79,8 @@ cp env.example .env
 # (Optional) If using Ollama locally
 # OLLAMA_BASE_URL=http://127.0.0.1:11434
 
-# (Optional) Triton inference server (OpenAI compatible)
-# TRITON_API_KEY=your-triton-api-key
-# TRITON_BASE_URL=http://127.0.0.1:8000/v1
+# (Optional) Triton inference server (no API key required)
+# TRITON_BASE_URL=http://127.0.0.1:8000
 
 # (Optional) MCP servers (JSON array)
 # MCP_SERVERS=[{"name":"python","command":"python","args":["python/mcp_server.py"]}]

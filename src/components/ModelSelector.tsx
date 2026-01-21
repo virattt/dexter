@@ -33,6 +33,7 @@ const PROVIDERS: Provider[] = [
     displayName: 'Triton',
     providerId: 'triton',
     models: [
+      'triton:Ministral-3-8B',
       'triton:llama-3.1-70b-instruct',
       'triton:mixtral-8x7b-instruct',
       'triton:deepseek-r1',
