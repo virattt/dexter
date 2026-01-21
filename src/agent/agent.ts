@@ -8,6 +8,7 @@ import { buildSystemPrompt, buildIterationPrompt, buildFinalAnswerPrompt, buildT
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { streamLlmResponse } from '../utils/llm-stream.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
+import { initializeMCP } from '../mcp/index.js';
 import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent, ToolSummary, AnswerStartEvent, AnswerChunkEvent } from '../agent/types.js';
 
 
@@ -71,11 +72,16 @@ export class Agent {
   /**
    * Create a new Agent instance with tools.
    */
-  static create(config: AgentConfig = {}): Agent {
+  static async create(config: AgentConfig = {}): Promise<Agent> {
     const model = config.model ?? 'gpt-5.2';
+
+    // Initialize MCP and get tools from configured servers
+    const mcpManager = await initializeMCP();
+
     const tools: StructuredToolInterface[] = [
       createFinancialSearch(model),
       ...(process.env.TAVILY_API_KEY ? [tavilySearch] : []),
+      ...mcpManager.getTools(),
     ];
     const systemPrompt = buildSystemPrompt();
     return new Agent(config, tools, systemPrompt);

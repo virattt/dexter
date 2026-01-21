@@ -133,6 +133,91 @@ Type `/model` in the CLI to switch between:
 - Grok 4 (xAI)
 - Local models (Ollama)
 
+## MCP (Model Context Protocol) Support
+
+Dexter supports MCP servers, allowing you to extend its capabilities with external tools. MCP is an open protocol that enables AI applications to connect with external data sources and tools.
+
+### Configuring MCP Servers
+
+Create a `.dexter/mcp.json` file in the project root:
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/dir"]
+    },
+    "kite": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.kite.trade/mcp"]
+    }
+  }
+}
+```
+
+### Configuration Options
+
+Each server supports the following options:
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `command` | string | The command to execute (e.g., `npx`, `node`) |
+| `args` | string[] | Command line arguments |
+| `env` | object | Environment variables (supports `${VAR}` and `${VAR:-default}` syntax) |
+| `cwd` | string | Working directory for the server process |
+| `enabled` | boolean | Set to `false` to disable the server (default: `true`) |
+
+### Environment Variable Expansion
+
+You can use environment variables in your MCP config:
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+### Available MCP Servers
+
+Some popular MCP servers you can use:
+
+| Server | Description | Install |
+|--------|-------------|---------|
+| [Filesystem](https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem) | Read/write files | `npx -y @modelcontextprotocol/server-filesystem /path` |
+| [GitHub](https://github.com/modelcontextprotocol/servers/tree/main/src/github) | GitHub API access | `npx -y @modelcontextprotocol/server-github` |
+| [Zerodha Kite](https://mcp.kite.trade) | Indian stock trading | `npx -y mcp-remote https://mcp.kite.trade/mcp` |
+
+### Testing MCP Configuration
+
+Run the MCP test script to verify your configuration:
+
+```bash
+bun run scripts/test-mcp.ts
+```
+
+This will show:
+- Configured servers
+- Connection status
+- Available tools from each server
+
+### How MCP Tools Appear
+
+MCP tools are prefixed with `mcp_{serverName}_` to avoid conflicts. For example:
+- `mcp_filesystem_read_file`
+- `mcp_kite_get_holdings`
+- `mcp_github_create_issue`
+
+The agent will automatically use these tools when appropriate for your queries.
+
 ## How to Contribute
 
 1. Fork the repository
