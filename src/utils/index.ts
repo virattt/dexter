@@ -13,3 +13,5 @@ export { extractChunkText, streamLlmResponse } from './llm-stream.js';
 export { LongTermChatHistory } from './long-term-chat-history.js';
 export type { ConversationEntry } from './long-term-chat-history.js';
 export { findPrevWordStart, findNextWordEnd } from './text-navigation.js';
+export { cursorHandlers } from './input-key-handlers.js';
+export type { CursorContext } from './input-key-handlers.js';
