@@ -40,14 +40,14 @@ function formatArgs(args: Record<string, unknown>): string {
   // For tools with a single 'query' arg, show it in a clean format
   if (Object.keys(args).length === 1 && 'query' in args) {
     const query = String(args.query);
-    return `"${truncateAtWord(query, 40)}"`;
+    return `"${truncateAtWord(query, 60)}"`;
   }
   
   // For other tools, format key=value pairs with truncation
   return Object.entries(args)
     .map(([key, value]) => {
       const strValue = String(value);
-      return `${key}=${truncateAtWord(strValue, 40)}`;
+      return `${key}=${truncateAtWord(strValue, 60)}`;
     })
     .join(', ');
 }
