@@ -18,7 +18,8 @@ export async function callApi(
   params: Record<string, string | number | string[] | undefined>
 ): Promise<ApiResponse> {
   // Read API key lazily at call time (after dotenv has loaded)
-  const ALPHA_VANTAGE_API_KEY = process.env.ALPHA_VANTAGE_API_KEY;
+  // Support both ALPHAVANTAGE_API_KEY and ALPHA_VANTAGE_API_KEY for flexibility
+  const ALPHA_VANTAGE_API_KEY = process.env.ALPHAVANTAGE_API_KEY || process.env.ALPHA_VANTAGE_API_KEY;
   const url = new URL(BASE_URL);
 
   // Add the function parameter first
