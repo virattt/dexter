@@ -26,7 +26,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 - [Bun](https://bun.com) runtime (v1.0 or higher)
 - OpenAI API key (get [here](https://platform.openai.com/api-keys))
 - xAI API key (get [here](https://console.x.ai)) - optional, for Grok models
-- Financial Datasets API key (get [here](https://financialdatasets.ai))
+- Alpha Vantage API key (get [here](https://www.alphavantage.co/support/#api-key))
 - Tavily API key (get [here](https://tavily.com)) - optional, for web search
 
 #### Installing Bun
@@ -75,8 +75,10 @@ cp env.example .env
 # (Optional) If using Ollama locally
 # OLLAMA_BASE_URL=http://127.0.0.1:11434
 
-# Other required keys
-# FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
+# Alpha Vantage API key (for financial data)
+# ALPHA_VANTAGE_API_KEY=your-alpha-vantage-api-key
+
+# Tavily API key (optional, for web search)
 # TAVILY_API_KEY=your-tavily-api-key
 ```
 
