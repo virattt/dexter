@@ -3,7 +3,7 @@ import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlm, getFastModel } from '../model/llm.js';
 import { ContextManager } from './context.js';
 import { Scratchpad } from './scratchpad.js';
-import { createFinancialSearch, tavilySearch } from '../tools/index.js';
+import { tavilySearch } from '../tools/index.js';
 import { createMcpTools } from '../tools/mcp/client.js';
 import { buildSystemPrompt, buildIterationPrompt, buildFinalAnswerPrompt, buildToolSummaryPrompt, buildStepSummaryPrompt } from '../agent/prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
@@ -64,10 +64,8 @@ export class Agent {
    * Create a new Agent instance with tools.
    */
   static async create(config: AgentConfig = {}): Promise<Agent> {
-    const model = config.model ?? 'gpt-5.2';
     const mcpTools = await createMcpTools();
     const tools: StructuredToolInterface[] = [
-      createFinancialSearch(model),
       ...(process.env.TAVILY_API_KEY ? [tavilySearch] : []),
       ...mcpTools,
     ];

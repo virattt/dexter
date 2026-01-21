@@ -1,7 +1,7 @@
 {
   "name": "dexter-ts",
   "version": "3.0.1",
-  "description": "Dexter - AI agent for deep financial research.",
+  "description": "Ubbex - An agentic coding assistant that lives in your terminal. Understands codebases, writes code, automates tasks, and handles git workflows through natural language commands.",
   "type": "module",
   "main": "src/index.tsx",
   "bin": {

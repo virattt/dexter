@@ -1,21 +1,23 @@
 # Ubbex 🤖
 
-Ubbex is a Claude Code-style terminal agent that thinks in steps, streams tool calls, and supports Triton natively. It pairs a TypeScript + Bun CLI with optional MCP-powered Python tools for fast local computations.
+Ubbex is an agentic coding assistant that lives in your terminal. Built in the style of Claude Code, it thinks in steps, streams tool calls, and supports Triton natively. It pairs a TypeScript + Bun CLI with extensible MCP (Model Context Protocol) integration for powerful development workflows.
 
 
 <img width="979" height="651" alt="Screenshot 2025-10-14 at 6 12 35 PM" src="https://github.com/user-attachments/assets/5a2859d4-53cf-4638-998a-15cef3c98038" />
 
 ## Overview
 
-Ubbex takes complex financial questions and turns them into clear, step-by-step research plans. It runs those tasks using live market data, checks its own work, and refines the results until it has a confident, data-backed answer.  
+Ubbex is an intelligent coding assistant that understands your entire codebase, helps you write and debug code, and automates routine development tasks—all through natural language commands in your terminal.
 
 **Key Capabilities:**
-- **Intelligent Task Planning**: Automatically decomposes complex queries into structured research steps
-- **Autonomous Execution**: Selects and executes the right tools to gather financial data
-- **Self-Validation**: Checks its own work and iterates until tasks are complete
-- **Real-Time Financial Data**: Access to income statements, balance sheets, and cash flow statements
-- **Triton Native Support**: Connect to Triton-compatible inference servers via OpenAI-style endpoints
-- **MCP Tooling**: Attach local or remote MCP servers, including the bundled Python server
+- **Codebase Understanding**: Analyzes and understands entire codebases through contextual exploration
+- **Code Writing & Debugging**: Writes, refactors, and debugs code across multiple languages and frameworks
+- **Git Workflow Automation**: Handles commits, branching, merging, and other git operations via natural language
+- **Task Automation**: Automates routine tasks like running tests, fixing lints, and formatting code
+- **Code Explanation**: Explains complex code in clear, understandable terms
+- **Tool Integration**: Integrates with external tools (Jira, Figma, Slack, etc.) via MCP servers
+- **Custom Skills**: Extensible through MCP protocol for custom development workflows
+- **Multi-Model Support**: Works with OpenAI, Anthropic, Google, xAI, Triton, and Ollama models
 - **Safety Features**: Built-in loop detection and step limits to prevent runaway execution
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt)
@@ -26,12 +28,13 @@ Ubbex takes complex financial questions and turns them into clear, step-by-step 
 ### Prerequisites
 
 - [Bun](https://bun.com) runtime (v1.0 or higher)
-- OpenAI API key (get [here](https://platform.openai.com/api-keys))
+- OpenAI API key (get [here](https://platform.openai.com/api-keys)) - optional, for OpenAI models
+- Anthropic API key (get [here](https://console.anthropic.com)) - optional, for Claude models
+- Google API key - optional, for Gemini models
 - xAI API key (get [here](https://console.x.ai)) - optional, for Grok models
 - Triton API key + base URL - optional, for Triton inference
-- Financial Datasets API key (get [here](https://financialdatasets.ai))
 - Tavily API key (get [here](https://tavily.com)) - optional, for web search
-- Python 3.10+ (optional, for MCP Python tools)
+- Python 3.10+ (optional, for MCP Python tools and custom integrations)
 
 #### Installing Bun
 
@@ -85,8 +88,7 @@ cp env.example .env
 # (Optional) MCP servers (JSON array)
 # MCP_SERVERS=[{"name":"python","command":"python","args":["python/mcp_server.py"]}]
 
-# Other required keys
-# FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
+# (Optional) Web search
 # TAVILY_API_KEY=your-tavily-api-key
 ```
 
@@ -102,28 +104,50 @@ Or with watch mode for development:
 bun dev
 ```
 
-### Example Queries
+### Example Commands
 
-Try asking Ubbex questions like:
-- "What was Apple's revenue growth over the last 4 quarters?"
-- "Compare Microsoft and Google's operating margins for 2023"
-- "Analyze Tesla's cash flow trends over the past year"
-- "What is Amazon's debt-to-equity ratio based on recent financials?"
+Try asking Ubbex to help you with:
+
+**Code Understanding:**
+- "Explain how the authentication system works in this codebase"
+- "What does the UserService class do?"
+- "Show me all the API endpoints in this project"
+
+**Code Writing & Refactoring:**
+- "Add a new endpoint for user profile updates"
+- "Refactor the database connection logic to use a connection pool"
+- "Write unit tests for the PaymentProcessor class"
+
+**Debugging:**
+- "Why is this function returning undefined?"
+- "Find and fix the memory leak in the event handlers"
+- "Debug the failing test in user.test.ts"
+
+**Git & Workflow Automation:**
+- "Commit my changes with a descriptive message"
+- "Create a new feature branch for user authentication"
+- "Show me what changed in the last 3 commits"
+
+**Task Automation:**
+- "Run the linter and fix all auto-fixable issues"
+- "Run the test suite and show me what failed"
+- "Format all TypeScript files in the src directory"
 
 Ubbex will automatically:
-1. Break down your question into research tasks
-2. Fetch the necessary financial data
-3. Perform calculations and analysis
-4. Provide a comprehensive, data-rich answer
+1. Understand the context of your codebase
+2. Break down complex tasks into steps
+3. Execute the necessary operations
+4. Provide clear explanations and results
 
 ## Architecture
 
-Ubbex uses a multi-agent architecture with specialized components:
+Ubbex uses an agentic architecture with intelligent task planning and execution:
 
-- **Planning Agent**: Analyzes queries and creates structured task lists
-- **Action Agent**: Selects appropriate tools and executes research steps
-- **Validation Agent**: Verifies task completion and data sufficiency
-- **Answer Agent**: Synthesizes findings into comprehensive responses
+- **Task Planning**: Automatically decomposes complex coding tasks into structured steps
+- **Tool Selection**: Intelligently selects and executes the right tools for each task
+- **Context Management**: Maintains understanding of your codebase throughout interactions
+- **Iterative Execution**: Validates work and refines results until tasks are complete
+- **MCP Integration**: Extensible tool system via Model Context Protocol for custom workflows
 
 ## Tech Stack
 

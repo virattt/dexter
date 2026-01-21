@@ -39,7 +39,8 @@ export function Intro({ provider, model }: IntroProps) {
       </Box>
 
       <Box marginY={1} flexDirection="column">
-        <Text>Claude Code-style agentic CLI with Triton + MCP support.</Text>
+        <Text>An agentic coding assistant that lives in your terminal.</Text>
+        <Text color={colors.muted}>Understands codebases • Writes & debugs code • Automates tasks • Handles git workflows</Text>
         <Text color={colors.muted}>Current model: <Text color={colors.primary}>{model}</Text></Text>
         {/* <Text color={colors.muted}>Current provider: <Text color={colors.primary}>{getProviderDisplayName(provider)}</Text></Text> */}
         <Text color={colors.muted}>Type /model to change the provider.</Text>
