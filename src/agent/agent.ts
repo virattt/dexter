@@ -2,7 +2,7 @@ import { AIMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlm, getFastModel } from '../model/llm.js';
 import { Scratchpad } from './scratchpad.js';
-import { tavilySearch } from '../tools/index.js';
+import { createTavilySearch } from '../tools/index.js';
 import { createMcpTools } from '../tools/mcp/client.js';
 import { buildSystemPrompt, buildIterationPrompt, buildFinalAnswerPrompt, buildToolSummaryPrompt, buildStepSummaryPrompt } from '../agent/prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
@@ -45,8 +45,9 @@ export class Agent {
    */
   static async create(config: AgentConfig = {}): Promise<Agent> {
     const mcpTools = await createMcpTools();
+    const tavilyTool = createTavilySearch();
     const tools: StructuredToolInterface[] = [
-      ...(process.env.TAVILY_API_KEY ? [tavilySearch] : []),
+      ...(tavilyTool ? [tavilyTool] : []),
       ...mcpTools,
     ];
     const systemPrompt = buildSystemPrompt();
@@ -58,10 +59,12 @@ export class Agent {
    * Uses context compaction: summaries during loop, full data for final answer.
    */
   async *run(query: string, inMemoryHistory?: InMemoryChatHistory): AsyncGenerator<AgentEvent> {
-    if (this.tools.length === 0) {
-      yield { type: 'done', answer: 'No tools available. Please check your API key configuration.', toolCalls: [], iterations: 0 };
-      return;
-    }
+    // Allow running without tools - the model can still answer questions directly
+    // Useful for local models (Triton, Ollama) that don't require external APIs
+    // if (this.tools.length === 0) {
+    //   yield { type: 'done', answer: 'No tools available. Please check your API key configuration.', toolCalls: [], iterations: 0 };
+    //   return;
+    // }
 
     // Create scratchpad for this query - single source of truth for all work done
     const scratchpad = new Scratchpad(query);

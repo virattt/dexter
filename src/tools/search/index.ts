@@ -1,1 +1,1 @@
-export { tavilySearch } from './tavily.js';
+export { createTavilySearch } from './tavily.js';
