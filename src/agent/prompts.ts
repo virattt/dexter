@@ -104,7 +104,9 @@ export function buildIterationPrompt(
   return `Query: ${originalQuery}
 
 Work done so far:
-${toolSummaries.join('\n')}`;
+${toolSummaries.join('\n')}
+
+Review the data above. If you have sufficient information to answer the query, respond directly WITHOUT calling any tools. Only call additional tools if there are specific data gaps that prevent you from answering.`;
 }
 
 // ============================================================================
