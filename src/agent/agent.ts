@@ -1,35 +1,17 @@
 import { AIMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlm, getFastModel } from '../model/llm.js';
-import { ContextManager } from './context.js';
 import { Scratchpad } from './scratchpad.js';
 import { createFinancialSearch, tavilySearch } from '../tools/index.js';
 import { buildSystemPrompt, buildIterationPrompt, buildFinalAnswerPrompt, buildToolSummaryPrompt } from '../agent/prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { streamLlmResponse } from '../utils/llm-stream.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
-import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent, ToolSummary, AnswerStartEvent, AnswerChunkEvent } from '../agent/types.js';
+import { getToolDescription } from '../utils/tool-description.js';
+import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent, AnswerStartEvent, AnswerChunkEvent } from '../agent/types.js';
 
 
 const DEFAULT_MAX_ITERATIONS = 10;
-
-interface ToolCallRecord {
-  tool: string;
-  args: Record<string, unknown>;
-  result: string;
-}
-
-interface ToolExecutionResult {
-  record: ToolCallRecord;
-  summary: ToolSummary;
-  promptEntry: string;
-}
-
-interface ToolCallsExecutionResult {
-  records: ToolCallRecord[];
-  summaries: ToolSummary[];
-  promptEntries: string[];
-}
 
 /**
  * The core agent class that handles the agent loop and tool execution.
@@ -38,7 +20,6 @@ export class Agent {
   private readonly model: string;
   private readonly modelProvider: string;
   private readonly maxIterations: number;
-  private readonly contextManager: ContextManager;
   private readonly tools: StructuredToolInterface[];
   private readonly toolMap: Map<string, StructuredToolInterface>;
   private readonly systemPrompt: string;
@@ -52,7 +33,6 @@ export class Agent {
     this.model = config.model ?? 'gpt-5.2';
     this.modelProvider = config.modelProvider ?? 'openai';
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
-    this.contextManager = new ContextManager();
     this.tools = tools;
     this.toolMap = new Map(tools.map(t => [t.name, t]));
     this.systemPrompt = systemPrompt;
@@ -82,10 +62,7 @@ export class Agent {
       return;
     }
 
-    const allToolCalls: ToolCallRecord[] = [];
-    const allSummaries: ToolSummary[] = [];
-    
-    // Create scratchpad for this query (append-only log of work done)
+    // Create scratchpad for this query - single source of truth for all work done
     const scratchpad = new Scratchpad(query);
     
     // Build initial prompt with conversation history context
@@ -110,15 +87,15 @@ export class Agent {
       if (!hasToolCalls(response)) {
         // If no tools were called at all, just use the direct response
         // This handles greetings, clarifying questions, etc.
-        if (allSummaries.length === 0 && responseText) {
+        if (!scratchpad.hasToolResults() && responseText) {
           yield { type: 'answer_start' };
           yield { type: 'answer_chunk', text: responseText };
           yield { type: 'done', answer: responseText, toolCalls: [], iterations: iteration };
           return;
         }
 
-        // Stream final answer with full context
-        const answerGenerator = this.generateFinalAnswer(query, allSummaries);
+        // Stream final answer with full context from scratchpad
+        const answerGenerator = this.generateFinalAnswer(query, scratchpad);
         let fullAnswer = '';
         
         for await (const event of answerGenerator) {
@@ -128,33 +105,26 @@ export class Agent {
           }
         }
         
-        yield { type: 'done', answer: fullAnswer, toolCalls: allToolCalls, iterations: iteration };
+        yield { type: 'done', answer: fullAnswer, toolCalls: scratchpad.getToolCallRecords(), iterations: iteration };
         return;
       }
 
-      // Execute tools and collect results
-      const generator = this.executeToolCalls(response, query);
+      // Execute tools and add results to scratchpad
+      const generator = this.executeToolCalls(response, query, scratchpad);
       let result = await generator.next();
 
-      // Execute tool calls and yield events
+      // Yield tool events
       while (!result.done) {
         yield result.value;
         result = await generator.next();
       }
-
-      // Add tool entries to scratchpad and collect summaries
-      for (const entry of result.value.promptEntries) {
-        scratchpad.addToolEntry(entry);
-      }
-      allToolCalls.push(...result.value.records);
-      allSummaries.push(...result.value.summaries);
       
       // Build iteration prompt from scratchpad (always has full accumulated history)
       currentPrompt = buildIterationPrompt(query, scratchpad.getToolSummaries());
     }
 
     // Max iterations reached - still generate proper final answer
-    const answerGenerator = this.generateFinalAnswer(query, allSummaries);
+    const answerGenerator = this.generateFinalAnswer(query, scratchpad);
     let fullAnswer = '';
     
     for await (const event of answerGenerator) {
@@ -166,8 +136,8 @@ export class Agent {
     
     yield {
       type: 'done',
-      answer: fullAnswer || `Reached maximum iterations (${this.maxIterations}). ${this.contextManager.getSummary()}`,
-      toolCalls: allToolCalls,
+      answer: fullAnswer || `Reached maximum iterations (${this.maxIterations}).`,
+      toolCalls: scratchpad.getToolCallRecords(),
       iterations: iteration
     };
   }
@@ -206,45 +176,37 @@ export class Agent {
   }
 
   /**
-   * Execute all tool calls from an LLM response
+   * Execute all tool calls from an LLM response and add results to scratchpad
    */
   private async *executeToolCalls(
     response: AIMessage,
-    query: string
-  ): AsyncGenerator<ToolStartEvent | ToolEndEvent | ToolErrorEvent, ToolCallsExecutionResult> {
-    const records: ToolCallRecord[] = [];
-    const summaries: ToolSummary[] = [];
-    const promptEntries: string[] = [];
-
+    query: string,
+    scratchpad: Scratchpad
+  ): AsyncGenerator<ToolStartEvent | ToolEndEvent | ToolErrorEvent, void> {
     for (const toolCall of response.tool_calls!) {
       const toolName = toolCall.name;
       const toolArgs = toolCall.args as Record<string, unknown>;
 
-      const generator = this.executeToolCall(toolName, toolArgs, query);
+      const generator = this.executeToolCall(toolName, toolArgs, query, scratchpad);
       let result = await generator.next();
 
       while (!result.done) {
         yield result.value;
         result = await generator.next();
       }
-
-      records.push(result.value.record);
-      summaries.push(result.value.summary);
-      promptEntries.push(result.value.promptEntry);
     }
-
-    return { records, summaries, promptEntries };
   }
 
   /**
-   * Execute a single tool call and yield start/end/error events.
-   * Returns an LLM-generated summary for context compaction.
+   * Execute a single tool call and add result to scratchpad.
+   * Yields start/end/error events for UI updates.
    */
   private async *executeToolCall(
     toolName: string,
     toolArgs: Record<string, unknown>,
-    query: string
-  ): AsyncGenerator<ToolStartEvent | ToolEndEvent | ToolErrorEvent, ToolExecutionResult> {
+    query: string,
+    scratchpad: Scratchpad
+  ): AsyncGenerator<ToolStartEvent | ToolEndEvent | ToolErrorEvent, void> {
     yield { type: 'tool_start', tool: toolName, args: toolArgs };
 
     const startTime = Date.now();
@@ -259,36 +221,21 @@ export class Agent {
       const result = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
       const duration = Date.now() - startTime;
 
-      // Save full result to disk and get lightweight summary
-      const summary = this.contextManager.saveAndGetSummary(toolName, toolArgs, result);
-
       yield { type: 'tool_end', tool: toolName, args: toolArgs, result, duration };
 
       // Generate LLM summary for context compaction
       const llmSummary = await this.summarizeToolResult(query, toolName, toolArgs, result);
 
-      return {
-        record: { tool: toolName, args: toolArgs, result },
-        summary,
-        promptEntry: llmSummary,
-      };
+      // Add complete tool result to scratchpad (single source of truth)
+      scratchpad.addToolResult(toolName, toolArgs, result, llmSummary);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       yield { type: 'tool_error', tool: toolName, error: errorMessage };
 
-      // Create error summary
-      const errorSummary: ToolSummary = {
-        id: '',
-        toolName,
-        args: toolArgs,
-        summary: `${this.contextManager.getToolDescription(toolName, toolArgs)} [FAILED]`,
-      };
-
-      return {
-        record: { tool: toolName, args: toolArgs, result: `Error: ${errorMessage}` },
-        summary: errorSummary,
-        promptEntry: `- ${errorSummary.summary}: ${errorMessage}`,
-      };
+      // Add error to scratchpad
+      const toolDescription = getToolDescription(toolName, toolArgs);
+      const errorSummary = `- ${toolDescription} [FAILED]: ${errorMessage}`;
+      scratchpad.addToolResult(toolName, toolArgs, `Error: ${errorMessage}`, errorSummary);
     }
   }
 
@@ -314,16 +261,15 @@ export class Agent {
 
   /**
    * Generate the final answer by loading full context data and streaming the response.
-   * This is the final step after context compaction - we load all data from disk.
    */
   private async *generateFinalAnswer(
     query: string,
-    summaries: ToolSummary[]
+    scratchpad: Scratchpad
   ): AsyncGenerator<AnswerStartEvent | AnswerChunkEvent> {
     yield { type: 'answer_start' };
 
-    // Load full context data from disk
-    const fullContext = this.buildFullContextForAnswer(summaries);
+    // Get full context data from scratchpad
+    const fullContext = this.buildFullContextForAnswer(scratchpad);
 
     // Build the final answer prompt
     const prompt = buildFinalAnswerPrompt(query, fullContext);
@@ -340,34 +286,30 @@ export class Agent {
   }
 
   /**
-   * Build full context data for final answer generation.
-   * Loads full tool results from disk using the summaries' file pointers.
+   * Build full context data for final answer generation from scratchpad.
    */
-  private buildFullContextForAnswer(summaries: ToolSummary[]): string {
-    if (summaries.length === 0) {
+  private buildFullContextForAnswer(scratchpad: Scratchpad): string {
+    const contexts = scratchpad.getFullContexts();
+
+    if (contexts.length === 0) {
       return 'No data was gathered.';
     }
 
-    // Get filepaths from summaries (filter out error summaries with empty ids)
-    const filepaths = summaries
-      .map(s => s.id)
-      .filter(id => id.length > 0);
+    // Filter out error results and format contexts for the prompt
+    const validContexts = contexts.filter(ctx => !ctx.result.startsWith('Error:'));
 
-    if (filepaths.length === 0) {
+    if (validContexts.length === 0) {
       return 'No data was successfully gathered.';
     }
 
-    // Load full contexts from disk
-    const contexts = this.contextManager.loadFullContexts(filepaths);
-
-    if (contexts.length === 0) {
-      return 'Failed to load context data.';
-    }
-
-    // Format contexts for the prompt
-    return contexts.map(ctx => {
-      const description = this.contextManager.getToolDescription(ctx.toolName, ctx.args);
-      return `### ${description}\n\`\`\`json\n${JSON.stringify(JSON.parse(ctx.result), null, 2)}\n\`\`\``;
+    return validContexts.map(ctx => {
+      const description = getToolDescription(ctx.toolName, ctx.args);
+      try {
+        return `### ${description}\n\`\`\`json\n${JSON.stringify(JSON.parse(ctx.result), null, 2)}\n\`\`\``;
+      } catch {
+        // If result is not valid JSON, return as-is
+        return `### ${description}\n${ctx.result}`;
+      }
     }).join('\n\n');
   }
 }
