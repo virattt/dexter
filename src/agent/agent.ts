@@ -4,7 +4,8 @@ import { callLlm, getFastModel } from '../model/llm.js';
 import { ContextManager } from './context.js';
 import { Scratchpad } from './scratchpad.js';
 import { createFinancialSearch, tavilySearch } from '../tools/index.js';
-import { buildSystemPrompt, buildIterationPrompt, buildFinalAnswerPrompt, buildToolSummaryPrompt } from '../agent/prompts.js';
+import { createMcpTools } from '../tools/mcp/client.js';
+import { buildSystemPrompt, buildIterationPrompt, buildFinalAnswerPrompt, buildToolSummaryPrompt, buildStepSummaryPrompt } from '../agent/prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { streamLlmResponse } from '../utils/llm-stream.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
@@ -62,11 +63,13 @@ export class Agent {
   /**
    * Create a new Agent instance with tools.
    */
-  static create(config: AgentConfig = {}): Agent {
+  static async create(config: AgentConfig = {}): Promise<Agent> {
     const model = config.model ?? 'gpt-5.2';
+    const mcpTools = await createMcpTools();
     const tools: StructuredToolInterface[] = [
       createFinancialSearch(model),
       ...(process.env.TAVILY_API_KEY ? [tavilySearch] : []),
+      ...mcpTools,
     ];
     const systemPrompt = buildSystemPrompt();
     return new Agent(config, tools, systemPrompt);
@@ -100,10 +103,13 @@ export class Agent {
       const response = await this.callModel(currentPrompt);
       const responseText = extractTextContent(response);
 
-      // Emit thinking if there are also tool calls
-      if (responseText && hasToolCalls(response)) {
+      // Emit summarized step view (avoid chain-of-thought) when tool calls are present
+      if (hasToolCalls(response)) {
         scratchpad.addThinking(responseText);
-        yield { type: 'thinking', message: responseText };
+        const stepSummary = await this.summarizeStep(query, responseText, response.tool_calls?.map(call => call.name) ?? []);
+        if (stepSummary) {
+          yield { type: 'step', message: stepSummary };
+        }
       }
 
       // No tool calls = ready to generate final answer
@@ -203,6 +209,27 @@ export class Agent {
       signal: this.signal,
     });
     return String(summary);
+  }
+
+  /**
+   * Generate a short step summary for UI without revealing chain-of-thought.
+   */
+  private async summarizeStep(
+    query: string,
+    modelNotes: string,
+    toolNames: string[]
+  ): Promise<string> {
+    const prompt = buildStepSummaryPrompt(query, toolNames, modelNotes);
+    try {
+      const summary = await callLlm(prompt, {
+        model: getFastModel(this.modelProvider, this.model),
+        systemPrompt: 'You are a terse narrator. Output only the short step summary.',
+        signal: this.signal,
+      });
+      return String(summary).trim();
+    } catch {
+      return '';
+    }
   }
 
   /**

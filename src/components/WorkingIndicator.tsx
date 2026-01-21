@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Text } from 'ink';
 import Spinner from 'ink-spinner';
 import { colors } from '../theme.js';
@@ -11,6 +11,29 @@ export type WorkingState =
 
 interface WorkingIndicatorProps {
   state: WorkingState;
+}
+
+const BAR_WIDTH = 28;
+
+function SlimProgressBar() {
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setTick((prev) => prev + 1), 120);
+    return () => clearInterval(timer);
+  }, []);
+
+  const bar = useMemo(() => {
+    const position = tick % BAR_WIDTH;
+    const glow = (index: number) => (index === position ? '━' : '─');
+    return Array.from({ length: BAR_WIDTH }, (_, idx) => glow(idx)).join('');
+  }, [tick]);
+
+  return (
+    <Box>
+      <Text color={colors.accent}>{bar}</Text>
+    </Box>
+  );
 }
 
 /**
@@ -33,11 +56,14 @@ export function WorkingIndicator({ state }: WorkingIndicatorProps) {
   }
   
   return (
-    <Box>
-      <Text color={colors.primary}>
-        <Spinner type="dots" />
-      </Text>
-      <Text color={colors.muted}> {statusText}</Text>
+    <Box flexDirection="column">
+      <Box>
+        <Text color={colors.primary}>
+          <Spinner type="dots" />
+        </Text>
+        <Text color={colors.muted}> {statusText}</Text>
+      </Box>
+      <SlimProgressBar />
     </Box>
   );
 }

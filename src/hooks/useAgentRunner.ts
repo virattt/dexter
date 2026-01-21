@@ -53,6 +53,16 @@ export function useAgentRunner(
   // Handle agent events
   const handleEvent = useCallback((event: AgentEvent) => {
     switch (event.type) {
+      case 'step':
+        updateLastHistoryItem(item => ({
+          events: [...item.events, {
+            id: `step-${Date.now()}`,
+            event,
+            completed: true,
+          }],
+        }));
+        break;
+
       case 'thinking':
         setWorkingState({ status: 'thinking' });
         updateLastHistoryItem(item => ({

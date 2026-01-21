@@ -78,6 +78,15 @@ const MODEL_PROVIDERS: Record<string, ModelFactory> = {
         baseURL: 'https://api.x.ai/v1',
       },
     }),
+  'triton:': (name, opts) =>
+    new ChatOpenAI({
+      model: name.replace(/^triton:/, ''),
+      ...opts,
+      apiKey: getApiKey('TRITON_API_KEY', 'Triton'),
+      configuration: {
+        baseURL: process.env.TRITON_BASE_URL ?? 'http://127.0.0.1:8000/v1',
+      },
+    }),
   'ollama:': (name, opts) =>
     new ChatOllama({
       model: name.replace(/^ollama:/, ''),
