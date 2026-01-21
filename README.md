@@ -93,47 +93,6 @@ Or with watch mode for development:
 bun dev
 ```
 
-### Example Queries
-
-Try asking Dexter questions like:
-- "What was Apple's revenue growth over the last 4 quarters?"
-- "Compare Microsoft and Google's operating margins for 2023"
-- "Analyze Tesla's cash flow trends over the past year"
-- "What is Amazon's debt-to-equity ratio based on recent financials?"
-
-Dexter will automatically:
-1. Break down your question into research tasks
-2. Fetch the necessary financial data
-3. Perform calculations and analysis
-4. Provide a comprehensive, data-rich answer
-
-## Architecture
-
-Dexter uses a multi-agent architecture with specialized components:
-
-- **Planning Agent**: Analyzes queries and creates structured task lists
-- **Action Agent**: Selects appropriate tools and executes research steps
-- **Validation Agent**: Verifies task completion and data sufficiency
-- **Answer Agent**: Synthesizes findings into comprehensive responses
-
-## Tech Stack
-
-- **Runtime**: [Bun](https://bun.sh)
-- **UI Framework**: [React](https://react.dev) + [Ink](https://github.com/vadimdemedes/ink) (terminal UI)
-- **LLM Integration**: [LangChain.js](https://js.langchain.com) with multi-provider support (OpenAI, Anthropic, Google, xAI, Ollama)
-- **Schema Validation**: [Zod](https://zod.dev)
-- **Language**: TypeScript
-
-
-### Changing Models
-
-Type `/model` in the CLI to switch between:
-- GPT 4.1 (OpenAI)
-- Claude Sonnet 4.5 (Anthropic)
-- Gemini 3 (Google)
-- Grok 4 (xAI)
-- Local models (Ollama)
-
 ## How to Contribute
 
 1. Fork the repository
