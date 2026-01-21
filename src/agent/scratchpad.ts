@@ -28,7 +28,7 @@ export interface ScratchpadEntry {
   // For tool_result:
   toolName?: string;
   args?: Record<string, unknown>;
-  result?: string;
+  result?: unknown; // Stored as parsed object when possible, string otherwise
   llmSummary?: string;
 }
 
@@ -61,7 +61,8 @@ export class Scratchpad {
   }
 
   /**
-   * Add a complete tool result with full data and LLM summary
+   * Add a complete tool result with full data and LLM summary.
+   * Parses JSON strings to store as objects for cleaner JSONL output.
    */
   addToolResult(
     toolName: string,
@@ -74,9 +75,22 @@ export class Scratchpad {
       timestamp: new Date().toISOString(),
       toolName,
       args,
-      result,
+      result: this.parseResultSafely(result),
       llmSummary,
     });
+  }
+
+  /**
+   * Safely parse a result string as JSON if possible.
+   * Returns the parsed object if valid JSON, otherwise returns the original string.
+   */
+  private parseResultSafely(result: string): unknown {
+    try {
+      return JSON.parse(result);
+    } catch {
+      // Not valid JSON, return as-is (e.g., error messages, plain text)
+      return result;
+    }
   }
 
   /**
@@ -104,7 +118,7 @@ export class Scratchpad {
       .map(e => ({
         tool: e.toolName!,
         args: e.args!,
-        result: e.result!,
+        result: this.stringifyResult(e.result),
       }));
   }
 
@@ -117,8 +131,19 @@ export class Scratchpad {
       .map(e => ({
         toolName: e.toolName!,
         args: e.args!,
-        result: e.result!,
+        result: this.stringifyResult(e.result),
       }));
+  }
+
+  /**
+   * Convert a result back to string for API compatibility.
+   * If already a string, returns as-is. Otherwise JSON stringifies.
+   */
+  private stringifyResult(result: unknown): string {
+    if (typeof result === 'string') {
+      return result;
+    }
+    return JSON.stringify(result);
   }
 
   /**
