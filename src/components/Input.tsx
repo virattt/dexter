@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 
 import { colors } from '../theme.js';
+import { findPrevWordStart, findNextWordEnd } from '../utils/text-navigation.js';
 
 interface InputProps {
   onSubmit: (value: string) => void;
@@ -45,15 +46,15 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
       }
     }
 
-    // Cursor movement - left arrow
-    if (key.leftArrow) {
+    // Cursor movement - left arrow (plain, no modifiers)
+    if (key.leftArrow && !key.ctrl && !key.meta) {
       cursorPos.current = Math.max(0, cursorPos.current - 1);
       forceRender(x => x + 1);
       return;
     }
 
-    // Cursor movement - right arrow
-    if (key.rightArrow) {
+    // Cursor movement - right arrow (plain, no modifiers)
+    if (key.rightArrow && !key.ctrl && !key.meta) {
       cursorPos.current = Math.min(buffer.current.length, cursorPos.current + 1);
       forceRender(x => x + 1);
       return;
@@ -69,6 +70,20 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
     // Ctrl+E - move to end of line
     if (key.ctrl && input === 'e') {
       cursorPos.current = buffer.current.length;
+      forceRender(x => x + 1);
+      return;
+    }
+
+    // Option+Left (Mac) / Ctrl+Left (Windows) / Alt+B - word backward
+    if ((key.meta && key.leftArrow) || (key.ctrl && key.leftArrow) || (key.meta && input === 'b')) {
+      cursorPos.current = findPrevWordStart(buffer.current, cursorPos.current);
+      forceRender(x => x + 1);
+      return;
+    }
+
+    // Option+Right (Mac) / Ctrl+Right (Windows) / Alt+F - word forward
+    if ((key.meta && key.rightArrow) || (key.ctrl && key.rightArrow) || (key.meta && input === 'f')) {
+      cursorPos.current = findNextWordEnd(buffer.current, cursorPos.current);
       forceRender(x => x + 1);
       return;
     }

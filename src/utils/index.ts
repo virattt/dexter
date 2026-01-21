@@ -12,3 +12,4 @@ export { extractTextContent, hasToolCalls } from './ai-message.js';
 export { extractChunkText, streamLlmResponse } from './llm-stream.js';
 export { LongTermChatHistory } from './long-term-chat-history.js';
 export type { ConversationEntry } from './long-term-chat-history.js';
+export { findPrevWordStart, findNextWordEnd } from './text-navigation.js';
