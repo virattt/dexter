@@ -55,7 +55,7 @@ export function HistoryItemView({ item }: HistoryItemViewProps) {
       {/* Interrupted indicator */}
       {item.status === 'interrupted' && (
         <Box marginLeft={2}>
-          <Text color={colors.muted}>⎿  Interrupted · What should Dexter do instead?</Text>
+          <Text color={colors.muted}>⎿  Interrupted · What should Ubbex do instead?</Text>
         </Box>
       )}
       

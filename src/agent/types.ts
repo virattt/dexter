@@ -55,6 +55,14 @@ export interface ThinkingEvent {
 }
 
 /**
+ * High-level step summary (no chain-of-thought)
+ */
+export interface StepEvent {
+  type: 'step';
+  message: string;
+}
+
+/**
  * Tool execution started
  */
 export interface ToolStartEvent {
@@ -113,6 +121,7 @@ export interface DoneEvent {
  */
 export type AgentEvent =
   | ThinkingEvent
+  | StepEvent
   | ToolStartEvent
   | ToolEndEvent
   | ToolErrorEvent

@@ -14,6 +14,8 @@ const PROVIDERS: Record<string, ProviderConfig> = {
   openai: { displayName: 'OpenAI', apiKeyEnvVar: 'OPENAI_API_KEY' },
   anthropic: { displayName: 'Anthropic', apiKeyEnvVar: 'ANTHROPIC_API_KEY' },
   google: { displayName: 'Google', apiKeyEnvVar: 'GOOGLE_API_KEY' },
+  xai: { displayName: 'xAI', apiKeyEnvVar: 'XAI_API_KEY' },
+  triton: { displayName: 'Triton' },
   ollama: { displayName: 'Ollama' },
 };
 

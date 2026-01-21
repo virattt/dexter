@@ -2,7 +2,6 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { colors, dimensions } from '../theme.js';
 import packageJson from '../../package.json';
-import { getProviderDisplayName } from '../utils/env.js';
 
 interface IntroProps {
   provider: string;
@@ -11,7 +10,7 @@ interface IntroProps {
 
 export function Intro({ provider, model }: IntroProps) {
   const { introWidth } = dimensions;
-  const welcomeText = 'Welcome to Dexter';
+  const welcomeText = 'Welcome to Ubbex';
   const versionText = ` v${packageJson.version}`;
   const fullText = welcomeText + versionText;
   const padding = Math.floor((introWidth - fullText.length - 2) / 2);
@@ -40,7 +39,7 @@ export function Intro({ provider, model }: IntroProps) {
       </Box>
 
       <Box marginY={1} flexDirection="column">
-        <Text>Your AI assistant for deep financial research.</Text>
+        <Text>Claude Code-style agentic CLI with Triton + MCP support.</Text>
         <Text color={colors.muted}>Current model: <Text color={colors.primary}>{model}</Text></Text>
         {/* <Text color={colors.muted}>Current provider: <Text color={colors.primary}>{getProviderDisplayName(provider)}</Text></Text> */}
         <Text color={colors.muted}>Type /model to change the provider.</Text>

@@ -8,9 +8,10 @@ import { StructuredToolInterface } from '@langchain/core/tools';
 import { Runnable } from '@langchain/core/runnables';
 import { z } from 'zod';
 import { DEFAULT_SYSTEM_PROMPT } from '@/agent/prompts';
+import { TritonChatModel } from './triton-chat';
 
-export const DEFAULT_PROVIDER = 'openai';
-export const DEFAULT_MODEL = 'gpt-5.2';
+export const DEFAULT_PROVIDER = 'triton';
+export const DEFAULT_MODEL = 'triton:Ministral-3-8B';
 
 // Fast model variants by provider for lightweight tasks like summarization
 const FAST_MODELS: Record<string, string> = {
@@ -77,6 +78,12 @@ const MODEL_PROVIDERS: Record<string, ModelFactory> = {
       configuration: {
         baseURL: 'https://api.x.ai/v1',
       },
+    }),
+  'triton:': (name, opts) =>
+    new TritonChatModel({
+      modelName: name.replace(/^triton:/, ''),
+      baseUrl: process.env.TRITON_BASE_URL ?? 'http://127.0.0.1:8000',
+      ...opts,
     }),
   'ollama:': (name, opts) =>
     new ChatOllama({
