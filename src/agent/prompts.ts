@@ -39,13 +39,27 @@ Your output is displayed on a command line interface. Keep responses short and c
 ## Response Format
 
 - Keep responses brief and direct
-- For comparative/tabular data, use Unicode box-drawing tables:
-  - Size columns appropriately: numeric data can be compact, text columns should be wider for readability
-  - Tables render in a terminal, so keep total width reasonable (~80-120 chars) and visually pleasing
-  - Use abbreviations for financial metrics: OCF, FCF, Op Inc, Net Inc, Rev, GM, OM
-  - Format numbers compactly: $102.5B not $102,466,000,000
 - For non-comparative information, prefer plain text or simple lists over tables
-- Do not use markdown text formatting (no **bold**, *italics*, headers) - use plain text, lists, and box-drawing tables`;
+- Do not use markdown text formatting (no **bold**, *italics*, headers) - use plain text, lists, and box-drawing tables
+
+## Tables (for comparative/tabular data)
+
+Tables render in a terminal with limited width. Keep them compact and scannable.
+
+Structure:
+- Max 4-6 columns per table; prefer multiple small focused tables over one wide table
+- Single-entity data: use vertical layout (metrics as rows)
+- Multi-entity comparison: use horizontal layout (entities as columns)
+- One concept per table; don't mix unrelated metrics
+
+Column headers and cell values must be short:
+- Tickers not names: "AAPL" not "Apple Inc."
+- Abbreviate metrics: Rev, Op Inc, Net Inc, OCF, FCF, GM, OM, EPS, Mkt Cap
+- Dates compact: "Q4 FY25" or "TTM" not "2025-09-27"
+- Numbers compact: 102.5B not $102,466,000,000
+- Omit units in cells if header includes them: header "Rev ($B)" → cell "102.5"
+- Percentages: "31%" not "31.24%" unless precision matters
+- No redundant columns (don't repeat company name in every row if obvious from context)`;
 
 // ============================================================================
 // System Prompt
@@ -87,16 +101,28 @@ ${toolDescriptions}
 
 - Keep casual responses brief and direct
 - For research: lead with the key finding and include specific data points
-- For comparative/tabular data, use Unicode box-drawing tables:
-  - Tables render in a terminal, so ensure they are visually pleasing and readable
-  - Size columns appropriately: numeric data can be compact, text columns should be wider
-  - Keep total table width reasonable (~80-120 chars); prefer multiple small tables over one wide table
-  - Use abbreviations for financial metrics: OCF, FCF, Op Inc, Net Inc, Rev, GM, OM, EPS, Mkt Cap
-  - Dates as "Q4 FY25" not "2025-09-27" or "TTM @ 2025-09-27"
-  - Numbers compactly: $102.5B not $102,466,000,000
 - For non-comparative information, prefer plain text or simple lists over tables
 - Don't narrate your actions or ask leading questions about what the user wants
-- Do not use markdown text formatting (no **bold**, *italics*, headers) - use plain text, lists, and box-drawing tables`;
+- Do not use markdown text formatting (no **bold**, *italics*, headers) - use plain text, lists, and box-drawing tables
+
+## Tables (for comparative/tabular data)
+
+Tables render in a terminal with limited width. Keep them compact and scannable.
+
+Structure:
+- Max 4-6 columns per table; prefer multiple small focused tables over one wide table
+- Single-entity data: use vertical layout (metrics as rows)
+- Multi-entity comparison: use horizontal layout (entities as columns)
+- One concept per table; don't mix unrelated metrics
+
+Column headers and cell values must be short:
+- Tickers not names: "AAPL" not "Apple Inc."
+- Abbreviate metrics: Rev, Op Inc, Net Inc, OCF, FCF, GM, OM, EPS, Mkt Cap
+- Dates compact: "Q4 FY25" or "TTM" not "2025-09-27"
+- Numbers compact: 102.5B not $102,466,000,000
+- Omit units in cells if header includes them: header "Rev ($B)" → cell "102.5"
+- Percentages: "31%" not "31.24%" unless precision matters
+- No redundant columns (don't repeat company name in every row if obvious from context)`;
 }
 
 // ============================================================================
