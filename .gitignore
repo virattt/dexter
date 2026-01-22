@@ -57,3 +57,6 @@ yarn-error.log*
 
 logs/
 coverage.json
+
+# Claude Code
+CLAUDE.md

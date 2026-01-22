@@ -84,6 +84,15 @@ const MODEL_PROVIDERS: Record<string, ModelFactory> = {
       ...opts,
       ...(process.env.OLLAMA_BASE_URL ? { baseUrl: process.env.OLLAMA_BASE_URL } : {}),
     }),
+  'lmstudio:': (name, opts) =>
+    new ChatOpenAI({
+      model: name.replace(/^lmstudio:/, ''),
+      ...opts,
+      apiKey: 'lm-studio',
+      configuration: {
+        baseURL: process.env.LM_STUDIO_BASE_URL || 'http://localhost:1234/v1',
+      },
+    }),
 };
 
 const DEFAULT_MODEL_FACTORY: ModelFactory = (name, opts) =>
