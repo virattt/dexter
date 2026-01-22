@@ -119,10 +119,20 @@ export class LongTermChatHistory {
   }
 
   /**
-   * Returns just the user message strings in stack order (newest first).
+   * Returns user message strings in stack order (newest first).
+   * Deduplicates consecutive duplicates only (like shell HISTCONTROL=ignoredups).
    * Used for input history navigation.
    */
   getMessageStrings(): string[] {
-    return this.messages.map(m => m.userMessage);
+    const result: string[] = [];
+
+    for (const m of this.messages) {
+      const lastMessage = result[result.length - 1];
+      if (lastMessage !== m.userMessage) {
+        result.push(m.userMessage);
+      }
+    }
+
+    return result;
   }
 }
