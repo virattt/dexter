@@ -5,10 +5,9 @@ import { Scratchpad } from './scratchpad.js';
 import { getTools } from '../tools/registry.js';
 import { buildSystemPrompt, buildIterationPrompt, buildFinalAnswerPrompt, buildToolSummaryPrompt } from '../agent/prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
-import { streamLlmResponse } from '../utils/llm-stream.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { getToolDescription } from '../utils/tool-description.js';
-import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent, AnswerStartEvent, AnswerChunkEvent } from '../agent/types.js';
+import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent } from '../agent/types.js';
 
 
 const DEFAULT_MAX_ITERATIONS = 10;
@@ -71,7 +70,7 @@ export class Agent {
     while (iteration < this.maxIterations) {
       iteration++;
 
-      const response = await this.callModel(currentPrompt);
+      const response = await this.callModel(currentPrompt) as AIMessage;
       const responseText = extractTextContent(response);
 
       // Emit thinking if there are also tool calls
@@ -91,18 +90,17 @@ export class Agent {
           return;
         }
 
-        // Stream final answer with full context from scratchpad
-        const answerGenerator = this.generateFinalAnswer(query, scratchpad);
-        let fullAnswer = '';
-        
-        for await (const event of answerGenerator) {
-          yield event;
-          if (event.type === 'answer_chunk') {
-            fullAnswer += event.text;
-          }
-        }
-        
-        yield { type: 'done', answer: fullAnswer, toolCalls: scratchpad.getToolCallRecords(), iterations: iteration };
+        // Generate final answer with full context from scratchpad
+        const fullContext = this.buildFullContextForAnswer(scratchpad);
+        const finalPrompt = buildFinalAnswerPrompt(query, fullContext);
+        const finalResponse = await this.callModel(finalPrompt, false);
+        const answer = typeof finalResponse === 'string' 
+          ? finalResponse 
+          : extractTextContent(finalResponse);
+
+        yield { type: 'answer_start' };
+        yield { type: 'answer_chunk', text: answer };
+        yield { type: 'done', answer, toolCalls: scratchpad.getToolCallRecords(), iterations: iteration };
         return;
       }
 
@@ -121,34 +119,35 @@ export class Agent {
     }
 
     // Max iterations reached - still generate proper final answer
-    const answerGenerator = this.generateFinalAnswer(query, scratchpad);
-    let fullAnswer = '';
-    
-    for await (const event of answerGenerator) {
-      yield event;
-      if (event.type === 'answer_chunk') {
-        fullAnswer += event.text;
-      }
-    }
-    
+    const fullContext = this.buildFullContextForAnswer(scratchpad);
+    const finalPrompt = buildFinalAnswerPrompt(query, fullContext);
+    const finalResponse = await this.callModel(finalPrompt, false);
+    const answer = typeof finalResponse === 'string' 
+      ? finalResponse 
+      : extractTextContent(finalResponse);
+
+    yield { type: 'answer_start' };
+    yield { type: 'answer_chunk', text: answer };
     yield {
       type: 'done',
-      answer: fullAnswer || `Reached maximum iterations (${this.maxIterations}).`,
+      answer: answer || `Reached maximum iterations (${this.maxIterations}).`,
       toolCalls: scratchpad.getToolCallRecords(),
       iterations: iteration
     };
   }
 
   /**
-   * Call the LLM with the current prompt
+   * Call the LLM with the current prompt.
+   * @param prompt - The prompt to send to the LLM
+   * @param useTools - Whether to bind tools (default: true). When false, returns string directly.
    */
-  private async callModel(prompt: string): Promise<AIMessage> {
+  private async callModel(prompt: string, useTools: boolean = true): Promise<AIMessage | string> {
     return await callLlm(prompt, {
       model: this.model,
       systemPrompt: this.systemPrompt,
-      tools: this.tools,
+      tools: useTools ? this.tools : undefined,
       signal: this.signal,
-    }) as AIMessage;
+    }) as AIMessage | string;
   }
 
   /**
@@ -254,32 +253,6 @@ export class Agent {
 
     const historyContext = userMessages.map((msg, i) => `${i + 1}. ${msg}`).join('\n');
     return `Current query to answer: ${query}\n\nPrevious user queries for context:\n${historyContext}`;
-  }
-
-  /**
-   * Generate the final answer by loading full context data and streaming the response.
-   */
-  private async *generateFinalAnswer(
-    query: string,
-    scratchpad: Scratchpad
-  ): AsyncGenerator<AnswerStartEvent | AnswerChunkEvent> {
-    yield { type: 'answer_start' };
-
-    // Get full context data from scratchpad
-    const fullContext = this.buildFullContextForAnswer(scratchpad);
-
-    // Build the final answer prompt
-    const prompt = buildFinalAnswerPrompt(query, fullContext);
-
-    // Stream the final answer using provider-agnostic streaming
-    const stream = streamLlmResponse(prompt, {
-      model: this.model,
-      systemPrompt: this.systemPrompt,
-    });
-
-    for await (const chunk of stream) {
-      yield { type: 'answer_chunk', text: chunk };
-    }
   }
 
   /**

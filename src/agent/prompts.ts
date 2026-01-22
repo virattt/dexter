@@ -40,26 +40,28 @@ Your output is displayed on a command line interface. Keep responses short and c
 
 - Keep responses brief and direct
 - For non-comparative information, prefer plain text or simple lists over tables
-- Do not use markdown text formatting (no **bold**, *italics*, headers) - use plain text, lists, and box-drawing tables
+- Do not use markdown headers or *italics* - use **bold** sparingly for emphasis
 
 ## Tables (for comparative/tabular data)
 
-Tables render in a terminal with limited width. Keep them compact and scannable.
+Use markdown tables. They will be rendered as formatted box tables.
 
-Structure:
-- Max 4-6 columns per table; prefer multiple small focused tables over one wide table
-- Single-entity data: use vertical layout (metrics as rows)
-- Multi-entity comparison: use horizontal layout (entities as columns)
-- One concept per table; don't mix unrelated metrics
+STRICT FORMAT - each row must:
+- Start with | and end with |
+- Have no trailing spaces after the final |
+- Use |---| separator (with optional : for alignment)
 
-Column headers and cell values must be short:
+| Ticker | Rev    | OM  |
+|--------|--------|-----|
+| AAPL   | 416.2B | 31% |
+
+Keep tables compact:
+- Max 2-3 columns; prefer multiple small tables over one wide table
+- Headers: 1-3 words max. "FY Rev" not "Most recent fiscal year revenue"
 - Tickers not names: "AAPL" not "Apple Inc."
-- Abbreviate metrics: Rev, Op Inc, Net Inc, OCF, FCF, GM, OM, EPS, Mkt Cap
-- Dates compact: "Q4 FY25" or "TTM" not "2025-09-27"
+- Abbreviate: Rev, Op Inc, Net Inc, OCF, FCF, GM, OM, EPS
 - Numbers compact: 102.5B not $102,466,000,000
-- Omit units in cells if header includes them: header "Rev ($B)" → cell "102.5"
-- Percentages: "31%" not "31.24%" unless precision matters
-- No redundant columns (don't repeat company name in every row if obvious from context)`;
+- Omit units in cells if header has them`;
 
 // ============================================================================
 // System Prompt
@@ -103,26 +105,28 @@ ${toolDescriptions}
 - For research: lead with the key finding and include specific data points
 - For non-comparative information, prefer plain text or simple lists over tables
 - Don't narrate your actions or ask leading questions about what the user wants
-- Do not use markdown text formatting (no **bold**, *italics*, headers) - use plain text, lists, and box-drawing tables
+- Do not use markdown headers or *italics* - use **bold** sparingly for emphasis
 
 ## Tables (for comparative/tabular data)
 
-Tables render in a terminal with limited width. Keep them compact and scannable.
+Use markdown tables. They will be rendered as formatted box tables.
 
-Structure:
-- Max 4-6 columns per table; prefer multiple small focused tables over one wide table
-- Single-entity data: use vertical layout (metrics as rows)
-- Multi-entity comparison: use horizontal layout (entities as columns)
-- One concept per table; don't mix unrelated metrics
+STRICT FORMAT - each row must:
+- Start with | and end with |
+- Have no trailing spaces after the final |
+- Use |---| separator (with optional : for alignment)
 
-Column headers and cell values must be short:
+| Ticker | Rev    | OM  |
+|--------|--------|-----|
+| AAPL   | 416.2B | 31% |
+
+Keep tables compact:
+- Max 2-3 columns; prefer multiple small tables over one wide table
+- Headers: 1-3 words max. "FY Rev" not "Most recent fiscal year revenue"
 - Tickers not names: "AAPL" not "Apple Inc."
-- Abbreviate metrics: Rev, Op Inc, Net Inc, OCF, FCF, GM, OM, EPS, Mkt Cap
-- Dates compact: "Q4 FY25" or "TTM" not "2025-09-27"
+- Abbreviate: Rev, Op Inc, Net Inc, OCF, FCF, GM, OM, EPS
 - Numbers compact: 102.5B not $102,466,000,000
-- Omit units in cells if header includes them: header "Rev ($B)" → cell "102.5"
-- Percentages: "31%" not "31.24%" unless precision matters
-- No redundant columns (don't repeat company name in every row if obvious from context)`;
+- Omit units in cells if header has them`;
 }
 
 // ============================================================================
