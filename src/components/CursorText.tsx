@@ -15,15 +15,29 @@ interface CursorTextProps {
  * text wrapping across multiple terminal lines.
  * - When cursor is within text, the character at cursor position is highlighted (inverse)
  * - When cursor is at end, displays a block cursor (inverse space)
+ * - When cursor is on a newline, displays an inverse space at end of line, then the newline
  */
 export function CursorText({ text, cursorPosition }: CursorTextProps) {
   const beforeCursor = text.slice(0, cursorPosition);
-  const atCursor = cursorPosition < text.length ? text[cursorPosition] : ' ';
-  const afterCursor = text.slice(cursorPosition + 1);
+  const charAtCursor = cursorPosition < text.length ? text[cursorPosition] : null;
+
+  // If cursor is on a newline, display an inverse space at end of line
+  // then include the newline for proper line break rendering
+  const atCursor = charAtCursor === '\n' || charAtCursor === null ? ' ' : charAtCursor;
+
+  // If cursor is on newline, we need to include the newline after the inverse space
+  const afterCursor =
+    charAtCursor === '\n'
+      ? '\n' + text.slice(cursorPosition + 1)
+      : text.slice(cursorPosition + 1);
 
   // Build a single string with ANSI escape codes for the cursor
   // This ensures text wraps correctly across terminal lines
-  const displayText = beforeCursor + chalk.inverse(atCursor) + afterCursor;
+  let displayText = beforeCursor + chalk.inverse(atCursor) + afterCursor;
+
+  // Indent all lines after the first to align with the "> " prompt offset
+  const indent = '  ';
+  displayText = displayText.replace(/\n/g, '\n' + indent);
 
   return <Text>{displayText}</Text>;
 }

@@ -32,15 +32,26 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
   useInput((input, key) => {
     const ctx = { text, cursorPosition };
 
-    // Handle history navigation
-    if (onHistoryNavigate) {
-      if (key.upArrow) {
+    // Up arrow: move cursor up if not on first line, else history navigation
+    if (key.upArrow) {
+      const newPos = cursorHandlers.moveUp(ctx);
+      if (newPos !== null) {
+        actions.moveCursor(newPos);
+      } else if (onHistoryNavigate) {
         onHistoryNavigate('up');
-        return;
-      } else if (key.downArrow) {
-        onHistoryNavigate('down');
-        return;
       }
+      return;
+    }
+
+    // Down arrow: move cursor down if not on last line, else history navigation
+    if (key.downArrow) {
+      const newPos = cursorHandlers.moveDown(ctx);
+      if (newPos !== null) {
+        actions.moveCursor(newPos);
+      } else if (onHistoryNavigate) {
+        onHistoryNavigate('down');
+      }
+      return;
     }
 
     // Cursor movement - left arrow (plain, no modifiers)
@@ -55,15 +66,15 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
       return;
     }
 
-    // Ctrl+A - move to beginning of line
+    // Ctrl+A - move to beginning of current line
     if (key.ctrl && input === 'a') {
-      actions.moveCursor(cursorHandlers.moveToStart());
+      actions.moveCursor(cursorHandlers.moveToLineStart(ctx));
       return;
     }
 
-    // Ctrl+E - move to end of line
+    // Ctrl+E - move to end of current line
     if (key.ctrl && input === 'e') {
-      actions.moveCursor(cursorHandlers.moveToEnd(ctx));
+      actions.moveCursor(cursorHandlers.moveToLineEnd(ctx));
       return;
     }
 
@@ -91,7 +102,13 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
       return;
     }
 
-    // Handle submit
+    // Shift+Enter - insert newline for multi-line input
+    if (key.return && key.shift) {
+      actions.insert('\n');
+      return;
+    }
+
+    // Handle submit (plain Enter)
     if (key.return) {
       const val = text.trim();
       if (val) {
