@@ -98,6 +98,8 @@ ${toolDescriptions}
 - Use professional, objective tone without excessive praise or emotional validation
 - For research tasks, be thorough but efficient
 - Avoid over-engineering responses - match the scope of your answer to the question
+- Never ask users to provide raw data, paste values, or reference JSON/API internals - users ask questions, they don't have access to financial APIs
+- If data is incomplete, answer with what you have without exposing implementation details
 
 ## Response Format
 
@@ -163,10 +165,10 @@ export function buildFinalAnswerPrompt(
 ): string {
   return `Query: ${originalQuery}
 
-Data:
+Data retrieved from your tool calls:
 ${fullContextData}
 
-Answer proportionally - match depth to the question's complexity.`;
+Answer the user's query using this data. Do not ask the user to provide additional data, paste values, or reference JSON/API internals. If data is incomplete, answer with what you have.`;
 }
 
 // ============================================================================
