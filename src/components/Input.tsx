@@ -79,6 +79,12 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
       return;
     }
 
+    // Option+Backspace (Mac) / Ctrl+Backspace (Windows) - delete word backward
+    if ((key.meta || key.ctrl) && (key.backspace || key.delete)) {
+      actions.deleteWordBackward();
+      return;
+    }
+
     // Handle backspace/delete - delete character before cursor
     if (key.backspace || key.delete) {
       actions.deleteBackward();
