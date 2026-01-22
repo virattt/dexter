@@ -40,8 +40,8 @@ export function useTextBuffer(): UseTextBufferResult {
 
   const actions: TextBufferActions = {
     insert: (input: string) => {
-      // Normalize newlines and carriage returns to spaces for single-line input
-      const normalized = input.replace(/[\r\n]+/g, ' ');
+      // Normalize line endings but preserve newlines for multi-line input
+      const normalized = input.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
       buffer.current =
         buffer.current.slice(0, cursorPos.current) +
         normalized +
