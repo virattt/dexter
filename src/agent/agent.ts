@@ -85,7 +85,6 @@ export class Agent {
         // This handles greetings, clarifying questions, etc.
         if (!scratchpad.hasToolResults() && responseText) {
           yield { type: 'answer_start' };
-          yield { type: 'answer_chunk', text: responseText };
           yield { type: 'done', answer: responseText, toolCalls: [], iterations: iteration };
           return;
         }
@@ -93,13 +92,13 @@ export class Agent {
         // Generate final answer with full context from scratchpad
         const fullContext = this.buildFullContextForAnswer(scratchpad);
         const finalPrompt = buildFinalAnswerPrompt(query, fullContext);
+        
+        yield { type: 'answer_start' };
         const finalResponse = await this.callModel(finalPrompt, false);
         const answer = typeof finalResponse === 'string' 
           ? finalResponse 
           : extractTextContent(finalResponse);
 
-        yield { type: 'answer_start' };
-        yield { type: 'answer_chunk', text: answer };
         yield { type: 'done', answer, toolCalls: scratchpad.getToolCallRecords(), iterations: iteration };
         return;
       }
@@ -121,13 +120,13 @@ export class Agent {
     // Max iterations reached - still generate proper final answer
     const fullContext = this.buildFullContextForAnswer(scratchpad);
     const finalPrompt = buildFinalAnswerPrompt(query, fullContext);
+    
+    yield { type: 'answer_start' };
     const finalResponse = await this.callModel(finalPrompt, false);
     const answer = typeof finalResponse === 'string' 
       ? finalResponse 
       : extractTextContent(finalResponse);
 
-    yield { type: 'answer_start' };
-    yield { type: 'answer_chunk', text: answer };
     yield {
       type: 'done',
       answer: answer || `Reached maximum iterations (${this.maxIterations}).`,
