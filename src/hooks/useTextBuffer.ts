@@ -37,11 +37,13 @@ export function useTextBuffer(): UseTextBufferResult {
 
   const actions: TextBufferActions = {
     insert: (input: string) => {
+      // Normalize newlines and carriage returns to spaces for single-line input
+      const normalized = input.replace(/[\r\n]+/g, ' ');
       buffer.current =
         buffer.current.slice(0, cursorPos.current) +
-        input +
+        normalized +
         buffer.current.slice(cursorPos.current);
-      cursorPos.current += input.length;
+      cursorPos.current += normalized.length;
       rerender();
     },
 
