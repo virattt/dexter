@@ -1,5 +1,6 @@
 export { Intro } from './Intro.js';
 export { Input } from './Input.js';
+export { CursorText } from './CursorText.js';
 export { AnswerBox } from './AnswerBox.js';
 export { ProviderSelector, ModelSelector, PROVIDERS, getModelsForProvider, getDefaultModelForProvider } from './ModelSelector.js';
 export { ApiKeyConfirm, ApiKeyInput } from './ApiKeyPrompt.js';

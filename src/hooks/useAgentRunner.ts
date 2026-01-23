@@ -103,15 +103,7 @@ export function useAgentRunner(
         break;
         
       case 'answer_start':
-        setWorkingState({ status: 'answering' });
-        break;
-        
-      case 'answer_chunk':
-        // Hide "Writing response..." once text starts appearing
-        setWorkingState({ status: 'idle' });
-        updateLastHistoryItem(item => ({
-          answer: item.answer + event.text,
-        }));
+        setWorkingState({ status: 'answering', startTime: Date.now() });
         break;
         
       case 'done': {

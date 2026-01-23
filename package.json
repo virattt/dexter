@@ -1,6 +1,6 @@
 {
   "name": "dexter-ts",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Dexter - AI agent for deep financial research.",
   "type": "module",
   "main": "src/index.tsx",
