@@ -4,6 +4,7 @@ import { colors } from '../theme.js';
 import { EventListView } from './AgentEventView.js';
 import type { DisplayEvent } from './AgentEventView.js';
 import { AnswerBox } from './AnswerBox.js';
+import type { TokenUsage } from '../agent/types.js';
 
 /**
  * Format duration in milliseconds to human-readable string
@@ -34,6 +35,10 @@ export interface HistoryItem {
   startTime?: number;
   /** Total duration in milliseconds (set when complete) */
   duration?: number;
+  /** Token usage statistics */
+  tokenUsage?: TokenUsage;
+  /** Tokens per second throughput */
+  tokensPerSecond?: number;
 }
 
 interface HistoryItemViewProps {
@@ -72,10 +77,16 @@ export function HistoryItemView({ item }: HistoryItemViewProps) {
         </Box>
       )}
       
-      {/* Duration display - show when complete and duration > 15 seconds */}
-      {item.status === 'complete' && item.duration !== undefined && item.duration > 15000 && (
+      {/* Performance stats - show when complete */}
+      {item.status === 'complete' && (item.duration !== undefined || item.tokenUsage) && (
         <Box marginTop={1}>
-          <Text color={colors.muted}>✻ Worked for {formatDuration(item.duration)}</Text>
+          <Text color={colors.muted}>
+            {'✻ '}
+            {item.duration !== undefined && `${formatDuration(item.duration)}`}
+            {item.tokenUsage && item.duration !== undefined && ' · '}
+            {item.tokenUsage && `${item.tokenUsage.totalTokens.toLocaleString()} tokens`}
+            {item.tokensPerSecond !== undefined && ` (${item.tokensPerSecond.toFixed(1)} tok/s)`}
+          </Text>
         </Box>
       )}
     </Box>

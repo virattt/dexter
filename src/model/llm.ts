@@ -8,6 +8,7 @@ import { StructuredToolInterface } from '@langchain/core/tools';
 import { Runnable } from '@langchain/core/runnables';
 import { z } from 'zod';
 import { DEFAULT_SYSTEM_PROMPT } from '@/agent/prompts';
+import type { TokenUsage } from '../agent/types.js';
 
 export const DEFAULT_PROVIDER = 'openai';
 export const DEFAULT_MODEL = 'gpt-5.2';
@@ -111,7 +112,41 @@ interface CallLlmOptions {
   signal?: AbortSignal;
 }
 
-export async function callLlm(prompt: string, options: CallLlmOptions = {}): Promise<unknown> {
+export interface LlmResult {
+  response: unknown;
+  usage?: TokenUsage;
+}
+
+function extractUsage(result: unknown): TokenUsage | undefined {
+  if (!result || typeof result !== 'object') return undefined;
+  
+  const msg = result as Record<string, unknown>;
+  
+  // LangChain stores usage in usage_metadata or response_metadata
+  const usageMetadata = msg.usage_metadata as Record<string, number> | undefined;
+  if (usageMetadata) {
+    return {
+      inputTokens: usageMetadata.input_tokens ?? 0,
+      outputTokens: usageMetadata.output_tokens ?? 0,
+      totalTokens: usageMetadata.total_tokens ?? (usageMetadata.input_tokens ?? 0) + (usageMetadata.output_tokens ?? 0),
+    };
+  }
+  
+  // Fallback: check response_metadata.usage (OpenAI style)
+  const responseMetadata = msg.response_metadata as Record<string, unknown> | undefined;
+  if (responseMetadata?.usage) {
+    const usage = responseMetadata.usage as Record<string, number>;
+    return {
+      inputTokens: usage.prompt_tokens ?? 0,
+      outputTokens: usage.completion_tokens ?? 0,
+      totalTokens: usage.total_tokens ?? 0,
+    };
+  }
+  
+  return undefined;
+}
+
+export async function callLlm(prompt: string, options: CallLlmOptions = {}): Promise<LlmResult> {
   const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools, signal } = options;
   const finalSystemPrompt = systemPrompt || DEFAULT_SYSTEM_PROMPT;
 
@@ -134,11 +169,12 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
   const chain = promptTemplate.pipe(runnable);
 
   const result = await withRetry(() => chain.invoke({ prompt }, signal ? { signal } : undefined));
+  const usage = extractUsage(result);
 
   // If no outputSchema and no tools, extract content from AIMessage
   // When tools are provided, return the full AIMessage to preserve tool_calls
   if (!outputSchema && !tools && result && typeof result === 'object' && 'content' in result) {
-    return (result as { content: string }).content;
+    return { response: (result as { content: string }).content, usage };
   }
-  return result;
+  return { response: result, usage };
 }

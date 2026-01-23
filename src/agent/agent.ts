@@ -7,7 +7,7 @@ import { buildSystemPrompt, buildIterationPrompt, buildFinalAnswerPrompt, buildT
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { getToolDescription } from '../utils/tool-description.js';
-import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent } from '../agent/types.js';
+import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent, TokenUsage } from '../agent/types.js';
 
 
 const DEFAULT_MAX_ITERATIONS = 10;
@@ -53,8 +53,11 @@ export class Agent {
    * Uses context compaction: summaries during loop, full data for final answer.
    */
   async *run(query: string, inMemoryHistory?: InMemoryChatHistory): AsyncGenerator<AgentEvent> {
+    const startTime = Date.now();
+    const accumulatedUsage: TokenUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+    
     if (this.tools.length === 0) {
-      yield { type: 'done', answer: 'No tools available. Please check your API key configuration.', toolCalls: [], iterations: 0 };
+      yield { type: 'done', answer: 'No tools available. Please check your API key configuration.', toolCalls: [], iterations: 0, totalTime: Date.now() - startTime };
       return;
     }
 
@@ -70,22 +73,29 @@ export class Agent {
     while (iteration < this.maxIterations) {
       iteration++;
 
-      const response = await this.callModel(currentPrompt) as AIMessage;
-      const responseText = extractTextContent(response);
+      const { response, usage } = await this.callModel(currentPrompt);
+      if (usage) {
+        accumulatedUsage.inputTokens += usage.inputTokens;
+        accumulatedUsage.outputTokens += usage.outputTokens;
+        accumulatedUsage.totalTokens += usage.totalTokens;
+      }
+      const responseText = extractTextContent(response as AIMessage);
 
       // Emit thinking if there are also tool calls
-      if (responseText && hasToolCalls(response)) {
+      if (responseText && hasToolCalls(response as AIMessage)) {
         scratchpad.addThinking(responseText);
         yield { type: 'thinking', message: responseText };
       }
 
       // No tool calls = ready to generate final answer
-      if (!hasToolCalls(response)) {
+      if (!hasToolCalls(response as AIMessage)) {
         // If no tools were called at all, just use the direct response
         // This handles greetings, clarifying questions, etc.
         if (!scratchpad.hasToolResults() && responseText) {
           yield { type: 'answer_start' };
-          yield { type: 'done', answer: responseText, toolCalls: [], iterations: iteration };
+          const totalTime = Date.now() - startTime;
+          const tokensPerSecond = accumulatedUsage.totalTokens > 0 ? accumulatedUsage.totalTokens / (totalTime / 1000) : undefined;
+          yield { type: 'done', answer: responseText, toolCalls: [], iterations: iteration, totalTime, tokenUsage: accumulatedUsage.totalTokens > 0 ? accumulatedUsage : undefined, tokensPerSecond };
           return;
         }
 
@@ -94,17 +104,24 @@ export class Agent {
         const finalPrompt = buildFinalAnswerPrompt(query, fullContext);
         
         yield { type: 'answer_start' };
-        const finalResponse = await this.callModel(finalPrompt, false);
+        const { response: finalResponse, usage: finalUsage } = await this.callModel(finalPrompt, false);
+        if (finalUsage) {
+          accumulatedUsage.inputTokens += finalUsage.inputTokens;
+          accumulatedUsage.outputTokens += finalUsage.outputTokens;
+          accumulatedUsage.totalTokens += finalUsage.totalTokens;
+        }
         const answer = typeof finalResponse === 'string' 
           ? finalResponse 
-          : extractTextContent(finalResponse);
+          : extractTextContent(finalResponse as AIMessage);
 
-        yield { type: 'done', answer, toolCalls: scratchpad.getToolCallRecords(), iterations: iteration };
+        const totalTime = Date.now() - startTime;
+        const tokensPerSecond = accumulatedUsage.totalTokens > 0 ? accumulatedUsage.totalTokens / (totalTime / 1000) : undefined;
+        yield { type: 'done', answer, toolCalls: scratchpad.getToolCallRecords(), iterations: iteration, totalTime, tokenUsage: accumulatedUsage.totalTokens > 0 ? accumulatedUsage : undefined, tokensPerSecond };
         return;
       }
 
       // Execute tools and add results to scratchpad
-      const generator = this.executeToolCalls(response, query, scratchpad);
+      const generator = this.executeToolCalls(response as AIMessage, query, scratchpad, accumulatedUsage);
       let result = await generator.next();
 
       // Yield tool events
@@ -122,16 +139,26 @@ export class Agent {
     const finalPrompt = buildFinalAnswerPrompt(query, fullContext);
     
     yield { type: 'answer_start' };
-    const finalResponse = await this.callModel(finalPrompt, false);
+    const { response: finalResponse, usage: finalUsage } = await this.callModel(finalPrompt, false);
+    if (finalUsage) {
+      accumulatedUsage.inputTokens += finalUsage.inputTokens;
+      accumulatedUsage.outputTokens += finalUsage.outputTokens;
+      accumulatedUsage.totalTokens += finalUsage.totalTokens;
+    }
     const answer = typeof finalResponse === 'string' 
       ? finalResponse 
-      : extractTextContent(finalResponse);
+      : extractTextContent(finalResponse as AIMessage);
 
+    const totalTime = Date.now() - startTime;
+    const tokensPerSecond = accumulatedUsage.totalTokens > 0 ? accumulatedUsage.totalTokens / (totalTime / 1000) : undefined;
     yield {
       type: 'done',
       answer: answer || `Reached maximum iterations (${this.maxIterations}).`,
       toolCalls: scratchpad.getToolCallRecords(),
-      iterations: iteration
+      iterations: iteration,
+      totalTime,
+      tokenUsage: accumulatedUsage.totalTokens > 0 ? accumulatedUsage : undefined,
+      tokensPerSecond
     };
   }
 
@@ -140,13 +167,14 @@ export class Agent {
    * @param prompt - The prompt to send to the LLM
    * @param useTools - Whether to bind tools (default: true). When false, returns string directly.
    */
-  private async callModel(prompt: string, useTools: boolean = true): Promise<AIMessage | string> {
-    return await callLlm(prompt, {
+  private async callModel(prompt: string, useTools: boolean = true): Promise<{ response: AIMessage | string; usage?: TokenUsage }> {
+    const result = await callLlm(prompt, {
       model: this.model,
       systemPrompt: this.systemPrompt,
       tools: useTools ? this.tools : undefined,
       signal: this.signal,
-    }) as AIMessage | string;
+    });
+    return { response: result.response as AIMessage | string, usage: result.usage };
   }
 
   /**
@@ -158,16 +186,22 @@ export class Agent {
     query: string,
     toolName: string,
     toolArgs: Record<string, unknown>,
-    result: string
+    result: string,
+    accumulatedUsage: TokenUsage
   ): Promise<string> {
     // If toolName is empty, return an empty string
     const prompt = buildToolSummaryPrompt(query, toolName, toolArgs, result);
-    const summary = await callLlm(prompt, {
+    const { response, usage } = await callLlm(prompt, {
       model: getFastModel(this.modelProvider, this.model),
       systemPrompt: 'You are a concise data summarizer.',
       signal: this.signal,
     });
-    return String(summary);
+    if (usage) {
+      accumulatedUsage.inputTokens += usage.inputTokens;
+      accumulatedUsage.outputTokens += usage.outputTokens;
+      accumulatedUsage.totalTokens += usage.totalTokens;
+    }
+    return String(response);
   }
 
   /**
@@ -176,13 +210,14 @@ export class Agent {
   private async *executeToolCalls(
     response: AIMessage,
     query: string,
-    scratchpad: Scratchpad
+    scratchpad: Scratchpad,
+    accumulatedUsage: TokenUsage
   ): AsyncGenerator<ToolStartEvent | ToolEndEvent | ToolErrorEvent, void> {
     for (const toolCall of response.tool_calls!) {
       const toolName = toolCall.name;
       const toolArgs = toolCall.args as Record<string, unknown>;
 
-      const generator = this.executeToolCall(toolName, toolArgs, query, scratchpad);
+      const generator = this.executeToolCall(toolName, toolArgs, query, scratchpad, accumulatedUsage);
       let result = await generator.next();
 
       while (!result.done) {
@@ -200,11 +235,12 @@ export class Agent {
     toolName: string,
     toolArgs: Record<string, unknown>,
     query: string,
-    scratchpad: Scratchpad
+    scratchpad: Scratchpad,
+    accumulatedUsage: TokenUsage
   ): AsyncGenerator<ToolStartEvent | ToolEndEvent | ToolErrorEvent, void> {
     yield { type: 'tool_start', tool: toolName, args: toolArgs };
 
-    const startTime = Date.now();
+    const toolStartTime = Date.now();
 
     try {
       // Invoke tool directly from toolMap
@@ -214,12 +250,12 @@ export class Agent {
       }
       const rawResult = await tool.invoke(toolArgs, this.signal ? { signal: this.signal } : undefined);
       const result = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
-      const duration = Date.now() - startTime;
+      const duration = Date.now() - toolStartTime;
 
       yield { type: 'tool_end', tool: toolName, args: toolArgs, result, duration };
 
       // Generate LLM summary for context compaction
-      const llmSummary = await this.summarizeToolResult(query, toolName, toolArgs, result);
+      const llmSummary = await this.summarizeToolResult(query, toolName, toolArgs, result, accumulatedUsage);
 
       // Add complete tool result to scratchpad (single source of truth)
       scratchpad.addToolResult(toolName, toolArgs, result, llmSummary);
