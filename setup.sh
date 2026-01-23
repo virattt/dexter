@@ -1,19 +1,9 @@
 #!/bin/bash
 
-# Script to install bun and modify Ink's parse-keypress.js to separate backspace and delete keys
+# Script to install dependencies and modify Ink's parse-keypress.js to separate backspace and delete keys
 
 set -e
 
-echo "Installing bun..."
-# Check if bun is already installed
-if ! command -v bun &> /dev/null; then
-    curl -fsSL https://bun.sh/install | bash
-    export PATH="$HOME/.bun/bin:$PATH"
-else
-    echo "bun is already installed"
-fi
-
-echo "Installing dependencies with bun..."
 bun install
 
 echo "Modifying Ink's parse-keypress.js to separate backspace and delete keys..."
