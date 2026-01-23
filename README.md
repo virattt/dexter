@@ -68,11 +68,7 @@ chmod +x setup.sh
    - Configure Ink's key handling to properly separate Backspace and Delete keys
      - **Backspace**: deletes character before cursor
      - **Delete**: deletes character after cursor
-
-   Alternatively, you can manually install dependencies:
-   ```bash
-   bun install
-   ```
+     
 
 3. Set up your environment variables:
 ```bash
