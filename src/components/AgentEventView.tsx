@@ -110,7 +110,7 @@ export function ToolStartView({ tool, args, isActive = false }: ToolStartViewPro
           <Text color={colors.muted}>
             <Spinner type="dots" />
           </Text>
-          <Text color={colors.muted}> Searching...</Text>
+          <Text> Searching...</Text>
         </Box>
       )}
     </Box>
