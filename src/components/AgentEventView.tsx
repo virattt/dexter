@@ -84,7 +84,7 @@ export function ThinkingView({ message }: ThinkingViewProps) {
   
   return (
     <Box>
-      <Text color={colors.primary}>⏺ </Text>
+      <Text>⏺ </Text>
       <Text color={colors.white}>{displayMessage}</Text>
     </Box>
   );
@@ -100,14 +100,14 @@ export function ToolStartView({ tool, args, isActive = false }: ToolStartViewPro
   return (
     <Box flexDirection="column">
       <Box>
-        <Text color={colors.primary}>⏺ </Text>
-        <Text color={colors.info}>{formatToolName(tool)}</Text>
+        <Text>⏺ </Text>
+        <Text>{formatToolName(tool)}</Text>
         <Text color={colors.muted}>({formatArgs(args)})</Text>
       </Box>
       {isActive && (
         <Box marginLeft={2}>
           <Text color={colors.muted}>⎿  </Text>
-          <Text color={colors.primary}>
+          <Text color={colors.muted}>
             <Spinner type="dots" />
           </Text>
           <Text color={colors.muted}> Searching...</Text>
@@ -155,13 +155,13 @@ export function ToolEndView({ tool, args, result, duration }: ToolEndViewProps) 
   return (
     <Box flexDirection="column">
       <Box>
-        <Text color={colors.primary}>⏺ </Text>
-        <Text color={colors.info}>{formatToolName(tool)}</Text>
+        <Text>⏺ </Text>
+        <Text>{formatToolName(tool)}</Text>
         <Text color={colors.muted}>({formatArgs(args)})</Text>
       </Box>
       <Box marginLeft={2}>
         <Text color={colors.muted}>⎿  </Text>
-        <Text color={colors.success}>{summary}</Text>
+        <Text>{summary}</Text>
         <Text color={colors.muted}> in {formatDuration(duration)}</Text>
       </Box>
     </Box>
@@ -177,8 +177,8 @@ export function ToolErrorView({ tool, error }: ToolErrorViewProps) {
   return (
     <Box flexDirection="column">
       <Box>
-        <Text color={colors.primary}>⏺ </Text>
-        <Text color={colors.info}>{formatToolName(tool)}</Text>
+        <Text>⏺ </Text>
+        <Text>{formatToolName(tool)}</Text>
       </Box>
       <Box marginLeft={2}>
         <Text color={colors.muted}>⎿  </Text>
@@ -211,7 +211,6 @@ export function AgentEventView({ event, isActive = false }: AgentEventViewProps)
       return <ToolErrorView tool={event.tool} error={event.error} />;
     
     case 'answer_start':
-    case 'answer_chunk':
     case 'done':
       // These are handled separately by the parent component
       return null;

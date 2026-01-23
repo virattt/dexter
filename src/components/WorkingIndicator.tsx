@@ -40,14 +40,17 @@ export function WorkingIndicator({ state }: WorkingIndicatorProps) {
     return null;
   }
   
-  let statusText: string;
+  let statusWord: string;
+  let suffixEnd: string;
   switch (state.status) {
     case 'thinking':
     case 'tool':
-      statusText = 'Thinking... (esc to interrupt)';
+      statusWord = 'Thinking...';
+      suffixEnd = ' to interrupt)';
       break;
     case 'answering':
-      statusText = `Answering (esc to interrupt • ${elapsed}s)`;
+      statusWord = 'Answering';
+      suffixEnd = ` to interrupt • ${elapsed}s)`;
       break;
   }
   
@@ -56,7 +59,10 @@ export function WorkingIndicator({ state }: WorkingIndicatorProps) {
       <Text color={colors.primary}>
         <Spinner type="dots" />
       </Text>
-      <Text color={colors.muted}> {statusText}</Text>
+      <Text color={colors.primary}> {statusWord}</Text>
+      <Text color={colors.muted}> (</Text>
+      <Text color={colors.muted} bold>esc</Text>
+      <Text color={colors.muted}>{suffixEnd}</Text>
     </Box>
   );
 }
