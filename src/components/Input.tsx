@@ -91,19 +91,25 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
     }
 
     // Option+Backspace (Mac) / Ctrl+Backspace (Windows) - delete word backward
-    if ((key.meta || key.ctrl) && (key.backspace || key.delete)) {
+    if ((key.meta || key.ctrl) && key.backspace) {
       actions.deleteWordBackward();
       return;
     }
 
-    // Handle backspace/delete - delete character before cursor
-    if (key.backspace || key.delete) {
+    // Handle backspace - delete character before cursor
+    if (key.backspace) {
       actions.deleteBackward();
       return;
     }
 
+    // Handle delete - delete character after cursor
+    if (key.delete) {
+      actions.deleteForward();
+      return;
+    }
+
     // Shift+Enter - insert newline for multi-line input
-    if (key.return && key.shift) {
+    if (key.return && key.meta) {
       actions.insert('\n');
       return;
     }

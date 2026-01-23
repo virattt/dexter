@@ -56,10 +56,23 @@ git clone https://github.com/virattt/dexter.git
 cd dexter
 ```
 
-2. Install dependencies with Bun:
+2. Run the setup script (installs Bun, dependencies, and configures key handling):
 ```bash
-bun install
+chmod +x setup.sh
+./setup.sh
 ```
+
+   The setup script will:
+   - Install Bun if not already installed
+   - Install all project dependencies
+   - Configure Ink's key handling to properly separate Backspace and Delete keys
+     - **Backspace**: deletes character before cursor
+     - **Delete**: deletes character after cursor
+
+   Alternatively, you can manually install dependencies:
+   ```bash
+   bun install
+   ```
 
 3. Set up your environment variables:
 ```bash

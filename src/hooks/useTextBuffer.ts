@@ -6,6 +6,8 @@ export interface TextBufferActions {
   insert: (text: string) => void;
   /** Delete the character before the cursor */
   deleteBackward: () => void;
+  /** Delete the character after the cursor */
+  deleteForward: () => void;
   /** Delete from cursor back to start of previous word */
   deleteWordBackward: () => void;
   /** Move cursor to an absolute position (clamped to valid range) */
@@ -56,6 +58,15 @@ export function useTextBuffer(): UseTextBufferResult {
           buffer.current.slice(0, cursorPos.current - 1) +
           buffer.current.slice(cursorPos.current);
         cursorPos.current--;
+        rerender();
+      }
+    },
+
+    deleteForward: () => {
+      if (cursorPos.current < buffer.current.length) {
+        buffer.current =
+          buffer.current.slice(0, cursorPos.current) +
+          buffer.current.slice(cursorPos.current + 1);
         rerender();
       }
     },
