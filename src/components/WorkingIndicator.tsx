@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, Text } from 'ink';
 import Spinner from 'ink-spinner';
 import { colors } from '../theme.js';
+import { getRandomThinkingVerb } from '../utils/thinking-verbs.js';
 
 export type WorkingState = 
   | { status: 'idle' }
@@ -18,6 +19,20 @@ interface WorkingIndicatorProps {
  */
 export function WorkingIndicator({ state }: WorkingIndicatorProps) {
   const [elapsed, setElapsed] = useState(0);
+  const [thinkingVerb, setThinkingVerb] = useState(getRandomThinkingVerb);
+  const prevStatusRef = useRef<WorkingState['status']>('idle');
+  
+  // Pick a new random verb when transitioning into thinking/tool state
+  useEffect(() => {
+    const isThinking = state.status === 'thinking' || state.status === 'tool';
+    const wasThinking = prevStatusRef.current === 'thinking' || prevStatusRef.current === 'tool';
+    
+    if (isThinking && !wasThinking) {
+      setThinkingVerb(getRandomThinkingVerb());
+    }
+    
+    prevStatusRef.current = state.status;
+  }, [state.status]);
   
   // Track elapsed time only when answering
   useEffect(() => {
@@ -45,7 +60,7 @@ export function WorkingIndicator({ state }: WorkingIndicatorProps) {
   switch (state.status) {
     case 'thinking':
     case 'tool':
-      statusWord = 'Thinking...';
+      statusWord = `${thinkingVerb}...`;
       suffixEnd = ' to interrupt)';
       break;
     case 'answering':
