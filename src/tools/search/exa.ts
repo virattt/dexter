@@ -1,19 +1,24 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
-import { TavilySearch } from '@langchain/tavily';
+import { ExaSearchResults } from '@langchain/exa';
+import Exa from 'exa-js';
 import { z } from 'zod';
 import { formatToolResult, parseSearchResults } from '../types.js';
 
 // Lazily initialized to avoid errors when API key is not set
-let tavilyClient: TavilySearch | null = null;
+let exaTool: ExaSearchResults | null = null;
 
-function getTavilyClient(): TavilySearch {
-  if (!tavilyClient) {
-    tavilyClient = new TavilySearch({ maxResults: 5 });
+function getExaTool(): ExaSearchResults {
+  if (!exaTool) {
+    const client = new Exa(process.env.EXASEARCH_API_KEY);
+    exaTool = new ExaSearchResults({
+      client,
+      searchArgs: { numResults: 5, text: true },
+    });
   }
-  return tavilyClient;
+  return exaTool!;
 }
 
-export const tavilySearch = new DynamicStructuredTool({
+export const exaSearch = new DynamicStructuredTool({
   name: 'web_search',
   description:
     'Search the web for current information on any topic. Returns relevant search results with URLs and content snippets.',
@@ -21,7 +26,7 @@ export const tavilySearch = new DynamicStructuredTool({
     query: z.string().describe('The search query to look up on the web'),
   }),
   func: async (input) => {
-    const result = await getTavilyClient().invoke({ query: input.query });
+    const result = await getExaTool().invoke(input.query);
     const { parsed, urls } = parseSearchResults(result);
     return formatToolResult(parsed, urls);
   },

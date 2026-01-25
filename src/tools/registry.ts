@@ -1,6 +1,6 @@
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { createFinancialSearch } from './finance/index.js';
-import { tavilySearch } from './search/index.js';
+import { exaSearch, tavilySearch } from './search/index.js';
 import { FINANCIAL_SEARCH_DESCRIPTION, WEB_SEARCH_DESCRIPTION } from './descriptions/index.js';
 
 /**
@@ -31,8 +31,14 @@ export function getToolRegistry(model: string): RegisteredTool[] {
     },
   ];
 
-  // Only include web_search if Tavily API key is configured
-  if (process.env.TAVILY_API_KEY) {
+  // Include web_search if Exa or Tavily API key is configured (Exa preferred)
+  if (process.env.EXASEARCH_API_KEY) {
+    tools.push({
+      name: 'web_search',
+      tool: exaSearch,
+      description: WEB_SEARCH_DESCRIPTION,
+    });
+  } else if (process.env.TAVILY_API_KEY) {
     tools.push({
       name: 'web_search',
       tool: tavilySearch,
