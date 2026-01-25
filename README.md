@@ -96,6 +96,134 @@ Or with watch mode for development:
 bun dev
 ```
 
+
+### Example Queries
+
+Try asking Dexter questions like:
+- "What was Apple's revenue growth over the last 4 quarters?"
+- "Compare Microsoft and Google's operating margins for 2023"
+- "Analyze Tesla's cash flow trends over the past year"
+- "What is Amazon's debt-to-equity ratio based on recent financials?"
+
+Dexter will automatically:
+1. Break down your question into research tasks
+2. Fetch the necessary financial data
+3. Perform calculations and analysis
+4. Provide a comprehensive, data-rich answer
+
+## Architecture
+
+Dexter uses a multi-agent architecture with specialized components:
+
+- **Planning Agent**: Analyzes queries and creates structured task lists
+- **Action Agent**: Selects appropriate tools and executes research steps
+- **Validation Agent**: Verifies task completion and data sufficiency
+- **Answer Agent**: Synthesizes findings into comprehensive responses
+
+## Tech Stack
+
+- **Runtime**: [Bun](https://bun.sh)
+- **UI Framework**: [React](https://react.dev) + [Ink](https://github.com/vadimdemedes/ink) (terminal UI)
+- **LLM Integration**: [LangChain.js](https://js.langchain.com) with multi-provider support (OpenAI, Anthropic, Google, xAI, Ollama)
+- **Schema Validation**: [Zod](https://zod.dev)
+- **Language**: TypeScript
+
+
+### Changing Models
+
+Type `/model` in the CLI to switch between:
+- GPT 4.1 (OpenAI)
+- Claude Sonnet 4.5 (Anthropic)
+- Gemini 3 (Google)
+- Grok 4 (xAI)
+- Local models (Ollama)
+
+## MCP (Model Context Protocol) Support
+
+Dexter supports MCP servers, allowing you to extend its capabilities with external tools. MCP is an open protocol that enables AI applications to connect with external data sources and tools.
+
+### Configuring MCP Servers
+
+Create a `.dexter/mcp.json` file in the project root:
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/dir"]
+    },
+    "kite": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.kite.trade/mcp"]
+    }
+  }
+}
+```
+
+### Configuration Options
+
+Each server supports the following options:
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `command` | string | The command to execute (e.g., `npx`, `node`) |
+| `args` | string[] | Command line arguments |
+| `env` | object | Environment variables (supports `${VAR}` and `${VAR:-default}` syntax) |
+| `cwd` | string | Working directory for the server process |
+| `enabled` | boolean | Set to `false` to disable the server (default: `true`) |
+
+### Environment Variable Expansion
+
+You can use environment variables in your MCP config:
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+### Available MCP Servers
+
+Some popular MCP servers you can use:
+
+| Server | Description | Install |
+|--------|-------------|---------|
+| [Filesystem](https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem) | Read/write files | `npx -y @modelcontextprotocol/server-filesystem /path` |
+| [GitHub](https://github.com/modelcontextprotocol/servers/tree/main/src/github) | GitHub API access | `npx -y @modelcontextprotocol/server-github` |
+| [Zerodha Kite](https://mcp.kite.trade) | Indian stock trading | `npx -y mcp-remote https://mcp.kite.trade/mcp` |
+
+### Testing MCP Configuration
+
+Run the MCP test script to verify your configuration:
+
+```bash
+bun run scripts/test-mcp.ts
+```
+
+This will show:
+- Configured servers
+- Connection status
+- Available tools from each server
+
+### How MCP Tools Appear
+
+MCP tools are prefixed with `mcp_{serverName}_` to avoid conflicts. For example:
+- `mcp_filesystem_read_file`
+- `mcp_kite_get_holdings`
+- `mcp_github_create_issue`
+
+The agent will automatically use these tools when appropriate for your queries.
+
+
 ## How to Contribute
 
 1. Fork the repository

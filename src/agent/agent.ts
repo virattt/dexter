@@ -6,8 +6,19 @@ import { getTools } from '../tools/registry.js';
 import { buildSystemPrompt, buildIterationPrompt, buildFinalAnswerPrompt, buildToolSummaryPrompt } from '../agent/prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
+import { initializeMCP } from '../mcp/index.js';
 import { getToolDescription } from '../utils/tool-description.js';
-import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent } from '../agent/types.js';
+
+import type {
+  AgentConfig,
+  AgentEvent,
+  ToolStartEvent,
+  ToolEndEvent,
+  ToolErrorEvent,
+  ToolSummary,
+  AnswerStartEvent,
+  AnswerChunkEvent,
+} from '../agent/types.js';
 
 
 const DEFAULT_MAX_ITERATIONS = 10;
@@ -41,9 +52,15 @@ export class Agent {
   /**
    * Create a new Agent instance with tools.
    */
-  static create(config: AgentConfig = {}): Agent {
+  static async create(config: AgentConfig = {}): Promise<Agent> {
     const model = config.model ?? 'gpt-5.2';
-    const tools = getTools(model);
+    const mcpManager = await initializeMCP();
+
+    const tools = [
+      ...getTools(model),
+      ...mcpManager.getTools(),
+    ];
+
     const systemPrompt = buildSystemPrompt(model);
     return new Agent(config, tools, systemPrompt);
   }
