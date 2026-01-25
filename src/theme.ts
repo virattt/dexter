@@ -1,10 +1,10 @@
 export const colors = {
-  primary: '#58A6FF',
+  primary: '#258bff',
   primaryLight: '#a5cfff',
   success: 'green',
   error: 'red',
   warning: 'yellow',
-  muted: '#808080',
+  muted: '#a6a6a6',
   mutedDark: '#303030',
   accent: 'cyan',
   highlight: 'magenta',
