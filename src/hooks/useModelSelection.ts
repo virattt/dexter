@@ -75,8 +75,9 @@ export function useModelSelection(
   
   // Load conversation history on mount to resume previous session
   useEffect(() => {
-    inMemoryChatHistoryRef.current.load().catch(() => {
-      // Silently ignore load errors - will start fresh
+    inMemoryChatHistoryRef.current.load().catch((err) => {
+      // Non-critical: app works without history, but log for debugging
+      console.warn('Failed to load conversation history:', err);
     });
   }, []);
   
