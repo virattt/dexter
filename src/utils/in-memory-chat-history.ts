@@ -8,7 +8,6 @@ import { z } from 'zod';
 const DEXTER_DIR = '.dexter';
 const CONTEXT_DIR = 'context';
 const CONTEXT_FILE = 'conversation.json';
-const MAX_MESSAGES = 50; // Keep only recent messages to limit file size
 
 /**
  * Represents a single conversation turn (query + answer + summary)
@@ -157,15 +156,6 @@ Generate a brief 1-2 sentence summary of this answer.`;
       answer,
       summary,
     });
-
-    // Prune old messages to keep file size manageable
-    if (this.messages.length > MAX_MESSAGES) {
-      this.messages = this.messages.slice(-MAX_MESSAGES);
-      // Re-index IDs after pruning
-      this.messages.forEach((msg, idx) => {
-        msg.id = idx;
-      });
-    }
 
     // Persist to disk
     await this.save();
