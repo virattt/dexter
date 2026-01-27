@@ -2,7 +2,6 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { colors, dimensions } from '../theme.js';
 import packageJson from '../../package.json';
-import { getProviderDisplayName } from '../utils/env.js';
 
 interface IntroProps {
   provider: string;
