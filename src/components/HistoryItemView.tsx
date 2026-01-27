@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import { colors } from '../theme.js';
 import { EventListView } from './AgentEventView.js';
@@ -20,6 +20,22 @@ function formatDuration(ms: number): string {
   }
   
   return `${minutes}m ${seconds}s`;
+}
+
+/**
+ * Real-time elapsed timer component
+ */
+function ElapsedTimer({ startTime }: { startTime: number }) {
+  const [elapsed, setElapsed] = useState(Date.now() - startTime);
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setElapsed(Date.now() - startTime);
+    }, 100);
+    return () => clearInterval(interval);
+  }, [startTime]);
+  
+  return <Text color={colors.muted}>{formatDuration(elapsed)}</Text>;
 }
 
 export type HistoryItemStatus = 'processing' | 'complete' | 'error' | 'interrupted';
@@ -61,6 +77,14 @@ export function HistoryItemView({ item }: HistoryItemViewProps) {
       {item.status === 'interrupted' && (
         <Box marginLeft={2}>
           <Text color={colors.muted}>⎿  Interrupted · What should Dexter do instead?</Text>
+        </Box>
+      )}
+      
+      {/* Real-time progress during processing */}
+      {item.status === 'processing' && item.startTime && (
+        <Box marginLeft={2}>
+          <Text color={colors.muted}>{'⏺ '}</Text>
+          <ElapsedTimer startTime={item.startTime} />
         </Box>
       )}
       
