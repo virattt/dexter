@@ -154,6 +154,16 @@ export class Scratchpad {
   }
 
   /**
+   * Check if a skill has already been executed in this query.
+   * Used for deduplication - each skill should only run once per query.
+   */
+  hasExecutedSkill(skillName: string): boolean {
+    return this.readEntries().some(
+      e => e.type === 'tool_result' && e.toolName === 'skill' && e.args?.skill === skillName
+    );
+  }
+
+  /**
    * Append-only write
    */
   private append(entry: ScratchpadEntry): void {

@@ -15,6 +15,7 @@ import { getAnalystEstimates } from './estimates.js';
 import { getSegmentedRevenues } from './segments.js';
 import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
 import { getInsiderTrades } from './insider_trades.js';
+import { getCompanyFacts } from './company_facts.js';
 
 // All finance tools available for routing
 const FINANCE_TOOLS: StructuredToolInterface[] = [
@@ -42,6 +43,7 @@ const FINANCE_TOOLS: StructuredToolInterface[] = [
   getNews,
   getInsiderTrades,
   getSegmentedRevenues,
+  getCompanyFacts,
 ];
 
 // Create a map for quick tool lookup by name

@@ -7,6 +7,7 @@ Intelligent meta-tool for financial data research. Takes a natural language quer
 
 ## When to Use
 
+- Company facts (sector, industry, market cap, number of employees, listing date, exchange, location, weighted average shares, website)
 - Stock prices (current snapshots or historical data)
 - Company financials (income statements, balance sheets, cash flow statements)
 - Financial metrics (P/E ratio, market cap, EPS, dividend yield, enterprise value)
