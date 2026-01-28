@@ -21,8 +21,13 @@ export const tavilySearch = new DynamicStructuredTool({
     query: z.string().describe('The search query to look up on the web'),
   }),
   func: async (input) => {
-    const result = await getTavilyClient().invoke({ query: input.query });
-    const { parsed, urls } = parseSearchResults(result);
-    return formatToolResult(parsed, urls);
+    try {
+      const result = await getTavilyClient().invoke({ query: input.query });
+      const { parsed, urls } = parseSearchResults(result);
+      return formatToolResult(parsed, urls);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Search failed';
+      return formatToolResult({ error: errorMessage }, []);
+    }
   },
 });
