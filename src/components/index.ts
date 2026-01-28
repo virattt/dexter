@@ -15,3 +15,6 @@ export type { WorkingState } from './WorkingIndicator.js';
 
 export { HistoryItemView } from './HistoryItemView.js';
 export type { HistoryItem } from './HistoryItemView.js';
+
+// Components for copying to clipboard
+export { CopyToClipboard, CopyConfirm } from './CopyToClipboardPrompt.js';

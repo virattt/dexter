@@ -18,11 +18,16 @@ export interface UseAgentRunnerResult {
   workingState: WorkingState;
   error: string | null;
   isProcessing: boolean;
-  
+  clipboardPromptState: {
+    isActive: boolean;
+    lastAnswer: string | null;
+  };
+
   // Actions
   runQuery: (query: string) => Promise<RunQueryResult | undefined>;
   cancelExecution: () => void;
   setError: (error: string | null) => void;
+  acknowledgeClipboard: () => void;
 }
 
 // ============================================================================
@@ -33,6 +38,13 @@ export function useAgentRunner(
   agentConfig: AgentConfig,
   inMemoryChatHistoryRef: React.RefObject<InMemoryChatHistory>
 ): UseAgentRunnerResult {
+  const [clipboardPromptState, setClipboardPromptState] = useState<{
+    isActive: boolean;
+    lastAnswer: string | null;
+  }>({
+    isActive: false,
+    lastAnswer: null,
+  });
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [workingState, setWorkingState] = useState<WorkingState>({ status: 'idle' });
   const [error, setError] = useState<string | null>(null);
@@ -124,8 +136,19 @@ export function useAgentRunner(
         setWorkingState({ status: 'idle' });
         break;
       }
+    };
+    if (event.type === 'done') {
+      // After agent finishes, activate clipboard prompt
+      setClipboardPromptState({
+        isActive: true,
+        lastAnswer: event.answer,
+      });
     }
   }, [updateLastHistoryItem, inMemoryChatHistoryRef]);
+
+  const acknowledgeClipboard = useCallback(() => {
+    setClipboardPromptState({ isActive: false, lastAnswer: null });
+  }, []);
   
   // Run a query through the agent
   const runQuery = useCallback(async (query: string): Promise<RunQueryResult | undefined> => {
@@ -224,8 +247,10 @@ export function useAgentRunner(
     workingState,
     error,
     isProcessing,
+    clipboardPromptState,
     runQuery,
     cancelExecution,
     setError,
+    acknowledgeClipboard
   };
 }

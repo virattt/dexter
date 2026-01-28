@@ -19,6 +19,9 @@ import { useModelSelection } from './hooks/useModelSelection.js';
 import { useAgentRunner } from './hooks/useAgentRunner.js';
 import { useInputHistory } from './hooks/useInputHistory.js';
 
+//copying to clipboard
+import { CopyToClipboard } from './components/index.js';
+
 // Load environment variables
 config({ quiet: true });
 
@@ -49,6 +52,8 @@ export function CLI() {
     runQuery,
     cancelExecution,
     setError,
+    clipboardPromptState,  // Added this
+    acknowledgeClipboard,   // Added this
   } = useAgentRunner({ model, modelProvider: provider, maxIterations: 10 }, inMemoryChatHistoryRef);
   
   // Input history for up/down arrow navigation
@@ -194,14 +199,24 @@ export function CLI() {
       {/* Working indicator - only show when processing */}
       {isProcessing && <WorkingIndicator state={workingState} />}
       
-      {/* Input */}
-      <Box marginTop={1}>
-        <Input 
-          onSubmit={handleSubmit} 
-          historyValue={historyValue}
-          onHistoryNavigate={handleHistoryNavigate}
+      {/* Clipboard prompt (blocks input) */}
+      {clipboardPromptState.isActive && clipboardPromptState.lastAnswer && (
+        <CopyToClipboard 
+          text={clipboardPromptState.lastAnswer}
+          onComplete={acknowledgeClipboard}
         />
-      </Box>
+      )}
+
+      {/* Input (only shown when not waiting for clipboard) */}
+      {!clipboardPromptState.isActive && (
+        <Box marginTop={1}>
+          <Input 
+            onSubmit={handleSubmit} 
+            historyValue={historyValue}
+            onHistoryNavigate={handleHistoryNavigate}
+          />
+        </Box>
+      )}
       
       {/* Debug Panel - set show={false} to hide */}
       <DebugPanel maxLines={8} show={true} />
