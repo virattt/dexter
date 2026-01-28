@@ -10,10 +10,18 @@ const MODEL_TO_PROVIDER_MAP: Record<string, string> = {
   'gemini-3': 'google',
 };
 
+export interface CustomProviderConfig {
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  modelId: string;
+}
+
 interface Config {
   provider?: string;
   modelId?: string;  // Selected model ID (e.g., "gpt-5.2", "ollama:llama3.1")
   model?: string;    // Legacy key, kept for migration
+  customProviderConfig?: CustomProviderConfig;
   [key: string]: unknown;
 }
 
@@ -87,5 +95,24 @@ export function setSetting(key: string, value: unknown): boolean {
     delete config.model;
   }
   
+  return saveConfig(config);
+}
+
+export function getCustomProviderConfig(): CustomProviderConfig | null {
+  const config = loadConfig();
+  return config.customProviderConfig || null;
+}
+
+export function saveCustomProviderConfig(customConfig: CustomProviderConfig): boolean {
+  const config = loadConfig();
+  config.customProviderConfig = customConfig;
+  config.provider = 'custom';
+  config.modelId = `custom:${customConfig.modelId}`;
+  return saveConfig(config);
+}
+
+export function clearCustomProviderConfig(): boolean {
+  const config = loadConfig();
+  delete config.customProviderConfig;
   return saveConfig(config);
 }
