@@ -3,7 +3,7 @@
  * CLI - Real-time agentic loop interface
  * Shows tool calls and progress in Claude Code style
  */
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { config } from 'dotenv';
 
@@ -25,6 +25,10 @@ config({ quiet: true });
 export function CLI() {
   const { exit } = useApp();
   
+  // Ref to hold setError - avoids TDZ issue since useModelSelection needs to call
+  // setError but useAgentRunner (which provides setError) depends on useModelSelection's outputs
+  const setErrorRef = useRef<((error: string | null) => void) | null>(null);
+  
   // Model selection state and handlers
   const {
     selectionState,
@@ -38,7 +42,7 @@ export function CLI() {
     handleApiKeyConfirm,
     handleApiKeySubmit,
     isInSelectionFlow,
-  } = useModelSelection((errorMsg) => setError(errorMsg));
+  } = useModelSelection((errorMsg) => setErrorRef.current?.(errorMsg));
   
   // Agent execution state and handlers
   const {
@@ -50,6 +54,9 @@ export function CLI() {
     cancelExecution,
     setError,
   } = useAgentRunner({ model, modelProvider: provider, maxIterations: 10 }, inMemoryChatHistoryRef);
+  
+  // Assign setError to ref so useModelSelection's callback can access it
+  setErrorRef.current = setError;
   
   // Input history for up/down arrow navigation
   const {
