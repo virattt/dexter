@@ -10,7 +10,7 @@ description: Perform discounted cash flow (DCF) valuation analysis to estimate i
 Copy and track progress:
 ```
 DCF Analysis Progress:
-- [ ] Step 1: Gather financial data (5 queries)
+- [ ] Step 1: Gather financial data
 - [ ] Step 2: Calculate FCF growth rate
 - [ ] Step 3: Estimate discount rate (WACC)
 - [ ] Step 4: Project future cash flows (Years 1-5 + Terminal)
