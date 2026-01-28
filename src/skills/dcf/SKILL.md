@@ -60,7 +60,7 @@ Call the `financial_search` tool with these queries:
 
 **Extract:** `sector`, `industry`, `market_cap`
 
-**Use:** Determine appropriate WACC range from [SECTOR_WACC.md](SECTOR_WACC.md)
+**Use:** Determine appropriate WACC range from [sector-wacc.md](sector-wacc.md)
 
 ## Step 2: Calculate FCF Growth Rate
 
@@ -75,7 +75,7 @@ Calculate 5-year FCF CAGR from cash flow history.
 
 ## Step 3: Estimate Discount Rate (WACC)
 
-**Use the `sector` from company facts** to select the appropriate base WACC range from [SECTOR_WACC.md](SECTOR_WACC.md).
+**Use the `sector` from company facts** to select the appropriate base WACC range from [sector-wacc.md](sector-wacc.md).
 
 **Default assumptions:**
 - Risk-free rate: 4%
@@ -86,7 +86,7 @@ Calculate WACC using `debt_to_equity` for capital structure weights.
 
 **Reasonableness check:** WACC should be 2-4% below `return_on_invested_capital` for value-creating companies.
 
-**Sector adjustments:** Apply adjustment factors from [SECTOR_WACC.md](SECTOR_WACC.md) based on company-specific characteristics.
+**Sector adjustments:** Apply adjustment factors from [sector-wacc.md](sector-wacc.md) based on company-specific characteristics.
 
 ## Step 4: Project Future Cash Flows
 

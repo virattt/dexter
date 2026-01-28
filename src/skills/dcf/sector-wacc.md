@@ -4,33 +4,23 @@ Use these typical WACC ranges as starting points, then adjust based on company-s
 
 ## Determining Company Sector
 
-Use `financial_search` with query `"[TICKER] company facts"` to retrieve the company's `sector` and `industry`. Map the returned sector to the table below.
-
-**Common sector mappings:**
-- "Technology" → Technology (assess growth stage for high-growth vs mature)
-- "Consumer Defensive" → Consumer Staples
-- "Consumer Cyclical" → Consumer Discretionary
-- "Financial Services" → Financials
-- "Healthcare" → Healthcare
-- "Industrials" → Industrials
-- "Energy" → Energy
-- "Utilities" → Utilities
-- "Real Estate" → Real Estate
+Use `financial_search` with query `"[TICKER] company facts"` to retrieve the company's `sector`. Match the returned sector to the table below.
 
 ## WACC by Sector
 
 | Sector | Typical WACC Range | Notes |
 |--------|-------------------|-------|
-| Technology (high growth) | 9-12% | Higher risk premium for volatility |
-| Technology (mature) | 8-10% | More stable cash flows |
-| Consumer Staples | 7-8% | Defensive, stable demand |
+| Communication Services | 8-10% | Mix of stable telecom and growth media |
 | Consumer Discretionary | 8-10% | Cyclical exposure |
-| Financials | 8-10% | Leverage already in business model |
-| Healthcare | 8-10% | Regulatory and pipeline risk |
-| Industrials | 8-9% | Moderate cyclicality |
+| Consumer Staples | 7-8% | Defensive, stable demand |
 | Energy | 9-11% | Commodity price exposure |
-| Utilities | 6-7% | Regulated, stable cash flows |
+| Financials | 8-10% | Leverage already in business model |
+| Health Care | 8-10% | Regulatory and pipeline risk |
+| Industrials | 8-9% | Moderate cyclicality |
+| Information Technology | 8-12% | Assess growth stage; higher for high-growth |
+| Materials | 8-10% | Cyclical, commodity exposure |
 | Real Estate | 7-9% | Interest rate sensitivity |
+| Utilities | 6-7% | Regulated, stable cash flows |
 
 ## Adjustment Factors
 
