@@ -64,7 +64,7 @@ bun install
 
 3. Set up your environment variables:
 ```bash
-# Copy the example environment file (from parent directory)
+# Copy the example environment file
 cp env.example .env
 
 # Edit .env and add your API keys (if using cloud providers)
@@ -80,7 +80,7 @@ cp env.example .env
 # FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
 
 # Web Search (Exa preferred, Tavily fallback)
-# EXA_API_KEY=your-exa-api-key
+# EXASEARCH_API_KEY=your-exa-api-key
 # TAVILY_API_KEY=your-tavily-api-key
 ```
 
