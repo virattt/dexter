@@ -159,8 +159,8 @@ export function useModelSelection(
       setAppState('api_key_input');
     } else {
       // Check if existing key is available
-      if (pendingProvider && checkApiKeyExistsForProvider(pendingProvider)) {
-        const selectedModel = pendingModels[0];
+      const selectedModel = pendingModels[0];
+      if (pendingProvider && selectedModel && checkApiKeyExistsForProvider(pendingProvider)) {
         completeModelSwitch(pendingProvider, selectedModel);
       } else {
         onError(`Cannot use ${pendingProvider ? getProviderDisplayName(pendingProvider) : 'provider'} without an API key.`);
@@ -172,6 +172,13 @@ export function useModelSelection(
   // API key submit handler
   const handleApiKeySubmit = useCallback((apiKey: string | null) => {
     const selectedModel = pendingModels[0];
+    
+    // Guard: ensure we have a selected model
+    if (!selectedModel) {
+      onError('No model selected.');
+      resetPendingState();
+      return;
+    }
     
     if (apiKey && pendingProvider) {
       const saved = saveApiKeyForProvider(pendingProvider, apiKey);
