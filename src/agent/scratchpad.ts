@@ -171,16 +171,29 @@ export class Scratchpad {
   }
 
   /**
-   * Read all entries from the log
+   * Read all entries from the log.
+   * Skips malformed or corrupt lines (partial writes, disk corruption) to avoid
+   * a single bad line crashing getToolSummaries, getFullContexts, etc.
    */
   private readEntries(): ScratchpadEntry[] {
     if (!existsSync(this.filepath)) {
       return [];
     }
 
-    return readFileSync(this.filepath, 'utf-8')
-      .split('\n')
-      .filter(line => line.trim())
-      .map(line => JSON.parse(line) as ScratchpadEntry);
+    const lines = readFileSync(this.filepath, 'utf-8').split('\n').filter((line) => line.trim());
+    const entries: ScratchpadEntry[] = [];
+
+    for (const line of lines) {
+      try {
+        const parsed = JSON.parse(line) as ScratchpadEntry;
+        if (parsed && typeof parsed === 'object' && 'type' in parsed && 'timestamp' in parsed) {
+          entries.push(parsed);
+        }
+      } catch {
+        // Skip malformed or corrupt lines
+      }
+    }
+
+    return entries;
   }
 }
