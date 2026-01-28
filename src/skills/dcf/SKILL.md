@@ -1,6 +1,6 @@
 ---
-name: dcf
-description: Perform discounted cash flow (DCF) valuation analysis to estimate intrinsic value per share. Use when user asks for fair value, intrinsic value, DCF, valuation, "what is X worth", price target, undervalued/overvalued analysis, or wants to compare current price to fundamental value.
+name: dcf-valuation
+description: Performs discounted cash flow (DCF) valuation analysis to estimate intrinsic value per share. Triggers when user asks for fair value, intrinsic value, DCF, valuation, "what is X worth", price target, undervalued/overvalued analysis, or wants to compare current price to fundamental value.
 ---
 
 # DCF Valuation Skill
@@ -22,7 +22,7 @@ DCF Analysis Progress:
 
 ## Step 1: Gather Financial Data
 
-Call `financial_search` with these queries:
+Call the `financial_search` tool with these queries:
 
 ### 1.1 Cash Flow History
 **Query:** `"[TICKER] annual cash flow statements for the last 5 years"`
