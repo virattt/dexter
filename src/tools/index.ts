@@ -5,6 +5,7 @@ export type { RegisteredTool } from './registry.js';
 // Individual tool exports (for backward compatibility and direct access)
 export { createFinancialSearch } from './finance/index.js';
 export { tavilySearch } from './search/index.js';
+export { ipoAstrology, createIpoAstrology, IPO_ASTROLOGY_DESCRIPTION } from './ipoAstrology.js';
 
 // Tool descriptions
 export {

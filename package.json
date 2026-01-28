@@ -29,6 +29,7 @@
     "ink-spinner": "^5.0.0",
     "ink-text-input": "^6.0.0",
     "langsmith": "^0.4.10",
+    "lunar-javascript": "^1.7.7",
     "react": "^19.2.0",
     "zod": "^4.1.13"
   },

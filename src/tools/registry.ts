@@ -2,6 +2,7 @@ import { StructuredToolInterface } from '@langchain/core/tools';
 import { createFinancialSearch } from './finance/index.js';
 import { exaSearch, tavilySearch } from './search/index.js';
 import { skillTool, SKILL_TOOL_DESCRIPTION } from './skill.js';
+import { ipoAstrology, IPO_ASTROLOGY_DESCRIPTION } from './ipoAstrology.js';
 import { FINANCIAL_SEARCH_DESCRIPTION, WEB_SEARCH_DESCRIPTION } from './descriptions/index.js';
 import { discoverSkills } from '../skills/index.js';
 
@@ -57,6 +58,13 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       description: SKILL_TOOL_DESCRIPTION,
     });
   }
+
+  // Include IPO Astrology tool (Alternative Data / Metaphysical Sentiment)
+  tools.push({
+    name: 'ipo_astrology',
+    tool: ipoAstrology,
+    description: IPO_ASTROLOGY_DESCRIPTION,
+  });
 
   return tools;
 }
