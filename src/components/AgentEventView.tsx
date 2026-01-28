@@ -84,7 +84,7 @@ export function ThinkingView({ message }: ThinkingViewProps) {
   
   return (
     <Box>
-      <Text color={colors.primary}>⏺ </Text>
+      <Text>⏺ </Text>
       <Text color={colors.white}>{displayMessage}</Text>
     </Box>
   );
@@ -100,17 +100,17 @@ export function ToolStartView({ tool, args, isActive = false }: ToolStartViewPro
   return (
     <Box flexDirection="column">
       <Box>
-        <Text color={colors.primary}>⏺ </Text>
-        <Text color={colors.info}>{formatToolName(tool)}</Text>
+        <Text>⏺ </Text>
+        <Text>{formatToolName(tool)}</Text>
         <Text color={colors.muted}>({formatArgs(args)})</Text>
       </Box>
       {isActive && (
         <Box marginLeft={2}>
           <Text color={colors.muted}>⎿  </Text>
-          <Text color={colors.primary}>
+          <Text color={colors.muted}>
             <Spinner type="dots" />
           </Text>
-          <Text color={colors.muted}> Searching...</Text>
+          <Text> Searching...</Text>
         </Box>
       )}
     </Box>
@@ -127,41 +127,48 @@ interface ToolEndViewProps {
 export function ToolEndView({ tool, args, result, duration }: ToolEndViewProps) {
   // Parse result to get a summary
   let summary = 'Received data';
-  try {
-    const parsed = JSON.parse(result);
-    if (parsed.data) {
-      if (Array.isArray(parsed.data)) {
-        summary = `Received ${parsed.data.length} items`;
-      } else if (typeof parsed.data === 'object') {
-        const keys = Object.keys(parsed.data).filter(k => !k.startsWith('_')); // Exclude _errors
-        
-        // Tool-specific summaries
-        if (tool === 'financial_search') {
-          summary = keys.length === 1 
-            ? `Called 1 data source` 
-            : `Called ${keys.length} data sources`;
-        } else if (tool === 'web_search') {
-          summary = `Did 1 search`;
-        } else {
-          summary = `Received ${keys.length} fields`;
+  
+  // Special handling for skill tool
+  if (tool === 'skill') {
+    const skillName = args.skill as string;
+    summary = `Loaded ${skillName} skill`;
+  } else {
+    try {
+      const parsed = JSON.parse(result);
+      if (parsed.data) {
+        if (Array.isArray(parsed.data)) {
+          summary = `Received ${parsed.data.length} items`;
+        } else if (typeof parsed.data === 'object') {
+          const keys = Object.keys(parsed.data).filter(k => !k.startsWith('_')); // Exclude _errors
+          
+          // Tool-specific summaries
+          if (tool === 'financial_search') {
+            summary = keys.length === 1 
+              ? `Called 1 data source` 
+              : `Called ${keys.length} data sources`;
+          } else if (tool === 'web_search') {
+            summary = `Did 1 search`;
+          } else {
+            summary = `Received ${keys.length} fields`;
+          }
         }
       }
+    } catch {
+      // Not JSON, use truncated result
+      summary = truncateResult(result, 50);
     }
-  } catch {
-    // Not JSON, use truncated result
-    summary = truncateResult(result, 50);
   }
   
   return (
     <Box flexDirection="column">
       <Box>
-        <Text color={colors.primary}>⏺ </Text>
-        <Text color={colors.info}>{formatToolName(tool)}</Text>
+        <Text>⏺ </Text>
+        <Text>{formatToolName(tool)}</Text>
         <Text color={colors.muted}>({formatArgs(args)})</Text>
       </Box>
       <Box marginLeft={2}>
         <Text color={colors.muted}>⎿  </Text>
-        <Text color={colors.success}>{summary}</Text>
+        <Text>{summary}</Text>
         <Text color={colors.muted}> in {formatDuration(duration)}</Text>
       </Box>
     </Box>
@@ -177,8 +184,8 @@ export function ToolErrorView({ tool, error }: ToolErrorViewProps) {
   return (
     <Box flexDirection="column">
       <Box>
-        <Text color={colors.primary}>⏺ </Text>
-        <Text color={colors.info}>{formatToolName(tool)}</Text>
+        <Text>⏺ </Text>
+        <Text>{formatToolName(tool)}</Text>
       </Box>
       <Box marginLeft={2}>
         <Text color={colors.muted}>⎿  </Text>
@@ -211,7 +218,6 @@ export function AgentEventView({ event, isActive = false }: AgentEventViewProps)
       return <ToolErrorView tool={event.tool} error={event.error} />;
     
     case 'answer_start':
-    case 'answer_chunk':
     case 'done':
       // These are handled separately by the parent component
       return null;
