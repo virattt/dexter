@@ -2,6 +2,21 @@
 
 Use these typical WACC ranges as starting points, then adjust based on company-specific factors.
 
+## Determining Company Sector
+
+Use `financial_search` with query `"[TICKER] company facts"` to retrieve the company's `sector` and `industry`. Map the returned sector to the table below.
+
+**Common sector mappings:**
+- "Technology" → Technology (assess growth stage for high-growth vs mature)
+- "Consumer Defensive" → Consumer Staples
+- "Consumer Cyclical" → Consumer Discretionary
+- "Financial Services" → Financials
+- "Healthcare" → Healthcare
+- "Industrials" → Industrials
+- "Energy" → Energy
+- "Utilities" → Utilities
+- "Real Estate" → Real Estate
+
 ## WACC by Sector
 
 | Sector | Typical WACC Range | Notes |
