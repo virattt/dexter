@@ -10,7 +10,7 @@ import 'dotenv/config';
 import React from 'react';
 import { render } from 'ink';
 import { Client } from 'langsmith';
-import { evaluate, type EvaluationResult } from 'langsmith/evaluation';
+import type { EvaluationResult } from 'langsmith/evaluation';
 import { ChatOpenAI } from '@langchain/openai';
 import { z } from 'zod';
 import fs from 'fs';
@@ -270,48 +270,63 @@ function createEvaluationRunner(sampleSize?: number) {
       });
     }
 
-    // Run evaluation
-    const experimentResults = await evaluate(target, {
-      data: datasetName,
-      evaluators: [correctnessEvaluator],
-      experimentPrefix: 'dexter-eval',
-      maxConcurrency: 2,
-      client,
-    });
+    // Generate experiment name for tracking
+    const experimentName = `dexter-eval-${Date.now().toString(36)}`;
 
-    // Track which questions we've started (for showing current question)
-    const questionMap = new Map<string, string>();
+    // Run evaluation manually - process each example one by one
     for (const example of examples) {
-      questionMap.set(example.inputs.question, example.inputs.question);
-    }
+      const question = example.inputs.question;
 
-    // Process results as they come in
-    for await (const result of experimentResults) {
-      const question = (result.example?.inputs?.question as string) || 'Unknown';
-      const evalResult = result.evaluationResults?.results?.[0];
-      
-      // Yield question start (we don't have a real "start" event, so we yield it with the end)
+      // Yield question start - UI shows this immediately
       yield {
         type: 'question_start',
         question,
       };
 
-      // Small delay to show the question briefly before showing result
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Run the agent to get an answer
+      const startTime = Date.now();
+      const outputs = await target(example.inputs);
+      const endTime = Date.now();
 
-      // Yield question end with result
+      // Run the correctness evaluator
+      const evalResult = await correctnessEvaluator({
+        inputs: example.inputs,
+        outputs,
+        referenceOutputs: example.outputs,
+      });
+
+      // Log to LangSmith for tracking
+      await client.createRun({
+        name: 'dexter-eval-run',
+        run_type: 'chain',
+        inputs: example.inputs,
+        outputs,
+        start_time: startTime,
+        end_time: endTime,
+        project_name: experimentName,
+        extra: {
+          dataset: datasetName,
+          reference_outputs: example.outputs,
+          evaluation: {
+            score: evalResult.score,
+            comment: evalResult.comment,
+          },
+        },
+      });
+
+      // Yield question end with result - UI updates progress bar
       yield {
         type: 'question_end',
         question,
-        score: (evalResult?.score as number) ?? 0,
-        comment: (evalResult?.comment as string) || '',
+        score: evalResult.score ?? 0,
+        comment: evalResult.comment || '',
       };
     }
 
     // Yield complete event
     yield {
       type: 'complete',
-      experimentName: experimentResults.experimentName,
+      experimentName,
     };
   };
 }
