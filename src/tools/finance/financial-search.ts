@@ -130,13 +130,29 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
               throw new Error(`Tool '${tc.name}' not found`);
             }
             const rawResult = await tool.invoke(tc.args);
-            const result = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
-            const parsed = JSON.parse(result);
+
+            // Safely parse the result - handle both ToolResult format and raw responses
+            let parsed: unknown;
+            if (typeof rawResult === 'string') {
+              try {
+                parsed = JSON.parse(rawResult);
+              } catch {
+                // Not valid JSON - treat as raw data
+                parsed = { data: rawResult };
+              }
+            } else {
+              parsed = rawResult;
+            }
+
+            // Support both ToolResult format { data, sourceUrls } and raw tool output
+            const data = (parsed as { data?: unknown }).data ?? parsed;
+            const sourceUrls = (parsed as { sourceUrls?: string[] }).sourceUrls ?? [];
+
             return {
               tool: tc.name,
               args: tc.args,
-              data: parsed.data,
-              sourceUrls: parsed.sourceUrls || [],
+              data,
+              sourceUrls,
               error: null,
             };
           } catch (error) {
