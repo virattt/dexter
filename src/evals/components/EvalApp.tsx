@@ -9,7 +9,7 @@ import { EvalRecentResults, type EvalResult } from './EvalRecentResults.js';
 // ============================================================================
 // Toggle for demo recordings - set to false to hide live stats
 // ============================================================================
-const SHOW_STATS = true;
+const SHOW_STATS = false;
 
 interface EvalState {
   status: 'loading' | 'running' | 'complete';

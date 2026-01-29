@@ -224,3 +224,34 @@ ${result}
 Write a 1 sentence summary of what was retrieved. Include specific values (numbers, dates) if relevant.
 Format: "[tool_call] -> [what was learned]"`;
 }
+
+// ============================================================================
+// Context Selection (for token budget management)
+// ============================================================================
+
+/**
+ * Build prompt for LLM to select which tool results need full data.
+ * Used when total context exceeds token budget - LLM chooses most relevant results
+ * to include in full, with summaries for the rest.
+ */
+export function buildContextSelectionPrompt(
+  query: string,
+  summaries: Array<{ index: number; toolName: string; summary: string; tokenCost: number }>
+): string {
+  const summaryList = summaries
+    .map(s => `[${s.index}] ${s.toolName} (~${Math.round(s.tokenCost / 1000)}k tokens): ${s.summary}`)
+    .join('\n');
+
+  return `You are selecting which tool results are most important for answering a query.
+
+Query: ${query}
+
+Available tool results (with summaries):
+${summaryList}
+
+Select the tool results that contain data ESSENTIAL to answering the query accurately.
+Prefer results with specific numbers, dates, or facts directly relevant to the query.
+
+Return ONLY a JSON array of indices, e.g.: [0, 2, 5]
+Return an empty array [] if summaries alone are sufficient.`;
+}

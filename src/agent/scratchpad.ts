@@ -20,6 +20,15 @@ export interface ToolContext {
   result: string;
 }
 
+/**
+ * Tool context with LLM summary for selective inclusion.
+ * Used when context exceeds token budget and LLM must select relevant results.
+ */
+export interface ToolContextWithSummary extends ToolContext {
+  llmSummary: string;
+  index: number; // For LLM to reference when selecting
+}
+
 export interface ScratchpadEntry {
   type: 'init' | 'tool_result' | 'thinking';
   timestamp: string;
@@ -132,6 +141,23 @@ export class Scratchpad {
         toolName: e.toolName!,
         args: e.args!,
         result: this.stringifyResult(e.result),
+      }));
+  }
+
+  /**
+   * Get full contexts with LLM summaries for selective inclusion.
+   * Used when context exceeds token budget and we need LLM to select relevant results.
+   * Each context includes an index for the LLM to reference.
+   */
+  getFullContextsWithSummaries(): ToolContextWithSummary[] {
+    return this.readEntries()
+      .filter(e => e.type === 'tool_result' && e.toolName && e.result)
+      .map((e, index) => ({
+        toolName: e.toolName!,
+        args: e.args!,
+        result: this.stringifyResult(e.result),
+        llmSummary: e.llmSummary || '',
+        index,
       }));
   }
 

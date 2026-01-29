@@ -1,12 +1,13 @@
 import { AIMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlm, getFastModel } from '../model/llm.js';
-import { Scratchpad } from './scratchpad.js';
+import { Scratchpad, type ToolContextWithSummary } from './scratchpad.js';
 import { getTools } from '../tools/registry.js';
-import { buildSystemPrompt, buildIterationPrompt, buildFinalAnswerPrompt, buildToolSummaryPrompt } from '../agent/prompts.js';
+import { buildSystemPrompt, buildIterationPrompt, buildFinalAnswerPrompt, buildToolSummaryPrompt, buildContextSelectionPrompt } from '../agent/prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { getToolDescription } from '../utils/tool-description.js';
+import { estimateTokens, TOKEN_BUDGET } from '../utils/tokens.js';
 import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent } from '../agent/types.js';
 
 
@@ -90,7 +91,7 @@ export class Agent {
         }
 
         // Generate final answer with full context from scratchpad
-        const fullContext = this.buildFullContextForAnswer(scratchpad);
+        const fullContext = await this.buildFullContextForAnswer(query, scratchpad);
         const finalPrompt = buildFinalAnswerPrompt(query, fullContext);
         
         yield { type: 'answer_start' };
@@ -118,7 +119,7 @@ export class Agent {
     }
 
     // Max iterations reached - still generate proper final answer
-    const fullContext = this.buildFullContextForAnswer(scratchpad);
+    const fullContext = await this.buildFullContextForAnswer(query, scratchpad);
     const finalPrompt = buildFinalAnswerPrompt(query, fullContext);
     
     yield { type: 'answer_start' };
@@ -263,29 +264,132 @@ export class Agent {
 
   /**
    * Build full context data for final answer generation from scratchpad.
+   * Uses LLM-based selection when context exceeds token budget.
    */
-  private buildFullContextForAnswer(scratchpad: Scratchpad): string {
-    const contexts = scratchpad.getFullContexts();
+  private async buildFullContextForAnswer(query: string, scratchpad: Scratchpad): Promise<string> {
+    const contexts = scratchpad.getFullContextsWithSummaries();
 
     if (contexts.length === 0) {
       return 'No data was gathered.';
     }
 
-    // Filter out error results and format contexts for the prompt
+    // Filter out error results
     const validContexts = contexts.filter(ctx => !ctx.result.startsWith('Error:'));
 
     if (validContexts.length === 0) {
       return 'No data was successfully gathered.';
     }
 
-    return validContexts.map(ctx => {
-      const description = getToolDescription(ctx.toolName, ctx.args);
+    // Estimate total tokens for all full results
+    const totalTokens = validContexts.reduce(
+      (sum, ctx) => sum + estimateTokens(ctx.result), 0
+    );
+
+    // If within budget, use all full results (existing behavior)
+    if (totalTokens <= TOKEN_BUDGET) {
+      return this.formatFullContexts(validContexts);
+    }
+
+    // Over budget: use LLM to select most relevant results
+    try {
+      return await this.buildLLMSelectedContext(query, validContexts);
+    } catch {
+      // Fallback: use all summaries if LLM selection fails
+      return this.formatSummariesOnly(validContexts);
+    }
+  }
+
+  /**
+   * Use LLM to select which tool results need full data inclusion.
+   */
+  private async buildLLMSelectedContext(
+    query: string,
+    contexts: ToolContextWithSummary[]
+  ): Promise<string> {
+    // Prepare summaries with token costs for LLM
+    const summaries = contexts.map(ctx => ({
+      index: ctx.index,
+      toolName: ctx.toolName,
+      summary: ctx.llmSummary,
+      tokenCost: estimateTokens(ctx.result),
+    }));
+
+    // Ask LLM to select most relevant results
+    const selectionPrompt = buildContextSelectionPrompt(query, summaries);
+    const response = await callLlm(selectionPrompt, {
+      model: getFastModel(this.modelProvider, this.model),
+      systemPrompt: 'You are a data selection assistant. Return only valid JSON.',
+      signal: this.signal,
+    });
+
+    // Parse selected indices
+    const selectedIndices = new Set<number>(JSON.parse(String(response)));
+
+    // Build context with full data for selected, summaries for rest
+    let usedTokens = 0;
+    const fullResults: string[] = [];
+    const summaryResults: string[] = [];
+
+    for (const ctx of contexts) {
+      const isSelected = selectedIndices.has(ctx.index);
+      const tokenCost = estimateTokens(ctx.result);
+
+      if (isSelected && usedTokens + tokenCost <= TOKEN_BUDGET) {
+        fullResults.push(this.formatSingleContext(ctx, true));
+        usedTokens += tokenCost;
+      } else {
+        summaryResults.push(this.formatSingleContext(ctx, false));
+      }
+    }
+
+    return this.combineContextSections(fullResults, summaryResults);
+  }
+
+  /**
+   * Format all contexts with full data (used when within token budget).
+   */
+  private formatFullContexts(contexts: ToolContextWithSummary[]): string {
+    return contexts.map(ctx => this.formatSingleContext(ctx, true)).join('\n\n');
+  }
+
+  /**
+   * Format all contexts with summaries only (fallback when LLM selection fails).
+   */
+  private formatSummariesOnly(contexts: ToolContextWithSummary[]): string {
+    const formatted = contexts.map(ctx => this.formatSingleContext(ctx, false));
+    return '## Data Summaries\n\n' + formatted.join('\n\n');
+  }
+
+  /**
+   * Format a single context entry.
+   * @param useFull - If true, include full result data. If false, use LLM summary.
+   */
+  private formatSingleContext(ctx: ToolContextWithSummary, useFull: boolean): string {
+    const description = getToolDescription(ctx.toolName, ctx.args);
+    if (useFull) {
       try {
         return `### ${description}\n\`\`\`json\n${JSON.stringify(JSON.parse(ctx.result), null, 2)}\n\`\`\``;
       } catch {
         // If result is not valid JSON, return as-is
         return `### ${description}\n${ctx.result}`;
       }
-    }).join('\n\n');
+    } else {
+      return `### ${description}\n${ctx.llmSummary}`;
+    }
+  }
+
+  /**
+   * Combine full data and summary sections into final context string.
+   */
+  private combineContextSections(fullResults: string[], summaryResults: string[]): string {
+    let output = '';
+    if (fullResults.length > 0) {
+      output += '## Full Data\n\n' + fullResults.join('\n\n');
+    }
+    if (summaryResults.length > 0) {
+      if (output) output += '\n\n';
+      output += '## Summary Data\n\n' + summaryResults.join('\n\n');
+    }
+    return output;
   }
 }
