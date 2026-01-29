@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { getSetting, setSetting } from '../utils/config.js';
 import { getProviderDisplayName, checkApiKeyExistsForProvider, saveApiKeyForProvider } from '../utils/env.js';
 import { getModelsForProvider, getDefaultModelForProvider } from '../components/ModelSelector.js';
@@ -72,6 +72,14 @@ export function useModelSelection(
   
   // Message history ref - shared with agent runner
   const inMemoryChatHistoryRef = useRef<InMemoryChatHistory>(new InMemoryChatHistory(model));
+  
+  // Load conversation history on mount to resume previous session
+  useEffect(() => {
+    inMemoryChatHistoryRef.current.load().catch((err) => {
+      // Non-critical: app works without history, but log for debugging
+      console.warn('Failed to load conversation history:', err);
+    });
+  }, []);
   
   // Helper to complete a model switch (DRY pattern)
   const completeModelSwitch = useCallback((newProvider: string, newModelId: string) => {
