@@ -8,7 +8,7 @@ import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { getToolDescription } from '../utils/tool-description.js';
 import { estimateTokens, TOKEN_BUDGET } from '../utils/tokens.js';
-import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent } from '../agent/types.js';
+import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent, ToolLimitEvent } from '../agent/types.js';
 
 
 const DEFAULT_MAX_ITERATIONS = 10;
@@ -115,7 +115,12 @@ export class Agent {
       }
       
       // Build iteration prompt from scratchpad (always has full accumulated history)
-      currentPrompt = buildIterationPrompt(query, scratchpad.getToolSummaries());
+      // Include tool usage status for graceful exit mechanism
+      currentPrompt = buildIterationPrompt(
+        query, 
+        scratchpad.getToolSummaries(),
+        scratchpad.formatToolUsageForPrompt()
+      );
     }
 
     // Max iterations reached - still generate proper final answer
@@ -174,12 +179,13 @@ export class Agent {
   /**
    * Execute all tool calls from an LLM response and add results to scratchpad.
    * Deduplicates skill calls - each skill can only be executed once per query.
+   * Includes graceful exit mechanism - checks tool limits before executing.
    */
   private async *executeToolCalls(
     response: AIMessage,
     query: string,
     scratchpad: Scratchpad
-  ): AsyncGenerator<ToolStartEvent | ToolEndEvent | ToolErrorEvent, void> {
+  ): AsyncGenerator<ToolStartEvent | ToolEndEvent | ToolErrorEvent | ToolLimitEvent, void> {
     for (const toolCall of response.tool_calls!) {
       const toolName = toolCall.name;
       const toolArgs = toolCall.args as Record<string, unknown>;
@@ -203,13 +209,46 @@ export class Agent {
   /**
    * Execute a single tool call and add result to scratchpad.
    * Yields start/end/error events for UI updates.
+   * Includes graceful exit mechanism - checks tool limits before executing.
    */
   private async *executeToolCall(
     toolName: string,
     toolArgs: Record<string, unknown>,
     query: string,
     scratchpad: Scratchpad
-  ): AsyncGenerator<ToolStartEvent | ToolEndEvent | ToolErrorEvent, void> {
+  ): AsyncGenerator<ToolStartEvent | ToolEndEvent | ToolErrorEvent | ToolLimitEvent, void> {
+    // Extract query string from tool args for similarity detection
+    const toolQuery = this.extractQueryFromArgs(toolArgs);
+
+    // Check tool limits before executing (graceful exit mechanism)
+    const limitCheck = scratchpad.canCallTool(toolName, toolQuery);
+    
+    if (!limitCheck.allowed) {
+      // Tool is blocked - yield limit event and skip execution
+      yield { 
+        type: 'tool_limit', 
+        tool: toolName, 
+        blockReason: limitCheck.blockReason, 
+        blocked: true 
+      };
+      
+      // Add a note to scratchpad about the blocked call
+      const toolDescription = getToolDescription(toolName, toolArgs);
+      const blockSummary = `- ${toolDescription} [BLOCKED]: ${limitCheck.blockReason}`;
+      scratchpad.addToolResult(toolName, toolArgs, `Blocked: ${limitCheck.blockReason}`, blockSummary);
+      return;
+    }
+
+    // Yield warning if approaching limits or similar query detected
+    if (limitCheck.warning) {
+      yield { 
+        type: 'tool_limit', 
+        tool: toolName, 
+        warning: limitCheck.warning, 
+        blocked: false 
+      };
+    }
+
     yield { type: 'tool_start', tool: toolName, args: toolArgs };
 
     const startTime = Date.now();
@@ -226,6 +265,9 @@ export class Agent {
 
       yield { type: 'tool_end', tool: toolName, args: toolArgs, result, duration };
 
+      // Record the tool call for limit tracking
+      scratchpad.recordToolCall(toolName, toolQuery);
+
       // Generate LLM summary for context compaction
       const llmSummary = await this.summarizeToolResult(query, toolName, toolArgs, result);
 
@@ -235,11 +277,30 @@ export class Agent {
       const errorMessage = error instanceof Error ? error.message : String(error);
       yield { type: 'tool_error', tool: toolName, error: errorMessage };
 
+      // Still record the call even on error (counts toward limit)
+      scratchpad.recordToolCall(toolName, toolQuery);
+
       // Add error to scratchpad
       const toolDescription = getToolDescription(toolName, toolArgs);
       const errorSummary = `- ${toolDescription} [FAILED]: ${errorMessage}`;
       scratchpad.addToolResult(toolName, toolArgs, `Error: ${errorMessage}`, errorSummary);
     }
+  }
+
+  /**
+   * Extract query string from tool arguments for similarity detection.
+   * Looks for common query-like argument names.
+   */
+  private extractQueryFromArgs(args: Record<string, unknown>): string | undefined {
+    const queryKeys = ['query', 'search', 'question', 'q', 'text', 'input'];
+    
+    for (const key of queryKeys) {
+      if (typeof args[key] === 'string') {
+        return args[key] as string;
+      }
+    }
+    
+    return undefined;
   }
 
   /**

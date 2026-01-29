@@ -166,17 +166,31 @@ Keep tables compact:
 /**
  * Build user prompt for agent iteration with tool summaries (context compaction).
  * Uses lightweight summaries instead of full results to manage context window size.
+ * 
+ * @param originalQuery - The user's original query
+ * @param toolSummaries - Summaries of tool results so far
+ * @param toolUsageStatus - Optional tool usage status for graceful exit mechanism
  */
 export function buildIterationPrompt(
   originalQuery: string,
-  toolSummaries: string[]
+  toolSummaries: string[],
+  toolUsageStatus?: string | null
 ): string {
-  return `Query: ${originalQuery}
+  let prompt = `Query: ${originalQuery}
 
 Data retrieved and work completed so far:
-${toolSummaries.join('\n')}
+${toolSummaries.join('\n')}`;
+
+  // Add tool usage status if available (graceful exit mechanism)
+  if (toolUsageStatus) {
+    prompt += `\n\n${toolUsageStatus}`;
+  }
+
+  prompt += `
 
 Review the data above. If you have sufficient information to answer the query, respond directly WITHOUT calling any tools. Only call additional tools if there are specific data gaps that prevent you from answering.`;
+
+  return prompt;
 }
 
 // ============================================================================
