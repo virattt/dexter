@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import { colors } from '../theme.js';
 import { EventListView } from './AgentEventView.js';
 import type { DisplayEvent } from './AgentEventView.js';
 import { AnswerBox } from './AnswerBox.js';
+import type { TokenUsage } from '../agent/types.js';
 
 /**
  * Format duration in milliseconds to human-readable string
@@ -21,6 +22,22 @@ function formatDuration(ms: number): string {
   return `${minutes}m ${seconds}s`;
 }
 
+/**
+ * Real-time elapsed timer component
+ */
+function ElapsedTimer({ startTime }: { startTime: number }) {
+  const [elapsed, setElapsed] = useState(Date.now() - startTime);
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setElapsed(Date.now() - startTime);
+    }, 100);
+    return () => clearInterval(interval);
+  }, [startTime]);
+  
+  return <Text color={colors.muted}>{formatDuration(elapsed)}</Text>;
+}
+
 export type HistoryItemStatus = 'processing' | 'complete' | 'error' | 'interrupted';
 
 export interface HistoryItem {
@@ -34,6 +51,10 @@ export interface HistoryItem {
   startTime?: number;
   /** Total duration in milliseconds (set when complete) */
   duration?: number;
+  /** Token usage statistics */
+  tokenUsage?: TokenUsage;
+  /** Tokens per second throughput */
+  tokensPerSecond?: number;
 }
 
 interface HistoryItemViewProps {
@@ -59,6 +80,14 @@ export function HistoryItemView({ item }: HistoryItemViewProps) {
         </Box>
       )}
       
+      {/* Real-time progress during processing */}
+      {item.status === 'processing' && item.startTime && (
+        <Box marginLeft={2}>
+          <Text color={colors.muted}>{'⏺ '}</Text>
+          <ElapsedTimer startTime={item.startTime} />
+        </Box>
+      )}
+      
       {/* Events (tool calls, thinking) */}
       <EventListView 
         events={item.events} 
@@ -72,10 +101,16 @@ export function HistoryItemView({ item }: HistoryItemViewProps) {
         </Box>
       )}
       
-      {/* Duration display - show when complete and duration > 15 seconds */}
-      {item.status === 'complete' && item.duration !== undefined && item.duration > 15000 && (
+      {/* Performance stats - show when complete */}
+      {item.status === 'complete' && (item.duration !== undefined || item.tokenUsage) && (
         <Box marginTop={1}>
-          <Text color={colors.muted}>✻ Worked for {formatDuration(item.duration)}</Text>
+          <Text color={colors.muted}>
+            {'✻ '}
+            {item.duration !== undefined && `${formatDuration(item.duration)}`}
+            {item.tokenUsage && item.duration !== undefined && ' · '}
+            {item.tokenUsage && `${item.tokenUsage.totalTokens.toLocaleString()} tokens`}
+            {item.tokensPerSecond !== undefined && ` (${item.tokensPerSecond.toFixed(1)} tok/s)`}
+          </Text>
         </Box>
       )}
     </Box>

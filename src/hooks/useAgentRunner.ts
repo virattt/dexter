@@ -118,7 +118,9 @@ export function useAgentRunner(
           return {
             answer: doneEvent.answer,
             status: 'complete' as const,
-            duration: item.startTime ? Date.now() - item.startTime : undefined,
+            duration: doneEvent.totalTime,
+            tokenUsage: doneEvent.tokenUsage,
+            tokensPerSecond: doneEvent.tokensPerSecond,
           };
         });
         setWorkingState({ status: 'idle' });
