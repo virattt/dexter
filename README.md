@@ -6,17 +6,17 @@ Dexter is an autonomous financial research agent that thinks, plans, and learns 
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Prerequisites](#prerequisites)
-- [How to Install](#how-to-install)
-- [How to Run](#how-to-run)
-- [How to Evaluate](#how-to-evaluate)
-- [How to Debug](#how-to-debug)
-- [How to Contribute](#how-to-contribute)
-- [License](#license)
+- [👋 Overview](#-overview)
+- [✅ Prerequisites](#-prerequisites)
+- [💻 How to Install Dexter](#-how-to-install-dexter)
+- [▶️ How to Run Dexter](#️-how-to-run-dexter)
+- [📊 How to Evaluate Dexter](#-how-to-evaluate-dexter)
+- [🐛 How to Debug Dexter](#-how-to-debug-dexter)
+- [🤝 How to Contribute](#-how-to-contribute)
+- [📄 License](#-license)
 
 
-## Overview
+## 👋 Overview
 
 Dexter takes complex financial questions and turns them into clear, step-by-step research plans. It runs those tasks using live market data, checks its own work, and refines the results until it has a confident, data-backed answer.  
 
@@ -32,7 +32,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 <img width="875" height="558" alt="Screenshot 2026-01-21 at 5 22 19 PM" src="https://github.com/user-attachments/assets/72d28363-69ea-4c74-a297-dfa60aa347f7" />
 
 
-## Prerequisites
+## ✅ Prerequisites
 
 - [Bun](https://bun.com) runtime (v1.0 or higher)
 - OpenAI API key (get [here](https://platform.openai.com/api-keys))
@@ -59,7 +59,7 @@ After installation, restart your terminal and verify Bun is installed:
 bun --version
 ```
 
-## How to Install
+## 💻 How to Install Dexter
 
 1. Clone the repository:
 ```bash
@@ -94,7 +94,7 @@ cp env.example .env
 # TAVILY_API_KEY=your-tavily-api-key
 ```
 
-## How to Run
+## ▶️ How to Run Dexter
 
 Run Dexter in interactive mode:
 ```bash
@@ -106,7 +106,7 @@ Or with watch mode for development:
 bun dev
 ```
 
-## How to Evaluate
+## 📊 How to Evaluate Dexter
 
 Dexter includes an evaluation suite that tests the agent against a dataset of financial questions. Evals use LangSmith for tracking and an LLM-as-judge approach for scoring correctness.
 
@@ -122,7 +122,7 @@ bun run src/evals/run.ts --sample 10
 
 The eval runner displays a real-time UI showing progress, current question, and running accuracy statistics. Results are logged to LangSmith for analysis.
 
-## How to Debug
+## 🐛 How to Debug Dexter
 
 Dexter logs all tool calls to a scratchpad file for debugging and history tracking. Each query creates a new JSONL file in `.dexter/scratchpad/`.
 
@@ -146,7 +146,7 @@ Each file contains newline-delimited JSON entries tracking:
 
 This makes it easy to inspect exactly what data the agent gathered and how it interpreted results.
 
-## How to Contribute
+## 🤝 How to Contribute
 
 1. Fork the repository
 2. Create a feature branch
@@ -157,6 +157,6 @@ This makes it easy to inspect exactly what data the agent gathered and how it in
 **Important**: Please keep your pull requests small and focused.  This will make it easier to review and merge.
 
 
-## License
+## 📄 License
 
 This project is licensed under the MIT License.
