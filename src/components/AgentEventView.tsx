@@ -198,24 +198,20 @@ export function ToolErrorView({ tool, error }: ToolErrorViewProps) {
 interface ToolLimitViewProps {
   tool: string;
   warning?: string;
-  blockReason?: string;
-  blocked: boolean;
 }
 
-export function ToolLimitView({ tool, warning, blockReason, blocked }: ToolLimitViewProps) {
+export function ToolLimitView({ tool, warning }: ToolLimitViewProps) {
   return (
     <Box flexDirection="column">
       <Box>
         <Text>⏺ </Text>
         <Text>{formatToolName(tool)}</Text>
-        <Text color={blocked ? colors.error : colors.warning}>
-          {blocked ? ' [BLOCKED]' : ' [WARNING]'}
-        </Text>
+        <Text color={colors.warning}> [NOTE]</Text>
       </Box>
       <Box marginLeft={2}>
         <Text color={colors.muted}>⎿  </Text>
-        <Text color={blocked ? colors.error : colors.warning}>
-          {truncateResult(blocked ? blockReason || 'Tool limit reached' : warning || 'Approaching limit', 100)}
+        <Text color={colors.warning}>
+          {truncateResult(warning || 'Approaching suggested limit', 100)}
         </Text>
       </Box>
     </Box>
@@ -245,7 +241,7 @@ export function AgentEventView({ event, isActive = false }: AgentEventViewProps)
       return <ToolErrorView tool={event.tool} error={event.error} />;
     
     case 'tool_limit':
-      return <ToolLimitView tool={event.tool} warning={event.warning} blockReason={event.blockReason} blocked={event.blocked} />;
+      return <ToolLimitView tool={event.tool} warning={event.warning} />;
     
     case 'answer_start':
     case 'done':

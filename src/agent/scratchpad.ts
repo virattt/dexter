@@ -77,9 +77,9 @@ const DEFAULT_LIMIT_CONFIG: ToolLimitConfig = {
  * 
  * This is the single source of truth for all agent work on a query.
  * 
- * Includes graceful exit mechanisms:
- * - Tool call counting with hard limits
- * - Query similarity detection to prevent retry loops
+ * Includes soft limit warnings to guide the LLM:
+ * - Tool call counting with suggested limits (warnings, not blocks)
+ * - Query similarity detection to help prevent retry loops
  */
 export class Scratchpad {
   private readonly scratchpadDir = '.dexter/scratchpad';
@@ -134,20 +134,22 @@ export class Scratchpad {
   // ============================================================================
 
   /**
-   * Check if a tool call can proceed. Returns status with block reason if blocked.
-   * Call this BEFORE executing a tool to prevent retry loops.
+   * Check if a tool call can proceed. Returns status with warning if limits exceeded.
+   * Call this BEFORE executing a tool to help prevent retry loops.
+   * Note: Always allows the call but provides warnings to guide the LLM.
    */
-  canCallTool(toolName: string, query?: string): { allowed: boolean; warning?: string; blockReason?: string } {
+  canCallTool(toolName: string, query?: string): { allowed: boolean; warning?: string } {
     const currentCount = this.toolCallCounts.get(toolName) ?? 0;
     const maxCalls = this.limitConfig.maxCallsPerTool;
 
-    // Check hard limit
+    // Check if over the suggested limit - warn but allow
     if (currentCount >= maxCalls) {
       return {
-        allowed: false,
-        blockReason: `Tool '${toolName}' has reached its limit of ${maxCalls} calls. ` +
-          `The data you need may not be available through this tool. ` +
-          `Either try a different approach or inform the user what you found and what you couldn't find.`,
+        allowed: true,
+        warning: `Tool '${toolName}' has been called ${currentCount} times (suggested limit: ${maxCalls}). ` +
+          `If previous calls didn't return the needed data, consider: ` +
+          `(1) trying a different tool, (2) using different search terms, or ` +
+          `(3) proceeding with what you have and noting any data gaps to the user.`,
       };
     }
 
@@ -162,7 +164,7 @@ export class Scratchpad {
         return {
           allowed: true,
           warning: `This query is very similar to a previous '${toolName}' call. ` +
-            `You have ${remaining} attempt(s) remaining. ` +
+            `You have ${remaining} attempt(s) before reaching the suggested limit. ` +
             `If the tool isn't returning useful results, consider: ` +
             `(1) trying a different tool, (2) using different search terms, or ` +
             `(3) acknowledging the data limitation to the user.`,
@@ -174,8 +176,8 @@ export class Scratchpad {
     if (currentCount === maxCalls - 1) {
       return {
         allowed: true,
-        warning: `This is your last attempt for '${toolName}'. ` +
-          `If this doesn't return the needed data, you must try a different approach or inform the user.`,
+        warning: `You are approaching the suggested limit for '${toolName}' (${currentCount + 1}/${maxCalls}). ` +
+          `If this doesn't return the needed data, consider trying a different approach.`,
       };
     }
 
@@ -209,7 +211,7 @@ export class Scratchpad {
       const maxCalls = this.limitConfig.maxCallsPerTool;
       const remainingCalls = Math.max(0, maxCalls - callCount);
       const recentQueries = this.toolQueries.get(toolName) ?? [];
-      const isBlocked = remainingCalls === 0;
+      const overLimit = callCount >= maxCalls;
       
       statuses.push({
         toolName,
@@ -217,8 +219,8 @@ export class Scratchpad {
         maxCalls,
         remainingCalls,
         recentQueries: recentQueries.slice(-3), // Last 3 queries
-        isBlocked,
-        blockReason: isBlocked ? `Reached limit of ${maxCalls} calls` : undefined,
+        isBlocked: false, // Never block, just warn
+        blockReason: overLimit ? `Over suggested limit of ${maxCalls} calls` : undefined,
       });
     }
     
@@ -236,15 +238,14 @@ export class Scratchpad {
     }
 
     const lines = statuses.map(s => {
-      const status = s.isBlocked 
-        ? `BLOCKED (${s.callCount}/${s.maxCalls} used)` 
-        : `${s.remainingCalls} remaining (${s.callCount}/${s.maxCalls} used)`;
+      const status = s.callCount >= s.maxCalls
+        ? `${s.callCount} calls (over suggested limit of ${s.maxCalls})`
+        : `${s.callCount}/${s.maxCalls} calls`;
       return `- ${s.toolName}: ${status}`;
     });
 
     return `## Tool Usage This Query\n\n${lines.join('\n')}\n\n` +
-      `IMPORTANT: If a tool isn't returning useful results, do NOT keep retrying with similar queries. ` +
-      `Either try a different tool/approach or acknowledge the data limitation.`;
+      `Note: If a tool isn't returning useful results after several attempts, consider trying a different tool/approach.`;
   }
 
   /**

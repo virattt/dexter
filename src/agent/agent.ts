@@ -209,7 +209,7 @@ export class Agent {
   /**
    * Execute a single tool call and add result to scratchpad.
    * Yields start/end/error events for UI updates.
-   * Includes graceful exit mechanism - checks tool limits before executing.
+   * Includes soft limit warnings to guide the LLM.
    */
   private async *executeToolCall(
     toolName: string,
@@ -220,26 +220,9 @@ export class Agent {
     // Extract query string from tool args for similarity detection
     const toolQuery = this.extractQueryFromArgs(toolArgs);
 
-    // Check tool limits before executing (graceful exit mechanism)
+    // Check tool limits - yields warning if approaching/over limits
     const limitCheck = scratchpad.canCallTool(toolName, toolQuery);
     
-    if (!limitCheck.allowed) {
-      // Tool is blocked - yield limit event and skip execution
-      yield { 
-        type: 'tool_limit', 
-        tool: toolName, 
-        blockReason: limitCheck.blockReason, 
-        blocked: true 
-      };
-      
-      // Add a note to scratchpad about the blocked call
-      const toolDescription = getToolDescription(toolName, toolArgs);
-      const blockSummary = `- ${toolDescription} [BLOCKED]: ${limitCheck.blockReason}`;
-      scratchpad.addToolResult(toolName, toolArgs, `Blocked: ${limitCheck.blockReason}`, blockSummary);
-      return;
-    }
-
-    // Yield warning if approaching limits or similar query detected
     if (limitCheck.warning) {
       yield { 
         type: 'tool_limit', 

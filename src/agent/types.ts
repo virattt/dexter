@@ -62,16 +62,14 @@ export interface ToolErrorEvent {
 }
 
 /**
- * Tool call was blocked or warned due to retry limits
+ * Tool call warning due to approaching/exceeding suggested limits
  */
 export interface ToolLimitEvent {
   type: 'tool_limit';
   tool: string;
-  /** Warning message (tool allowed but approaching limit or similar query) */
+  /** Warning message about tool usage limits */
   warning?: string;
-  /** Block reason (tool not allowed) */
-  blockReason?: string;
-  /** Whether the tool call was blocked */
+  /** Whether the tool call was blocked (always false - we only warn, never block) */
   blocked: boolean;
 }
 
