@@ -8,10 +8,10 @@ Dexter is an autonomous financial research agent that thinks, plans, and learns 
 
 - [👋 Overview](#-overview)
 - [✅ Prerequisites](#-prerequisites)
-- [💻 How to Install Dexter](#-how-to-install-dexter)
-- [▶️ How to Run Dexter](#️-how-to-run-dexter)
-- [📊 How to Evaluate Dexter](#-how-to-evaluate-dexter)
-- [🐛 How to Debug Dexter](#-how-to-debug-dexter)
+- [🧧 How to Install](#-how-to-install)
+- [▶️ How to Run](#️-how-to-run)
+- [📊 How to Evaluate](#-how-to-evaluate)
+- [🐛 How to Debug](#-how-to-debug)
 - [🤝 How to Contribute](#-how-to-contribute)
 - [📄 License](#-license)
 
@@ -59,7 +59,7 @@ After installation, restart your terminal and verify Bun is installed:
 bun --version
 ```
 
-## 💻 How to Install Dexter
+## 🧧 How to Install
 
 1. Clone the repository:
 ```bash
@@ -94,7 +94,7 @@ cp env.example .env
 # TAVILY_API_KEY=your-tavily-api-key
 ```
 
-## ▶️ How to Run Dexter
+## ▶️ How to Run
 
 Run Dexter in interactive mode:
 ```bash
@@ -106,7 +106,7 @@ Or with watch mode for development:
 bun dev
 ```
 
-## 📊 How to Evaluate Dexter
+## 📊 How to Evaluate
 
 Dexter includes an evaluation suite that tests the agent against a dataset of financial questions. Evals use LangSmith for tracking and an LLM-as-judge approach for scoring correctness.
 
@@ -122,7 +122,7 @@ bun run src/evals/run.ts --sample 10
 
 The eval runner displays a real-time UI showing progress, current question, and running accuracy statistics. Results are logged to LangSmith for analysis.
 
-## 🐛 How to Debug Dexter
+## 🐛 How to Debug
 
 Dexter logs all tool calls to a scratchpad file for debugging and history tracking. Each query creates a new JSONL file in `.dexter/scratchpad/`.
 
