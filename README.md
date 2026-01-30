@@ -2,8 +2,19 @@
 
 Dexter is an autonomous financial research agent that thinks, plans, and learns as it works. It performs analysis using task planning, self-reflection, and real-time market data. Think Claude Code, but built specifically for financial research.
 
+## Table of Contents
 
-<img width="1098" height="659" alt="Screenshot 2026-01-21 at 5 25 10 PM" src="https://github.com/user-attachments/assets/3bcc3a7f-b68a-4f5e-8735-9d22196ff76e" />
+- [Overview](#overview)
+- [Prerequisites](#prerequisites)
+- [Installing Dexter](#installing-dexter)
+- [Usage](#usage)
+- [Running Evals](#running-evals)
+- [Debugging](#debugging)
+- [How to Contribute](#how-to-contribute)
+- [License](#license)
+
+
+<img width="1098" height="659" alt="Screenshot 2026-01-21 at 5 25 10 PM" src="https://github.com/user-attachments/assets/3bcc3a7f-b68a-4f5e-8735-9d22196ff76e" />
 
 
 ## Overview
@@ -19,7 +30,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt)
 
-<img width="875" height="558" alt="Screenshot 2026-01-21 at 5 22 19 PM" src="https://github.com/user-attachments/assets/72d28363-69ea-4c74-a297-dfa60aa347f7" />
+<img width="875" height="558" alt="Screenshot 2026-01-21 at 5 22 19 PM" src="https://github.com/user-attachments/assets/72d28363-69ea-4c74-a297-dfa60aa347f7" />
 
 
 ### Prerequisites
@@ -96,6 +107,46 @@ Or with watch mode for development:
 bun dev
 ```
 
+## Running Evals
+
+Dexter includes an evaluation suite that tests the agent against a dataset of financial questions. Evals use LangSmith for tracking and an LLM-as-judge approach for scoring correctness.
+
+**Run on all questions:**
+```bash
+bun run src/evals/run.ts
+```
+
+**Run on a random sample:**
+```bash
+bun run src/evals/run.ts --sample 10
+```
+
+The eval runner displays a real-time UI showing progress, current question, and running accuracy statistics. Results are logged to LangSmith for analysis.
+
+## Debugging
+
+Dexter logs all tool calls to a scratchpad file for debugging and history tracking. Each query creates a new JSONL file in `.dexter/scratchpad/`.
+
+**Scratchpad location:**
+```
+.dexter/scratchpad/
+├── 2026-01-30-111400_9a8f10723f79.jsonl
+├── 2026-01-30-143022_a1b2c3d4e5f6.jsonl
+└── ...
+```
+
+Each file contains newline-delimited JSON entries tracking:
+- **init**: The original query
+- **tool_result**: Each tool call with arguments, raw result, and LLM summary
+- **thinking**: Agent reasoning steps
+
+**Example scratchpad entry:**
+```json
+{"type":"tool_result","timestamp":"2026-01-30T11:14:05.123Z","toolName":"get_income_statements","args":{"ticker":"AAPL","period":"annual","limit":5},"result":{...},"llmSummary":"Retrieved 5 years of Apple annual income statements showing revenue growth from $274B to $394B"}
+```
+
+This makes it easy to inspect exactly what data the agent gathered and how it interpreted results.
+
 ## How to Contribute
 
 1. Fork the repository
@@ -110,4 +161,3 @@ bun dev
 ## License
 
 This project is licensed under the MIT License.
-
