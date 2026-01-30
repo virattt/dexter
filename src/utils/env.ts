@@ -15,6 +15,7 @@ const PROVIDERS: Record<string, ProviderConfig> = {
   anthropic: { displayName: 'Anthropic', apiKeyEnvVar: 'ANTHROPIC_API_KEY' },
   google: { displayName: 'Google', apiKeyEnvVar: 'GOOGLE_API_KEY' },
   ollama: { displayName: 'Ollama' },
+  lmstudio: { displayName: 'LM Studio' },
 };
 
 export function getApiKeyNameForProvider(providerId: string): string | undefined {
