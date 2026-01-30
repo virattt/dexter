@@ -2,6 +2,8 @@
 
 Dexter is an autonomous financial research agent that thinks, plans, and learns as it works. It performs analysis using task planning, self-reflection, and real-time market data. Think Claude Code, but built specifically for financial research.
 
+<img width="1098" height="659" alt="Screenshot 2026-01-21 at 5 25 10 PM" src="https://github.com/user-attachments/assets/3bcc3a7f-b68a-4f5e-8735-9d22196ff76e" />
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -12,9 +14,6 @@ Dexter is an autonomous financial research agent that thinks, plans, and learns 
 - [Debugging](#debugging)
 - [How to Contribute](#how-to-contribute)
 - [License](#license)
-
-
-<img width="1098" height="659" alt="Screenshot 2026-01-21 at 5 25 10 PM" src="https://github.com/user-attachments/assets/3bcc3a7f-b68a-4f5e-8735-9d22196ff76e" />
 
 
 ## Overview
