@@ -32,7 +32,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 <img width="875" height="558" alt="Screenshot 2026-01-21 at 5 22 19 PM" src="https://github.com/user-attachments/assets/72d28363-69ea-4c74-a297-dfa60aa347f7" />
 
 
-### Prerequisites
+## Prerequisites
 
 - [Bun](https://bun.com) runtime (v1.0 or higher)
 - OpenAI API key (get [here](https://platform.openai.com/api-keys))
@@ -59,7 +59,7 @@ After installation, restart your terminal and verify Bun is installed:
 bun --version
 ```
 
-### How to Install
+## How to Install
 
 1. Clone the repository:
 ```bash
@@ -94,7 +94,7 @@ cp env.example .env
 # TAVILY_API_KEY=your-tavily-api-key
 ```
 
-### How to Run
+## How to Run
 
 Run Dexter in interactive mode:
 ```bash
