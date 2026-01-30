@@ -8,7 +8,7 @@ Dexter is an autonomous financial research agent that thinks, plans, and learns 
 
 - [Overview](#overview)
 - [Prerequisites](#prerequisites)
-- [Installing Dexter](#installing-dexter)
+- [How to Install](#how-to-install)
 - [How to Run](#how-to-run)
 - [How to Evaluate](#how-to-evaluate)
 - [How to Debug](#how-to-debug)
@@ -59,7 +59,7 @@ After installation, restart your terminal and verify Bun is installed:
 bun --version
 ```
 
-### Installing Dexter
+### How to Install
 
 1. Clone the repository:
 ```bash
