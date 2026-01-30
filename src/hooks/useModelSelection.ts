@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { getSetting, setSetting } from '../utils/config.js';
+import { getSetting, setSetting, saveCustomProviderConfig, CustomProviderConfig } from '../utils/config.js';
 import { getProviderDisplayName, checkApiKeyExistsForProvider, saveApiKeyForProvider } from '../utils/env.js';
 import { getModelsForProvider, getDefaultModelForProvider } from '../components/ModelSelector.js';
 import { getOllamaModels } from '../utils/ollama.js';
@@ -10,7 +10,7 @@ import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 // Types
 // ============================================================================
 
-const SELECTION_STATES = ['provider_select', 'model_select', 'api_key_confirm', 'api_key_input'] as const;
+const SELECTION_STATES = ['provider_select', 'model_select', 'api_key_confirm', 'api_key_input', 'custom_provider_config'] as const;
 type SelectionState = typeof SELECTION_STATES[number];
 type AppState = 'idle' | SelectionState;
 
@@ -34,6 +34,7 @@ export interface UseModelSelectionResult {
   handleModelSelect: (modelId: string | null) => void;
   handleApiKeyConfirm: (wantsToSet: boolean) => void;
   handleApiKeySubmit: (apiKey: string | null) => void;
+  handleCustomProviderSubmit: (config: CustomProviderConfig | null) => void;
   
   // Helpers
   isInSelectionFlow: () => boolean;
@@ -111,6 +112,12 @@ export function useModelSelection(
   const handleProviderSelect = useCallback(async (providerId: string | null) => {
     if (providerId) {
       setPendingProvider(providerId);
+      
+      // For custom provider, go directly to configuration
+      if (providerId === 'custom') {
+        setAppState('custom_provider_config');
+        return;
+      }
       
       // Fetch models for the provider
       if (providerId === 'ollama') {
@@ -197,6 +204,22 @@ export function useModelSelection(
     }
   }, [pendingProvider, pendingModels, completeModelSwitch, resetPendingState, onError]);
   
+  // Custom provider configuration submit handler
+  const handleCustomProviderSubmit = useCallback((config: CustomProviderConfig | null) => {
+    if (config) {
+      const saved = saveCustomProviderConfig(config);
+      if (saved) {
+        completeModelSwitch('custom', `custom:${config.modelId}`);
+      } else {
+        onError('Failed to save custom provider configuration.');
+        resetPendingState();
+      }
+    } else {
+      // User cancelled
+      resetPendingState();
+    }
+  }, [completeModelSwitch, resetPendingState, onError]);
+  
   return {
     selectionState: {
       appState,
@@ -212,6 +235,7 @@ export function useModelSelection(
     handleModelSelect,
     handleApiKeyConfirm,
     handleApiKeySubmit,
+    handleCustomProviderSubmit,
     isInSelectionFlow,
   };
 }

@@ -8,6 +8,7 @@ import { StructuredToolInterface } from '@langchain/core/tools';
 import { Runnable } from '@langchain/core/runnables';
 import { z } from 'zod';
 import { DEFAULT_SYSTEM_PROMPT } from '@/agent/prompts';
+import { getCustomProviderConfig } from '@/utils/config';
 
 export const DEFAULT_PROVIDER = 'openai';
 export const DEFAULT_MODEL = 'gpt-5.2';
@@ -84,6 +85,20 @@ const MODEL_PROVIDERS: Record<string, ModelFactory> = {
       ...opts,
       ...(process.env.OLLAMA_BASE_URL ? { baseUrl: process.env.OLLAMA_BASE_URL } : {}),
     }),
+  'custom:': (name, opts) => {
+    const customConfig = getCustomProviderConfig();
+    if (!customConfig) {
+      throw new Error('Custom provider not configured');
+    }
+    return new ChatOpenAI({
+      model: customConfig.modelId,
+      ...opts,
+      apiKey: customConfig.apiKey,
+      configuration: {
+        baseURL: customConfig.baseUrl,
+      },
+    });
+  },
 };
 
 const DEFAULT_MODEL_FACTORY: ModelFactory = (name, opts) =>
