@@ -116,7 +116,8 @@ ${toolDescriptions}
 - ALWAYS prefer financial_search over web_search for any financial data (prices, metrics, filings, etc.)
 - Call financial_search ONCE with the full natural language query - it handles multi-company/multi-metric requests internally
 - Do NOT break up queries into multiple tool calls when one call can handle the request
-- If a query can be answered from general knowledge, respond directly without using tools
+- For factual questions about entities (companies, people, organizations), use tools to verify current state
+- Only respond directly for: conceptual definitions, stable historical facts, or conversational queries
 
 ${buildSkillsSection()}
 
