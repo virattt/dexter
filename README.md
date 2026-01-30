@@ -8,8 +8,8 @@ Dexter is an autonomous financial research agent that thinks, plans, and learns 
 
 - [👋 Overview](#-overview)
 - [✅ Prerequisites](#-prerequisites)
-- [🧧 How to Install](#-how-to-install)
-- [▶️ How to Run](#️-how-to-run)
+- [💻 How to Install](#-how-to-install)
+- [🚀 How to Run](#-how-to-run)
 - [📊 How to Evaluate](#-how-to-evaluate)
 - [🐛 How to Debug](#-how-to-debug)
 - [🤝 How to Contribute](#-how-to-contribute)
@@ -59,7 +59,7 @@ After installation, restart your terminal and verify Bun is installed:
 bun --version
 ```
 
-## 🧧 How to Install
+## 💻 How to Install
 
 1. Clone the repository:
 ```bash
@@ -94,7 +94,7 @@ cp env.example .env
 # TAVILY_API_KEY=your-tavily-api-key
 ```
 
-## ▶️ How to Run
+## 🚀 How to Run
 
 Run Dexter in interactive mode:
 ```bash
