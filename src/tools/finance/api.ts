@@ -34,7 +34,14 @@ export async function callApi(
     throw new Error(`API request failed: ${response.status} ${response.statusText}`);
   }
 
-  const data = await response.json();
-  return { data, url: url.toString() };
+  let data: unknown;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(
+      `API request failed: invalid JSON response (${response.status} ${response.statusText})`
+    );
+  }
+  return { data: data as Record<string, unknown>, url: url.toString() };
 }
 
