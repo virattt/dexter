@@ -34,6 +34,11 @@ const PROVIDERS: Provider[] = [
     providerId: 'ollama',
     models: [], // Populated dynamically from local Ollama API
   },
+  {
+    displayName: 'Custom (OpenAI-compatible)',
+    providerId: 'custom',
+    models: [], // Configured by user
+  },
 ];
 
 export function getModelsForProvider(providerId: string): string[] {
