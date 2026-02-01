@@ -3,6 +3,7 @@ import { getSetting, setSetting } from '../utils/config.js';
 import { getProviderDisplayName, checkApiKeyExistsForProvider, saveApiKeyForProvider } from '../utils/env.js';
 import { getModelsForProvider, getDefaultModelForProvider } from '../components/ModelSelector.js';
 import { getOllamaModels } from '../utils/ollama.js';
+import { getLMStudioModels } from '../utils/lm-studio.js';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from '../model/llm.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 
@@ -116,6 +117,9 @@ export function useModelSelection(
       if (providerId === 'ollama') {
         const ollamaModels = await getOllamaModels();
         setPendingModels(ollamaModels);
+      } else if (providerId === 'lmstudio') {
+        const lmStudioModels = await getLMStudioModels();
+        setPendingModels(lmStudioModels);
       } else {
         setPendingModels(getModelsForProvider(providerId));
       }
@@ -136,13 +140,19 @@ export function useModelSelection(
       return;
     }
     
-    // For Ollama, skip API key flow entirely
+    // For local providers (Ollama, LM Studio), skip API key flow entirely
     if (pendingProvider === 'ollama') {
       const fullModelId = `ollama:${modelId}`;
       completeModelSwitch(pendingProvider, fullModelId);
       return;
     }
-    
+
+    if (pendingProvider === 'lmstudio') {
+      const fullModelId = `lmstudio:${modelId}`;
+      completeModelSwitch(pendingProvider, fullModelId);
+      return;
+    }
+
     // For cloud providers, check API key
     if (checkApiKeyExistsForProvider(pendingProvider)) {
       completeModelSwitch(pendingProvider, modelId);
