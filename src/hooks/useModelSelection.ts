@@ -10,7 +10,7 @@ import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 // Types
 // ============================================================================
 
-const SELECTION_STATES = ['provider_select', 'model_select', 'api_key_confirm', 'api_key_input'] as const;
+const SELECTION_STATES = ['provider_select', 'model_select', 'model_input', 'api_key_confirm', 'api_key_input'] as const;
 type SelectionState = typeof SELECTION_STATES[number];
 type AppState = 'idle' | SelectionState;
 
@@ -32,6 +32,7 @@ export interface UseModelSelectionResult {
   cancelSelection: () => void;
   handleProviderSelect: (providerId: string | null) => Promise<void>;
   handleModelSelect: (modelId: string | null) => void;
+  handleModelInputSubmit: (modelName: string | null) => void;
   handleApiKeyConfirm: (wantsToSet: boolean) => void;
   handleApiKeySubmit: (apiKey: string | null) => void;
   
@@ -112,21 +113,25 @@ export function useModelSelection(
     if (providerId) {
       setPendingProvider(providerId);
       
-      // Fetch models for the provider
-      if (providerId === 'ollama') {
+      // OpenRouter uses free-text model input instead of a list
+      if (providerId === 'openrouter') {
+        setPendingModels([]);
+        setAppState('model_input');
+      } else if (providerId === 'ollama') {
+        // Fetch models from local Ollama API
         const ollamaModels = await getOllamaModels();
         setPendingModels(ollamaModels);
+        setAppState('model_select');
       } else {
         setPendingModels(getModelsForProvider(providerId));
+        setAppState('model_select');
       }
-      
-      setAppState('model_select');
     } else {
       setAppState('idle');
     }
   }, []);
   
-  // Model selection handler
+  // Model selection handler (for list-based selection)
   const handleModelSelect = useCallback((modelId: string | null) => {
     if (!modelId || !pendingProvider) {
       // User cancelled - go back to provider select
@@ -149,6 +154,29 @@ export function useModelSelection(
     } else {
       // Need to get API key - store the selected model temporarily
       setPendingModels([modelId]);
+      setAppState('api_key_confirm');
+    }
+  }, [pendingProvider, completeModelSwitch]);
+  
+  // Model input handler (for free-text input like OpenRouter)
+  const handleModelInputSubmit = useCallback((modelName: string | null) => {
+    if (!modelName || !pendingProvider) {
+      // User cancelled - go back to provider select
+      setPendingProvider(null);
+      setPendingModels([]);
+      setAppState('provider_select');
+      return;
+    }
+    
+    // Store with provider prefix (e.g., openrouter:anthropic/claude-3.5-sonnet)
+    const fullModelId = `${pendingProvider}:${modelName}`;
+    
+    // Check API key for the provider
+    if (checkApiKeyExistsForProvider(pendingProvider)) {
+      completeModelSwitch(pendingProvider, fullModelId);
+    } else {
+      // Need to get API key - store the selected model temporarily
+      setPendingModels([fullModelId]);
       setAppState('api_key_confirm');
     }
   }, [pendingProvider, completeModelSwitch]);
@@ -210,6 +238,7 @@ export function useModelSelection(
     cancelSelection,
     handleProviderSelect,
     handleModelSelect,
+    handleModelInputSubmit,
     handleApiKeyConfirm,
     handleApiKeySubmit,
     isInSelectionFlow,

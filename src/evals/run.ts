@@ -318,7 +318,7 @@ function createEvaluationRunner(sampleSize?: number) {
       yield {
         type: 'question_end',
         question,
-        score: evalResult.score ?? 0,
+        score: typeof evalResult.score === 'number' ? evalResult.score : 0,
         comment: evalResult.comment || '',
       };
     }

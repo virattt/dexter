@@ -9,7 +9,7 @@ import { config } from 'dotenv';
 
 import { Input } from './components/Input.js';
 import { Intro } from './components/Intro.js';
-import { ProviderSelector, ModelSelector } from './components/ModelSelector.js';
+import { ProviderSelector, ModelSelector, ModelInputField } from './components/ModelSelector.js';
 import { ApiKeyConfirm, ApiKeyInput } from './components/ApiKeyPrompt.js';
 import { DebugPanel } from './components/DebugPanel.js';
 import { HistoryItemView, WorkingIndicator } from './components/index.js';
@@ -39,6 +39,7 @@ export function CLI() {
     cancelSelection,
     handleProviderSelect,
     handleModelSelect,
+    handleModelInputSubmit,
     handleApiKeyConfirm,
     handleApiKeySubmit,
     isInSelectionFlow,
@@ -152,6 +153,18 @@ export function CLI() {
           models={pendingModels}
           currentModel={provider === pendingProvider ? model : undefined}
           onSelect={handleModelSelect}
+        />
+      </Box>
+    );
+  }
+  
+  if (appState === 'model_input' && pendingProvider) {
+    return (
+      <Box flexDirection="column">
+        <ModelInputField
+          providerId={pendingProvider}
+          currentModel={provider === pendingProvider ? model : undefined}
+          onSubmit={handleModelInputSubmit}
         />
       </Box>
     );
