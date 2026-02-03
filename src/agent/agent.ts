@@ -74,8 +74,8 @@ export class Agent {
       const response = await this.callModel(currentPrompt) as AIMessage;
       const responseText = extractTextContent(response);
 
-      // Emit thinking if there are also tool calls
-      if (responseText && hasToolCalls(response)) {
+      // Emit thinking if there are also tool calls (skip whitespace-only responses)
+      if (responseText?.trim() && hasToolCalls(response)) {
         scratchpad.addThinking(responseText);
         yield { type: 'thinking', message: responseText };
       }

@@ -7,7 +7,6 @@ import { getCurrentDate } from '../../agent/prompts.js';
 
 // Import all finance tools directly (avoid circular deps with index.ts)
 import { getIncomeStatements, getBalanceSheets, getCashFlowStatements, getAllFinancialStatements } from './fundamentals.js';
-import { getFilings, get10KFilingItems, get10QFilingItems, get8KFilingItems } from './filings.js';
 import { getPriceSnapshot, getPrices } from './prices.js';
 import { getKeyRatiosSnapshot, getKeyRatios } from './key-ratios.js';
 import { getNews } from './news.js';
@@ -34,11 +33,6 @@ const FINANCE_TOOLS: StructuredToolInterface[] = [
   getKeyRatiosSnapshot,
   getKeyRatios,
   getAnalystEstimates,
-  // SEC Filings
-  getFilings,
-  get10KFilingItems,
-  get10QFilingItems,
-  get8KFilingItems,
   // Other Data
   getNews,
   getInsiderTrades,
@@ -101,7 +95,6 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
 - Stock prices (current or historical)
 - Company financials (income statements, balance sheets, cash flow)
 - Financial metrics (P/E ratio, market cap, EPS, dividend yield)
-- SEC filings (10-K, 10-Q, 8-K)
 - Analyst estimates and price targets
 - Company news
 - Insider trading activity

@@ -11,7 +11,6 @@ Intelligent meta-tool for financial data research. Takes a natural language quer
 - Stock prices (current snapshots or historical data)
 - Company financials (income statements, balance sheets, cash flow statements)
 - Financial metrics (P/E ratio, market cap, EPS, dividend yield, enterprise value)
-- SEC filings (10-K annual reports, 10-Q quarterly reports, 8-K current reports)
 - Analyst estimates and price targets
 - Company news and announcements
 - Insider trading activity
