@@ -1,8 +1,30 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
-import { ITEMS_10K_MAP, ITEMS_10Q_MAP, formatItemsDescription } from './constants.js';
 import { formatToolResult } from '../types.js';
+
+// Types for filing item metadata
+export interface FilingItemType {
+  name: string;  // e.g., "Item-1", "Part-1,Item-2"
+  title: string; // e.g., "Business", "MD&A"
+}
+
+export interface FilingItemTypes {
+  '10-K': FilingItemType[];
+  '10-Q': FilingItemType[];
+}
+
+/**
+ * Fetches canonical item type names from the API.
+ * Used to provide the inner LLM with exact item names for selective retrieval.
+ */
+export async function getFilingItemTypes(): Promise<FilingItemTypes> {
+  const response = await fetch('https://api.financialdatasets.ai/filings/items/types/');
+  if (!response.ok) {
+    throw new Error(`Failed to fetch filing item types: ${response.status}`);
+  }
+  return response.json();
+}
 
 const FilingsInputSchema = z.object({
   ticker: z
@@ -39,25 +61,29 @@ export const getFilings = new DynamicStructuredTool({
 
 const Filing10KItemsInputSchema = z.object({
   ticker: z.string().describe("The stock ticker symbol. For example, 'AAPL' for Apple."),
-  year: z.number().describe('The year of the 10-K filing. For example, 2023.'),
-  item: z
+  accession_number: z
+    .string()
+    .describe(
+      "The SEC accession number for the 10-K filing. For example, '0000320193-24-000123'. Can be retrieved from the get_filings tool."
+    ),
+  items: z
     .array(z.string())
     .optional()
     .describe(
-      `Optional list of specific items to retrieve from the 10-K. Valid items are:\n${formatItemsDescription(ITEMS_10K_MAP)}\nIf not specified, all available items will be returned.`
+      "Optional list of specific item names to retrieve. If omitted, returns all items. Use exact item names from the provided list (e.g., 'Item-1', 'Item-1A', 'Item-7')."
     ),
 });
 
 export const get10KFilingItems = new DynamicStructuredTool({
   name: 'get_10K_filing_items',
-  description: `Retrieves specific sections (items) from a company's 10-K annual report. Use this to extract detailed information from specific sections of a 10-K filing, such as: Item-1: Business, Item-1A: Risk Factors, Item-7: Management's Discussion and Analysis, Item-8: Financial Statements and Supplementary Data. The optional 'item' parameter allows you to filter for specific sections.`,
+  description: `Retrieves sections (items) from a company's 10-K annual report. Specify items to retrieve only specific sections, or omit to get all. Common items: Item-1 (Business), Item-1A (Risk Factors), Item-7 (MD&A), Item-8 (Financial Statements). The accession_number can be retrieved using the get_filings tool.`,
   schema: Filing10KItemsInputSchema,
   func: async (input) => {
-    const params: Record<string, string | number | string[] | undefined> = {
+    const params: Record<string, string | string[] | undefined> = {
       ticker: input.ticker.toUpperCase(),
       filing_type: '10-K',
-      year: input.year,
-      item: input.item,
+      accession_number: input.accession_number,
+      item: input.items, // API expects 'item' not 'items'
     };
     const { data, url } = await callApi('/filings/items/', params);
     return formatToolResult(data, [url]);
@@ -66,27 +92,29 @@ export const get10KFilingItems = new DynamicStructuredTool({
 
 const Filing10QItemsInputSchema = z.object({
   ticker: z.string().describe("The stock ticker symbol. For example, 'AAPL' for Apple."),
-  year: z.number().describe('The year of the 10-Q filing. For example, 2023.'),
-  quarter: z.number().describe('The quarter of the 10-Q filing (1, 2, 3, or 4).'),
-  item: z
+  accession_number: z
+    .string()
+    .describe(
+      "The SEC accession number for the 10-Q filing. For example, '0000320193-24-000123'. Can be retrieved from the get_filings tool."
+    ),
+  items: z
     .array(z.string())
     .optional()
     .describe(
-      `Optional list of specific items to retrieve from the 10-Q. Valid items are:\n${formatItemsDescription(ITEMS_10Q_MAP)}\nIf not specified, all available items will be returned.`
+      "Optional list of specific item names to retrieve. If omitted, returns all items. Use exact item names from the provided list (e.g., 'Part-1,Item-1', 'Part-1,Item-2')."
     ),
 });
 
 export const get10QFilingItems = new DynamicStructuredTool({
   name: 'get_10Q_filing_items',
-  description: `Retrieves specific sections (items) from a company's 10-Q quarterly report. Use this to extract detailed information from specific sections of a 10-Q filing, such as: Item-1: Financial Statements, Item-2: Management's Discussion and Analysis, Item-3: Quantitative and Qualitative Disclosures About Market Risk, Item-4: Controls and Procedures.`,
+  description: `Retrieves sections (items) from a company's 10-Q quarterly report. Specify items to retrieve only specific sections, or omit to get all. Common items: Part-1,Item-1 (Financial Statements), Part-1,Item-2 (MD&A), Part-1,Item-3 (Market Risk), Part-2,Item-1A (Risk Factors). The accession_number can be retrieved using the get_filings tool.`,
   schema: Filing10QItemsInputSchema,
   func: async (input) => {
-    const params: Record<string, string | number | string[] | undefined> = {
+    const params: Record<string, string | string[] | undefined> = {
       ticker: input.ticker.toUpperCase(),
       filing_type: '10-Q',
-      year: input.year,
-      quarter: input.quarter,
-      item: input.item,
+      accession_number: input.accession_number,
+      item: input.items, // API expects 'item' not 'items'
     };
     const { data, url } = await callApi('/filings/items/', params);
     return formatToolResult(data, [url]);
