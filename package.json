@@ -1,6 +1,6 @@
 {
   "name": "dexter-ts",
-  "version": "3.0.2",
+  "version": "3.3.0",
   "description": "Dexter - AI agent for deep financial research.",
   "type": "module",
   "main": "src/index.tsx",
@@ -25,9 +25,11 @@
     "@modelcontextprotocol/sdk": "^1.25.3",
     "dotenv": "^17.2.3",
     "exa-js": "^2.1.1",
+    "gray-matter": "^4.0.3",
     "ink": "^6.5.1",
     "ink-spinner": "^5.0.0",
     "ink-text-input": "^6.0.0",
+    "langsmith": "^0.4.10",
     "react": "^19.2.0",
     "zod": "^4.1.13"
   },

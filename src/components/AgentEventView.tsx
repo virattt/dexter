@@ -127,29 +127,36 @@ interface ToolEndViewProps {
 export function ToolEndView({ tool, args, result, duration }: ToolEndViewProps) {
   // Parse result to get a summary
   let summary = 'Received data';
-  try {
-    const parsed = JSON.parse(result);
-    if (parsed.data) {
-      if (Array.isArray(parsed.data)) {
-        summary = `Received ${parsed.data.length} items`;
-      } else if (typeof parsed.data === 'object') {
-        const keys = Object.keys(parsed.data).filter(k => !k.startsWith('_')); // Exclude _errors
-        
-        // Tool-specific summaries
-        if (tool === 'financial_search') {
-          summary = keys.length === 1 
-            ? `Called 1 data source` 
-            : `Called ${keys.length} data sources`;
-        } else if (tool === 'web_search') {
-          summary = `Did 1 search`;
-        } else {
-          summary = `Received ${keys.length} fields`;
+  
+  // Special handling for skill tool
+  if (tool === 'skill') {
+    const skillName = args.skill as string;
+    summary = `Loaded ${skillName} skill`;
+  } else {
+    try {
+      const parsed = JSON.parse(result);
+      if (parsed.data) {
+        if (Array.isArray(parsed.data)) {
+          summary = `Received ${parsed.data.length} items`;
+        } else if (typeof parsed.data === 'object') {
+          const keys = Object.keys(parsed.data).filter(k => !k.startsWith('_')); // Exclude _errors
+          
+          // Tool-specific summaries
+          if (tool === 'financial_search') {
+            summary = keys.length === 1 
+              ? `Called 1 data source` 
+              : `Called ${keys.length} data sources`;
+          } else if (tool === 'web_search') {
+            summary = `Did 1 search`;
+          } else {
+            summary = `Received ${keys.length} fields`;
+          }
         }
       }
+    } catch {
+      // Not JSON, use truncated result
+      summary = truncateResult(result, 50);
     }
-  } catch {
-    // Not JSON, use truncated result
-    summary = truncateResult(result, 50);
   }
   
   return (
@@ -188,6 +195,29 @@ export function ToolErrorView({ tool, error }: ToolErrorViewProps) {
   );
 }
 
+interface ToolLimitViewProps {
+  tool: string;
+  warning?: string;
+}
+
+export function ToolLimitView({ tool, warning }: ToolLimitViewProps) {
+  return (
+    <Box flexDirection="column">
+      <Box>
+        <Text>⏺ </Text>
+        <Text>{formatToolName(tool)}</Text>
+        <Text color={colors.warning}> [NOTE]</Text>
+      </Box>
+      <Box marginLeft={2}>
+        <Text color={colors.muted}>⎿  </Text>
+        <Text color={colors.warning}>
+          {truncateResult(warning || 'Approaching suggested limit', 100)}
+        </Text>
+      </Box>
+    </Box>
+  );
+}
+
 interface AgentEventViewProps {
   event: AgentEvent;
   isActive?: boolean;
@@ -209,6 +239,9 @@ export function AgentEventView({ event, isActive = false }: AgentEventViewProps)
     
     case 'tool_error':
       return <ToolErrorView tool={event.tool} error={event.error} />;
+    
+    case 'tool_limit':
+      return <ToolLimitView tool={event.tool} warning={event.warning} />;
     
     case 'answer_start':
     case 'done':

@@ -18,6 +18,7 @@ const FAST_MODELS: Record<string, string> = {
   anthropic: 'claude-haiku-4-5',
   google: 'gemini-3-flash-preview',
   xai: 'grok-4-1-fast-reasoning',
+  openrouter: 'openrouter:openai/gpt-4o-mini',
 };
 
 /**
@@ -78,6 +79,15 @@ const MODEL_PROVIDERS: Record<string, ModelFactory> = {
         baseURL: 'https://api.x.ai/v1',
       },
     }),
+  'openrouter:': (name, opts) =>
+    new ChatOpenAI({
+      model: name.replace(/^openrouter:/, ''),
+      ...opts,
+      apiKey: getApiKey('OPENROUTER_API_KEY', 'OpenRouter'),
+      configuration: {
+        baseURL: 'https://openrouter.ai/api/v1',
+      },
+    }),
   'ollama:': (name, opts) =>
     new ChatOllama({
       model: name.replace(/^ollama:/, ''),
@@ -90,7 +100,7 @@ const DEFAULT_MODEL_FACTORY: ModelFactory = (name, opts) =>
   new ChatOpenAI({
     model: name,
     ...opts,
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: getApiKey('OPENAI_API_KEY', 'OpenAI'),
   });
 
 export function getChatModel(

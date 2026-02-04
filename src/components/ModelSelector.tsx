@@ -30,6 +30,11 @@ const PROVIDERS: Provider[] = [
     models: ['grok-4-0709', 'grok-4-1-fast-reasoning'],
   },
   {
+    displayName: 'OpenRouter',
+    providerId: 'openrouter',
+    models: [], // User types model name directly
+  },
+  {
     displayName: 'Ollama',
     providerId: 'ollama',
     models: [], // Populated dynamically from local Ollama API
@@ -111,6 +116,63 @@ interface ModelSelectorProps {
   models: string[];
   currentModel?: string;
   onSelect: (modelId: string | null) => void;
+}
+
+interface ModelInputFieldProps {
+  providerId: string;
+  currentModel?: string;
+  onSubmit: (modelId: string | null) => void;
+}
+
+export function ModelInputField({ providerId, currentModel, onSubmit }: ModelInputFieldProps) {
+  // Extract existing model name if it has the openrouter: prefix
+  const initialValue = currentModel?.startsWith('openrouter:')
+    ? currentModel.replace(/^openrouter:/, '')
+    : '';
+  
+  const [inputValue, setInputValue] = useState(initialValue);
+  
+  const provider = PROVIDERS.find((p) => p.providerId === providerId);
+  const providerName = provider?.displayName ?? providerId;
+
+  useInput((input, key) => {
+    if (key.return) {
+      const trimmed = inputValue.trim();
+      if (trimmed) {
+        onSubmit(trimmed);
+      }
+    } else if (key.escape) {
+      onSubmit(null);
+    } else if (key.backspace || key.delete) {
+      setInputValue((prev) => prev.slice(0, -1));
+    } else if (input && !key.ctrl && !key.meta) {
+      setInputValue((prev) => prev + input);
+    }
+  });
+
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      <Text color={colors.primary} bold>
+        Enter model name for {providerName}
+      </Text>
+      <Text color={colors.muted}>
+        Type or paste the model name from openrouter.ai/models
+      </Text>
+      <Box marginTop={1}>
+        <Text color={colors.primaryLight}>{'> '}</Text>
+        <Text color={colors.primary}>{inputValue}</Text>
+        <Text color={colors.primaryLight}>_</Text>
+      </Box>
+      <Box marginTop={1} flexDirection="column">
+        <Text color={colors.muted}>
+          Examples: anthropic/claude-3.5-sonnet, openai/gpt-4-turbo, meta-llama/llama-3-70b
+        </Text>
+      </Box>
+      <Box marginTop={1}>
+        <Text color={colors.muted}>Enter to confirm · esc to go back</Text>
+      </Box>
+    </Box>
+  );
 }
 
 export function ModelSelector({ providerId, models, currentModel, onSelect }: ModelSelectorProps) {
