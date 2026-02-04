@@ -6,9 +6,7 @@ import { EvalCurrentQuestion } from './EvalCurrentQuestion.js';
 import { EvalStats } from './EvalStats.js';
 import { EvalRecentResults, type EvalResult } from './EvalRecentResults.js';
 
-// ============================================================================
-// Toggle for demo recordings - set to false to hide live stats
-// ============================================================================
+
 const SHOW_STATS = true;
 
 interface EvalState {
@@ -190,7 +188,7 @@ export function EvalApp({ runEvaluation }: EvalAppProps) {
         <EvalCurrentQuestion question={state.currentQuestion} />
       </Box>
 
-      {/* Live stats (toggleable) */}
+      {/* Live stats */}
       {SHOW_STATS && (
         <Box marginTop={1}>
           <EvalStats
