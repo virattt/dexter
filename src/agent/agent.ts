@@ -8,7 +8,8 @@ import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { getToolDescription } from '../utils/tool-description.js';
 import { estimateTokens, TOKEN_BUDGET, CONTEXT_THRESHOLD, KEEP_TOOL_USES } from '../utils/tokens.js';
-import type { AgentConfig, AgentEvent, ToolStartEvent, ToolEndEvent, ToolErrorEvent, ToolLimitEvent, ContextClearedEvent } from '../agent/types.js';
+import { createProgressChannel } from '../utils/progress-channel.js';
+import type { AgentConfig, AgentEvent, ToolStartEvent, ToolProgressEvent, ToolEndEvent, ToolErrorEvent, ToolLimitEvent, ContextClearedEvent } from '../agent/types.js';
 
 
 const DEFAULT_MAX_ITERATIONS = 10;
@@ -178,7 +179,7 @@ export class Agent {
     response: AIMessage,
     query: string,
     scratchpad: Scratchpad
-  ): AsyncGenerator<ToolStartEvent | ToolEndEvent | ToolErrorEvent | ToolLimitEvent, void> {
+  ): AsyncGenerator<ToolStartEvent | ToolProgressEvent | ToolEndEvent | ToolErrorEvent | ToolLimitEvent, void> {
     for (const toolCall of response.tool_calls!) {
       const toolName = toolCall.name;
       const toolArgs = toolCall.args as Record<string, unknown>;
@@ -209,7 +210,7 @@ export class Agent {
     toolArgs: Record<string, unknown>,
     query: string,
     scratchpad: Scratchpad
-  ): AsyncGenerator<ToolStartEvent | ToolEndEvent | ToolErrorEvent | ToolLimitEvent, void> {
+  ): AsyncGenerator<ToolStartEvent | ToolProgressEvent | ToolEndEvent | ToolErrorEvent | ToolLimitEvent, void> {
     // Extract query string from tool args for similarity detection
     const toolQuery = this.extractQueryFromArgs(toolArgs);
 
@@ -230,12 +231,31 @@ export class Agent {
     const startTime = Date.now();
 
     try {
-      // Invoke tool directly from toolMap
       const tool = this.toolMap.get(toolName);
       if (!tool) {
         throw new Error(`Tool '${toolName}' not found`);
       }
-      const rawResult = await tool.invoke(toolArgs, this.signal ? { signal: this.signal } : undefined);
+
+      // Create a progress channel so subagent tools can stream status updates
+      const channel = createProgressChannel();
+      const config = {
+        metadata: { onProgress: channel.emit },
+        ...(this.signal ? { signal: this.signal } : {}),
+      };
+
+      // Launch tool invocation -- closes the channel when it settles
+      const toolPromise = tool.invoke(toolArgs, config).then(
+        (raw) => { channel.close(); return raw; },
+        (err) => { channel.close(); throw err; },
+      );
+
+      // Drain progress events in real-time as the tool executes
+      for await (const message of channel) {
+        yield { type: 'tool_progress', tool: toolName, message } as ToolProgressEvent;
+      }
+
+      // Tool has finished -- collect the result
+      const rawResult = await toolPromise;
       const result = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
       const duration = Date.now() - startTime;
 

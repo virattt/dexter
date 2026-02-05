@@ -133,9 +133,10 @@ interface ToolStartViewProps {
   tool: string;
   args: Record<string, unknown>;
   isActive?: boolean;
+  progressMessage?: string;
 }
 
-export function ToolStartView({ tool, args, isActive = false }: ToolStartViewProps) {
+export function ToolStartView({ tool, args, isActive = false, progressMessage }: ToolStartViewProps) {
   return (
     <Box flexDirection="column">
       <Box>
@@ -149,7 +150,7 @@ export function ToolStartView({ tool, args, isActive = false }: ToolStartViewPro
           <Text color={colors.muted}>
             <Spinner type="dots" />
           </Text>
-          <Text> Searching...</Text>
+          <Text> {progressMessage || 'Searching...'}</Text>
         </Box>
       )}
     </Box>
@@ -280,6 +281,7 @@ export interface DisplayEvent {
   event: AgentEvent;
   completed?: boolean;
   endEvent?: AgentEvent;
+  progressMessage?: string;
 }
 
 /**
@@ -340,18 +342,19 @@ function BrowserSessionView({ events, activeStepId }: BrowserSessionViewProps) {
 interface AgentEventViewProps {
   event: AgentEvent;
   isActive?: boolean;
+  progressMessage?: string;
 }
 
 /**
  * Renders a single agent event in Claude Code style
  */
-export function AgentEventView({ event, isActive = false }: AgentEventViewProps) {
+export function AgentEventView({ event, isActive = false, progressMessage }: AgentEventViewProps) {
   switch (event.type) {
     case 'thinking':
       return <ThinkingView message={event.message} />;
     
     case 'tool_start':
-      return <ToolStartView tool={event.tool} args={event.args} isActive={isActive} />;
+      return <ToolStartView tool={event.tool} args={event.args} isActive={isActive} progressMessage={progressMessage} />;
     
     case 'tool_end':
       return <ToolEndView tool={event.tool} args={event.args} result={event.result} duration={event.duration} />;
@@ -441,7 +444,7 @@ export function EventListView({ events, activeToolId }: EventListViewProps) {
         }
 
         // Render single events as before
-        const { id, event, completed, endEvent } = group.displayEvent;
+        const { id, event, completed, endEvent, progressMessage } = group.displayEvent;
         
         // For tool events, show the end state if completed
         if (event.type === 'tool_start' && completed && endEvent?.type === 'tool_end') {
@@ -469,7 +472,8 @@ export function EventListView({ events, activeToolId }: EventListViewProps) {
           <Box key={id} marginBottom={1}>
             <AgentEventView 
               event={event} 
-              isActive={!completed && id === activeToolId} 
+              isActive={!completed && id === activeToolId}
+              progressMessage={progressMessage}
             />
           </Box>
         );

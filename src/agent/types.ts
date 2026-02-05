@@ -62,6 +62,15 @@ export interface ToolErrorEvent {
 }
 
 /**
+ * Mid-execution progress update from a subagent tool
+ */
+export interface ToolProgressEvent {
+  type: 'tool_progress';
+  tool: string;
+  message: string;
+}
+
+/**
  * Tool call warning due to approaching/exceeding suggested limits
  */
 export interface ToolLimitEvent {
@@ -107,6 +116,7 @@ export interface DoneEvent {
 export type AgentEvent =
   | ThinkingEvent
   | ToolStartEvent
+  | ToolProgressEvent
   | ToolEndEvent
   | ToolErrorEvent
   | ToolLimitEvent
