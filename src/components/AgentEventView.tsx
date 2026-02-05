@@ -218,6 +218,20 @@ export function ToolLimitView({ tool, warning }: ToolLimitViewProps) {
   );
 }
 
+interface ContextClearedViewProps {
+  clearedCount: number;
+  keptCount: number;
+}
+
+export function ContextClearedView({ clearedCount, keptCount }: ContextClearedViewProps) {
+  return (
+    <Box>
+      <Text>⏺ </Text>
+      <Text color={colors.muted}>Context threshold reached - cleared {clearedCount} old tool result{clearedCount !== 1 ? 's' : ''}, kept {keptCount} most recent</Text>
+    </Box>
+  );
+}
+
 interface AgentEventViewProps {
   event: AgentEvent;
   isActive?: boolean;
@@ -242,6 +256,9 @@ export function AgentEventView({ event, isActive = false }: AgentEventViewProps)
     
     case 'tool_limit':
       return <ToolLimitView tool={event.tool} warning={event.warning} />;
+    
+    case 'context_cleared':
+      return <ContextClearedView clearedCount={event.clearedCount} keptCount={event.keptCount} />;
     
     case 'answer_start':
     case 'done':

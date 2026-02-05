@@ -74,6 +74,17 @@ export interface ToolLimitEvent {
 }
 
 /**
+ * Context was cleared due to exceeding token threshold (Anthropic-style)
+ */
+export interface ContextClearedEvent {
+  type: 'context_cleared';
+  /** Number of tool results that were cleared from context */
+  clearedCount: number;
+  /** Number of most recent tool results that were kept */
+  keptCount: number;
+}
+
+/**
  * Final answer generation started
  */
 export interface AnswerStartEvent {
@@ -99,5 +110,6 @@ export type AgentEvent =
   | ToolEndEvent
   | ToolErrorEvent
   | ToolLimitEvent
+  | ContextClearedEvent
   | AnswerStartEvent
   | DoneEvent;
