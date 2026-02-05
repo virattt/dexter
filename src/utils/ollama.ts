@@ -25,9 +25,10 @@ export async function getOllamaModels(): Promise<string[]> {
       return [];
     }
 
-    const data = (await response.json()) as OllamaTagsResponse | undefined;
-    const models = data?.models ?? [];
-    return models.map((m) => m?.name).filter((n): n is string => typeof n === 'string');
+    const data = (await response.json()) as OllamaTagsResponse;
+    return (data?.models ?? [])
+      .map((m) => m?.name)
+      .filter((n): n is string => typeof n === 'string');
   } catch {
     // Ollama not running or unreachable
     return [];
