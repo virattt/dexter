@@ -77,6 +77,16 @@ export function useAgentRunner(
         }));
         break;
       }
+
+      case 'tool_progress':
+        updateLastHistoryItem(item => ({
+          events: item.events.map(e =>
+            e.id === item.activeToolId
+              ? { ...e, progressMessage: event.message }
+              : e
+          ),
+        }));
+        break;
         
       case 'tool_end':
         setWorkingState({ status: 'thinking' });

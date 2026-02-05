@@ -20,15 +20,6 @@ export interface ToolContext {
   result: string;
 }
 
-/**
- * Tool context with LLM summary for selective inclusion.
- * Used when context exceeds token budget and LLM must select relevant results.
- */
-export interface ToolContextWithSummary extends ToolContext {
-  llmSummary: string;
-  index: number; // For LLM to reference when selecting
-}
-
 export interface ScratchpadEntry {
   type: 'init' | 'tool_result' | 'thinking';
   timestamp: string;
@@ -38,7 +29,6 @@ export interface ScratchpadEntry {
   toolName?: string;
   args?: Record<string, unknown>;
   result?: unknown; // Stored as parsed object when possible, string otherwise
-  llmSummary?: string;
 }
 
 /**
@@ -90,6 +80,10 @@ export class Scratchpad {
   private toolCallCounts: Map<string, number> = new Map();
   private toolQueries: Map<string, string[]> = new Map();
 
+  // In-memory tracking for Anthropic-style context clearing (JSONL file untouched)
+  // Stores indices of tool_result entries that have been cleared from context
+  private clearedToolIndices: Set<number> = new Set();
+
   constructor(query: string, limitConfig?: Partial<ToolLimitConfig>) {
     this.limitConfig = { ...DEFAULT_LIMIT_CONFIG, ...limitConfig };
 
@@ -110,14 +104,14 @@ export class Scratchpad {
   }
 
   /**
-   * Add a complete tool result with full data and LLM summary.
+   * Add a complete tool result with full data.
    * Parses JSON strings to store as objects for cleaner JSONL output.
+   * Anthropic-style: no inline summarization, full results preserved.
    */
   addToolResult(
     toolName: string,
     args: Record<string, unknown>,
-    result: string,
-    llmSummary: string
+    result: string
   ): void {
     this.append({
       type: 'tool_result',
@@ -125,7 +119,6 @@ export class Scratchpad {
       toolName,
       args,
       result: this.parseResultSafely(result),
-      llmSummary,
     });
   }
 
@@ -313,12 +306,116 @@ export class Scratchpad {
   }
 
   /**
-   * Get all LLM summaries for building the iteration prompt
+   * Get full tool results formatted for the iteration prompt.
+   * Anthropic-style: full results in context, excluding cleared entries.
+   * Does NOT modify the JSONL file - clearing is in-memory only.
    */
-  getToolSummaries(): string[] {
-    return this.readEntries()
-      .filter(e => e.type === 'tool_result' && e.llmSummary)
-      .map(e => e.llmSummary!);
+  getToolResults(): string {
+    const entries = this.readEntries();
+    let toolResultIndex = 0;
+    
+    const formattedResults: string[] = [];
+    for (const entry of entries) {
+      if (entry.type !== 'tool_result' || !entry.toolName) continue;
+      
+      // Skip entries that have been cleared from context (in-memory only)
+      if (this.clearedToolIndices.has(toolResultIndex)) {
+        formattedResults.push(`[Tool result #${toolResultIndex + 1} cleared from context]`);
+        toolResultIndex++;
+        continue;
+      }
+      
+      const argsStr = entry.args 
+        ? Object.entries(entry.args).map(([k, v]) => `${k}=${v}`).join(', ')
+        : '';
+      const resultStr = this.stringifyResult(entry.result);
+      formattedResults.push(`### ${entry.toolName}(${argsStr})\n${resultStr}`);
+      toolResultIndex++;
+    }
+    
+    return formattedResults.join('\n\n');
+  }
+
+  /**
+   * Get full tool results as ToolContext array (for final answer generation).
+   * Excludes cleared entries.
+   */
+  getActiveToolResults(): ToolContext[] {
+    const entries = this.readEntries();
+    let toolResultIndex = 0;
+    
+    const results: ToolContext[] = [];
+    for (const entry of entries) {
+      if (entry.type !== 'tool_result' || !entry.toolName) continue;
+      
+      // Skip cleared entries
+      if (!this.clearedToolIndices.has(toolResultIndex)) {
+        results.push({
+          toolName: entry.toolName,
+          args: entry.args!,
+          result: this.stringifyResult(entry.result),
+        });
+      }
+      toolResultIndex++;
+    }
+    
+    return results;
+  }
+
+  /**
+   * Clear oldest tool results from context (in-memory only).
+   * Anthropic-style: removes oldest tool results, keeping most recent N.
+   * The JSONL file is NOT modified - this only affects what gets sent to the LLM.
+   * 
+   * @param keepCount - Number of most recent tool results to keep
+   * @returns Number of tool results that were cleared
+   */
+  clearOldestToolResults(keepCount: number): number {
+    const entries = this.readEntries();
+    const toolResultIndices: number[] = [];
+    
+    let index = 0;
+    for (const entry of entries) {
+      if (entry.type === 'tool_result') {
+        // Only consider entries not already cleared
+        if (!this.clearedToolIndices.has(index)) {
+          toolResultIndices.push(index);
+        }
+        index++;
+      }
+    }
+    
+    // Calculate how many to clear
+    const toClearCount = Math.max(0, toolResultIndices.length - keepCount);
+    
+    if (toClearCount === 0) return 0;
+    
+    // Clear oldest entries (first N indices)
+    for (let i = 0; i < toClearCount; i++) {
+      this.clearedToolIndices.add(toolResultIndices[i]);
+    }
+    
+    return toClearCount;
+  }
+
+  /**
+   * Get count of active (non-cleared) tool results.
+   */
+  getActiveToolResultCount(): number {
+    const entries = this.readEntries();
+    let count = 0;
+    let index = 0;
+    
+    for (const entry of entries) {
+      if (entry.type === 'tool_result') {
+        if (!this.clearedToolIndices.has(index)) {
+          count++;
+        }
+        index++;
+      }
+    }
+    
+    return count;
   }
 
   /**
@@ -335,7 +432,8 @@ export class Scratchpad {
   }
 
   /**
-   * Get full contexts for final answer generation
+   * Get full contexts for final answer generation.
+   * Returns all tool results (including cleared ones) for comprehensive final answer.
    */
   getFullContexts(): ToolContext[] {
     return this.readEntries()
@@ -344,23 +442,6 @@ export class Scratchpad {
         toolName: e.toolName!,
         args: e.args!,
         result: this.stringifyResult(e.result),
-      }));
-  }
-
-  /**
-   * Get full contexts with LLM summaries for selective inclusion.
-   * Used when context exceeds token budget and we need LLM to select relevant results.
-   * Each context includes an index for the LLM to reference.
-   */
-  getFullContextsWithSummaries(): ToolContextWithSummary[] {
-    return this.readEntries()
-      .filter(e => e.type === 'tool_result' && e.toolName && e.result)
-      .map((e, index) => ({
-        toolName: e.toolName!,
-        args: e.args!,
-        result: this.stringifyResult(e.result),
-        llmSummary: e.llmSummary || '',
-        index,
       }));
   }
 

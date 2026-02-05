@@ -72,20 +72,60 @@ function truncateResult(result: string, maxLength: number = 100): string {
   return result.slice(0, maxLength) + '...';
 }
 
+/**
+ * Truncate URL to hostname + path for display
+ */
+function truncateUrl(url: string, maxLen = 45): string {
+  try {
+    const parsed = new URL(url);
+    const display = parsed.hostname + parsed.pathname;
+    return display.length <= maxLen ? display : display.slice(0, maxLen) + '...';
+  } catch {
+    return url.length > maxLen ? url.slice(0, maxLen) + '...' : url;
+  }
+}
+
+/**
+ * Format browser step for consolidated display.
+ * Returns null for actions that should not be shown (act steps like click, type).
+ */
+function formatBrowserStep(args: Record<string, unknown>): string | null {
+  const action = args.action as string;
+  const url = args.url as string | undefined;
+
+  switch (action) {
+    case 'open':
+      return `Opening ${truncateUrl(url || '')}`;
+    case 'navigate':
+      return `Navigating to ${truncateUrl(url || '')}`;
+    case 'snapshot':
+      return 'Reading page structure';
+    case 'read':
+      return 'Extracting page text';
+    case 'close':
+      return 'Closing browser';
+    case 'act':
+      return null; // Don't show act steps (click, type, etc.)
+    default:
+      return null;
+  }
+}
+
 interface ThinkingViewProps {
   message: string;
 }
 
 export function ThinkingView({ message }: ThinkingViewProps) {
-  // Truncate long thinking messages
-  const displayMessage = message.length > 200 
-    ? message.slice(0, 200) + '...' 
-    : message;
+  const trimmedMessage = message.trim();
+  if (!trimmedMessage) return null;
+
+  const displayMessage = trimmedMessage.length > 200 
+    ? trimmedMessage.slice(0, 200) + '...' 
+    : trimmedMessage;
   
   return (
     <Box>
-      <Text>⏺ </Text>
-      <Text color={colors.white}>{displayMessage}</Text>
+      <Text>{displayMessage}</Text>
     </Box>
   );
 }
@@ -94,9 +134,10 @@ interface ToolStartViewProps {
   tool: string;
   args: Record<string, unknown>;
   isActive?: boolean;
+  progressMessage?: string;
 }
 
-export function ToolStartView({ tool, args, isActive = false }: ToolStartViewProps) {
+export function ToolStartView({ tool, args, isActive = false, progressMessage }: ToolStartViewProps) {
   return (
     <Box flexDirection="column">
       <Box>
@@ -110,7 +151,7 @@ export function ToolStartView({ tool, args, isActive = false }: ToolStartViewPro
           <Text color={colors.muted}>
             <Spinner type="dots" />
           </Text>
-          <Text> Searching...</Text>
+          <Text> {progressMessage || 'Searching...'}</Text>
         </Box>
       )}
     </Box>
@@ -218,39 +259,18 @@ export function ToolLimitView({ tool, warning }: ToolLimitViewProps) {
   );
 }
 
-interface AgentEventViewProps {
-  event: AgentEvent;
-  isActive?: boolean;
+interface ContextClearedViewProps {
+  clearedCount: number;
+  keptCount: number;
 }
 
-/**
- * Renders a single agent event in Claude Code style
- */
-export function AgentEventView({ event, isActive = false }: AgentEventViewProps) {
-  switch (event.type) {
-    case 'thinking':
-      return <ThinkingView message={event.message} />;
-    
-    case 'tool_start':
-      return <ToolStartView tool={event.tool} args={event.args} isActive={isActive} />;
-    
-    case 'tool_end':
-      return <ToolEndView tool={event.tool} args={event.args} result={event.result} duration={event.duration} />;
-    
-    case 'tool_error':
-      return <ToolErrorView tool={event.tool} error={event.error} />;
-    
-    case 'tool_limit':
-      return <ToolLimitView tool={event.tool} warning={event.warning} />;
-    
-    case 'answer_start':
-    case 'done':
-      // These are handled separately by the parent component
-      return null;
-    
-    default:
-      return null;
-  }
+export function ContextClearedView({ clearedCount, keptCount }: ContextClearedViewProps) {
+  return (
+    <Box>
+      <Text>⏺ </Text>
+      <Text color={colors.muted}>Context threshold reached - cleared {clearedCount} old tool result{clearedCount !== 1 ? 's' : ''}, kept {keptCount} most recent</Text>
+    </Box>
+  );
 }
 
 /**
@@ -262,6 +282,140 @@ export interface DisplayEvent {
   event: AgentEvent;
   completed?: boolean;
   endEvent?: AgentEvent;
+  progressMessage?: string;
+}
+
+/**
+ * Find the current displayable browser step from a list of browser events.
+ * Skips 'act' actions and returns the most recent displayable step.
+ */
+function findCurrentBrowserStep(events: DisplayEvent[], activeStepId?: string): string | null {
+  // If there's an active step, try to show it
+  if (activeStepId) {
+    const activeEvent = events.find(e => e.id === activeStepId);
+    if (activeEvent?.event.type === 'tool_start') {
+      const step = formatBrowserStep(activeEvent.event.args);
+      if (step) return step;
+    }
+  }
+  
+  // Otherwise, find the most recent displayable step (working backwards)
+  for (let i = events.length - 1; i >= 0; i--) {
+    const event = events[i];
+    if (event.event.type === 'tool_start') {
+      const step = formatBrowserStep(event.event.args);
+      if (step) return step;
+    }
+  }
+  
+  return null;
+}
+
+interface BrowserSessionViewProps {
+  events: DisplayEvent[];
+  activeStepId?: string;
+}
+
+/**
+ * Renders a consolidated browser session showing the current step.
+ */
+function BrowserSessionView({ events, activeStepId }: BrowserSessionViewProps) {
+  // Find current displayable step (skip 'act' actions)
+  const currentStep = findCurrentBrowserStep(events, activeStepId);
+
+  return (
+    <Box flexDirection="column">
+      <Box>
+        <Text>⏺ </Text>
+        <Text>Browser</Text>
+      </Box>
+      <Box marginLeft={2}>
+        <Text color={colors.muted}>⎿  </Text>
+        {activeStepId && (
+          <Text color={colors.muted}><Spinner type="dots" /></Text>
+        )}
+        {currentStep && <Text>{activeStepId ? ' ' : ''}{currentStep}</Text>}
+      </Box>
+    </Box>
+  );
+}
+
+interface AgentEventViewProps {
+  event: AgentEvent;
+  isActive?: boolean;
+  progressMessage?: string;
+}
+
+/**
+ * Renders a single agent event in Claude Code style
+ */
+export function AgentEventView({ event, isActive = false, progressMessage }: AgentEventViewProps) {
+  switch (event.type) {
+    case 'thinking':
+      return <ThinkingView message={event.message} />;
+    
+    case 'tool_start':
+      return <ToolStartView tool={event.tool} args={event.args} isActive={isActive} progressMessage={progressMessage} />;
+    
+    case 'tool_end':
+      return <ToolEndView tool={event.tool} args={event.args} result={event.result} duration={event.duration} />;
+    
+    case 'tool_error':
+      return <ToolErrorView tool={event.tool} error={event.error} />;
+    
+    case 'tool_limit':
+      return <ToolLimitView tool={event.tool} warning={event.warning} />;
+    
+    case 'context_cleared':
+      return <ContextClearedView clearedCount={event.clearedCount} keptCount={event.keptCount} />;
+    
+    case 'answer_start':
+    case 'done':
+      // These are handled separately by the parent component
+      return null;
+    
+    default:
+      return null;
+  }
+}
+
+// Event grouping types for consolidated display
+type EventGroup = 
+  | { type: 'browser_session'; id: string; events: DisplayEvent[]; activeStepId?: string }
+  | { type: 'single'; displayEvent: DisplayEvent };
+
+/**
+ * Groups consecutive browser events into sessions for consolidated display.
+ * Non-browser events are kept as single events.
+ */
+function groupBrowserEvents(events: DisplayEvent[], activeToolId?: string): EventGroup[] {
+  const groups: EventGroup[] = [];
+  let browserGroup: DisplayEvent[] = [];
+
+  const flushBrowserGroup = () => {
+    if (browserGroup.length > 0) {
+      const isActive = browserGroup.some(e => e.id === activeToolId);
+      groups.push({
+        type: 'browser_session',
+        id: `browser-${browserGroup[0].id}`,
+        events: browserGroup,
+        activeStepId: isActive ? activeToolId : undefined,
+      });
+      browserGroup = [];
+    }
+  };
+
+  for (const event of events) {
+    if (event.event.type === 'tool_start' && event.event.tool === 'browser') {
+      browserGroup.push(event);
+    } else {
+      flushBrowserGroup();
+      groups.push({ type: 'single', displayEvent: event });
+    }
+  }
+  flushBrowserGroup();
+
+  return groups;
 }
 
 interface EventListViewProps {
@@ -270,13 +424,28 @@ interface EventListViewProps {
 }
 
 /**
- * Renders a list of agent events
+ * Renders a list of agent events with browser events consolidated into sessions
  */
 export function EventListView({ events, activeToolId }: EventListViewProps) {
+  const groupedEvents = groupBrowserEvents(events, activeToolId);
+
   return (
     <Box flexDirection="column" gap={0} marginTop={1}>
-      {events.map((displayEvent) => {
-        const { id, event, completed, endEvent } = displayEvent;
+      {groupedEvents.map((group) => {
+        // Render browser sessions with consolidated view
+        if (group.type === 'browser_session') {
+          return (
+            <Box key={group.id} marginBottom={1}>
+              <BrowserSessionView
+                events={group.events}
+                activeStepId={group.activeStepId}
+              />
+            </Box>
+          );
+        }
+
+        // Render single events as before
+        const { id, event, completed, endEvent, progressMessage } = group.displayEvent;
         
         // For tool events, show the end state if completed
         if (event.type === 'tool_start' && completed && endEvent?.type === 'tool_end') {
@@ -304,7 +473,8 @@ export function EventListView({ events, activeToolId }: EventListViewProps) {
           <Box key={id} marginBottom={1}>
             <AgentEventView 
               event={event} 
-              isActive={!completed && id === activeToolId} 
+              isActive={!completed && id === activeToolId}
+              progressMessage={progressMessage}
             />
           </Box>
         );

@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { getSetting, setSetting } from '../utils/config.js';
 import { getProviderDisplayName, checkApiKeyExistsForProvider, saveApiKeyForProvider } from '../utils/env.js';
-import { getModelsForProvider, getDefaultModelForProvider } from '../components/ModelSelector.js';
+import { getModelsForProvider, getDefaultModelForProvider, type Model } from '../components/ModelSelector.js';
 import { getOllamaModels } from '../utils/ollama.js';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from '../model/llm.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
@@ -17,7 +17,7 @@ type AppState = 'idle' | SelectionState;
 export interface ModelSelectionState {
   appState: AppState;
   pendingProvider: string | null;
-  pendingModels: string[];
+  pendingModels: Model[];
 }
 
 export interface UseModelSelectionResult {
@@ -69,7 +69,8 @@ export function useModelSelection(
   // Selection flow state
   const [appState, setAppState] = useState<AppState>('idle');
   const [pendingProvider, setPendingProvider] = useState<string | null>(null);
-  const [pendingModels, setPendingModels] = useState<string[]>([]);
+  const [pendingModels, setPendingModels] = useState<Model[]>([]);
+  const [pendingSelectedModelId, setPendingSelectedModelId] = useState<string | null>(null);
   
   // Message history ref - shared with agent runner
   const inMemoryChatHistoryRef = useRef<InMemoryChatHistory>(new InMemoryChatHistory(model));
@@ -83,6 +84,7 @@ export function useModelSelection(
     inMemoryChatHistoryRef.current.setModel(newModelId);
     setPendingProvider(null);
     setPendingModels([]);
+    setPendingSelectedModelId(null);
     setAppState('idle');
   }, []);
   
@@ -90,6 +92,7 @@ export function useModelSelection(
   const resetPendingState = useCallback(() => {
     setPendingProvider(null);
     setPendingModels([]);
+    setPendingSelectedModelId(null);
     setAppState('idle');
   }, []);
   
@@ -118,8 +121,9 @@ export function useModelSelection(
         setPendingModels([]);
         setAppState('model_input');
       } else if (providerId === 'ollama') {
-        // Fetch models from local Ollama API
-        const ollamaModels = await getOllamaModels();
+        // Fetch models from local Ollama API and convert to Model objects
+        const ollamaModelIds = await getOllamaModels();
+        const ollamaModels: Model[] = ollamaModelIds.map((id) => ({ id, displayName: id }));
         setPendingModels(ollamaModels);
         setAppState('model_select');
       } else {
@@ -137,6 +141,7 @@ export function useModelSelection(
       // User cancelled - go back to provider select
       setPendingProvider(null);
       setPendingModels([]);
+      setPendingSelectedModelId(null);
       setAppState('provider_select');
       return;
     }
@@ -153,7 +158,7 @@ export function useModelSelection(
       completeModelSwitch(pendingProvider, modelId);
     } else {
       // Need to get API key - store the selected model temporarily
-      setPendingModels([modelId]);
+      setPendingSelectedModelId(modelId);
       setAppState('api_key_confirm');
     }
   }, [pendingProvider, completeModelSwitch]);
@@ -164,6 +169,7 @@ export function useModelSelection(
       // User cancelled - go back to provider select
       setPendingProvider(null);
       setPendingModels([]);
+      setPendingSelectedModelId(null);
       setAppState('provider_select');
       return;
     }
@@ -176,7 +182,7 @@ export function useModelSelection(
       completeModelSwitch(pendingProvider, fullModelId);
     } else {
       // Need to get API key - store the selected model temporarily
-      setPendingModels([fullModelId]);
+      setPendingSelectedModelId(fullModelId);
       setAppState('api_key_confirm');
     }
   }, [pendingProvider, completeModelSwitch]);
@@ -187,22 +193,19 @@ export function useModelSelection(
       setAppState('api_key_input');
     } else {
       // Check if existing key is available
-      const selectedModel = pendingModels[0];
-      if (pendingProvider && selectedModel && checkApiKeyExistsForProvider(pendingProvider)) {
-        completeModelSwitch(pendingProvider, selectedModel);
+      if (pendingProvider && pendingSelectedModelId && checkApiKeyExistsForProvider(pendingProvider)) {
+        completeModelSwitch(pendingProvider, pendingSelectedModelId);
       } else {
         onError(`Cannot use ${pendingProvider ? getProviderDisplayName(pendingProvider) : 'provider'} without an API key.`);
         resetPendingState();
       }
     }
-  }, [pendingProvider, pendingModels, completeModelSwitch, resetPendingState, onError]);
+  }, [pendingProvider, pendingSelectedModelId, completeModelSwitch, resetPendingState, onError]);
   
   // API key submit handler
   const handleApiKeySubmit = useCallback((apiKey: string | null) => {
-    const selectedModel = pendingModels[0];
-    
     // Guard: ensure we have a selected model
-    if (!selectedModel) {
+    if (!pendingSelectedModelId) {
       onError('No model selected.');
       resetPendingState();
       return;
@@ -211,19 +214,19 @@ export function useModelSelection(
     if (apiKey && pendingProvider) {
       const saved = saveApiKeyForProvider(pendingProvider, apiKey);
       if (saved) {
-        completeModelSwitch(pendingProvider, selectedModel);
+        completeModelSwitch(pendingProvider, pendingSelectedModelId);
       } else {
         onError('Failed to save API key.');
         resetPendingState();
       }
     } else if (!apiKey && pendingProvider && checkApiKeyExistsForProvider(pendingProvider)) {
       // Cancelled but existing key available
-      completeModelSwitch(pendingProvider, selectedModel);
+      completeModelSwitch(pendingProvider, pendingSelectedModelId);
     } else {
       onError('API key not set. Provider unchanged.');
       resetPendingState();
     }
-  }, [pendingProvider, pendingModels, completeModelSwitch, resetPendingState, onError]);
+  }, [pendingProvider, pendingSelectedModelId, completeModelSwitch, resetPendingState, onError]);
   
   return {
     selectionState: {

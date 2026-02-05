@@ -10,6 +10,7 @@ export type {
   AgentEvent,
   ThinkingEvent,
   ToolStartEvent,
+  ToolProgressEvent,
   ToolEndEvent,
   ToolErrorEvent,
   ToolLimitEvent,

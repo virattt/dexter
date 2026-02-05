@@ -62,6 +62,15 @@ export interface ToolErrorEvent {
 }
 
 /**
+ * Mid-execution progress update from a subagent tool
+ */
+export interface ToolProgressEvent {
+  type: 'tool_progress';
+  tool: string;
+  message: string;
+}
+
+/**
  * Tool call warning due to approaching/exceeding suggested limits
  */
 export interface ToolLimitEvent {
@@ -71,6 +80,17 @@ export interface ToolLimitEvent {
   warning?: string;
   /** Whether the tool call was blocked (always false - we only warn, never block) */
   blocked: boolean;
+}
+
+/**
+ * Context was cleared due to exceeding token threshold (Anthropic-style)
+ */
+export interface ContextClearedEvent {
+  type: 'context_cleared';
+  /** Number of tool results that were cleared from context */
+  clearedCount: number;
+  /** Number of most recent tool results that were kept */
+  keptCount: number;
 }
 
 /**
@@ -108,8 +128,10 @@ export interface DoneEvent {
 export type AgentEvent =
   | ThinkingEvent
   | ToolStartEvent
+  | ToolProgressEvent
   | ToolEndEvent
   | ToolErrorEvent
   | ToolLimitEvent
+  | ContextClearedEvent
   | AnswerStartEvent
   | DoneEvent;

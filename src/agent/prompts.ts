@@ -165,22 +165,27 @@ Keep tables compact:
 // ============================================================================
 
 /**
- * Build user prompt for agent iteration with tool summaries (context compaction).
- * Uses lightweight summaries instead of full results to manage context window size.
+ * Build user prompt for agent iteration with full tool results.
+ * Anthropic-style: full results in context for accurate decision-making.
+ * Context clearing happens at threshold, not inline summarization.
  * 
  * @param originalQuery - The user's original query
- * @param toolSummaries - Summaries of tool results so far
+ * @param fullToolResults - Formatted full tool results (or placeholder for cleared)
  * @param toolUsageStatus - Optional tool usage status for graceful exit mechanism
  */
 export function buildIterationPrompt(
   originalQuery: string,
-  toolSummaries: string[],
+  fullToolResults: string,
   toolUsageStatus?: string | null
 ): string {
-  let prompt = `Query: ${originalQuery}
+  let prompt = `Query: ${originalQuery}`;
 
-Data retrieved and work completed so far:
-${toolSummaries.join('\n')}`;
+  if (fullToolResults.trim()) {
+    prompt += `
+
+Data retrieved from tool calls:
+${fullToolResults}`;
+  }
 
   // Add tool usage status if available (graceful exit mechanism)
   if (toolUsageStatus) {
@@ -189,7 +194,7 @@ ${toolSummaries.join('\n')}`;
 
   prompt += `
 
-Review the data above. If you have sufficient information to answer the query, respond directly WITHOUT calling any tools. Only call additional tools if there are specific data gaps that prevent you from answering.`;
+Continue working toward answering the query. If you have gathered actual content (not just links or titles), you may respond. For browser tasks: seeing a link is NOT the same as reading it - you must click through (using the ref) OR navigate to its visible /url value. NEVER guess at URLs - use ONLY URLs visible in snapshots.`;
 
   return prompt;
 }
@@ -214,59 +219,3 @@ ${fullContextData}
 Answer the user's query using this data. Do not ask the user to provide additional data, paste values, or reference JSON/API internals. If data is incomplete, answer with what you have.`;
 }
 
-// ============================================================================
-// Tool Summary Generation
-// ============================================================================
-
-/**
- * Build prompt for LLM-generated tool result summaries.
- * Used for context compaction - the LLM summarizes what it learned from each tool call.
- */
-export function buildToolSummaryPrompt(
-  originalQuery: string,
-  toolName: string,
-  toolArgs: Record<string, unknown>,
-  result: string
-): string {
-  const argsStr = Object.entries(toolArgs).map(([k, v]) => `${k}=${v}`).join(', ');
-  return `Summarize this tool result concisely.
-
-Query: ${originalQuery}
-Tool: ${toolName}(${argsStr})
-Result:
-${result}
-
-Write a 1 sentence summary of what was retrieved. Include specific values (numbers, dates) if relevant.
-Format: "[tool_call] -> [what was learned]"`;
-}
-
-// ============================================================================
-// Context Selection (for token budget management)
-// ============================================================================
-
-/**
- * Build prompt for LLM to select which tool results need full data.
- * Used when total context exceeds token budget - LLM chooses most relevant results
- * to include in full, with summaries for the rest.
- */
-export function buildContextSelectionPrompt(
-  query: string,
-  summaries: Array<{ index: number; toolName: string; summary: string; tokenCost: number }>
-): string {
-  const summaryList = summaries
-    .map(s => `[${s.index}] ${s.toolName} (~${Math.round(s.tokenCost / 1000)}k tokens): ${s.summary}`)
-    .join('\n');
-
-  return `You are selecting which tool results are most important for answering a query.
-
-Query: ${query}
-
-Available tool results (with summaries):
-${summaryList}
-
-Select the tool results that contain data ESSENTIAL to answering the query accurately.
-Prefer results with specific numbers, dates, or facts directly relevant to the query.
-
-Return ONLY a JSON array of indices, e.g.: [0, 2, 5]
-Return an empty array [] if summaries alone are sufficient.`;
-}

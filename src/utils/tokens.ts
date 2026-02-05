@@ -17,3 +17,20 @@ export function estimateTokens(text: string): number {
  * Conservative limit that leaves room for system prompt, query, and response.
  */
 export const TOKEN_BUDGET = 150_000;
+
+// ============================================================================
+// Anthropic-style Context Management Constants
+// ============================================================================
+
+/**
+ * Token threshold at which context clearing is triggered.
+ * Matches Anthropic's default of 100k tokens.
+ * When estimated context exceeds this, oldest tool results are cleared.
+ */
+export const CONTEXT_THRESHOLD = 100_000;
+
+/**
+ * Number of most recent tool results to keep when clearing.
+ * Anthropic's default is 3, but we use 5 for slightly more context.
+ */
+export const KEEP_TOOL_USES = 5;
