@@ -116,7 +116,7 @@ export class Agent {
       }
 
       // Execute tools and add results to scratchpad
-      const generator = this.executeToolCalls(response as AIMessage, query, scratchpad, tokenCounter);
+      const generator = this.executeToolCalls(response as AIMessage, query, scratchpad);
       let result = await generator.next();
 
       // Yield tool events
@@ -193,8 +193,7 @@ export class Agent {
   private async *executeToolCalls(
     response: AIMessage,
     query: string,
-    scratchpad: Scratchpad,
-    tokenCounter: TokenCounter
+    scratchpad: Scratchpad
   ): AsyncGenerator<ToolStartEvent | ToolProgressEvent | ToolEndEvent | ToolErrorEvent | ToolLimitEvent, void> {
     for (const toolCall of response.tool_calls!) {
       const toolName = toolCall.name;
@@ -206,7 +205,7 @@ export class Agent {
         if (scratchpad.hasExecutedSkill(skillName)) continue;
       }
 
-      const generator = this.executeToolCall(toolName, toolArgs, query, scratchpad, tokenCounter);
+      const generator = this.executeToolCall(toolName, toolArgs, query, scratchpad);
       let result = await generator.next();
 
       while (!result.done) {
@@ -225,8 +224,7 @@ export class Agent {
     toolName: string,
     toolArgs: Record<string, unknown>,
     query: string,
-    scratchpad: Scratchpad,
-    tokenCounter: TokenCounter
+    scratchpad: Scratchpad
   ): AsyncGenerator<ToolStartEvent | ToolProgressEvent | ToolEndEvent | ToolErrorEvent | ToolLimitEvent, void> {
     // Extract query string from tool args for similarity detection
     const toolQuery = this.extractQueryFromArgs(toolArgs);
