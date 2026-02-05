@@ -125,8 +125,7 @@ export function ThinkingView({ message }: ThinkingViewProps) {
   
   return (
     <Box>
-      <Text>⏺ </Text>
-      <Text color={colors.white}>{displayMessage}</Text>
+      <Text>{displayMessage}</Text>
     </Box>
   );
 }
