@@ -481,7 +481,23 @@ export class Scratchpad {
   }
 
   /**
-   * Read all entries from the log
+   * Parse and validate a single JSONL line. Returns null for malformed or invalid entries.
+   */
+  private parseLine(line: string): ScratchpadEntry | null {
+    try {
+      const parsed = JSON.parse(line);
+      return parsed && typeof parsed === 'object' && 'type' in parsed && 'timestamp' in parsed
+        ? (parsed as ScratchpadEntry)
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Read all entries from the log.
+   * Skips malformed or corrupt lines (partial writes, disk corruption) to avoid
+   * a single bad line crashing getToolSummaries, getFullContexts, etc.
    */
   private readEntries(): ScratchpadEntry[] {
     if (!existsSync(this.filepath)) {
@@ -490,7 +506,8 @@ export class Scratchpad {
 
     return readFileSync(this.filepath, 'utf-8')
       .split('\n')
-      .filter(line => line.trim())
-      .map(line => JSON.parse(line) as ScratchpadEntry);
+      .filter((line) => line.trim())
+      .map((line) => this.parseLine(line))
+      .filter((entry): entry is ScratchpadEntry => entry !== null);
   }
 }
