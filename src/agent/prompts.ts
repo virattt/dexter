@@ -189,7 +189,7 @@ ${toolSummaries.join('\n')}`;
 
   prompt += `
 
-Review the data above. If you have sufficient information to answer the query, respond directly WITHOUT calling any tools. Only call additional tools if there are specific data gaps that prevent you from answering.`;
+Continue working toward answering the query. If you have gathered actual content (not just links or titles), you may respond. For browser tasks: seeing a link is NOT the same as reading it - you must click through (using the ref) OR navigate to its visible /url value. NEVER guess at URLs - use ONLY URLs visible in snapshots.`;
 
   return prompt;
 }
