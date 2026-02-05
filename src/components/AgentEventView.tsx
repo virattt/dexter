@@ -116,10 +116,12 @@ interface ThinkingViewProps {
 }
 
 export function ThinkingView({ message }: ThinkingViewProps) {
-  // Truncate long thinking messages
-  const displayMessage = message.length > 200 
-    ? message.slice(0, 200) + '...' 
-    : message;
+  const trimmedMessage = message.trim();
+  if (!trimmedMessage) return null;
+
+  const displayMessage = trimmedMessage.length > 200 
+    ? trimmedMessage.slice(0, 200) + '...' 
+    : trimmedMessage;
   
   return (
     <Box>

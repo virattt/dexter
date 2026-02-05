@@ -78,8 +78,9 @@ export class Agent {
 
       // Emit thinking if there are also tool calls (skip whitespace-only responses)
       if (responseText?.trim() && hasToolCalls(response)) {
-        scratchpad.addThinking(responseText);
-        yield { type: 'thinking', message: responseText };
+        const trimmedText = responseText.trim();
+        scratchpad.addThinking(trimmedText);
+        yield { type: 'thinking', message: trimmedText };
       }
 
       // No tool calls = ready to generate final answer
