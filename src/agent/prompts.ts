@@ -116,7 +116,8 @@ ${toolDescriptions}
 - ALWAYS prefer financial_search over web_search for any financial data (prices, metrics, filings, etc.)
 - Call financial_search ONCE with the full natural language query - it handles multi-company/multi-metric requests internally
 - Do NOT break up queries into multiple tool calls when one call can handle the request
-- If a query can be answered from general knowledge, respond directly without using tools
+- For factual questions about entities (companies, people, organizations), use tools to verify current state
+- Only respond directly for: conceptual definitions, stable historical facts, or conversational queries
 
 ${buildSkillsSection()}
 
@@ -166,17 +167,31 @@ Keep tables compact:
 /**
  * Build user prompt for agent iteration with tool summaries (context compaction).
  * Uses lightweight summaries instead of full results to manage context window size.
+ * 
+ * @param originalQuery - The user's original query
+ * @param toolSummaries - Summaries of tool results so far
+ * @param toolUsageStatus - Optional tool usage status for graceful exit mechanism
  */
 export function buildIterationPrompt(
   originalQuery: string,
-  toolSummaries: string[]
+  toolSummaries: string[],
+  toolUsageStatus?: string | null
 ): string {
-  return `Query: ${originalQuery}
+  let prompt = `Query: ${originalQuery}
 
 Data retrieved and work completed so far:
-${toolSummaries.join('\n')}
+${toolSummaries.join('\n')}`;
+
+  // Add tool usage status if available (graceful exit mechanism)
+  if (toolUsageStatus) {
+    prompt += `\n\n${toolUsageStatus}`;
+  }
+
+  prompt += `
 
 Review the data above. If you have sufficient information to answer the query, respond directly WITHOUT calling any tools. Only call additional tools if there are specific data gaps that prevent you from answering.`;
+
+  return prompt;
 }
 
 // ============================================================================
@@ -223,4 +238,35 @@ ${result}
 
 Write a 1 sentence summary of what was retrieved. Include specific values (numbers, dates) if relevant.
 Format: "[tool_call] -> [what was learned]"`;
+}
+
+// ============================================================================
+// Context Selection (for token budget management)
+// ============================================================================
+
+/**
+ * Build prompt for LLM to select which tool results need full data.
+ * Used when total context exceeds token budget - LLM chooses most relevant results
+ * to include in full, with summaries for the rest.
+ */
+export function buildContextSelectionPrompt(
+  query: string,
+  summaries: Array<{ index: number; toolName: string; summary: string; tokenCost: number }>
+): string {
+  const summaryList = summaries
+    .map(s => `[${s.index}] ${s.toolName} (~${Math.round(s.tokenCost / 1000)}k tokens): ${s.summary}`)
+    .join('\n');
+
+  return `You are selecting which tool results are most important for answering a query.
+
+Query: ${query}
+
+Available tool results (with summaries):
+${summaryList}
+
+Select the tool results that contain data ESSENTIAL to answering the query accurately.
+Prefer results with specific numbers, dates, or facts directly relevant to the query.
+
+Return ONLY a JSON array of indices, e.g.: [0, 2, 5]
+Return an empty array [] if summaries alone are sufficient.`;
 }

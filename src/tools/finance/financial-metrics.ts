@@ -5,50 +5,31 @@ import { callLlm } from '../../model/llm.js';
 import { formatToolResult } from '../types.js';
 import { getCurrentDate } from '../../agent/prompts.js';
 
-// Import all finance tools directly (avoid circular deps with index.ts)
+// Import fundamental analysis tools directly (avoid circular deps with index.ts)
 import { getIncomeStatements, getBalanceSheets, getCashFlowStatements, getAllFinancialStatements } from './fundamentals.js';
-import { getPriceSnapshot, getPrices } from './prices.js';
 import { getKeyRatiosSnapshot, getKeyRatios } from './key-ratios.js';
-import { getNews } from './news.js';
-import { getAnalystEstimates } from './estimates.js';
-import { getSegmentedRevenues } from './segments.js';
-import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
-import { getInsiderTrades } from './insider_trades.js';
-import { getCompanyFacts } from './company_facts.js';
 
-// All finance tools available for routing
-const FINANCE_TOOLS: StructuredToolInterface[] = [
-  // Price Data
-  getPriceSnapshot,
-  getPrices,
-  getCryptoPriceSnapshot,
-  getCryptoPrices,
-  getCryptoTickers,
-  // Fundamentals
+// Fundamental analysis tools available for routing
+const METRICS_TOOLS: StructuredToolInterface[] = [
+  // Financial Statements
   getIncomeStatements,
   getBalanceSheets,
   getCashFlowStatements,
   getAllFinancialStatements,
-  // Key Ratios & Estimates
+  // Key Ratios
   getKeyRatiosSnapshot,
   getKeyRatios,
-  getAnalystEstimates,
-  // Other Data
-  getNews,
-  getInsiderTrades,
-  getSegmentedRevenues,
-  getCompanyFacts,
 ];
 
 // Create a map for quick tool lookup by name
-const FINANCE_TOOL_MAP = new Map(FINANCE_TOOLS.map(t => [t.name, t]));
+const METRICS_TOOL_MAP = new Map(METRICS_TOOLS.map(t => [t.name, t]));
 
-// Build the router system prompt - simplified since LLM sees tool schemas
+// Build the router system prompt for fundamental analysis
 function buildRouterPrompt(): string {
-  return `You are a financial data routing assistant.
+  return `You are a fundamental analysis routing assistant.
 Current date: ${getCurrentDate()}
 
-Given a user's natural language query about financial data, call the appropriate financial tool(s).
+Given a user's natural language query about financial statements or metrics, call the appropriate tool(s).
 
 ## Guidelines
 
@@ -57,60 +38,62 @@ Given a user's natural language query about financial data, call the appropriate
    - Google/Alphabet → GOOGL, Meta/Facebook → META, Nvidia → NVDA
 
 2. **Date Inference**: Convert relative dates to YYYY-MM-DD format:
-   - "last year" → start_date 1 year ago, end_date today
-   - "last quarter" → start_date 3 months ago, end_date today
-   - "past 5 years" → start_date 5 years ago, end_date today
-   - "YTD" → start_date Jan 1 of current year, end_date today
+   - "last year" → report_period_gte 1 year ago
+   - "last quarter" → report_period_gte 3 months ago
+   - "past 5 years" → report_period_gte 5 years ago, limit 5 (for annual) or 20 (for quarterly)
+   - "YTD" → report_period_gte Jan 1 of current year
 
 3. **Tool Selection**:
-   - For "current" or "latest" data, use snapshot tools (get_price_snapshot, get_key_ratios_snapshot)
-   - For "historical" or "over time" data, use date-range tools
-   - For P/E ratio, market cap, valuation metrics → get_key_ratios_snapshot
+   - For "current" or "latest" metrics → get_key_ratios_snapshot
+   - For historical metrics over time → get_key_ratios
    - For revenue, earnings, profitability → get_income_statements
-   - For debt, assets, equity → get_balance_sheets
-   - For cash flow, free cash flow → get_cash_flow_statements
-   - For comprehensive analysis → get_all_financial_statements
+   - For debt, assets, equity, cash position → get_balance_sheets
+   - For cash flow, free cash flow, operating cash → get_cash_flow_statements
+   - For comprehensive analysis needing all three → get_all_financial_statements
 
-4. **Efficiency**:
-   - Prefer specific tools over general ones when possible
-   - Use get_all_financial_statements only when multiple statement types needed
+4. **Period Selection**:
+   - Default to "annual" for multi-year trend analysis
+   - Use "quarterly" for recent performance or seasonal analysis
+   - Use "ttm" (trailing twelve months) for current state metrics
+
+5. **Efficiency**:
+   - Prefer specific statement tools over get_all_financial_statements when possible
+   - Use get_all_financial_statements when multiple statement types are needed
    - For comparisons between companies, call the same tool for each ticker
 
 Call the appropriate tool(s) now.`;
 }
 
-// Input schema for the financial_search tool
-const FinancialSearchInputSchema = z.object({
-  query: z.string().describe('Natural language query about financial data'),
+// Input schema for the financial_metrics tool
+const FinancialMetricsInputSchema = z.object({
+  query: z.string().describe('Natural language query about financial statements or metrics'),
 });
 
 /**
- * Create a financial_search tool configured with the specified model.
- * Uses native LLM tool calling for routing queries to finance tools.
+ * Create a financial_metrics tool configured with the specified model.
+ * Uses native LLM tool calling for routing queries to fundamental analysis tools.
  */
-export function createFinancialSearch(model: string): DynamicStructuredTool {
+export function createFinancialMetrics(model: string): DynamicStructuredTool {
   return new DynamicStructuredTool({
-    name: 'financial_search',
-    description: `Intelligent agentic search for financial data. Takes a natural language query and automatically routes to appropriate financial data tools. Use for:
-- Stock prices (current or historical)
-- Company financials (income statements, balance sheets, cash flow)
-- Financial metrics (P/E ratio, market cap, EPS, dividend yield)
-- Analyst estimates and price targets
-- Company news
-- Insider trading activity
-- Cryptocurrency prices`,
-    schema: FinancialSearchInputSchema,
+    name: 'financial_metrics',
+    description: `Intelligent agentic search for fundamental analysis. Takes a natural language query and automatically routes to financial statements and key ratios tools. Use for:
+- Income statements (revenue, gross profit, operating income, net income, EPS)
+- Balance sheets (assets, liabilities, equity, debt, cash)
+- Cash flow statements (operating, investing, financing activities, free cash flow)
+- Key ratios (P/E, EV/EBITDA, ROE, ROA, margins, dividend yield)
+- Multi-period trend analysis
+- Multi-company fundamental comparisons`,
+    schema: FinancialMetricsInputSchema,
     func: async (input) => {
-      // 1. Call LLM with finance tools bound (native tool calling)
-      const { response } = await callLlm(input.query, {
+      // 1. Call LLM with metrics tools bound (native tool calling)
+      const response = await callLlm(input.query, {
         model,
         systemPrompt: buildRouterPrompt(),
-        tools: FINANCE_TOOLS,
-      });
-      const aiMessage = response as AIMessage;
+        tools: METRICS_TOOLS,
+      }) as AIMessage;
 
       // 2. Check for tool calls
-      const toolCalls = aiMessage.tool_calls as ToolCall[];
+      const toolCalls = response.tool_calls as ToolCall[];
       if (!toolCalls || toolCalls.length === 0) {
         return formatToolResult({ error: 'No tools selected for query' }, []);
       }
@@ -119,7 +102,7 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
       const results = await Promise.all(
         toolCalls.map(async (tc) => {
           try {
-            const tool = FINANCE_TOOL_MAP.get(tc.name);
+            const tool = METRICS_TOOL_MAP.get(tc.name);
             if (!tool) {
               throw new Error(`Tool '${tc.name}' not found`);
             }

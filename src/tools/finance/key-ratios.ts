@@ -3,18 +3,18 @@ import { z } from 'zod';
 import { callApi } from './api.js';
 import { formatToolResult } from '../types.js';
 
-const FinancialMetricsSnapshotInputSchema = z.object({
+const KeyRatiosSnapshotInputSchema = z.object({
   ticker: z
     .string()
     .describe(
-      "The stock ticker symbol to fetch financial metrics snapshot for. For example, 'AAPL' for Apple."
+      "The stock ticker symbol to fetch key ratios snapshot for. For example, 'AAPL' for Apple."
     ),
 });
 
-export const getFinancialMetricsSnapshot = new DynamicStructuredTool({
-  name: 'get_financial_metrics_snapshot',
-  description: `Fetches a snapshot of the most current financial metrics for a company, including key indicators like market capitalization, P/E ratio, and dividend yield. Useful for a quick overview of a company's financial health.`,
-  schema: FinancialMetricsSnapshotInputSchema,
+export const getKeyRatiosSnapshot = new DynamicStructuredTool({
+  name: 'get_key_ratios_snapshot',
+  description: `Fetches a snapshot of the most current key ratios for a company, including key indicators like market capitalization, P/E ratio, and dividend yield. Useful for a quick overview of a company's financial health.`,
+  schema: KeyRatiosSnapshotInputSchema,
   func: async (input) => {
     const params = { ticker: input.ticker };
     const { data, url } = await callApi('/financial-metrics/snapshot/', params);
@@ -22,11 +22,11 @@ export const getFinancialMetricsSnapshot = new DynamicStructuredTool({
   },
 });
 
-const FinancialMetricsInputSchema = z.object({
+const KeyRatiosInputSchema = z.object({
   ticker: z
     .string()
     .describe(
-      "The stock ticker symbol to fetch financial metrics for. For example, 'AAPL' for Apple."
+      "The stock ticker symbol to fetch key ratios for. For example, 'AAPL' for Apple."
     ),
   period: z
     .enum(['annual', 'quarterly', 'ttm'])
@@ -41,33 +41,33 @@ const FinancialMetricsInputSchema = z.object({
   report_period: z
     .string()
     .optional()
-    .describe('Filter for financial metrics with an exact report period date (YYYY-MM-DD).'),
+    .describe('Filter for key ratios with an exact report period date (YYYY-MM-DD).'),
   report_period_gt: z
     .string()
     .optional()
-    .describe('Filter for financial metrics with report periods after this date (YYYY-MM-DD).'),
+    .describe('Filter for key ratios with report periods after this date (YYYY-MM-DD).'),
   report_period_gte: z
     .string()
     .optional()
     .describe(
-      'Filter for financial metrics with report periods on or after this date (YYYY-MM-DD).'
+      'Filter for key ratios with report periods on or after this date (YYYY-MM-DD).'
     ),
   report_period_lt: z
     .string()
     .optional()
-    .describe('Filter for financial metrics with report periods before this date (YYYY-MM-DD).'),
+    .describe('Filter for key ratios with report periods before this date (YYYY-MM-DD).'),
   report_period_lte: z
     .string()
     .optional()
     .describe(
-      'Filter for financial metrics with report periods on or before this date (YYYY-MM-DD).'
+      'Filter for key ratios with report periods on or before this date (YYYY-MM-DD).'
     ),
 });
 
-export const getFinancialMetrics = new DynamicStructuredTool({
-  name: 'get_financial_metrics',
-  description: `Retrieves historical financial metrics for a company, such as P/E ratio, revenue per share, and enterprise value, over a specified period. Useful for trend analysis and historical performance evaluation.`,
-  schema: FinancialMetricsInputSchema,
+export const getKeyRatios = new DynamicStructuredTool({
+  name: 'get_key_ratios',
+  description: `Retrieves historical key ratios for a company, such as P/E ratio, revenue per share, and enterprise value, over a specified period. Useful for trend analysis and historical performance evaluation.`,
+  schema: KeyRatiosInputSchema,
   func: async (input) => {
     const params: Record<string, string | number | undefined> = {
       ticker: input.ticker,
@@ -83,4 +83,3 @@ export const getFinancialMetrics = new DynamicStructuredTool({
     return formatToolResult(data.financial_metrics || [], [url]);
   },
 });
-

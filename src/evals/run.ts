@@ -7,14 +7,17 @@
  */
 
 import 'dotenv/config';
+import React from 'react';
+import { render } from 'ink';
 import { Client } from 'langsmith';
-import { evaluate, type EvaluationResult } from 'langsmith/evaluation';
+import type { EvaluationResult } from 'langsmith/evaluation';
 import { ChatOpenAI } from '@langchain/openai';
 import { z } from 'zod';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Agent } from '../agent/agent.js';
+import { EvalApp, type EvalProgressEvent } from './components/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -209,7 +212,127 @@ Evaluate and provide:
 }
 
 // ============================================================================
-// Main runner
+// Evaluation generator - yields progress events for the UI
+// ============================================================================
+
+function createEvaluationRunner(sampleSize?: number) {
+  return async function* runEvaluation(): AsyncGenerator<EvalProgressEvent, void, unknown> {
+    // Load and parse dataset
+    const csvPath = path.join(__dirname, 'dataset', 'finance_agent.csv');
+    const csvContent = fs.readFileSync(csvPath, 'utf-8');
+    let examples = parseCSV(csvContent);
+    const totalCount = examples.length;
+
+    // Apply sampling if requested
+    if (sampleSize && sampleSize < examples.length) {
+      examples = shuffleArray(examples).slice(0, sampleSize);
+    }
+
+    // Create LangSmith client
+    const client = new Client();
+
+    // Create a unique dataset name for this run (sampling creates different datasets)
+    const datasetName = sampleSize 
+      ? `dexter-finance-eval-sample-${sampleSize}-${Date.now()}`
+      : 'dexter-finance-eval';
+
+    // Yield init event
+    yield {
+      type: 'init',
+      total: examples.length,
+      datasetName: sampleSize ? `finance_agent (sample ${sampleSize}/${totalCount})` : 'finance_agent',
+    };
+
+    // Check if dataset exists (only for full runs)
+    let dataset;
+    if (!sampleSize) {
+      try {
+        dataset = await client.readDataset({ datasetName });
+      } catch {
+        // Dataset doesn't exist, will create
+        dataset = null;
+      }
+    }
+
+    // Create dataset if needed
+    if (!dataset) {
+      dataset = await client.createDataset(datasetName, {
+        description: sampleSize 
+          ? `Finance agent evaluation (sample of ${sampleSize})`
+          : 'Finance agent evaluation dataset',
+      });
+
+      // Upload examples
+      await client.createExamples({
+        datasetId: dataset.id,
+        inputs: examples.map((e) => e.inputs),
+        outputs: examples.map((e) => e.outputs),
+      });
+    }
+
+    // Generate experiment name for tracking
+    const experimentName = `dexter-eval-${Date.now().toString(36)}`;
+
+    // Run evaluation manually - process each example one by one
+    for (const example of examples) {
+      const question = example.inputs.question;
+
+      // Yield question start - UI shows this immediately
+      yield {
+        type: 'question_start',
+        question,
+      };
+
+      // Run the agent to get an answer
+      const startTime = Date.now();
+      const outputs = await target(example.inputs);
+      const endTime = Date.now();
+
+      // Run the correctness evaluator
+      const evalResult = await correctnessEvaluator({
+        inputs: example.inputs,
+        outputs,
+        referenceOutputs: example.outputs,
+      });
+
+      // Log to LangSmith for tracking
+      await client.createRun({
+        name: 'dexter-eval-run',
+        run_type: 'chain',
+        inputs: example.inputs,
+        outputs,
+        start_time: startTime,
+        end_time: endTime,
+        project_name: experimentName,
+        extra: {
+          dataset: datasetName,
+          reference_outputs: example.outputs,
+          evaluation: {
+            score: evalResult.score,
+            comment: evalResult.comment,
+          },
+        },
+      });
+
+      // Yield question end with result - UI updates progress bar
+      yield {
+        type: 'question_end',
+        question,
+        score: typeof evalResult.score === 'number' ? evalResult.score : 0,
+        comment: evalResult.comment || '',
+      };
+    }
+
+    // Yield complete event
+    yield {
+      type: 'complete',
+      experimentName,
+    };
+  };
+}
+
+// ============================================================================
+// Main entry point
 // ============================================================================
 
 async function main() {
@@ -218,103 +341,15 @@ async function main() {
   const sampleIndex = args.indexOf('--sample');
   const sampleSize = sampleIndex !== -1 ? parseInt(args[sampleIndex + 1]) : undefined;
 
-  // Load and parse dataset
-  const csvPath = path.join(__dirname, 'dataset', 'finance_agent.csv');
-  const csvContent = fs.readFileSync(csvPath, 'utf-8');
-  let examples = parseCSV(csvContent);
-  const totalCount = examples.length;
+  // Create the evaluation runner with the sample size
+  const runEvaluation = createEvaluationRunner(sampleSize);
 
-  console.log(`Loaded ${totalCount} questions from dataset`);
-
-  // Apply sampling if requested
-  if (sampleSize && sampleSize < examples.length) {
-    examples = shuffleArray(examples).slice(0, sampleSize);
-    console.log(`Sampling ${sampleSize} of ${totalCount} questions`);
-  }
-
-  // Create LangSmith client
-  const client = new Client();
-
-  // Create a unique dataset name for this run (sampling creates different datasets)
-  const datasetName = sampleSize 
-    ? `dexter-finance-eval-sample-${sampleSize}-${Date.now()}`
-    : 'dexter-finance-eval';
-
-  // Check if dataset exists (only for full runs)
-  let dataset;
-  if (!sampleSize) {
-    try {
-      dataset = await client.readDataset({ datasetName });
-      console.log(`Using existing dataset: ${datasetName}`);
-    } catch {
-      // Dataset doesn't exist, will create
-      dataset = null;
-    }
-  }
-
-  // Create dataset if needed
-  if (!dataset) {
-    console.log(`Creating dataset: ${datasetName}`);
-    dataset = await client.createDataset(datasetName, {
-      description: sampleSize 
-        ? `Finance agent evaluation (sample of ${sampleSize})`
-        : 'Finance agent evaluation dataset',
-    });
-
-    // Upload examples
-    await client.createExamples({
-      datasetId: dataset.id,
-      inputs: examples.map((e) => e.inputs),
-      outputs: examples.map((e) => e.outputs),
-    });
-    console.log(`Uploaded ${examples.length} examples to dataset`);
-  }
-
-  // Run evaluation
-  console.log('\nStarting evaluation...\n');
-
-  const experimentResults = await evaluate(target, {
-    data: datasetName,
-    evaluators: [correctnessEvaluator],
-    experimentPrefix: 'dexter-eval',
-    maxConcurrency: 2,
-    client,
-  });
-
-  // Collect results
-  const results: Array<{ question: string; score: number; comment: string }> = [];
-  for await (const result of experimentResults) {
-    const question = (result.example?.inputs?.question as string) || 'Unknown';
-    const evalResult = result.evaluationResults?.results?.[0];
-    results.push({
-      question: question.slice(0, 80) + (question.length > 80 ? '...' : ''),
-      score: (evalResult?.score as number) ?? 0,
-      comment: (evalResult?.comment as string) || '',
-    });
-  }
-
-  // Print summary
-  console.log('\n' + '='.repeat(80));
-  console.log('EVALUATION COMPLETE');
-  console.log('='.repeat(80));
-  console.log(`Experiment: ${experimentResults.experimentName}`);
-  console.log(`Examples evaluated: ${results.length}`);
+  // Render the Ink UI
+  const { waitUntilExit } = render(
+    React.createElement(EvalApp, { runEvaluation })
+  );
   
-  const avgScore = results.reduce((sum, r) => sum + r.score, 0) / results.length;
-  console.log(`Average correctness score: ${(avgScore * 100).toFixed(1)}%`);
-  
-  console.log('\nResults by question:');
-  console.log('-'.repeat(80));
-  for (const r of results) {
-    const status = r.score === 1 ? '✓' : '✗';
-    console.log(`${status} [${r.score}] ${r.question}`);
-    if (r.comment) {
-      console.log(`    ${r.comment}`);
-    }
-  }
-  
-  console.log('\n' + '-'.repeat(80));
-  console.log(`View full results: https://smith.langchain.com`);
+  await waitUntilExit();
 }
 
 main().catch(console.error);

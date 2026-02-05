@@ -3,13 +3,13 @@
  * CLI - Real-time agentic loop interface
  * Shows tool calls and progress in Claude Code style
  */
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { config } from 'dotenv';
 
 import { Input } from './components/Input.js';
 import { Intro } from './components/Intro.js';
-import { ProviderSelector, ModelSelector } from './components/ModelSelector.js';
+import { ProviderSelector, ModelSelector, ModelInputField } from './components/ModelSelector.js';
 import { ApiKeyConfirm, ApiKeyInput } from './components/ApiKeyPrompt.js';
 import { DebugPanel } from './components/DebugPanel.js';
 import { HistoryItemView, WorkingIndicator } from './components/index.js';
@@ -25,6 +25,10 @@ config({ quiet: true });
 export function CLI() {
   const { exit } = useApp();
   
+  // Ref to hold setError - avoids TDZ issue since useModelSelection needs to call
+  // setError but useAgentRunner (which provides setError) depends on useModelSelection's outputs
+  const setErrorRef = useRef<((error: string | null) => void) | null>(null);
+  
   // Model selection state and handlers
   const {
     selectionState,
@@ -35,10 +39,11 @@ export function CLI() {
     cancelSelection,
     handleProviderSelect,
     handleModelSelect,
+    handleModelInputSubmit,
     handleApiKeyConfirm,
     handleApiKeySubmit,
     isInSelectionFlow,
-  } = useModelSelection((errorMsg) => setError(errorMsg));
+  } = useModelSelection((errorMsg) => setErrorRef.current?.(errorMsg));
   
   // Agent execution state and handlers
   const {
@@ -50,6 +55,9 @@ export function CLI() {
     cancelExecution,
     setError,
   } = useAgentRunner({ model, modelProvider: provider, maxIterations: 10 }, inMemoryChatHistoryRef);
+  
+  // Assign setError to ref so useModelSelection's callback can access it
+  setErrorRef.current = setError;
   
   // Input history for up/down arrow navigation
   const {
@@ -145,6 +153,18 @@ export function CLI() {
           models={pendingModels}
           currentModel={provider === pendingProvider ? model : undefined}
           onSelect={handleModelSelect}
+        />
+      </Box>
+    );
+  }
+  
+  if (appState === 'model_input' && pendingProvider) {
+    return (
+      <Box flexDirection="column">
+        <ModelInputField
+          providerId={pendingProvider}
+          currentModel={provider === pendingProvider ? model : undefined}
+          onSubmit={handleModelInputSubmit}
         />
       </Box>
     );
