@@ -3,6 +3,7 @@ import { Box, Text } from 'ink';
 import { colors, dimensions } from '../theme.js';
 import packageJson from '../../package.json';
 import { getProviderDisplayName } from '../utils/env.js';
+import { getModelDisplayName } from './ModelSelector.js';
 
 interface IntroProps {
   provider: string;
@@ -41,7 +42,7 @@ export function Intro({ provider, model }: IntroProps) {
 
       <Box marginY={1} flexDirection="column">
         <Text>Your AI assistant for deep financial research.</Text>
-        <Text color={colors.muted}>Current model: <Text color={colors.primary}>{model}</Text></Text>
+        <Text color={colors.muted}>Current model: <Text color={colors.primary}>{getModelDisplayName(model)}</Text></Text>
         {/* <Text color={colors.muted}>Current provider: <Text color={colors.primary}>{getProviderDisplayName(provider)}</Text></Text> */}
         <Text color={colors.muted}>Type /model to change the provider.</Text>
       </Box>

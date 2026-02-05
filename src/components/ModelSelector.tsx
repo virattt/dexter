@@ -2,32 +2,49 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { colors } from '../theme.js';
 
+export interface Model {
+  id: string;          // API model identifier (e.g., "claude-opus-4-6")
+  displayName: string; // Human-readable name (e.g., "Opus 4.6")
+}
+
 interface Provider {
   displayName: string;
   providerId: string;
-  models: string[];
+  models: Model[];
 }
 
 const PROVIDERS: Provider[] = [
   {
     displayName: 'OpenAI',
     providerId: 'openai',
-    models: ['gpt-5.2', 'gpt-4.1'],
+    models: [
+      { id: 'gpt-5.2', displayName: 'GPT 5.2' },
+      { id: 'gpt-4.1', displayName: 'GPT 4.1' },
+    ],
   },
   {
     displayName: 'Anthropic',
     providerId: 'anthropic',
-    models: ['claude-sonnet-4-5', 'claude-opus-4-6'],
+    models: [
+      { id: 'claude-sonnet-4-5', displayName: 'Sonnet 4.5' },
+      { id: 'claude-opus-4-6', displayName: 'Opus 4.6' },
+    ],
   },
   {
     displayName: 'Google',
     providerId: 'google',
-    models: ['gemini-3-flash-preview', 'gemini-3-pro-preview'],
+    models: [
+      { id: 'gemini-3-flash-preview', displayName: 'Gemini 3 Flash' },
+      { id: 'gemini-3-pro-preview', displayName: 'Gemini 3 Pro' },
+    ],
   },
   {
     displayName: 'xAI',
     providerId: 'xai',
-    models: ['grok-4-0709', 'grok-4-1-fast-reasoning'],
+    models: [
+      { id: 'grok-4-0709', displayName: 'Grok 4' },
+      { id: 'grok-4-1-fast-reasoning', displayName: 'Grok 4.1 Fast Reasoning' },
+    ],
   },
   {
     displayName: 'OpenRouter',
@@ -41,14 +58,34 @@ const PROVIDERS: Provider[] = [
   },
 ];
 
-export function getModelsForProvider(providerId: string): string[] {
+export function getModelsForProvider(providerId: string): Model[] {
   const provider = PROVIDERS.find((p) => p.providerId === providerId);
   return provider?.models ?? [];
 }
 
+export function getModelIdsForProvider(providerId: string): string[] {
+  return getModelsForProvider(providerId).map((m) => m.id);
+}
+
 export function getDefaultModelForProvider(providerId: string): string | undefined {
   const models = getModelsForProvider(providerId);
-  return models[0];
+  return models[0]?.id;
+}
+
+export function getModelDisplayName(modelId: string): string {
+  // Handle prefixed model IDs (e.g., "ollama:llama3", "openrouter:anthropic/claude-3.5")
+  const normalizedId = modelId.replace(/^(ollama|openrouter):/, '');
+  
+  // Search through all providers for the model
+  for (const provider of PROVIDERS) {
+    const model = provider.models.find((m) => m.id === normalizedId || m.id === modelId);
+    if (model) {
+      return model.displayName;
+    }
+  }
+  
+  // Fallback: return the model ID as-is (for dynamic models like Ollama or OpenRouter)
+  return normalizedId;
 }
 
 interface ProviderSelectorProps {
@@ -113,7 +150,7 @@ export function ProviderSelector({ provider, onSelect }: ProviderSelectorProps) 
 
 interface ModelSelectorProps {
   providerId: string;
-  models: string[];
+  models: Model[];
   currentModel?: string;
   onSelect: (modelId: string | null) => void;
 }
@@ -183,7 +220,7 @@ export function ModelSelector({ providerId, models, currentModel, onSelect }: Mo
 
   const [selectedIndex, setSelectedIndex] = useState(() => {
     if (normalizedCurrentModel) {
-      const idx = models.findIndex((m) => m === normalizedCurrentModel);
+      const idx = models.findIndex((m) => m.id === normalizedCurrentModel);
       return idx >= 0 ? idx : 0;
     }
     return 0;
@@ -199,7 +236,7 @@ export function ModelSelector({ providerId, models, currentModel, onSelect }: Mo
       setSelectedIndex((prev) => Math.min(models.length - 1, prev + 1));
     } else if (key.return) {
       if (models.length > 0) {
-        onSelect(models[selectedIndex]);
+        onSelect(models[selectedIndex].id);
       }
     } else if (key.escape) {
       onSelect(null);
@@ -235,17 +272,17 @@ export function ModelSelector({ providerId, models, currentModel, onSelect }: Mo
       <Box marginTop={1} flexDirection="column">
         {models.map((model, idx) => {
           const isSelected = idx === selectedIndex;
-          const isCurrent = normalizedCurrentModel === model;
+          const isCurrent = normalizedCurrentModel === model.id;
           const prefix = isSelected ? '> ' : '  ';
 
           return (
             <Text
-              key={model}
+              key={model.id}
               color={isSelected ? colors.primaryLight : colors.primary}
               bold={isSelected}
             >
               {prefix}
-              {idx + 1}. {model}
+              {idx + 1}. {model.displayName}
               {isCurrent ? ' ✓' : ''}
             </Text>
           );
