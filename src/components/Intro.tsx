@@ -42,9 +42,7 @@ export function Intro({ provider, model }: IntroProps) {
 
       <Box marginY={1} flexDirection="column">
         <Text>Your AI assistant for deep financial research.</Text>
-        <Text color={colors.muted}>Current model: <Text color={colors.primary}>{getModelDisplayName(model)}</Text></Text>
-        {/* <Text color={colors.muted}>Current provider: <Text color={colors.primary}>{getProviderDisplayName(provider)}</Text></Text> */}
-        <Text color={colors.muted}>Type /model to change the provider.</Text>
+        <Text color={colors.muted}>Selected model: <Text color={colors.primary}>{getModelDisplayName(model)}.</Text> Type /model to change.</Text>
       </Box>
     </Box>
   );
