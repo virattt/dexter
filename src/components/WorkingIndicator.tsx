@@ -114,7 +114,6 @@ export function WorkingIndicator({ state }: WorkingIndicatorProps) {
       break;
     case 'answering':
       statusWord = 'Answering';
-      // suffixEnd = ` to interrupt • ${elapsed}s)`;
       suffixEnd = ` to interrupt)`;
       break;
   }
