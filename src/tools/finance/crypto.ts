@@ -52,7 +52,11 @@ export const getCryptoPrices = new DynamicStructuredTool({
       start_date: input.start_date,
       end_date: input.end_date,
     };
-    const { data, url } = await callApi('/crypto/prices/', params);
+    // Cache when the date window is fully closed (OHLCV data is final)
+    const endDate = new Date(input.end_date + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const { data, url } = await callApi('/crypto/prices/', params, { cacheable: endDate < today });
     return formatToolResult(data.prices || [], [url]);
   },
 });
