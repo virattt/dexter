@@ -2,8 +2,9 @@
  * Local file cache for financial API responses.
  *
  * Sits between callApi() and the network to avoid redundant fetches.
- * V1 scope: only historical price data with a fully-elapsed date window
- * is cached. All other endpoints are fetched live every time.
+ * Only provably immutable data is cached:
+ *   - Historical prices with a fully-elapsed date window
+ *   - SEC filing items identified by accession number
  *
  * Cache files live in .dexter/cache/ (already gitignored via .dexter/*).
  */
@@ -43,25 +44,34 @@ const CACHE_DIR = '.dexter/cache';
 /**
  * Determine whether a request is safe to cache.
  *
- * V1 rule: only cache historical price endpoints (`/prices/`,
- * `/crypto/prices/`) when `end_date` is strictly before today.
- * Once a trading day closes its OHLCV data is final and will never change.
+ * A request is cacheable when its data is provably immutable:
+ *   1. Historical prices — cache when `end_date` is strictly before today.
+ *      Once a trading day closes its OHLCV data is final.
+ *   2. SEC filing items — cache when `accession_number` is present.
+ *      Filed SEC documents are legally immutable.
  */
 export function isCacheable(
   endpoint: string,
   params: Record<string, string | number | string[] | undefined>
 ): boolean {
-  if (!CACHEABLE_PRICE_ENDPOINTS.includes(endpoint)) return false;
+  // Historical prices: cache when the date window is fully closed
+  if (CACHEABLE_PRICE_ENDPOINTS.includes(endpoint)) {
+    const endDate = params.end_date;
+    if (typeof endDate !== 'string') return false;
 
-  // Only cache when the date window is fully closed
-  const endDate = params.end_date;
-  if (typeof endDate !== 'string') return false;
+    const end = new Date(endDate + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-  const end = new Date(endDate + 'T00:00:00');
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+    return end < today;
+  }
 
-  return end < today;
+  // SEC filing items: cache when accession_number identifies a specific filing
+  if (endpoint === '/filings/items/') {
+    return typeof params.accession_number === 'string';
+  }
+
+  return false;
 }
 
 // ============================================================================
