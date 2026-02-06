@@ -9,6 +9,7 @@ on:
 
 jobs:
   checks:
+    if: github.event.action != 'labeled' || github.event.label.name == 'run-ci'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
