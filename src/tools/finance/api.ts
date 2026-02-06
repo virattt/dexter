@@ -1,4 +1,4 @@
-import { readCache, writeCache } from './cache.js';
+import { readCache, writeCache, describeRequest } from './cache.js';
 import { logger } from '../../utils/logger.js';
 
 const BASE_URL = 'https://api.financialdatasets.ai';
@@ -12,8 +12,7 @@ export async function callApi(
   endpoint: string,
   params: Record<string, string | number | string[] | undefined>
 ): Promise<ApiResponse> {
-  const ticker = typeof params.ticker === 'string' ? params.ticker.toUpperCase() : null;
-  const label = ticker ? `${endpoint} (${ticker})` : endpoint;
+  const label = describeRequest(endpoint, params);
 
   // Check local cache first — avoids redundant network calls for historical data
   const cached = readCache(endpoint, params);

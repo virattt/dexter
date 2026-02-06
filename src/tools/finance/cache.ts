@@ -2,8 +2,8 @@
  * Local file cache for financial API responses.
  *
  * Sits between callApi() and the network to avoid redundant fetches.
- * Historical / static data is cached indefinitely; real-time data
- * (snapshots, news) is always fetched live.
+ * V1 scope: only historical price data with a fully-elapsed date window
+ * is cached. All other endpoints are fetched live every time.
  *
  * Cache files live in .dexter/cache/ (already gitignored via .dexter/*).
  */
@@ -28,37 +28,41 @@ interface CacheEntry {
   cachedAt: string;
 }
 
-/**
- * Cache policy for an API endpoint.
- * - 'always': Cache indefinitely (historical / static data)
- * - 'never':  Never cache (real-time / frequently changing data)
- * - number:   Cache with a TTL in milliseconds
- */
-type CachePolicy = 'always' | 'never' | number;
-
 // ============================================================================
-// Cache Policy Configuration
+// Cache Policy
 // ============================================================================
 
 /**
- * Endpoints that must NEVER be cached because they return real-time
- * or frequently changing data. Matched by prefix.
- *
- * Everything else that goes through callApi() is considered historical
- * / static and is cached indefinitely by default. This means new
- * endpoints are automatically cached unless explicitly excluded here.
- *
- * When adding a new real-time endpoint, add it to this list.
+ * Price endpoints eligible for caching. Uses an include-list so new
+ * endpoints are uncached by default (fail-open, not fail-closed).
  */
-const NEVER_CACHE_ENDPOINTS: string[] = [
-  '/prices/snapshot/',
-  '/crypto/prices/snapshot/',
-  '/financial-metrics/snapshot/',
-  '/news/',
-  '/analyst-estimates/',
-];
+const CACHEABLE_PRICE_ENDPOINTS = ['/prices/', '/crypto/prices/'];
 
 const CACHE_DIR = '.dexter/cache';
+
+/**
+ * Determine whether a request is safe to cache.
+ *
+ * V1 rule: only cache historical price endpoints (`/prices/`,
+ * `/crypto/prices/`) when `end_date` is strictly before today.
+ * Once a trading day closes its OHLCV data is final and will never change.
+ */
+export function isCacheable(
+  endpoint: string,
+  params: Record<string, string | number | string[] | undefined>
+): boolean {
+  if (!CACHEABLE_PRICE_ENDPOINTS.includes(endpoint)) return false;
+
+  // Only cache when the date window is fully closed
+  const endDate = params.end_date;
+  if (typeof endDate !== 'string') return false;
+
+  const end = new Date(endDate + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return end < today;
+}
 
 // ============================================================================
 // Helpers
@@ -66,9 +70,9 @@ const CACHE_DIR = '.dexter/cache';
 
 /**
  * Build a human-readable label for log messages.
- * Example: "/financials/income-statements/ (AAPL)"
+ * Example: "/prices/ (AAPL)"
  */
-function describeRequest(
+export function describeRequest(
   endpoint: string,
   params: Record<string, string | number | string[] | undefined>
 ): string {
@@ -77,27 +81,13 @@ function describeRequest(
 }
 
 /**
- * Get the cache policy for a given endpoint.
- * Real-time endpoints listed in NEVER_CACHE_ENDPOINTS are skipped;
- * everything else is cached indefinitely (historical financial data).
- */
-function getCachePolicy(endpoint: string): CachePolicy {
-  for (const prefix of NEVER_CACHE_ENDPOINTS) {
-    if (endpoint.startsWith(prefix)) {
-      return 'never';
-    }
-  }
-  return 'always';
-}
-
-/**
  * Generate a deterministic cache key from endpoint + params.
  * Params are sorted alphabetically so insertion order doesn't matter.
  *
  * Resulting path:  {clean_endpoint}/{TICKER_}{hash}.json
- * Example:         financials_income-statements/AAPL_a1b2c3d4e5f6.json
+ * Example:         prices/AAPL_a1b2c3d4e5f6.json
  */
-function buildCacheKey(
+export function buildCacheKey(
   endpoint: string,
   params: Record<string, string | number | string[] | undefined>
 ): string {
@@ -111,7 +101,7 @@ function buildCacheKey(
   const raw = `${endpoint}?${sortedParams}`;
   const hash = createHash('md5').update(raw).digest('hex').slice(0, 12);
 
-  // Turn "/financials/income-statements/" → "financials_income-statements"
+  // Turn "/prices/" → "prices"
   const cleanEndpoint = endpoint
     .replace(/^\//, '')
     .replace(/\/$/, '')
@@ -158,14 +148,13 @@ function removeCacheFile(filepath: string): void {
 
 /**
  * Read a cached API response if it exists and is still valid.
- * Returns null on cache miss, expired entry, or any read/parse error.
+ * Returns null on cache miss or any read/parse error.
  */
 export function readCache(
   endpoint: string,
   params: Record<string, string | number | string[] | undefined>
 ): { data: Record<string, unknown>; url: string } | null {
-  const policy = getCachePolicy(endpoint);
-  if (policy === 'never') return null;
+  if (!isCacheable(endpoint, params)) return null;
 
   const cacheKey = buildCacheKey(endpoint, params);
   const filepath = join(CACHE_DIR, cacheKey);
@@ -187,16 +176,6 @@ export function readCache(
       return null;
     }
 
-    // Check TTL for time-based policies
-    if (typeof policy === 'number') {
-      const age = Date.now() - new Date(parsed.cachedAt).getTime();
-      if (age > policy) {
-        logger.debug(`Cache expired: ${label} (age: ${Math.round(age / 1000)}s)`);
-        removeCacheFile(filepath);
-        return null;
-      }
-    }
-
     logger.debug(`Cache hit: ${label}`);
     return { data: parsed.data, url: parsed.url };
   } catch (error) {
@@ -210,7 +189,7 @@ export function readCache(
 
 /**
  * Write an API response to the cache.
- * Skips if the endpoint's policy is 'never'. Logs on I/O errors
+ * Skips if the request is not cacheable. Logs on I/O errors
  * but never throws — cache writes must not break the application.
  */
 export function writeCache(
@@ -219,8 +198,7 @@ export function writeCache(
   data: Record<string, unknown>,
   url: string
 ): void {
-  const policy = getCachePolicy(endpoint);
-  if (policy === 'never') return;
+  if (!isCacheable(endpoint, params)) return;
 
   const cacheKey = buildCacheKey(endpoint, params);
   const filepath = join(CACHE_DIR, cacheKey);
