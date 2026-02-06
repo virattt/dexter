@@ -40,8 +40,6 @@ export async function callApi(
     }
   }
 
-  logger.debug(`API fetch: ${label}`);
-
   let response: Response;
   try {
     response = await fetch(url.toString(), {

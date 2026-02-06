@@ -161,7 +161,6 @@ export function readCache(
   const label = describeRequest(endpoint, params);
 
   if (!existsSync(filepath)) {
-    logger.debug(`Cache miss: ${label}`);
     return null;
   }
 
@@ -176,7 +175,6 @@ export function readCache(
       return null;
     }
 
-    logger.debug(`Cache hit: ${label}`);
     return { data: parsed.data, url: parsed.url };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -218,7 +216,6 @@ export function writeCache(
       mkdirSync(dir, { recursive: true });
     }
     writeFileSync(filepath, JSON.stringify(entry, null, 2));
-    logger.debug(`Cache write: ${label}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.warn(`Cache write error: ${label} — ${message}`, { filepath });
