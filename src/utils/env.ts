@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { config } from 'dotenv';
 
 // Load .env on module import
@@ -39,7 +39,7 @@ export function checkApiKeyExists(apiKeyName: string): boolean {
   }
 
   // Also check .env file directly
-  if (existsSync('.env')) {
+  try {
     const envContent = readFileSync('.env', 'utf-8');
     const lines = envContent.split('\n');
     for (const line of lines) {
@@ -54,6 +54,8 @@ export function checkApiKeyExists(apiKeyName: string): boolean {
         }
       }
     }
+  } catch (e) {
+    // .env doesn't exist, ignore
   }
 
   return false;
@@ -64,8 +66,14 @@ export function saveApiKeyToEnv(apiKeyName: string, apiKeyValue: string): boolea
     let lines: string[] = [];
     let keyUpdated = false;
 
-    if (existsSync('.env')) {
-      const existingContent = readFileSync('.env', 'utf-8');
+    let existingContent = '';
+    try {
+      existingContent = readFileSync('.env', 'utf-8');
+    } catch (e) {
+      // .env doesn't exist or is not readable, which is fine
+    }
+
+    if (existingContent) {
       const existingLines = existingContent.split('\n');
 
       for (const line of existingLines) {
