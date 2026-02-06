@@ -150,7 +150,7 @@ Select which previous messages are relevant to understanding or answering the cu
         outputSchema: SelectedMessagesSchema,
       });
 
-      const selectedIds = (response as { message_ids: number[] }).message_ids || [];
+      const selectedIds = (response as unknown as { message_ids: number[] }).message_ids || [];
 
       const selectedMessages = selectedIds
         .filter((idx) => idx >= 0 && idx < this.messages.length)

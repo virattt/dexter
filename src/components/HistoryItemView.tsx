@@ -27,6 +27,21 @@ function formatDuration(ms: number): string {
   return `${minutes}m ${seconds}s`;
 }
 
+/**
+ * Format performance stats into a single string
+ */
+function formatPerformanceStats(
+  duration?: number,
+  tokenUsage?: TokenUsage,
+  tokensPerSecond?: number
+): string {
+  const parts: string[] = [];
+  if (duration !== undefined) parts.push(formatDuration(duration));
+  if (tokenUsage) parts.push(`${tokenUsage.totalTokens.toLocaleString()} tokens`);
+  if (tokensPerSecond !== undefined) parts.push(`(${tokensPerSecond.toFixed(1)} tok/s)`);
+  return parts.join(' · ');
+}
+
 export type HistoryItemStatus = 'processing' | 'complete' | 'error' | 'interrupted';
 
 export interface HistoryItem {
@@ -82,16 +97,10 @@ export function HistoryItemView({ item }: HistoryItemViewProps) {
         </Box>
       )}
       
-      {/* Performance stats - show when complete */}
-      {item.status === 'complete' && (item.duration !== undefined || item.tokenUsage) && (
+      {/* Performance stats - only show when token data is present */}
+      {item.status === 'complete' && item.tokenUsage && (
         <Box marginTop={1}>
-          <Text color={colors.muted}>
-            {'✻ '}
-            {item.duration !== undefined && `${formatDuration(item.duration)}`}
-            {item.tokenUsage && item.duration !== undefined && ' · '}
-            {item.tokenUsage && `${item.tokenUsage.totalTokens.toLocaleString()} tokens`}
-            {item.tokensPerSecond !== undefined && ` (${item.tokensPerSecond.toFixed(1)} tok/s)`}
-          </Text>
+          <Text color={colors.muted}>✻ {formatPerformanceStats(item.duration, item.tokenUsage, item.tokensPerSecond)}</Text>
         </Box>
       )}
     </Box>

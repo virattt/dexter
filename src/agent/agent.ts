@@ -79,17 +79,17 @@ export class Agent {
 
       const { response, usage } = await this.callModel(currentPrompt);
       tokenCounter.add(usage);
-      const responseText = extractTextContent(response as AIMessage);
+      const responseText = typeof response === 'string' ? response : extractTextContent(response);
 
       // Emit thinking if there are also tool calls (skip whitespace-only responses)
-      if (responseText?.trim() && hasToolCalls(response as AIMessage)) {
+      if (responseText?.trim() && typeof response !== 'string' && hasToolCalls(response)) {
         const trimmedText = responseText.trim();
         scratchpad.addThinking(trimmedText);
         yield { type: 'thinking', message: trimmedText };
       }
 
       // No tool calls = ready to generate final answer
-      if (!hasToolCalls(response as AIMessage)) {
+      if (typeof response === 'string' || !hasToolCalls(response)) {
         // If no tools were called at all, just use the direct response
         // This handles greetings, clarifying questions, etc.
         if (!scratchpad.hasToolResults() && responseText) {
@@ -108,15 +108,15 @@ export class Agent {
         tokenCounter.add(finalUsage);
         const answer = typeof finalResponse === 'string' 
           ? finalResponse 
-          : extractTextContent(finalResponse as AIMessage);
+          : extractTextContent(finalResponse);
 
         const totalTime = Date.now() - startTime;
         yield { type: 'done', answer, toolCalls: scratchpad.getToolCallRecords(), iterations: iteration, totalTime, tokenUsage: tokenCounter.getUsage(), tokensPerSecond: tokenCounter.getTokensPerSecond(totalTime) };
         return;
       }
 
-      // Execute tools and add results to scratchpad
-      const generator = this.executeToolCalls(response as AIMessage, query, scratchpad);
+      // Execute tools and add results to scratchpad (response is AIMessage here)
+      const generator = this.executeToolCalls(response, query, scratchpad);
       let result = await generator.next();
 
       // Yield tool events
@@ -156,7 +156,7 @@ export class Agent {
     tokenCounter.add(finalUsage);
     const answer = typeof finalResponse === 'string' 
       ? finalResponse 
-      : extractTextContent(finalResponse as AIMessage);
+      : extractTextContent(finalResponse);
 
     const totalTime = Date.now() - startTime;
     yield {
@@ -182,7 +182,7 @@ export class Agent {
       tools: useTools ? this.tools : undefined,
       signal: this.signal,
     });
-    return { response: result.response as AIMessage | string, usage: result.usage };
+    return { response: result.response, usage: result.usage };
   }
 
   /**
