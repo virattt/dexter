@@ -111,13 +111,14 @@ export function createReadFilings(model: string): DynamicStructuredTool {
 
       // Step 1: Get filings metadata
       onProgress?.('Searching for relevant filings...');
-      const step1Response = await callLlm(input.query, {
+      const { response: step1Response } = await callLlm(input.query, {
         model,
         systemPrompt: buildStep1Prompt(),
         tools: STEP1_TOOLS,
-      }) as AIMessage;
+      });
+      const step1Message = step1Response as AIMessage;
 
-      const step1ToolCalls = step1Response.tool_calls as ToolCall[];
+      const step1ToolCalls = step1Message.tool_calls as ToolCall[];
       if (!step1ToolCalls || step1ToolCalls.length === 0) {
         return formatToolResult({ error: 'Failed to parse query for filings' }, []);
       }
@@ -141,13 +142,14 @@ export function createReadFilings(model: string): DynamicStructuredTool {
       onProgress?.(`Found ${filingCount} filing${filingCount !== 1 ? 's' : ''}, selecting content to read...`);
 
       // Step 2: Select and read filing content with canonical item names
-      const step2Response = await callLlm(input.query, {
+      const { response: step2Response } = await callLlm(input.query, {
         model,
         systemPrompt: buildStep2Prompt(input.query, filingsResult.data, itemTypes),
         tools: STEP2_TOOLS,
-      }) as AIMessage;
+      });
+      const step2Message = step2Response as AIMessage;
 
-      const step2ToolCalls = step2Response.tool_calls as ToolCall[];
+      const step2ToolCalls = step2Message.tool_calls as ToolCall[];
       if (!step2ToolCalls || step2ToolCalls.length === 0) {
         return formatToolResult({ 
           error: 'Failed to select filings to read',

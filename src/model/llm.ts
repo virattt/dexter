@@ -1,3 +1,4 @@
+import { AIMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatAnthropic } from '@langchain/anthropic';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
@@ -9,6 +10,7 @@ import { StructuredToolInterface } from '@langchain/core/tools';
 import { Runnable } from '@langchain/core/runnables';
 import { z } from 'zod';
 import { DEFAULT_SYSTEM_PROMPT } from '@/agent/prompts';
+import type { TokenUsage } from '../agent/types.js';
 
 export const DEFAULT_PROVIDER = 'openai';
 export const DEFAULT_MODEL = 'gpt-5.2';
@@ -122,6 +124,39 @@ interface CallLlmOptions {
   signal?: AbortSignal;
 }
 
+export interface LlmResult {
+  response: AIMessage | string;
+  usage?: TokenUsage;
+}
+
+function extractUsage(result: unknown): TokenUsage | undefined {
+  if (!result || typeof result !== 'object') return undefined;
+  const msg = result as Record<string, unknown>;
+
+  const usageMetadata = msg.usage_metadata;
+  if (usageMetadata && typeof usageMetadata === 'object') {
+    const u = usageMetadata as Record<string, unknown>;
+    const input = typeof u.input_tokens === 'number' ? u.input_tokens : 0;
+    const output = typeof u.output_tokens === 'number' ? u.output_tokens : 0;
+    const total = typeof u.total_tokens === 'number' ? u.total_tokens : input + output;
+    return { inputTokens: input, outputTokens: output, totalTokens: total };
+  }
+
+  const responseMetadata = msg.response_metadata;
+  if (responseMetadata && typeof responseMetadata === 'object') {
+    const rm = responseMetadata as Record<string, unknown>;
+    if (rm.usage && typeof rm.usage === 'object') {
+      const u = rm.usage as Record<string, unknown>;
+      const input = typeof u.prompt_tokens === 'number' ? u.prompt_tokens : 0;
+      const output = typeof u.completion_tokens === 'number' ? u.completion_tokens : 0;
+      const total = typeof u.total_tokens === 'number' ? u.total_tokens : input + output;
+      return { inputTokens: input, outputTokens: output, totalTokens: total };
+    }
+  }
+
+  return undefined;
+}
+
 /**
  * Build messages with Anthropic cache_control on the system prompt.
  * Marks the system prompt as ephemeral so Anthropic caches the prefix,
@@ -142,7 +177,7 @@ function buildAnthropicMessages(systemPrompt: string, userPrompt: string) {
   ];
 }
 
-export async function callLlm(prompt: string, options: CallLlmOptions = {}): Promise<unknown> {
+export async function callLlm(prompt: string, options: CallLlmOptions = {}): Promise<LlmResult> {
   const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools, signal } = options;
   const finalSystemPrompt = systemPrompt || DEFAULT_SYSTEM_PROMPT;
 
@@ -173,11 +208,12 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
     const chain = promptTemplate.pipe(runnable);
     result = await withRetry(() => chain.invoke({ prompt }, invokeOpts));
   }
+  const usage = extractUsage(result);
 
   // If no outputSchema and no tools, extract content from AIMessage
   // When tools are provided, return the full AIMessage to preserve tool_calls
   if (!outputSchema && !tools && result && typeof result === 'object' && 'content' in result) {
-    return (result as { content: string }).content;
+    return { response: (result as { content: string }).content, usage };
   }
-  return result;
+  return { response: result as AIMessage, usage };
 }

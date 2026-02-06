@@ -101,6 +101,15 @@ export interface AnswerStartEvent {
 }
 
 /**
+ * Token usage statistics
+ */
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
+/**
  * Agent completed with final result
  */
 export interface DoneEvent {
@@ -108,6 +117,9 @@ export interface DoneEvent {
   answer: string;
   toolCalls: Array<{ tool: string; args: Record<string, unknown>; result: string }>;
   iterations: number;
+  totalTime: number;
+  tokenUsage?: TokenUsage;
+  tokensPerSecond?: number;
 }
 
 /**

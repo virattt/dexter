@@ -4,12 +4,18 @@ import { colors } from '../theme.js';
 import { EventListView } from './AgentEventView.js';
 import type { DisplayEvent } from './AgentEventView.js';
 import { AnswerBox } from './AnswerBox.js';
+import type { TokenUsage } from '../agent/types.js';
 
 /**
  * Format duration in milliseconds to human-readable string
- * e.g., "1m 31s", "45s", "2m 5s"
+ * e.g., "1m 31s", "45s", "500ms"
  */
 function formatDuration(ms: number): string {
+  // Show milliseconds for sub-second durations
+  if (ms < 1000) {
+    return `${Math.round(ms)}ms`;
+  }
+  
   const totalSeconds = Math.round(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -19,6 +25,21 @@ function formatDuration(ms: number): string {
   }
   
   return `${minutes}m ${seconds}s`;
+}
+
+/**
+ * Format performance stats into a single string
+ */
+function formatPerformanceStats(
+  duration?: number,
+  tokenUsage?: TokenUsage,
+  tokensPerSecond?: number
+): string {
+  const parts: string[] = [];
+  if (duration !== undefined) parts.push(formatDuration(duration));
+  if (tokenUsage) parts.push(`${tokenUsage.totalTokens.toLocaleString()} tokens`);
+  if (tokensPerSecond !== undefined) parts.push(`(${tokensPerSecond.toFixed(1)} tok/s)`);
+  return parts.join(' · ');
 }
 
 export type HistoryItemStatus = 'processing' | 'complete' | 'error' | 'interrupted';
@@ -34,6 +55,10 @@ export interface HistoryItem {
   startTime?: number;
   /** Total duration in milliseconds (set when complete) */
   duration?: number;
+  /** Token usage statistics */
+  tokenUsage?: TokenUsage;
+  /** Tokens per second throughput */
+  tokensPerSecond?: number;
 }
 
 interface HistoryItemViewProps {
@@ -72,10 +97,10 @@ export function HistoryItemView({ item }: HistoryItemViewProps) {
         </Box>
       )}
       
-      {/* Duration display - show when complete and duration > 15 seconds */}
-      {item.status === 'complete' && item.duration !== undefined && item.duration > 15000 && (
+      {/* Performance stats - only show when token data is present */}
+      {item.status === 'complete' && item.tokenUsage && (
         <Box marginTop={1}>
-          <Text color={colors.muted}>✻ Worked for {formatDuration(item.duration)}</Text>
+          <Text color={colors.muted}>✻ {formatPerformanceStats(item.duration, item.tokenUsage, item.tokensPerSecond)}</Text>
         </Box>
       )}
     </Box>

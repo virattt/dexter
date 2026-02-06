@@ -111,14 +111,15 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
 
       // 1. Call LLM with finance tools bound (native tool calling)
       onProgress?.('Searching...');
-      const response = await callLlm(input.query, {
+      const { response } = await callLlm(input.query, {
         model,
         systemPrompt: buildRouterPrompt(),
         tools: FINANCE_TOOLS,
-      }) as AIMessage;
+      });
+      const aiMessage = response as AIMessage;
 
       // 2. Check for tool calls
-      const toolCalls = response.tool_calls as ToolCall[];
+      const toolCalls = aiMessage.tool_calls as ToolCall[];
       if (!toolCalls || toolCalls.length === 0) {
         return formatToolResult({ error: 'No tools selected for query' }, []);
       }
