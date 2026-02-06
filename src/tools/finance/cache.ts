@@ -41,31 +41,21 @@ type CachePolicy = 'always' | 'never' | number;
 // ============================================================================
 
 /**
- * Endpoint cache policies, matched by prefix.
- * More specific prefixes MUST come before general ones so that e.g.
- * `/prices/snapshot/` (never) is checked before `/prices/` (always).
+ * Endpoints that must NEVER be cached because they return real-time
+ * or frequently changing data. Matched by prefix.
+ *
+ * Everything else that goes through callApi() is considered historical
+ * / static and is cached indefinitely by default. This means new
+ * endpoints are automatically cached unless explicitly excluded here.
+ *
+ * When adding a new real-time endpoint, add it to this list.
  */
-const ENDPOINT_CACHE_POLICIES: [string, CachePolicy][] = [
-  // ── Real-time / volatile data — never cache ──────────────────────────
-  ['/prices/snapshot/', 'never'],
-  ['/crypto/prices/snapshot/', 'never'],
-  ['/financial-metrics/snapshot/', 'never'],
-  ['/news/', 'never'],
-  ['/analyst-estimates/', 'never'],
-
-  // ── Historical / static data — always cache ──────────────────────────
-  ['/financials/income-statements/', 'always'],
-  ['/financials/balance-sheets/', 'always'],
-  ['/financials/cash-flow-statements/', 'always'],
-  ['/financials/segmented-revenues/', 'always'],
-  ['/financials/', 'always'],
-  ['/financial-metrics/', 'always'],
-  ['/prices/', 'always'],
-  ['/crypto/prices/tickers/', 'always'],
-  ['/crypto/prices/', 'always'],
-  ['/filings/', 'always'],
-  ['/insider-trades/', 'always'],
-  ['/company/facts', 'always'],
+const NEVER_CACHE_ENDPOINTS: string[] = [
+  '/prices/snapshot/',
+  '/crypto/prices/snapshot/',
+  '/financial-metrics/snapshot/',
+  '/news/',
+  '/analyst-estimates/',
 ];
 
 const CACHE_DIR = '.dexter/cache';
@@ -88,16 +78,16 @@ function describeRequest(
 
 /**
  * Get the cache policy for a given endpoint.
- * Returns the first matching prefix policy, or 'never' as a safe default.
+ * Real-time endpoints listed in NEVER_CACHE_ENDPOINTS are skipped;
+ * everything else is cached indefinitely (historical financial data).
  */
 function getCachePolicy(endpoint: string): CachePolicy {
-  for (const [prefix, policy] of ENDPOINT_CACHE_POLICIES) {
+  for (const prefix of NEVER_CACHE_ENDPOINTS) {
     if (endpoint.startsWith(prefix)) {
-      return policy;
+      return 'never';
     }
   }
-  // Unknown endpoints default to live fetch (safe fallback)
-  return 'never';
+  return 'always';
 }
 
 /**
