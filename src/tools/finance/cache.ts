@@ -1,10 +1,9 @@
 /**
  * Local file cache for financial API responses.
  *
- * Sits between callApi() and the network to avoid redundant fetches.
- * Only provably immutable data is cached:
- *   - Historical prices with a fully-elapsed date window
- *   - SEC filing items identified by accession number
+ * Pure storage layer — knows HOW to cache, not WHAT to cache.
+ * Callers opt in by passing `{ cacheable: true }` to callApi();
+ * the cache module unconditionally stores and retrieves keyed JSON.
  *
  * Cache files live in .dexter/cache/ (already gitignored via .dexter/*).
  */
@@ -29,50 +28,7 @@ interface CacheEntry {
   cachedAt: string;
 }
 
-// ============================================================================
-// Cache Policy
-// ============================================================================
-
-/**
- * Price endpoints eligible for caching. Uses an include-list so new
- * endpoints are uncached by default (fail-open, not fail-closed).
- */
-const CACHEABLE_PRICE_ENDPOINTS = ['/prices/', '/crypto/prices/'];
-
 const CACHE_DIR = '.dexter/cache';
-
-/**
- * Determine whether a request is safe to cache.
- *
- * A request is cacheable when its data is provably immutable:
- *   1. Historical prices — cache when `end_date` is strictly before today.
- *      Once a trading day closes its OHLCV data is final.
- *   2. SEC filing items — cache when `accession_number` is present.
- *      Filed SEC documents are legally immutable.
- */
-export function isCacheable(
-  endpoint: string,
-  params: Record<string, string | number | string[] | undefined>
-): boolean {
-  // Historical prices: cache when the date window is fully closed
-  if (CACHEABLE_PRICE_ENDPOINTS.includes(endpoint)) {
-    const endDate = params.end_date;
-    if (typeof endDate !== 'string') return false;
-
-    const end = new Date(endDate + 'T00:00:00');
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    return end < today;
-  }
-
-  // SEC filing items: cache when accession_number identifies a specific filing
-  if (endpoint === '/filings/items/') {
-    return typeof params.accession_number === 'string';
-  }
-
-  return false;
-}
 
 // ============================================================================
 // Helpers
@@ -157,15 +113,13 @@ function removeCacheFile(filepath: string): void {
 // ============================================================================
 
 /**
- * Read a cached API response if it exists and is still valid.
+ * Read a cached API response if it exists.
  * Returns null on cache miss or any read/parse error.
  */
 export function readCache(
   endpoint: string,
   params: Record<string, string | number | string[] | undefined>
 ): { data: Record<string, unknown>; url: string } | null {
-  if (!isCacheable(endpoint, params)) return null;
-
   const cacheKey = buildCacheKey(endpoint, params);
   const filepath = join(CACHE_DIR, cacheKey);
   const label = describeRequest(endpoint, params);
@@ -197,8 +151,8 @@ export function readCache(
 
 /**
  * Write an API response to the cache.
- * Skips if the request is not cacheable. Logs on I/O errors
- * but never throws — cache writes must not break the application.
+ * Logs on I/O errors but never throws — cache writes must not
+ * break the application.
  */
 export function writeCache(
   endpoint: string,
@@ -206,8 +160,6 @@ export function writeCache(
   data: Record<string, unknown>,
   url: string
 ): void {
-  if (!isCacheable(endpoint, params)) return;
-
   const cacheKey = buildCacheKey(endpoint, params);
   const filepath = join(CACHE_DIR, cacheKey);
   const label = describeRequest(endpoint, params);

@@ -1,69 +1,9 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { existsSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
-import { isCacheable, buildCacheKey, readCache, writeCache } from './cache.js';
+import { buildCacheKey, readCache, writeCache } from './cache.js';
 
 const TEST_CACHE_DIR = '.dexter/cache';
-
-/** Helper: yesterday's date as YYYY-MM-DD */
-function yesterday(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
-
-/** Helper: today's date as YYYY-MM-DD */
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-/** Helper: tomorrow's date as YYYY-MM-DD */
-function tomorrow(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
-}
-
-// ---------------------------------------------------------------------------
-// isCacheable
-// ---------------------------------------------------------------------------
-
-describe('isCacheable', () => {
-  test('returns true for /prices/ with end_date in the past', () => {
-    expect(isCacheable('/prices/', { ticker: 'AAPL', start_date: '2024-01-01', end_date: yesterday() })).toBe(true);
-  });
-
-  test('returns true for /crypto/prices/ with end_date in the past', () => {
-    expect(isCacheable('/crypto/prices/', { ticker: 'BTC-USD', start_date: '2024-01-01', end_date: '2024-12-31' })).toBe(true);
-  });
-
-  test('returns false for /prices/ with end_date = today', () => {
-    expect(isCacheable('/prices/', { ticker: 'AAPL', start_date: '2024-01-01', end_date: today() })).toBe(false);
-  });
-
-  test('returns false for /prices/ with end_date in the future', () => {
-    expect(isCacheable('/prices/', { ticker: 'AAPL', start_date: '2024-01-01', end_date: tomorrow() })).toBe(false);
-  });
-
-  test('returns false for /prices/ without end_date', () => {
-    expect(isCacheable('/prices/', { ticker: 'AAPL', start_date: '2024-01-01' })).toBe(false);
-  });
-
-  test('returns false for non-price endpoints', () => {
-    expect(isCacheable('/financials/income-statements/', { ticker: 'AAPL', period: 'annual', limit: 4 })).toBe(false);
-    expect(isCacheable('/prices/snapshot/', { ticker: 'AAPL' })).toBe(false);
-    expect(isCacheable('/news/', { ticker: 'AAPL' })).toBe(false);
-    expect(isCacheable('/financial-metrics/', { ticker: 'AAPL', period: 'annual' })).toBe(false);
-    expect(isCacheable('/insider-trades/', { ticker: 'AAPL' })).toBe(false);
-    expect(isCacheable('/filings/', { ticker: 'AAPL' })).toBe(false);
-    expect(isCacheable('/analyst-estimates/', { ticker: 'AAPL' })).toBe(false);
-    expect(isCacheable('/company/facts', { ticker: 'AAPL' })).toBe(false);
-  });
-
-  test('returns false for /crypto/prices/snapshot/ (not an exact match)', () => {
-    expect(isCacheable('/crypto/prices/snapshot/', { ticker: 'BTC-USD' })).toBe(false);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // buildCacheKey
@@ -108,7 +48,6 @@ describe('buildCacheKey', () => {
 
 describe('readCache / writeCache', () => {
   beforeEach(() => {
-    // Clean up test cache dir before each test
     if (existsSync(TEST_CACHE_DIR)) {
       rmSync(TEST_CACHE_DIR, { recursive: true });
     }
@@ -120,9 +59,9 @@ describe('readCache / writeCache', () => {
     }
   });
 
-  test('round-trips data for a cacheable request', () => {
+  test('round-trips data through write then read', () => {
     const endpoint = '/prices/';
-    const params = { ticker: 'AAPL', start_date: '2024-01-01', end_date: yesterday(), interval: 'day', interval_multiplier: 1 };
+    const params = { ticker: 'AAPL', start_date: '2024-01-01', end_date: '2024-12-31', interval: 'day', interval_multiplier: 1 };
     const data = { prices: [{ open: 100, close: 105, high: 106, low: 99 }] };
     const url = 'https://api.financialdatasets.ai/prices/?ticker=AAPL&start_date=2024-01-01&end_date=2024-12-31';
 
@@ -134,40 +73,15 @@ describe('readCache / writeCache', () => {
     expect(cached!.url).toBe(url);
   });
 
-  test('returns null for non-cacheable endpoint even after writeCache', () => {
-    const endpoint = '/financials/income-statements/';
-    const params = { ticker: 'AAPL', period: 'annual', limit: 4 };
-    const data = { income_statements: [] };
-    const url = 'https://api.financialdatasets.ai/financials/income-statements/?ticker=AAPL';
-
-    writeCache(endpoint, params, data, url);
-    const cached = readCache(endpoint, params);
-
-    expect(cached).toBeNull();
-  });
-
-  test('returns null for prices with end_date = today', () => {
-    const endpoint = '/prices/';
-    const params = { ticker: 'AAPL', start_date: '2024-01-01', end_date: today() };
-    const data = { prices: [] };
-    const url = 'https://example.com';
-
-    writeCache(endpoint, params, data, url);
-    const cached = readCache(endpoint, params);
-
-    expect(cached).toBeNull();
-  });
-
   test('returns null on cache miss (no file)', () => {
-    const cached = readCache('/prices/', { ticker: 'AAPL', start_date: '2024-01-01', end_date: yesterday() });
+    const cached = readCache('/prices/', { ticker: 'AAPL', start_date: '2024-01-01', end_date: '2024-12-31' });
     expect(cached).toBeNull();
   });
 
   test('returns null and removes file when cache entry is corrupted JSON', () => {
     const endpoint = '/prices/';
-    const params = { ticker: 'AAPL', start_date: '2024-01-01', end_date: yesterday(), interval: 'day', interval_multiplier: 1 };
+    const params = { ticker: 'AAPL', start_date: '2024-01-01', end_date: '2024-12-31', interval: 'day', interval_multiplier: 1 };
 
-    // Write a corrupted file directly
     const key = buildCacheKey(endpoint, params);
     const filepath = join(TEST_CACHE_DIR, key);
     const dir = join(TEST_CACHE_DIR, key.split('/')[0]!);
@@ -181,9 +95,8 @@ describe('readCache / writeCache', () => {
 
   test('returns null and removes file when cache entry has invalid structure', () => {
     const endpoint = '/prices/';
-    const params = { ticker: 'AAPL', start_date: '2024-01-01', end_date: yesterday(), interval: 'day', interval_multiplier: 1 };
+    const params = { ticker: 'AAPL', start_date: '2024-01-01', end_date: '2024-12-31', interval: 'day', interval_multiplier: 1 };
 
-    // Write a valid JSON file with wrong shape
     const key = buildCacheKey(endpoint, params);
     const filepath = join(TEST_CACHE_DIR, key);
     const dir = join(TEST_CACHE_DIR, key.split('/')[0]!);

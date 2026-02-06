@@ -85,7 +85,8 @@ export const get10KFilingItems = new DynamicStructuredTool({
       accession_number: input.accession_number,
       item: input.items, // API expects 'item' not 'items'
     };
-    const { data, url } = await callApi('/filings/items/', params);
+    // SEC filings are legally immutable once filed
+    const { data, url } = await callApi('/filings/items/', params, { cacheable: true });
     return formatToolResult(data, [url]);
   },
 });
@@ -116,7 +117,8 @@ export const get10QFilingItems = new DynamicStructuredTool({
       accession_number: input.accession_number,
       item: input.items, // API expects 'item' not 'items'
     };
-    const { data, url } = await callApi('/filings/items/', params);
+    // SEC filings are legally immutable once filed
+    const { data, url } = await callApi('/filings/items/', params, { cacheable: true });
     return formatToolResult(data, [url]);
   },
 });
@@ -140,7 +142,8 @@ export const get8KFilingItems = new DynamicStructuredTool({
       filing_type: '8-K',
       accession_number: input.accession_number,
     };
-    const { data, url } = await callApi('/filings/items/', params);
+    // SEC filings are legally immutable once filed
+    const { data, url } = await callApi('/filings/items/', params, { cacheable: true });
     return formatToolResult(data, [url]);
   },
 });

@@ -10,14 +10,17 @@ export interface ApiResponse {
 
 export async function callApi(
   endpoint: string,
-  params: Record<string, string | number | string[] | undefined>
+  params: Record<string, string | number | string[] | undefined>,
+  options?: { cacheable?: boolean }
 ): Promise<ApiResponse> {
   const label = describeRequest(endpoint, params);
 
-  // Check local cache first — avoids redundant network calls for historical data
-  const cached = readCache(endpoint, params);
-  if (cached) {
-    return cached;
+  // Check local cache first — avoids redundant network calls for immutable data
+  if (options?.cacheable) {
+    const cached = readCache(endpoint, params);
+    if (cached) {
+      return cached;
+    }
   }
 
   // Read API key lazily at call time (after dotenv has loaded)
@@ -65,8 +68,10 @@ export async function callApi(
     throw new Error(`API request failed: ${detail}`);
   });
 
-  // Cache the response for future requests (no-op for real-time endpoints)
-  writeCache(endpoint, params, data, url.toString());
+  // Persist for future requests when the caller marked the response as cacheable
+  if (options?.cacheable) {
+    writeCache(endpoint, params, data, url.toString());
+  }
 
   return { data, url: url.toString() };
 }
