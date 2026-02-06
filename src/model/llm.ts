@@ -3,6 +3,7 @@ import { ChatAnthropic } from '@langchain/anthropic';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { ChatOllama } from '@langchain/ollama';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
+import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { Runnable } from '@langchain/core/runnables';
@@ -156,14 +157,29 @@ function extractUsage(result: unknown): TokenUsage | undefined {
   return undefined;
 }
 
+/**
+ * Build messages with Anthropic cache_control on the system prompt.
+ * Marks the system prompt as ephemeral so Anthropic caches the prefix,
+ * reducing input token costs by ~90% on subsequent calls.
+ */
+function buildAnthropicMessages(systemPrompt: string, userPrompt: string) {
+  return [
+    new SystemMessage({
+      content: [
+        {
+          type: 'text' as const,
+          text: systemPrompt,
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
+    }),
+    new HumanMessage(userPrompt),
+  ];
+}
+
 export async function callLlm(prompt: string, options: CallLlmOptions = {}): Promise<LlmResult> {
   const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools, signal } = options;
   const finalSystemPrompt = systemPrompt || DEFAULT_SYSTEM_PROMPT;
-
-  const promptTemplate = ChatPromptTemplate.fromMessages([
-    ['system', finalSystemPrompt],
-    ['user', '{prompt}'],
-  ]);
 
   const llm = getChatModel(model, false);
 
@@ -176,9 +192,22 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
     runnable = llm.bindTools(tools);
   }
 
-  const chain = promptTemplate.pipe(runnable);
+  const invokeOpts = signal ? { signal } : undefined;
+  let result;
 
-  const result = await withRetry(() => chain.invoke({ prompt }, signal ? { signal } : undefined));
+  if (model.startsWith('claude-')) {
+    // Anthropic: use explicit messages with cache_control for prompt caching (~90% savings)
+    const messages = buildAnthropicMessages(finalSystemPrompt, prompt);
+    result = await withRetry(() => runnable.invoke(messages, invokeOpts));
+  } else {
+    // Other providers: use ChatPromptTemplate (OpenAI/Gemini have automatic caching)
+    const promptTemplate = ChatPromptTemplate.fromMessages([
+      ['system', finalSystemPrompt],
+      ['user', '{prompt}'],
+    ]);
+    const chain = promptTemplate.pipe(runnable);
+    result = await withRetry(() => chain.invoke({ prompt }, invokeOpts));
+  }
   const usage = extractUsage(result);
 
   // If no outputSchema and no tools, extract content from AIMessage
