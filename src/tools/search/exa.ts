@@ -10,8 +10,11 @@ let exaTool: ExaSearchResults | null = null;
 function getExaTool(): ExaSearchResults {
   if (!exaTool) {
     const client = new Exa(process.env.EXASEARCH_API_KEY);
+    // exa-js@2.x (root) vs exa-js@1.x (inside @langchain/exa) have
+    // incompatible private fields but are compatible at runtime.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     exaTool = new ExaSearchResults({
-      client,
+      client: client as any,
       searchArgs: { numResults: 5, text: true },
     });
   }

@@ -7,7 +7,7 @@ import { buildSystemPrompt, buildIterationPrompt, buildFinalAnswerPrompt } from 
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { getToolDescription } from '../utils/tool-description.js';
-import { estimateTokens, TOKEN_BUDGET, CONTEXT_THRESHOLD, KEEP_TOOL_USES } from '../utils/tokens.js';
+import { estimateTokens, CONTEXT_THRESHOLD, KEEP_TOOL_USES } from '../utils/tokens.js';
 import { createProgressChannel } from '../utils/progress-channel.js';
 import type { AgentConfig, AgentEvent, ToolStartEvent, ToolProgressEvent, ToolEndEvent, ToolErrorEvent, ToolLimitEvent, ContextClearedEvent } from '../agent/types.js';
 
