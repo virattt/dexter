@@ -1,8 +1,8 @@
 /**
- * Local file cache for financial API responses.
+ * Local file cache for API responses.
  *
  * Pure storage layer — knows HOW to cache, not WHAT to cache.
- * Callers opt in by passing `{ cacheable: true }` to callApi();
+ * Callers opt in by passing `{ cacheable: true }` to API calls;
  * the cache module unconditionally stores and retrieves keyed JSON.
  *
  * Cache files live in .dexter/cache/ (already gitignored via .dexter/*).
@@ -10,7 +10,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 import { createHash } from 'crypto';
-import { logger } from '../../utils/logger.js';
+import { logger } from './logger.js';
 
 // ============================================================================
 // Types
@@ -36,7 +36,8 @@ const CACHE_DIR = '.dexter/cache';
 
 /**
  * Build a human-readable label for log messages.
- * Example: "/prices/ (AAPL)"
+ * If params contains a 'ticker' field, includes it for readability.
+ * Example: "/prices/ (AAPL)" or "/search/"
  */
 export function describeRequest(
   endpoint: string,
@@ -50,7 +51,9 @@ export function describeRequest(
  * Generate a deterministic cache key from endpoint + params.
  * Params are sorted alphabetically so insertion order doesn't matter.
  *
- * Resulting path:  {clean_endpoint}/{TICKER_}{hash}.json
+ * If params contains a 'ticker' field, it's used as a prefix for human-readable filenames.
+ * Resulting path:  {clean_endpoint}/{TICKER_}{hash}.json (if ticker present)
+ *                  {clean_endpoint}/{hash}.json (otherwise)
  * Example:         prices/AAPL_a1b2c3d4e5f6.json
  */
 export function buildCacheKey(
@@ -73,7 +76,7 @@ export function buildCacheKey(
     .replace(/\/$/, '')
     .replace(/\//g, '_');
 
-  // Prefix with ticker when available for human-readable filenames
+  // Prefix with ticker when available for human-readable filenames (optional)
   const ticker = typeof params.ticker === 'string' ? params.ticker.toUpperCase() : null;
   const prefix = ticker ? `${ticker}_` : '';
 
