@@ -115,7 +115,7 @@ function buildCacheKey(
   const sortedParams = Object.entries(params)
     .filter(([, v]) => v !== undefined && v !== null)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([k, v]) => `${k}=${Array.isArray(v) ? v.sort().join(',') : v}`)
+    .map(([k, v]) => `${k}=${Array.isArray(v) ? [...v].sort().join(',') : v}`)
     .join('&');
 
   const raw = `${endpoint}?${sortedParams}`;
