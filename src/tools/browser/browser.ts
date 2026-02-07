@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { chromium, Browser, Page } from 'playwright';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
+import { readCache, writeCache } from '../../utils/cache.js';
 
 let browser: Browser | null = null;
 let page: Page | null = null;
@@ -25,7 +26,7 @@ interface PageWithSnapshotForAI extends Page {
  */
 async function ensureBrowser(): Promise<Page> {
   if (!browser) {
-    browser = await chromium.launch({ headless: false });
+    browser = await chromium.launch({ headless: true });
   }
   if (!page) {
     const context = await browser.newContext();
@@ -165,13 +166,41 @@ export const browserTool = new DynamicStructuredTool({
           if (!url) {
             return formatToolResult({ error: 'url is required for navigate action' });
           }
+
+          // Check cache first
+          const cacheKey = { url };
+          const cached = readCache('browser/navigate', cacheKey);
+          if (cached) {
+            return formatToolResult({
+              ok: true,
+              cached: true,
+              url: cached.url,
+              ...cached.data,
+              hint: 'Page loaded from cache. Call snapshot to see page structure.',
+            });
+          }
+
           const p = await ensureBrowser();
-          // Use networkidle for better JS rendering on dynamic sites
           await p.goto(url, { timeout: 30000, waitUntil: 'networkidle' });
-          return formatToolResult({
+
+          // Take a snapshot and cache it
+          const { snapshot, truncated } = await takeSnapshot(p, maxChars);
+          const result = {
             ok: true,
+            cached: false,
             url: p.url(),
             title: await p.title(),
+            snapshot,
+            truncated,
+            refCount: currentRefs.size,
+            refs: Object.fromEntries(currentRefs),
+          };
+
+          // Cache the result for next time
+          writeCache('browser/navigate', cacheKey, result, p.url());
+
+          return formatToolResult({
+            ...result,
             hint: 'Page loaded. Call snapshot to see page structure and find elements to interact with.',
           });
         }
@@ -287,6 +316,20 @@ export const browserTool = new DynamicStructuredTool({
 
         case 'read': {
           const p = await ensureBrowser();
+          const currentUrl = p.url();
+
+          // Check cache first
+          const cacheKey = { url: currentUrl };
+          const cached = readCache('browser/read', cacheKey);
+          if (cached) {
+            return formatToolResult({
+              ok: true,
+              cached: true,
+              url: cached.url,
+              ...cached.data,
+            });
+          }
+
           // Wait for content to be fully loaded
           await p.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
           
@@ -295,11 +338,17 @@ export const browserTool = new DynamicStructuredTool({
             const main = document.querySelector('main, article, [role="main"], .content, #content') as HTMLElement | null;
             return (main || document.body).innerText;
           });
-          return formatToolResult({
-            url: p.url(),
+
+          const result = {
+            url: currentUrl,
             title: await p.title(),
             content,
-          });
+          };
+
+          // Cache the result
+          writeCache('browser/read', cacheKey, result, currentUrl);
+
+          return formatToolResult(result);
         }
 
         case 'close': {
