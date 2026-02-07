@@ -22,10 +22,10 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 
 **Key Capabilities:**
 - **Intelligent Task Planning**: Automatically decomposes complex queries into structured research steps
-- **Autonomous Execution**: Selects and executes the right tools to gather financial data
-- **Self-Validation**: Checks its own work and iterates until tasks are complete
+- **Autonomous Execution**: Selects and executes the right tools to gather financial data without manual intervention
+- **Self-Validation**: Checks its own work and iterates until tasks are complete and accurate
 - **Real-Time Financial Data**: Access to income statements, balance sheets, and cash flow statements
-- **Safety Features**: Built-in loop detection and step limits to prevent runaway execution
+- **Safety Features**: Built-in loop detection and step limits to prevent runaway execution and minimize token waste
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt)
 
