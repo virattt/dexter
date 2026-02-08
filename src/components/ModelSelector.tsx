@@ -47,6 +47,13 @@ const PROVIDERS: Provider[] = [
     ],
   },
   {
+    displayName: 'Moonshot',
+    providerId: 'moonshot',
+    models: [
+      { id: 'kimi-k2-5', displayName: 'Kimi K2.5' },
+    ],
+  },
+  {
     displayName: 'OpenRouter',
     providerId: 'openrouter',
     models: [], // User types model name directly
