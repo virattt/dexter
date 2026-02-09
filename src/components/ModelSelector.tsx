@@ -54,6 +54,14 @@ const PROVIDERS: Provider[] = [
     ],
   },
   {
+    displayName: 'DeepSeek',
+    providerId: 'deepseek',
+    models: [
+      { id: 'deepseek-chat', displayName: 'DeepSeek V3' },
+      { id: 'deepseek-reasoner', displayName: 'DeepSeek R1' },
+    ],
+  },
+  {
     displayName: 'OpenRouter',
     providerId: 'openrouter',
     models: [], // User types model name directly
