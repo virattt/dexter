@@ -10,7 +10,8 @@ import { StructuredToolInterface } from '@langchain/core/tools';
 import { Runnable } from '@langchain/core/runnables';
 import { z } from 'zod';
 import { DEFAULT_SYSTEM_PROMPT } from '@/agent/prompts';
-import type { TokenUsage } from '../agent/types.js';
+import type { TokenUsage } from '@/agent/types';
+import { logger } from '@/utils';
 
 export const DEFAULT_PROVIDER = 'openai';
 export const DEFAULT_MODEL = 'gpt-5.2';
@@ -34,13 +35,31 @@ export function getFastModel(modelProvider: string, fallbackModel: string): stri
   return FAST_MODELS[modelProvider] ?? fallbackModel;
 }
 
+/**
+ * Identifies the provider name based on the model name.
+ */
+function identifyProvider(modelName: string): string {
+  if (modelName.startsWith('claude-')) return 'Anthropic';
+  if (modelName.startsWith('gemini-')) return 'Google';
+  if (modelName.startsWith('grok-')) return 'xAI';
+  if (modelName.startsWith('openrouter:')) return 'OpenRouter';
+  if (modelName.startsWith('kimi-')) return 'Moonshot';
+  if (modelName.startsWith('ollama:')) return 'Ollama';
+  return 'OpenAI';
+}
+
 // Generic retry helper with exponential backoff
-async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, provider: string, maxAttempts = 3): Promise<T> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       return await fn();
     } catch (e) {
-      if (attempt === maxAttempts - 1) throw e;
+      const message = e instanceof Error ? e.message : String(e);
+      logger.error(`[${provider} API] error (attempt ${attempt + 1}/${maxAttempts}): ${message}`);
+
+      if (attempt === maxAttempts - 1) {
+        throw new Error(`[${provider} API] ${message}`);
+      }
       await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
     }
   }
@@ -213,12 +232,13 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
   }
 
   const invokeOpts = signal ? { signal } : undefined;
+  const provider = identifyProvider(model);
   let result;
 
   if (model.startsWith('claude-')) {
     // Anthropic: use explicit messages with cache_control for prompt caching (~90% savings)
     const messages = buildAnthropicMessages(finalSystemPrompt, prompt);
-    result = await withRetry(() => runnable.invoke(messages, invokeOpts));
+    result = await withRetry(() => runnable.invoke(messages, invokeOpts), provider);
   } else {
     // Other providers: use ChatPromptTemplate (OpenAI/Gemini have automatic caching)
     const promptTemplate = ChatPromptTemplate.fromMessages([
@@ -226,7 +246,7 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
       ['user', '{prompt}'],
     ]);
     const chain = promptTemplate.pipe(runnable);
-    result = await withRetry(() => chain.invoke({ prompt }, invokeOpts));
+    result = await withRetry(() => chain.invoke({ prompt }, invokeOpts), provider);
   }
   const usage = extractUsage(result);
 

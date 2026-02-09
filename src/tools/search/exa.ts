@@ -3,6 +3,7 @@ import { ExaSearchResults } from '@langchain/exa';
 import Exa from 'exa-js';
 import { z } from 'zod';
 import { formatToolResult, parseSearchResults } from '../types.js';
+import { logger } from '@/utils';
 
 // Lazily initialized to avoid errors when API key is not set
 let exaTool: ExaSearchResults | null = null;
@@ -29,8 +30,14 @@ export const exaSearch = new DynamicStructuredTool({
     query: z.string().describe('The search query to look up on the web'),
   }),
   func: async (input) => {
-    const result = await getExaTool().invoke(input.query);
-    const { parsed, urls } = parseSearchResults(result);
-    return formatToolResult(parsed, urls);
+    try {
+      const result = await getExaTool().invoke(input.query);
+      const { parsed, urls } = parseSearchResults(result);
+      return formatToolResult(parsed, urls);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(`[Exa API] error: ${message}`);
+      throw new Error(`[Exa API] ${message}`);
+    }
   },
 });
