@@ -83,7 +83,7 @@ cp env.example .env
 # XAI_API_KEY=your-xai-api-key (optional)
 # OPENROUTER_API_KEY=your-openrouter-api-key (optional)
 
-# Real-time institutional-grade market data; AAPL, NVDA, MSFT are free
+# Institutional-grade market data for agents; AAPL, NVDA, MSFT are free
 # FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
 
 # (Optional) If using Ollama locally
