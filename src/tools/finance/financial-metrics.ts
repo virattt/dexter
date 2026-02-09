@@ -17,12 +17,12 @@ import { getKeyRatiosSnapshot, getKeyRatios } from './key-ratios.js';
 
 // Fundamental analysis tools available for routing
 const METRICS_TOOLS: StructuredToolInterface[] = [
-  // Financial Statements
+  // Financial Statements (SEC EDGAR XBRL)
   getIncomeStatements,
   getBalanceSheets,
   getCashFlowStatements,
   getAllFinancialStatements,
-  // Key Ratios
+  // Key Ratios (EDGAR + Yahoo Finance)
   getKeyRatiosSnapshot,
   getKeyRatios,
 ];
@@ -37,6 +37,11 @@ Current date: ${getCurrentDate()}
 
 Given a user's natural language query about financial statements or metrics, call the appropriate tool(s).
 
+## Data Sources
+- **Financial statements** come from SEC EDGAR XBRL data (free, comprehensive, official filings)
+- **Key ratios snapshot** combines EDGAR fundamentals with Yahoo Finance price data for P/E, market cap
+- **Historical ratios** are computed from EDGAR data only (no historical prices available for P/E)
+
 ## Guidelines
 
 1. **Ticker Resolution**: Convert company names to ticker symbols:
@@ -50,8 +55,8 @@ Given a user's natural language query about financial statements or metrics, cal
    - "YTD" → report_period_gte Jan 1 of current year
 
 3. **Tool Selection**:
-   - For "current" or "latest" metrics → get_key_ratios_snapshot
-   - For historical metrics over time → get_key_ratios
+   - For "current" or "latest" metrics with P/E and market cap → get_key_ratios_snapshot
+   - For historical margins/ratios over time → get_key_ratios
    - For revenue, earnings, profitability → get_income_statements
    - For debt, assets, equity, cash position → get_balance_sheets
    - For cash flow, free cash flow, operating cash → get_cash_flow_statements
@@ -62,7 +67,12 @@ Given a user's natural language query about financial statements or metrics, cal
    - Use "quarterly" for recent performance or seasonal analysis
    - Use "ttm" (trailing twelve months) for current state metrics
 
-5. **Efficiency**:
+5. **Limitations**:
+   - Analyst estimates are NOT available
+   - Historical P/E and EV/EBITDA require price data — only current snapshot has them
+   - Revenue segments are NOT available
+
+6. **Efficiency**:
    - Prefer specific statement tools over get_all_financial_statements when possible
    - Use get_all_financial_statements when multiple statement types are needed
    - For comparisons between companies, call the same tool for each ticker
@@ -82,13 +92,14 @@ const FinancialMetricsInputSchema = z.object({
 export function createFinancialMetrics(model: string): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: 'financial_metrics',
-    description: `Intelligent agentic search for fundamental analysis. Takes a natural language query and automatically routes to financial statements and key ratios tools. Use for:
+    description: `Intelligent agentic search for fundamental analysis. Data sourced from SEC EDGAR XBRL filings and Yahoo Finance. Takes a natural language query and routes to financial statements and key ratios tools. Use for:
 - Income statements (revenue, gross profit, operating income, net income, EPS)
 - Balance sheets (assets, liabilities, equity, debt, cash)
 - Cash flow statements (operating, investing, financing activities, free cash flow)
-- Key ratios (P/E, EV/EBITDA, ROE, ROA, margins, dividend yield)
+- Key ratios (margins, ROE, ROA, current ratio, debt-to-equity, and P/E via Yahoo Finance)
 - Multi-period trend analysis
-- Multi-company fundamental comparisons`,
+- Multi-company fundamental comparisons
+Note: Analyst estimates and revenue segments are not available.`,
     schema: FinancialMetricsInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
       const onProgress = config?.metadata?.onProgress as ((msg: string) => void) | undefined;

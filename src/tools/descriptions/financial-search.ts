@@ -3,19 +3,18 @@
  * Used in the system prompt to guide the LLM on when and how to use this tool.
  */
 export const FINANCIAL_SEARCH_DESCRIPTION = `
-Intelligent meta-tool for financial data research. Takes a natural language query and automatically routes to appropriate financial data sources including stock prices, company financials, SEC filings, analyst estimates, and more.
+Intelligent meta-tool for financial data research. Takes a natural language query and automatically routes to appropriate data sources: SEC EDGAR for fundamentals, Yahoo Finance for prices, and Finnhub for news.
 
 ## When to Use
 
-- Company facts (sector, industry, market cap, number of employees, listing date, exchange, location, weighted average shares, website)
-- Stock prices (current snapshots or historical data)
-- Company financials (income statements, balance sheets, cash flow statements)
-- Financial metrics (P/E ratio, market cap, EPS, dividend yield, enterprise value)
-- Analyst estimates and price targets
-- Company news and announcements
-- Insider trading activity
-- Cryptocurrency prices
-- Revenue segment breakdowns
+- Company facts (name, CIK, SIC code, state, fiscal year end, exchanges, addresses)
+- Stock prices (current snapshots or historical data, via Yahoo Finance)
+- Company financials (income statements, balance sheets, cash flow from SEC EDGAR XBRL)
+- Financial metrics (margins, ROE, ROA, current ratio, debt-to-equity, EPS from EDGAR)
+- Current P/E ratio and market cap (via Yahoo Finance + EDGAR)
+- Company news (via Finnhub, requires FINNHUB_API_KEY)
+- Insider trading activity (Form 4 filings from SEC EDGAR)
+- Cryptocurrency prices (via Yahoo Finance, e.g., BTC-USD, ETH-USD)
 - Multi-company comparisons (pass the full query, it handles routing internally)
 
 ## When NOT to Use
@@ -23,7 +22,8 @@ Intelligent meta-tool for financial data research. Takes a natural language quer
 - General web searches or non-financial topics (use web_search instead)
 - Questions that don't require external financial data (answer directly from knowledge)
 - Non-public company information
-- Real-time trading or order execution
+- Analyst estimates or price targets (not available)
+- Revenue segment breakdowns (not available)
 
 ## Usage Notes
 
@@ -32,4 +32,7 @@ Intelligent meta-tool for financial data research. Takes a natural language quer
 - Handles ticker resolution automatically (Apple -> AAPL, Microsoft -> MSFT)
 - Handles date inference (e.g., "last quarter", "past 5 years", "YTD")
 - Returns structured JSON data with source URLs for verification
+- Financial statements come from official SEC EDGAR XBRL filings
+- Price data comes from Yahoo Finance (no API key required)
+- News requires FINNHUB_API_KEY environment variable
 `.trim();

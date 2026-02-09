@@ -53,11 +53,11 @@ function buildStep2Prompt(
   itemTypes: FilingItemTypes
 ): string {
   const escapedFilings = escapeTemplateVars(JSON.stringify(filingsData, null, 2));
-  
+
   // Format item types for the prompt
   const format10K = itemTypes['10-K'].map(i => `${i.name} (${i.title})`).join(', ');
   const format10Q = itemTypes['10-Q'].map(i => `${i.name} (${i.title})`).join(', ');
-  
+
   return `You are a SEC filings content retrieval assistant.
 Current date: ${getCurrentDate()}
 
@@ -76,15 +76,16 @@ ${escapedFilings}
 
 1. Select the most relevant filing(s) based on the original query
 2. Maximum 3 filings to read
-3. **Always specify items** when the query targets specific sections - don't fetch entire filings unnecessarily:
+3. The filing tools return EDGAR archive URLs and metadata — they do not return parsed text content.
+   The returned URLs can be used with the browser tool to read actual filing content.
+4. **Always specify items** when the query targets specific sections:
    - Risk factors → items: ["Item-1A"]
    - Business description → items: ["Item-1"]
    - MD&A → items: ["Item-7"] (10-K) or ["Part-1,Item-2"] (10-Q)
    - Financial statements → items: ["Item-8"] (10-K) or ["Part-1,Item-1"] (10-Q)
-4. If the query is broad or unclear, omit items to get the full filing
 5. Call the appropriate items tool based on filing_type:
    - 10-K filings → get_10K_filing_items
-   - 10-Q filings → get_10Q_filing_items  
+   - 10-Q filings → get_10Q_filing_items
    - 8-K filings → get_8K_filing_items
 
 Call the appropriate filing items tool(s) now.`;
@@ -96,15 +97,15 @@ const ReadFilingsInputSchema = z.object({
 
 /**
  * Create a read_filings tool configured with the specified model.
- * Uses two-step LLM workflow: Step 1 gets filings, Step 2 reads content.
+ * Uses two-step LLM workflow: Step 1 gets filings, Step 2 returns filing URLs and metadata.
  */
 export function createReadFilings(model: string): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: 'read_filings',
-    description: `Intelligent tool for reading SEC filing content. Takes a natural language query and retrieves full text from 10-K, 10-Q, or 8-K filings. Use for:
-- Reading annual reports (10-K): business description, risk factors, MD&A
-- Reading quarterly reports (10-Q): quarterly financials, MD&A
-- Reading current reports (8-K): material events, acquisitions, earnings`,
+    description: `Intelligent tool for accessing SEC filings from EDGAR. Takes a natural language query and retrieves filing metadata and EDGAR archive URLs for 10-K, 10-Q, or 8-K filings. Use for:
+- Annual reports (10-K): business description, risk factors, MD&A
+- Quarterly reports (10-Q): quarterly financials, MD&A
+- Current reports (8-K): material events, acquisitions, earnings`,
     schema: ReadFilingsInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
       const onProgress = config?.metadata?.onProgress as ((msg: string) => void) | undefined;
@@ -127,16 +128,16 @@ export function createReadFilings(model: string): DynamicStructuredTool {
       const filingsCall = step1ToolCalls[0];
       const filingsRaw = await (STEP1_TOOLS[0] as StructuredToolInterface).invoke(filingsCall.args);
       const filingsResult = JSON.parse(typeof filingsRaw === 'string' ? filingsRaw : JSON.stringify(filingsRaw));
-      
+
       if (!filingsResult.data?.length) {
-        return formatToolResult({ 
-          error: 'No filings found', 
-          params: filingsCall.args 
+        return formatToolResult({
+          error: 'No filings found',
+          params: filingsCall.args
         }, filingsResult.sourceUrls || []);
       }
 
-      // Fetch canonical item types for Step 2
-      const itemTypes = await getFilingItemTypes();
+      // Get canonical item types (synchronous — hardcoded data)
+      const itemTypes = getFilingItemTypes();
 
       const filingCount = filingsResult.data.length;
       onProgress?.(`Found ${filingCount} filing${filingCount !== 1 ? 's' : ''}, selecting content to read...`);
@@ -151,7 +152,7 @@ export function createReadFilings(model: string): DynamicStructuredTool {
 
       const step2ToolCalls = step2Message.tool_calls as ToolCall[];
       if (!step2ToolCalls || step2ToolCalls.length === 0) {
-        return formatToolResult({ 
+        return formatToolResult({
           error: 'Failed to select filings to read',
           availableFilings: filingsResult.data,
         }, filingsResult.sourceUrls || []);

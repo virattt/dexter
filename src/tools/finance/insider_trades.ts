@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { callApi } from './api.js';
 import { formatToolResult } from '../types.js';
+import { edgarFetch, resolveCik, submissionsUrl } from './edgar/index.js';
 
 const InsiderTradesInputSchema = z.object({
   ticker: z
@@ -9,45 +9,53 @@ const InsiderTradesInputSchema = z.object({
     .describe("The stock ticker symbol to fetch insider trades for. For example, 'AAPL' for Apple."),
   limit: z
     .number()
-    .default(100)
-    .describe('Maximum number of insider trades to return (default: 100, max: 1000).'),
-  filing_date: z
-    .string()
-    .optional()
-    .describe('Exact filing date to filter by (YYYY-MM-DD).'),
-  filing_date_gte: z
-    .string()
-    .optional()
-    .describe('Filter for trades with filing date greater than or equal to this date (YYYY-MM-DD).'),
-  filing_date_lte: z
-    .string()
-    .optional()
-    .describe('Filter for trades with filing date less than or equal to this date (YYYY-MM-DD).'),
-  filing_date_gt: z
-    .string()
-    .optional()
-    .describe('Filter for trades with filing date greater than this date (YYYY-MM-DD).'),
-  filing_date_lt: z
-    .string()
-    .optional()
-    .describe('Filter for trades with filing date less than this date (YYYY-MM-DD).'),
+    .default(20)
+    .describe('Maximum number of insider trade filings to return (default: 20, max: 50).'),
 });
 
 export const getInsiderTrades = new DynamicStructuredTool({
   name: 'get_insider_trades',
-  description: `Retrieves insider trading transactions for a given company ticker. Insider trades include purchases and sales of company stock by executives, directors, and other insiders. This data is sourced from SEC Form 4 filings. Use filing_date filters to narrow down results by date range.`,
+  description: `Retrieves insider trading activity for a company by fetching Form 4 filings from SEC EDGAR. Returns filing metadata including reporter name, filing date, accession number, and document URL. Note: returns filing metadata only — does not parse the XML transaction details.`,
   schema: InsiderTradesInputSchema,
   func: async (input) => {
-    const params: Record<string, string | number | undefined> = {
-      ticker: input.ticker.toUpperCase(),
-      limit: input.limit,
-      filing_date: input.filing_date,
-      filing_date_gte: input.filing_date_gte,
-      filing_date_lte: input.filing_date_lte,
-      filing_date_gt: input.filing_date_gt,
-      filing_date_lt: input.filing_date_lt,
-    };
-    const { data, url } = await callApi('/insider-trades/', params);
-    return formatToolResult(data.insider_trades || [], [url]);
+    const resolved = await resolveCik(input.ticker);
+    const subUrl = submissionsUrl(resolved.cik);
+    const { data, url } = await edgarFetch(subUrl, {
+      cacheable: true,
+      cacheKey: `edgar/submissions/${input.ticker.toUpperCase()}`,
+      cacheParams: { ticker: input.ticker.toUpperCase() },
+    });
+
+    const sub = data as Record<string, unknown>;
+    const recent = (sub.filings as Record<string, unknown>)?.recent as {
+      accessionNumber: string[];
+      filingDate: string[];
+      form: string[];
+      primaryDocument: string[];
+      primaryDocDescription: string[];
+    } | undefined;
+
+    if (!recent || !recent.accessionNumber) {
+      return formatToolResult([], [url]);
+    }
+
+    // Filter for Form 4 filings (insider trades)
+    const maxLimit = Math.min(input.limit, 50);
+    const form4Filings: Record<string, unknown>[] = [];
+
+    for (let i = 0; i < recent.accessionNumber.length && form4Filings.length < maxLimit; i++) {
+      if (recent.form[i] === '4') {
+        const cleanAccession = recent.accessionNumber[i].replace(/-/g, '');
+        form4Filings.push({
+          accessionNumber: recent.accessionNumber[i],
+          filingDate: recent.filingDate[i],
+          form: recent.form[i],
+          description: recent.primaryDocDescription[i],
+          documentUrl: `https://www.sec.gov/Archives/edgar/data/${resolved.cikRaw}/${cleanAccession}/${recent.primaryDocument[i]}`,
+        });
+      }
+    }
+
+    return formatToolResult(form4Filings, [url]);
   },
 });

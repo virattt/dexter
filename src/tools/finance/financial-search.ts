@@ -16,33 +16,29 @@ import { getIncomeStatements, getBalanceSheets, getCashFlowStatements, getAllFin
 import { getPriceSnapshot, getPrices } from './prices.js';
 import { getKeyRatiosSnapshot, getKeyRatios } from './key-ratios.js';
 import { getNews } from './news.js';
-import { getAnalystEstimates } from './estimates.js';
-import { getSegmentedRevenues } from './segments.js';
-import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
+import { getCryptoPriceSnapshot, getCryptoPrices } from './crypto.js';
 import { getInsiderTrades } from './insider_trades.js';
 import { getCompanyFacts } from './company_facts.js';
 
 // All finance tools available for routing
 const FINANCE_TOOLS: StructuredToolInterface[] = [
-  // Price Data
+  // Price Data (Yahoo Finance)
   getPriceSnapshot,
   getPrices,
   getCryptoPriceSnapshot,
   getCryptoPrices,
-  getCryptoTickers,
-  // Fundamentals
+  // Fundamentals (SEC EDGAR)
   getIncomeStatements,
   getBalanceSheets,
   getCashFlowStatements,
   getAllFinancialStatements,
-  // Key Ratios & Estimates
+  // Key Ratios (EDGAR + Yahoo Finance)
   getKeyRatiosSnapshot,
   getKeyRatios,
-  getAnalystEstimates,
-  // Other Data
+  // News (Finnhub)
   getNews,
+  // Other Data (SEC EDGAR)
   getInsiderTrades,
-  getSegmentedRevenues,
   getCompanyFacts,
 ];
 
@@ -56,11 +52,17 @@ Current date: ${getCurrentDate()}
 
 Given a user's natural language query about financial data, call the appropriate financial tool(s).
 
+## Data Sources
+- **SEC EDGAR** (free): Financial statements (XBRL), company profiles, SEC filings, insider trades
+- **Yahoo Finance** (free): Stock prices, crypto prices, market cap
+- **Finnhub** (free): Company news (requires FINNHUB_API_KEY)
+
 ## Guidelines
 
 1. **Ticker Resolution**: Convert company names to ticker symbols:
    - Apple → AAPL, Tesla → TSLA, Microsoft → MSFT, Amazon → AMZN
    - Google/Alphabet → GOOGL, Meta/Facebook → META, Nvidia → NVDA
+   - For crypto: Bitcoin → BTC-USD, Ethereum → ETH-USD
 
 2. **Date Inference**: Convert relative dates to YYYY-MM-DD format:
    - "last year" → start_date 1 year ago, end_date today
@@ -69,15 +71,22 @@ Given a user's natural language query about financial data, call the appropriate
    - "YTD" → start_date Jan 1 of current year, end_date today
 
 3. **Tool Selection**:
-   - For "current" or "latest" data, use snapshot tools (get_price_snapshot, get_key_ratios_snapshot)
-   - For "historical" or "over time" data, use date-range tools
-   - For P/E ratio, market cap, valuation metrics → get_key_ratios_snapshot
+   - For "current" or "latest" price → get_price_snapshot
+   - For "historical" prices → get_prices
+   - For P/E ratio, market cap + margins → get_key_ratios_snapshot
    - For revenue, earnings, profitability → get_income_statements
    - For debt, assets, equity → get_balance_sheets
    - For cash flow, free cash flow → get_cash_flow_statements
    - For comprehensive analysis → get_all_financial_statements
+   - For company news → get_news
+   - For crypto prices → get_crypto_price_snapshot or get_crypto_prices
 
-4. **Efficiency**:
+4. **Limitations**:
+   - Analyst estimates are NOT available
+   - Revenue segment breakdowns are NOT available
+   - Historical P/E ratios are NOT available (only current via snapshot)
+
+5. **Efficiency**:
    - Prefer specific tools over general ones when possible
    - Use get_all_financial_statements only when multiple statement types needed
    - For comparisons between companies, call the same tool for each ticker
@@ -97,14 +106,13 @@ const FinancialSearchInputSchema = z.object({
 export function createFinancialSearch(model: string): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: 'financial_search',
-    description: `Intelligent agentic search for financial data. Takes a natural language query and automatically routes to appropriate financial data tools. Use for:
-- Stock prices (current or historical)
-- Company financials (income statements, balance sheets, cash flow)
-- Financial metrics (P/E ratio, market cap, EPS, dividend yield)
-- Analyst estimates and price targets
-- Company news
-- Insider trading activity
-- Cryptocurrency prices`,
+    description: `Intelligent agentic search for financial data. Takes a natural language query and automatically routes to appropriate financial data tools. Uses SEC EDGAR for fundamentals, Yahoo Finance for prices, and Finnhub for news. Use for:
+- Stock prices (current or historical, via Yahoo Finance)
+- Company financials (income statements, balance sheets, cash flow from SEC EDGAR)
+- Financial metrics (P/E ratio, market cap, EPS, margins from EDGAR + Yahoo)
+- Company news (via Finnhub)
+- Insider trading activity (from SEC EDGAR)
+- Cryptocurrency prices (via Yahoo Finance)`,
     schema: FinancialSearchInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
       const onProgress = config?.metadata?.onProgress as ((msg: string) => void) | undefined;
