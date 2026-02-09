@@ -22,6 +22,7 @@ const FAST_MODELS: Record<string, string> = {
   google: 'gemini-3-flash-preview',
   xai: 'grok-4-1-fast-reasoning',
   openrouter: 'openrouter:openai/gpt-4o-mini',
+  forge: 'forge:OpenAI/gpt-4o-mini',
 };
 
 /**
@@ -89,6 +90,15 @@ const MODEL_PROVIDERS: Record<string, ModelFactory> = {
       apiKey: getApiKey('OPENROUTER_API_KEY', 'OpenRouter'),
       configuration: {
         baseURL: 'https://openrouter.ai/api/v1',
+      },
+    }),
+  'forge:': (name, opts) =>
+    new ChatOpenAI({
+      model: name.replace(/^forge:/, ''),
+      ...opts,
+      apiKey: getApiKey('FORGE_API_KEY', 'Forge'),
+      configuration: {
+        baseURL: 'https://api.forge.tensorblock.co/v1',
       },
     }),
   'ollama:': (name, opts) =>
