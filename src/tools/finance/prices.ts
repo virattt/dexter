@@ -1,7 +1,9 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import yahooFinance from 'yahoo-finance2';
+import YahooFinance from 'yahoo-finance2';
 import { formatToolResult } from '../types.js';
+
+const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 const PriceSnapshotInputSchema = z.object({
   ticker: z
@@ -61,10 +63,9 @@ export const getPrices = new DynamicStructuredTool({
       period1: input.start_date,
       period2: input.end_date,
       interval: input.interval as '1d' | '1wk' | '1mo',
-    }) as Record<string, unknown>;
+    });
 
-    const quotes = (result.quotes ?? []) as Array<Record<string, unknown>>;
-    const prices = quotes.map((quote) => ({
+    const prices = result.quotes.map((quote) => ({
       date: quote.date instanceof Date ? quote.date.toISOString().split('T')[0] : String(quote.date),
       open: quote.open,
       high: quote.high,

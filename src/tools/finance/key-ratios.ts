@@ -34,15 +34,17 @@ function safeDivide(numerator: number | null, denominator: number | null): numbe
   return numerator / denominator;
 }
 
+import YahooFinance from 'yahoo-finance2';
+
+const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
+
 /** Fetch current stock quote from Yahoo Finance (yahoo-finance2) */
 async function fetchYahooQuote(ticker: string): Promise<{
   price: number | null;
   marketCap: number | null;
 }> {
   try {
-    const yahooFinance = await import('yahoo-finance2');
-    const yf = yahooFinance.default;
-    const quote = await yf.quote(ticker) as Record<string, unknown>;
+    const quote = await yahooFinance.quote(ticker) as Record<string, unknown>;
     return {
       price: (quote.regularMarketPrice as number) ?? null,
       marketCap: (quote.marketCap as number) ?? null,
