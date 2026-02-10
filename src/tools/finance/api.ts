@@ -3,6 +3,11 @@ import { logger } from '../../utils/logger.js';
 
 const BASE_URL = 'https://api.financialdatasets.ai';
 
+function apiError(label: string, detail: string, logPrefix = 'API error'): never {
+  logger.error(`${logPrefix}: ${label} — ${detail}`);
+  throw new Error(`API request failed: ${detail}`);
+}
+
 export interface ApiResponse {
   data: Record<string, unknown>;
   url: string;
@@ -52,21 +57,23 @@ export async function callApi(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error(`API network error: ${label} — ${message}`);
-    throw new Error(`API request failed for ${label}: ${message}`);
+    apiError(label, message, 'API network error');
+  }
+
+  const statusInfo = `${response.status} ${response.statusText}`;
+
+  let data: any;
+  try {
+    data = await response.json();
+  } catch {
+    apiError(label, `invalid JSON (${statusInfo})`, 'API parse error');
   }
 
   if (!response.ok) {
-    const detail = `${response.status} ${response.statusText}`;
-    logger.error(`API error: ${label} — ${detail}`);
-    throw new Error(`API request failed: ${detail}`);
+    const bodyMessage = data.message || data.error || '';
+    const detail = bodyMessage ? `${statusInfo} — ${bodyMessage}` : statusInfo;
+    apiError(label, detail);
   }
-
-  const data = await response.json().catch(() => {
-    const detail = `invalid JSON (${response.status} ${response.statusText})`;
-    logger.error(`API parse error: ${label} — ${detail}`);
-    throw new Error(`API request failed: ${detail}`);
-  });
 
   // Persist for future requests when the caller marked the response as cacheable
   if (options?.cacheable) {
