@@ -64,7 +64,7 @@ const PROVIDERS: Provider[] = [
   {
     displayName: 'OpenRouter',
     providerId: 'openrouter',
-    models: [], // User types model name directly
+    models: [], // Populated dynamically from OpenRouter API
   },
   {
     displayName: 'Ollama',
@@ -269,6 +269,11 @@ export function ModelSelector({ providerId, models, currentModel, onSelect }: Mo
           {providerId === 'ollama' && (
             <Text color={colors.muted}>
               Make sure Ollama is running and you have models downloaded.
+            </Text>
+          )}
+          {providerId === 'openrouter' && (
+            <Text color={colors.muted}>
+              Unable to fetch models from OpenRouter API. Check your internet connection.
             </Text>
           )}
         </Box>

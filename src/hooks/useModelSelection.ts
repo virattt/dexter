@@ -3,6 +3,7 @@ import { getSetting, setSetting } from '../utils/config.js';
 import { getProviderDisplayName, checkApiKeyExistsForProvider, saveApiKeyForProvider } from '../utils/env.js';
 import { getModelsForProvider, getDefaultModelForProvider, type Model } from '../components/ModelSelector.js';
 import { getOllamaModels } from '../utils/ollama.js';
+import { getOpenRouterModels } from '../utils/openrouter.js';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from '../model/llm.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 
@@ -115,11 +116,12 @@ export function useModelSelection(
   const handleProviderSelect = useCallback(async (providerId: string | null) => {
     if (providerId) {
       setPendingProvider(providerId);
-      
-      // OpenRouter uses free-text model input instead of a list
+
       if (providerId === 'openrouter') {
-        setPendingModels([]);
-        setAppState('model_input');
+        // Fetch models from OpenRouter API
+        const openRouterModels = await getOpenRouterModels();
+        setPendingModels(openRouterModels);
+        setAppState('model_select');
       } else if (providerId === 'ollama') {
         // Fetch models from local Ollama API and convert to Model objects
         const ollamaModelIds = await getOllamaModels();
@@ -145,14 +147,29 @@ export function useModelSelection(
       setAppState('provider_select');
       return;
     }
-    
-    // For Ollama, skip API key flow entirely
+
+    // For Ollama, skip API key flow entirely and add prefix
     if (pendingProvider === 'ollama') {
       const fullModelId = `ollama:${modelId}`;
       completeModelSwitch(pendingProvider, fullModelId);
       return;
     }
-    
+
+    // For OpenRouter, add prefix
+    if (pendingProvider === 'openrouter') {
+      const fullModelId = `openrouter:${modelId}`;
+
+      // Check API key for the provider
+      if (checkApiKeyExistsForProvider(pendingProvider)) {
+        completeModelSwitch(pendingProvider, fullModelId);
+      } else {
+        // Need to get API key - store the selected model temporarily
+        setPendingModels([fullModelId]);
+        setAppState('api_key_confirm');
+      }
+      return;
+    }
+
     // For cloud providers, check API key
     if (checkApiKeyExistsForProvider(pendingProvider)) {
       completeModelSwitch(pendingProvider, modelId);
