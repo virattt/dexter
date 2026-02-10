@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { chromium, Browser, Page } from 'playwright';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
+import { logger } from '@/utils';
 
 let browser: Browser | null = null;
 let page: Page | null = null;
@@ -312,7 +313,8 @@ export const browserTool = new DynamicStructuredTool({
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      return formatToolResult({ error: message });
+      logger.error(`[Browser (Playwright)] error: ${message}`);
+      return formatToolResult({ error: `[Browser (Playwright)] ${message}` });
     }
   },
 });

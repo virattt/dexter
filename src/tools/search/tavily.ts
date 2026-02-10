@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { TavilySearch } from '@langchain/tavily';
 import { z } from 'zod';
 import { formatToolResult, parseSearchResults } from '../types.js';
+import { logger } from '../../utils/logger.js';
 
 // Lazily initialized to avoid errors when API key is not set
 let tavilyClient: TavilySearch | null = null;
@@ -21,8 +22,14 @@ export const tavilySearch = new DynamicStructuredTool({
     query: z.string().describe('The search query to look up on the web'),
   }),
   func: async (input) => {
-    const result = await getTavilyClient().invoke({ query: input.query });
-    const { parsed, urls } = parseSearchResults(result);
-    return formatToolResult(parsed, urls);
+    try {
+      const result = await getTavilyClient().invoke({ query: input.query });
+      const { parsed, urls } = parseSearchResults(result);
+      return formatToolResult(parsed, urls);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(`[Tavily API] error: ${message}`);
+      throw new Error(`[Tavily API] ${message}`);
+    }
   },
 });
