@@ -1,13 +1,17 @@
 import { useRef, useState, useCallback } from 'react';
-import { findPrevWordStart } from '../utils/text-navigation.js';
+import { findPrevWordStart, findNextWordEnd } from '../utils/text-navigation.js';
 
 export interface TextBufferActions {
   /** Insert text at the current cursor position */
   insert: (text: string) => void;
   /** Delete the character before the cursor */
   deleteBackward: () => void;
+  /** Delete the character at the cursor */
+  deleteForward: () => void;
   /** Delete from cursor back to start of previous word */
   deleteWordBackward: () => void;
+  /** Delete from cursor forward to end of next word */
+  deleteWordForward: () => void;
   /** Move cursor to an absolute position (clamped to valid range) */
   moveCursor: (position: number) => void;
   /** Clear the buffer and reset cursor to 0 */
@@ -60,6 +64,15 @@ export function useTextBuffer(): UseTextBufferResult {
       }
     },
 
+    deleteForward: () => {
+      if (cursorPos.current < buffer.current.length) {
+        buffer.current =
+          buffer.current.slice(0, cursorPos.current) +
+          buffer.current.slice(cursorPos.current + 1);
+        rerender();
+      }
+    },
+
     deleteWordBackward: () => {
       if (cursorPos.current > 0) {
         const wordStart = findPrevWordStart(buffer.current, cursorPos.current);
@@ -67,6 +80,16 @@ export function useTextBuffer(): UseTextBufferResult {
           buffer.current.slice(0, wordStart) +
           buffer.current.slice(cursorPos.current);
         cursorPos.current = wordStart;
+        rerender();
+      }
+    },
+
+    deleteWordForward: () => {
+      if (cursorPos.current < buffer.current.length) {
+        const wordEnd = findNextWordEnd(buffer.current, cursorPos.current);
+        buffer.current =
+          buffer.current.slice(0, cursorPos.current) +
+          buffer.current.slice(wordEnd);
         rerender();
       }
     },

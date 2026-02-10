@@ -91,14 +91,26 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
     }
 
     // Option+Backspace (Mac) / Ctrl+Backspace (Windows) - delete word backward
-    if ((key.meta || key.ctrl) && (key.backspace || key.delete)) {
+    if ((key.meta || key.ctrl) && key.backspace) {
       actions.deleteWordBackward();
       return;
     }
 
-    // Handle backspace/delete - delete character before cursor
-    if (key.backspace || key.delete) {
+    // Option+Delete (Mac) / Ctrl+Delete (Windows) - delete word forward
+    if ((key.meta || key.ctrl) && key.delete) {
+      actions.deleteWordForward();
+      return;
+    }
+
+    // Backspace - delete character before cursor
+    if (key.backspace) {
       actions.deleteBackward();
+      return;
+    }
+
+    // Delete - delete character at cursor
+    if (key.delete) {
+      actions.deleteForward();
       return;
     }
 
