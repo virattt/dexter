@@ -1,31 +1,16 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { config } from 'dotenv';
+import { getProviderById } from '@/providers';
 
 // Load .env on module import
 config({ quiet: true });
 
-type ProviderConfig = {
-  displayName: string;
-  apiKeyEnvVar?: string;
-};
-
-// Single source of truth for all provider configuration
-const PROVIDERS: Record<string, ProviderConfig> = {
-  openai: { displayName: 'OpenAI', apiKeyEnvVar: 'OPENAI_API_KEY' },
-  anthropic: { displayName: 'Anthropic', apiKeyEnvVar: 'ANTHROPIC_API_KEY' },
-  google: { displayName: 'Google', apiKeyEnvVar: 'GOOGLE_API_KEY' },
-  moonshot: { displayName: 'Moonshot', apiKeyEnvVar: 'MOONSHOT_API_KEY' },
-  deepseek: { displayName: 'DeepSeek', apiKeyEnvVar: 'DEEPSEEK_API_KEY' },
-  openrouter: { displayName: 'OpenRouter', apiKeyEnvVar: 'OPENROUTER_API_KEY' },
-  ollama: { displayName: 'Ollama' },
-};
-
 export function getApiKeyNameForProvider(providerId: string): string | undefined {
-  return PROVIDERS[providerId]?.apiKeyEnvVar;
+  return getProviderById(providerId)?.apiKeyEnvVar;
 }
 
 export function getProviderDisplayName(providerId: string): string {
-  return PROVIDERS[providerId]?.displayName || providerId;
+  return getProviderById(providerId)?.displayName ?? providerId;
 }
 
 export function checkApiKeyExistsForProvider(providerId: string): boolean {
