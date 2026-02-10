@@ -14,6 +14,7 @@ const PROVIDERS: Record<string, ProviderConfig> = {
   openai: { displayName: 'OpenAI', apiKeyEnvVar: 'OPENAI_API_KEY' },
   anthropic: { displayName: 'Anthropic', apiKeyEnvVar: 'ANTHROPIC_API_KEY' },
   google: { displayName: 'Google', apiKeyEnvVar: 'GOOGLE_API_KEY' },
+  xai: { displayName: 'xAI', apiKeyEnvVar: 'XAI_API_KEY' },
   moonshot: { displayName: 'Moonshot', apiKeyEnvVar: 'MOONSHOT_API_KEY' },
   deepseek: { displayName: 'DeepSeek', apiKeyEnvVar: 'DEEPSEEK_API_KEY' },
   openrouter: { displayName: 'OpenRouter', apiKeyEnvVar: 'OPENROUTER_API_KEY' },
