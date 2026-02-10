@@ -2,8 +2,9 @@ import { StructuredToolInterface } from '@langchain/core/tools';
 import { createFinancialSearch, createFinancialMetrics, createReadFilings } from './finance/index.js';
 import { exaSearch, tavilySearch } from './search/index.js';
 import { skillTool, SKILL_TOOL_DESCRIPTION } from './skill.js';
+import { webFetchTool } from './fetch/index.js';
 import { browserTool } from './browser/index.js';
-import { FINANCIAL_SEARCH_DESCRIPTION, FINANCIAL_METRICS_DESCRIPTION, WEB_SEARCH_DESCRIPTION, READ_FILINGS_DESCRIPTION, BROWSER_DESCRIPTION } from './descriptions/index.js';
+import { FINANCIAL_SEARCH_DESCRIPTION, FINANCIAL_METRICS_DESCRIPTION, WEB_SEARCH_DESCRIPTION, WEB_FETCH_DESCRIPTION, READ_FILINGS_DESCRIPTION, BROWSER_DESCRIPTION } from './descriptions/index.js';
 import { discoverSkills } from '../skills/index.js';
 
 /**
@@ -43,6 +44,11 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       description: READ_FILINGS_DESCRIPTION,
     },
     {
+      name: 'web_fetch',
+      tool: webFetchTool,
+      description: WEB_FETCH_DESCRIPTION,
+    },
+    {
       name: 'browser',
       tool: browserTool,
       description: BROWSER_DESCRIPTION,
@@ -50,19 +56,19 @@ export function getToolRegistry(model: string): RegisteredTool[] {
   ];
 
   // Include web_search if Exa or Tavily API key is configured (Exa preferred)
-  if (process.env.EXASEARCH_API_KEY) {
-    tools.push({
-      name: 'web_search',
-      tool: exaSearch,
-      description: WEB_SEARCH_DESCRIPTION,
-    });
-  } else if (process.env.TAVILY_API_KEY) {
-    tools.push({
-      name: 'web_search',
-      tool: tavilySearch,
-      description: WEB_SEARCH_DESCRIPTION,
-    });
-  }
+  // if (process.env.EXASEARCH_API_KEY) {
+  //   tools.push({
+  //     name: 'web_search',
+  //     tool: exaSearch,
+  //     description: WEB_SEARCH_DESCRIPTION,
+  //   });
+  // } else if (process.env.TAVILY_API_KEY) {
+  //   tools.push({
+  //     name: 'web_search',
+  //     tool: tavilySearch,
+  //     description: WEB_SEARCH_DESCRIPTION,
+  //   });
+  // }
 
   // Include skill tool if any skills are available
   const availableSkills = discoverSkills();
