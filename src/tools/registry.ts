@@ -56,19 +56,19 @@ export function getToolRegistry(model: string): RegisteredTool[] {
   ];
 
   // Include web_search if Exa or Tavily API key is configured (Exa preferred)
-  // if (process.env.EXASEARCH_API_KEY) {
-  //   tools.push({
-  //     name: 'web_search',
-  //     tool: exaSearch,
-  //     description: WEB_SEARCH_DESCRIPTION,
-  //   });
-  // } else if (process.env.TAVILY_API_KEY) {
-  //   tools.push({
-  //     name: 'web_search',
-  //     tool: tavilySearch,
-  //     description: WEB_SEARCH_DESCRIPTION,
-  //   });
-  // }
+  if (process.env.EXASEARCH_API_KEY) {
+    tools.push({
+      name: 'web_search',
+      tool: exaSearch,
+      description: WEB_SEARCH_DESCRIPTION,
+    });
+  } else if (process.env.TAVILY_API_KEY) {
+    tools.push({
+      name: 'web_search',
+      tool: tavilySearch,
+      description: WEB_SEARCH_DESCRIPTION,
+    });
+  }
 
   // Include skill tool if any skills are available
   const availableSkills = discoverSkills();
