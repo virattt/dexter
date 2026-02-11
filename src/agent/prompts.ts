@@ -19,6 +19,28 @@ export function getCurrentDate(): string {
 }
 
 /**
+ * Build the trading safety policy section for the system prompt.
+ * Only included when Alpaca API keys are configured.
+ */
+function buildTradingPolicySection(): string {
+  if (!process.env.ALPACA_API_KEY || !process.env.ALPACA_SECRET_KEY) {
+    return '';
+  }
+
+  const mode = process.env.ALPACA_PAPER !== 'false' ? 'PAPER (simulated)' : 'LIVE (real money)';
+
+  return `## Trading Policy
+
+Current trading mode: **${mode}**
+
+- **Never execute trades without explicit user confirmation** — always show order details (ticker, side, qty, type, price) and ask "confirm?" before placing
+- **Always indicate PAPER vs LIVE mode** in every trading-related response
+- **"Should I buy X?" means analyze, NOT trade** — provide analysis, don't place orders
+- **Default max 5% of equity per position** — warn if exceeded
+- **Disclaimer**: Dexter is not a licensed financial advisor. Trading involves risk of loss. All analysis is informational only.`;
+}
+
+/**
  * Build the skills section for the system prompt.
  * Only includes skill metadata if skills are available.
  */
@@ -122,6 +144,8 @@ ${toolDescriptions}
 - Only respond directly for: conceptual definitions, stable historical facts, or conversational queries
 
 ${buildSkillsSection()}
+
+${buildTradingPolicySection()}
 
 ## Behavior
 
