@@ -4,7 +4,7 @@ import { ChatAnthropic } from '@langchain/anthropic';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { ChatOllama } from '@langchain/ollama';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { SystemMessage, HumanMessage } from '@langchain/core/messages';
+import { SystemMessage, HumanMessage, BaseMessage } from '@langchain/core/messages';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { Runnable } from '@langchain/core/runnables';
@@ -139,6 +139,10 @@ interface CallLlmOptions {
   outputSchema?: z.ZodType<unknown>;
   tools?: StructuredToolInterface[];
   signal?: AbortSignal;
+  /** Optional conversation history as message objects. When provided, these are
+   *  sent as the full message array (system + history + current user prompt)
+   *  instead of building a single-turn template. */
+  messages?: BaseMessage[];
 }
 
 export interface LlmResult {
@@ -195,7 +199,7 @@ function buildAnthropicMessages(systemPrompt: string, userPrompt: string) {
 }
 
 export async function callLlm(prompt: string, options: CallLlmOptions = {}): Promise<LlmResult> {
-  const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools, signal } = options;
+  const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools, signal, messages: historyMessages } = options;
   const finalSystemPrompt = systemPrompt || DEFAULT_SYSTEM_PROMPT;
 
   const llm = getChatModel(model, false);
@@ -213,7 +217,15 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
   const provider = resolveProvider(model);
   let result;
 
-  if (provider.id === 'anthropic') {
+  if (historyMessages && historyMessages.length > 0) {
+    // Full conversation history provided — use actual multi-turn messages
+    const fullMessages: BaseMessage[] = [
+      new SystemMessage(finalSystemPrompt),
+      ...historyMessages,
+      new HumanMessage(prompt),
+    ];
+    result = await withRetry(() => runnable.invoke(fullMessages, invokeOpts), provider.displayName);
+  } else if (provider.id === 'anthropic') {
     // Anthropic: use explicit messages with cache_control for prompt caching (~90% savings)
     const messages = buildAnthropicMessages(finalSystemPrompt, prompt);
     result = await withRetry(() => runnable.invoke(messages, invokeOpts), provider.displayName);
