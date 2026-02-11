@@ -1,4 +1,4 @@
-import { AIMessage } from '@langchain/core/messages';
+import { AIMessage, HumanMessage, BaseMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlm } from '../model/llm.js';
 import { Scratchpad, type ToolContext } from './scratchpad.js';
@@ -59,7 +59,7 @@ export class Agent {
   async *run(query: string, inMemoryHistory?: InMemoryChatHistory): AsyncGenerator<AgentEvent> {
     const startTime = Date.now();
     const tokenCounter = new TokenCounter();
-    
+
     if (this.tools.length === 0) {
       yield { type: 'done', answer: 'No tools available. Please check your API key configuration.', toolCalls: [], iterations: 0, totalTime: Date.now() - startTime };
       return;
@@ -67,17 +67,20 @@ export class Agent {
 
     // Create scratchpad for this query - single source of truth for all work done
     const scratchpad = new Scratchpad(query);
-    
-    // Build initial prompt with conversation history context
-    let currentPrompt = this.buildInitialPrompt(query, inMemoryHistory);
-    
+
+    // Build conversation history as actual message objects for multi-turn context
+    const historyMessages = this.buildConversationMessages(inMemoryHistory);
+    let currentPrompt = query;
+
     let iteration = 0;
 
     // Main agent loop
     while (iteration < this.maxIterations) {
       iteration++;
 
-      const { response, usage } = await this.callModel(currentPrompt);
+      const { response, usage } = await this.callModel(currentPrompt, true, historyMessages);
+      // Clear history messages after first call — subsequent iterations use scratchpad context
+      historyMessages.length = 0;
       tokenCounter.add(usage);
       const responseText = typeof response === 'string' ? response : extractTextContent(response);
 
@@ -102,12 +105,12 @@ export class Agent {
         // Generate final answer with full context from scratchpad
         const fullContext = this.buildFullContextForAnswer(query, scratchpad);
         const finalPrompt = buildFinalAnswerPrompt(query, fullContext);
-        
+
         yield { type: 'answer_start' };
         const { response: finalResponse, usage: finalUsage } = await this.callModel(finalPrompt, false);
         tokenCounter.add(finalUsage);
-        const answer = typeof finalResponse === 'string' 
-          ? finalResponse 
+        const answer = typeof finalResponse === 'string'
+          ? finalResponse
           : extractTextContent(finalResponse);
 
         const totalTime = Date.now() - startTime;
@@ -124,10 +127,10 @@ export class Agent {
         yield result.value;
         result = await generator.next();
       }
-      
+
       // Anthropic-style context management: get full tool results
       let fullToolResults = scratchpad.getToolResults();
-      
+
       // Check context threshold and clear oldest tool results if needed
       const estimatedContextTokens = estimateTokens(this.systemPrompt + query + fullToolResults);
       if (estimatedContextTokens > CONTEXT_THRESHOLD) {
@@ -138,10 +141,10 @@ export class Agent {
           fullToolResults = scratchpad.getToolResults();
         }
       }
-      
+
       // Build iteration prompt with full tool results (Anthropic-style)
       currentPrompt = buildIterationPrompt(
-        query, 
+        query,
         fullToolResults,
         scratchpad.formatToolUsageForPrompt()
       );
@@ -150,12 +153,12 @@ export class Agent {
     // Max iterations reached - still generate proper final answer
     const fullContext = this.buildFullContextForAnswer(query, scratchpad);
     const finalPrompt = buildFinalAnswerPrompt(query, fullContext);
-    
+
     yield { type: 'answer_start' };
     const { response: finalResponse, usage: finalUsage } = await this.callModel(finalPrompt, false);
     tokenCounter.add(finalUsage);
-    const answer = typeof finalResponse === 'string' 
-      ? finalResponse 
+    const answer = typeof finalResponse === 'string'
+      ? finalResponse
       : extractTextContent(finalResponse);
 
     const totalTime = Date.now() - startTime;
@@ -175,12 +178,13 @@ export class Agent {
    * @param prompt - The prompt to send to the LLM
    * @param useTools - Whether to bind tools (default: true). When false, returns string directly.
    */
-  private async callModel(prompt: string, useTools: boolean = true): Promise<{ response: AIMessage | string; usage?: TokenUsage }> {
+  private async callModel(prompt: string, useTools: boolean = true, messages?: BaseMessage[]): Promise<{ response: AIMessage | string; usage?: TokenUsage }> {
     const result = await callLlm(prompt, {
       model: this.model,
       systemPrompt: this.systemPrompt,
       tools: useTools ? this.tools : undefined,
       signal: this.signal,
+      messages,
     });
     return { response: result.response, usage: result.usage };
   }
@@ -231,13 +235,13 @@ export class Agent {
 
     // Check tool limits - yields warning if approaching/over limits
     const limitCheck = scratchpad.canCallTool(toolName, toolQuery);
-    
+
     if (limitCheck.warning) {
-      yield { 
-        type: 'tool_limit', 
-        tool: toolName, 
-        warning: limitCheck.warning, 
-        blocked: false 
+      yield {
+        type: 'tool_limit',
+        tool: toolName,
+        warning: limitCheck.warning,
+        blocked: false
       };
     }
 
@@ -299,34 +303,57 @@ export class Agent {
    */
   private extractQueryFromArgs(args: Record<string, unknown>): string | undefined {
     const queryKeys = ['query', 'search', 'question', 'q', 'text', 'input'];
-    
+
     for (const key of queryKeys) {
       if (typeof args[key] === 'string') {
         return args[key] as string;
       }
     }
-    
+
     return undefined;
   }
 
   /**
-   * Build initial prompt with conversation history context if available
+   * Build conversation history as actual HumanMessage/AIMessage pairs.
+   * Returns an array of message objects for proper multi-turn LLM context.
+   * Only includes completed turns (with answers) — excludes the current in-flight query.
+   *
+   * To prevent token blow-up:
+   * - Caps history at MAX_HISTORY_TURNS (10) turns
+   * - Uses full answers only for the last FULL_ANSWER_TURNS (3) turns
+   * - Uses short summaries for older turns (falling back to truncated answer)
    */
-  private buildInitialPrompt(
-    query: string,
+  private buildConversationMessages(
     inMemoryChatHistory?: InMemoryChatHistory
-  ): string {
+  ): BaseMessage[] {
+    const MAX_HISTORY_TURNS = parseInt(process.env.DEXTER_MAX_HISTORY_TURNS || '10', 10);
+    const FULL_ANSWER_TURNS = parseInt(process.env.DEXTER_FULL_ANSWER_TURNS || '3', 10);
+
     if (!inMemoryChatHistory?.hasMessages()) {
-      return query;
+      return [];
     }
 
-    const userMessages = inMemoryChatHistory.getUserMessages();
-    if (userMessages.length === 0) {
-      return query;
+    const completedMessages = inMemoryChatHistory.getMessages().filter(m => m.answer !== null);
+    // Keep only the most recent N turns
+    const recentMessages = completedMessages.slice(-MAX_HISTORY_TURNS);
+    const messages: BaseMessage[] = [];
+    const fullAnswerStart = Math.max(0, recentMessages.length - FULL_ANSWER_TURNS);
+
+    for (let i = 0; i < recentMessages.length; i++) {
+      const msg = recentMessages[i];
+      messages.push(new HumanMessage(msg.query));
+
+      if (i >= fullAnswerStart) {
+        // Recent turns: full answer for immediate context
+        messages.push(new AIMessage(msg.answer!));
+      } else {
+        // Older turns: use summary to save tokens, fall back to truncated answer
+        const shortContent = msg.summary || msg.answer!.slice(0, 300) + '...';
+        messages.push(new AIMessage(shortContent));
+      }
     }
 
-    const historyContext = userMessages.map((msg, i) => `${i + 1}. ${msg}`).join('\n');
-    return `Current query to answer: ${query}\n\nPrevious user queries for context:\n${historyContext}`;
+    return messages;
   }
 
   /**

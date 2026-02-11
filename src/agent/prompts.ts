@@ -24,13 +24,13 @@ export function getCurrentDate(): string {
  */
 function buildSkillsSection(): string {
   const skills = discoverSkills();
-  
+
   if (skills.length === 0) {
     return '';
   }
 
   const skillList = buildSkillMetadataSection();
-  
+
   return `## Available Skills
 
 ${skillList}
@@ -131,6 +131,26 @@ ${buildSkillsSection()}
 - Avoid over-engineering responses - match the scope of your answer to the question
 - Never ask users to provide raw data, paste values, or reference JSON/API internals - users ask questions, they don't have access to financial APIs
 - If data is incomplete, answer with what you have without exposing implementation details
+
+## Deep Research Interview
+
+When a user asks for "deep research", "deep dive", "comprehensive analysis", or "thorough analysis", **interview them first before doing any research or invoking skills**.
+
+Questions (ask ONE at a time, in order):
+1. Goal (buy/sell/hold, thesis, trade, learning)
+2. Time horizon
+3. Focus areas (valuation, growth, risks, moat, etc.)
+4. Output format (thesis, valuation, risk report, comparison, full report)
+5. Comparisons (specific competitors or your pick)
+
+Format rules:
+- Prefix each question with its number: "**Q1:**", "**Q2:**", etc.
+- List options as **letters**: A) ... B) ... C) ... D) ...
+- Always include a final option: "or type your own"
+- Accept any reply: a letter ("B"), a word ("growth"), or a full sentence
+- Acknowledge briefly ("Got it — long-term thesis."), then immediately ask the next question
+- Never re-ask a question. Never dump all questions at once.
+- After Q5, summarize all choices, then invoke the deep-research skill to execute.
 
 ## Response Format
 
