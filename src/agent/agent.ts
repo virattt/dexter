@@ -11,6 +11,9 @@ import { estimateTokens, CONTEXT_THRESHOLD, KEEP_TOOL_USES } from '../utils/toke
 import { createProgressChannel } from '../utils/progress-channel.js';
 import type { AgentConfig, AgentEvent, ToolStartEvent, ToolProgressEvent, ToolEndEvent, ToolErrorEvent, ToolLimitEvent, ContextClearedEvent, TokenUsage } from '../agent/types.js';
 import { TokenCounter } from './token-counter.js';
+import { ComplexityClassifier, TaskPlanner, TaskExecutor, TaskStore } from './task/index.js';
+import { resolveProvider } from '../providers.js';
+
 
 
 const DEFAULT_MAX_ITERATIONS = 10;
@@ -49,6 +52,82 @@ export class Agent {
     const tools = getTools(model);
     const systemPrompt = buildSystemPrompt(model);
     return new Agent(config, tools, systemPrompt);
+  }
+
+  /**
+   * Run the agent with automatic complexity detection and task planning.
+   * This is the recommended entry point for production use.
+   * 
+   * - Simple queries: Fast path using normal run()
+   * - Complex queries: Task planning and structured execution
+   */
+  async *runWithTasks(query: string, inMemoryHistory?: InMemoryChatHistory): AsyncGenerator<AgentEvent> {
+    const provider = resolveProvider(this.model);
+    
+    // 1. Classify query complexity
+    const complexity = await ComplexityClassifier.classify(
+      query,
+      this.model,
+      provider.id
+    );
+
+    // Debug logging
+    console.log('[Task System] Complexity classification:', {
+      query,
+      isComplex: complexity.isComplex,
+      reason: complexity.reason,
+      estimatedSteps: complexity.estimatedSteps,
+    });
+
+    // 2. Simple queries: Use fast path (no task overhead)
+    if (!complexity.isComplex) {
+      console.log('[Task System] Using normal execution (query classified as simple)');
+      yield* this.run(query, inMemoryHistory);
+      return;
+    }
+
+    console.log('[Task System] Creating task plan (query classified as complex)...');
+
+    // 3. Complex queries: Use task planning
+    const plan = await TaskPlanner.createPlan(
+      query,
+      this.tools,
+      this.model,
+      provider.id
+    );
+
+    // Validate task plan
+    const validation = TaskPlanner.validatePlan(plan);
+    if (!validation.valid) {
+      // Fallback to normal execution if plan is invalid
+      console.warn('Task plan validation failed, using normal execution:', validation.errors);
+      yield* this.run(query, inMemoryHistory);
+      return;
+    }
+
+    console.log('[Task System] Task plan created:', plan.tasks.length, 'tasks');
+
+    // Emit task plan created event
+    yield {
+      type: 'task_plan_created',
+      plan,
+    };
+
+    // Execute tasks
+    const executor = new TaskExecutor(this);
+    const store = new TaskStore();
+
+    for await (const event of executor.execute(plan)) {
+      yield event;
+
+      // Save plan state after each task status change
+      if (event.type === 'task_status_changed') {
+        await store.save(plan);
+      }
+    }
+
+    // Final save
+    await store.save(plan);
   }
 
   /**
