@@ -13,6 +13,7 @@ import type { AgentConfig, AgentEvent, ToolStartEvent, ToolProgressEvent, ToolEn
 import { TokenCounter } from './token-counter.js';
 
 
+const DEFAULT_MODEL = 'gpt-5.2';
 const DEFAULT_MAX_ITERATIONS = 10;
 
 /**
@@ -32,7 +33,7 @@ export class Agent {
     tools: StructuredToolInterface[],
     systemPrompt: string
   ) {
-    this.model = config.model ?? 'gpt-5.2';
+    this.model = config.model ?? DEFAULT_MODEL;
     this.modelProvider = config.modelProvider ?? 'openai';
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
     this.tools = tools;
@@ -45,7 +46,7 @@ export class Agent {
    * Create a new Agent instance with tools.
    */
   static create(config: AgentConfig = {}): Agent {
-    const model = config.model ?? 'gpt-5.2';
+    const model = config.model ?? DEFAULT_MODEL;
     const tools = getTools(model);
     const systemPrompt = buildSystemPrompt(model);
     return new Agent(config, tools, systemPrompt);
@@ -100,44 +101,19 @@ export class Agent {
         }
 
         // Generate final answer with full context from scratchpad
-        const fullContext = this.buildFullContextForAnswer(query, scratchpad);
-        const finalPrompt = buildFinalAnswerPrompt(query, fullContext);
-        
-        yield { type: 'answer_start' };
-        const { response: finalResponse, usage: finalUsage } = await this.callModel(finalPrompt, false);
-        tokenCounter.add(finalUsage);
-        const answer = typeof finalResponse === 'string' 
-          ? finalResponse 
-          : extractTextContent(finalResponse);
-
-        const totalTime = Date.now() - startTime;
-        yield { type: 'done', answer, toolCalls: scratchpad.getToolCallRecords(), iterations: iteration, totalTime, tokenUsage: tokenCounter.getUsage(), tokensPerSecond: tokenCounter.getTokensPerSecond(totalTime) };
+        yield* this.generateFinalAnswer(query, scratchpad, tokenCounter, iteration, startTime);
         return;
       }
 
       // Execute tools and add results to scratchpad (response is AIMessage here)
-      const generator = this.executeToolCalls(response, query, scratchpad);
-      let result = await generator.next();
-
-      // Yield tool events
-      while (!result.done) {
-        yield result.value;
-        result = await generator.next();
+      yield* this.executeToolCalls(response, query, scratchpad);
+      const contextGenerator = this.manageContextThreshold(query, scratchpad);
+      let contextResult = contextGenerator.next();
+      while (!contextResult.done) {
+        yield contextResult.value;
+        contextResult = contextGenerator.next();
       }
-      
-      // Anthropic-style context management: get full tool results
-      let fullToolResults = scratchpad.getToolResults();
-      
-      // Check context threshold and clear oldest tool results if needed
-      const estimatedContextTokens = estimateTokens(this.systemPrompt + query + fullToolResults);
-      if (estimatedContextTokens > CONTEXT_THRESHOLD) {
-        const clearedCount = scratchpad.clearOldestToolResults(KEEP_TOOL_USES);
-        if (clearedCount > 0) {
-          yield { type: 'context_cleared', clearedCount, keptCount: KEEP_TOOL_USES } as ContextClearedEvent;
-          // Re-fetch after clearing
-          fullToolResults = scratchpad.getToolResults();
-        }
-      }
+      const fullToolResults = contextResult.value;
       
       // Build iteration prompt with full tool results (Anthropic-style)
       currentPrompt = buildIterationPrompt(
@@ -148,26 +124,9 @@ export class Agent {
     }
 
     // Max iterations reached - still generate proper final answer
-    const fullContext = this.buildFullContextForAnswer(query, scratchpad);
-    const finalPrompt = buildFinalAnswerPrompt(query, fullContext);
-    
-    yield { type: 'answer_start' };
-    const { response: finalResponse, usage: finalUsage } = await this.callModel(finalPrompt, false);
-    tokenCounter.add(finalUsage);
-    const answer = typeof finalResponse === 'string' 
-      ? finalResponse 
-      : extractTextContent(finalResponse);
-
-    const totalTime = Date.now() - startTime;
-    yield {
-      type: 'done',
-      answer: answer || `Reached maximum iterations (${this.maxIterations}).`,
-      toolCalls: scratchpad.getToolCallRecords(),
-      iterations: iteration,
-      totalTime,
-      tokenUsage: tokenCounter.getUsage(),
-      tokensPerSecond: tokenCounter.getTokensPerSecond(totalTime)
-    };
+    yield* this.generateFinalAnswer(query, scratchpad, tokenCounter, iteration, startTime, {
+      fallbackMessage: `Reached maximum iterations (${this.maxIterations}).`,
+    });
   }
 
   /**
@@ -183,6 +142,60 @@ export class Agent {
       signal: this.signal,
     });
     return { response: result.response, usage: result.usage };
+  }
+
+  /**
+   * Generate final answer with full scratchpad context.
+   */
+  private async *generateFinalAnswer(
+    query: string,
+    scratchpad: Scratchpad,
+    tokenCounter: TokenCounter,
+    iteration: number,
+    startTime: number,
+    options?: { fallbackMessage?: string }
+  ): AsyncGenerator<AgentEvent, void> {
+    const fullContext = this.buildFullContextForAnswer(scratchpad);
+    const finalPrompt = buildFinalAnswerPrompt(query, fullContext);
+
+    yield { type: 'answer_start' };
+    const { response, usage } = await this.callModel(finalPrompt, false);
+    tokenCounter.add(usage);
+    const answer = typeof response === 'string'
+      ? response
+      : extractTextContent(response);
+
+    const totalTime = Date.now() - startTime;
+    yield {
+      type: 'done',
+      answer: options?.fallbackMessage ? answer || options.fallbackMessage : answer,
+      toolCalls: scratchpad.getToolCallRecords(),
+      iterations: iteration,
+      totalTime,
+      tokenUsage: tokenCounter.getUsage(),
+      tokensPerSecond: tokenCounter.getTokensPerSecond(totalTime),
+    };
+  }
+
+  /**
+   * Clear oldest tool results if context size exceeds threshold.
+   */
+  private *manageContextThreshold(
+    query: string,
+    scratchpad: Scratchpad
+  ): Generator<ContextClearedEvent, string> {
+    let fullToolResults = scratchpad.getToolResults();
+    const estimatedContextTokens = estimateTokens(this.systemPrompt + query + fullToolResults);
+
+    if (estimatedContextTokens > CONTEXT_THRESHOLD) {
+      const clearedCount = scratchpad.clearOldestToolResults(KEEP_TOOL_USES);
+      if (clearedCount > 0) {
+        yield { type: 'context_cleared', clearedCount, keptCount: KEEP_TOOL_USES };
+        fullToolResults = scratchpad.getToolResults();
+      }
+    }
+
+    return fullToolResults;
   }
 
   /**
@@ -205,13 +218,7 @@ export class Agent {
         if (scratchpad.hasExecutedSkill(skillName)) continue;
       }
 
-      const generator = this.executeToolCall(toolName, toolArgs, query, scratchpad);
-      let result = await generator.next();
-
-      while (!result.done) {
-        yield result.value;
-        result = await generator.next();
-      }
+      yield* this.executeToolCall(toolName, toolArgs, query, scratchpad);
     }
   }
 
@@ -334,7 +341,7 @@ export class Agent {
    * Anthropic-style: uses all full tool results (cleared entries were already
    * handled during iteration, final answer gets comprehensive context).
    */
-  private buildFullContextForAnswer(_query: string, scratchpad: Scratchpad): string {
+  private buildFullContextForAnswer(scratchpad: Scratchpad): string {
     const contexts = scratchpad.getFullContexts();
 
     if (contexts.length === 0) {
