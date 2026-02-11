@@ -223,10 +223,12 @@ Create a task plan:`;
       parsed = JSON.parse(jsonStr);
     } catch (parseError) {
       console.error('❌ Failed to parse LLM response as JSON');
-      console.error('LLM returned:');
-      console.error('---');
-      console.error(responseText);
-      console.error('---');
+      if (process.env.DEBUG_LLM_PARSER === 'true') {
+        console.error('LLM response (DEBUG_LLM_PARSER enabled):');
+        console.error('---');
+        console.error(responseText);
+        console.error('---');
+      }
       throw new Error(`Invalid JSON from LLM: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
     }
 
