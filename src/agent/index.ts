@@ -14,6 +14,8 @@ export type {
   ToolEndEvent,
   ToolErrorEvent,
   ToolLimitEvent,
+  ContextClearedEvent,
+  PermissionRequestEvent,
   AnswerStartEvent,
   DoneEvent,
 } from './types.js';
