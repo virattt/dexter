@@ -110,6 +110,34 @@ export interface TokenUsage {
 }
 
 /**
+ * Task plan created event
+ */
+export interface TaskPlanCreatedEvent {
+  type: 'task_plan_created';
+  plan: {
+    id: string;
+    query: string;
+    tasks: Array<{
+      id: string;
+      description: string;
+      status: string;
+      dependencies: string[];
+    }>;
+  };
+}
+
+/**
+ * Task status changed event
+ */
+export interface TaskStatusChangedEvent {
+  type: 'task_status_changed';
+  taskId: string;
+  status: 'pending' | 'running' | 'complete' | 'failed';
+  result?: string;
+  error?: string;
+}
+
+/**
  * Agent completed with final result
  */
 export interface DoneEvent {
@@ -134,4 +162,6 @@ export type AgentEvent =
   | ToolLimitEvent
   | ContextClearedEvent
   | AnswerStartEvent
+  | TaskPlanCreatedEvent
+  | TaskStatusChangedEvent
   | DoneEvent;

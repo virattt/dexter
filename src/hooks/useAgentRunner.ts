@@ -116,6 +116,29 @@ export function useAgentRunner(
         setWorkingState({ status: 'answering', startTime: Date.now() });
         break;
         
+      case 'task_plan_created':
+        // Display task plan to user
+        updateLastHistoryItem(item => ({
+          events: [...item.events, {
+            id: `task-plan-${Date.now()}`,
+            event,
+            completed: true,
+          }],
+        }));
+        break;
+        
+      case 'task_status_changed':
+        // Update task status in real-time
+        setWorkingState({ status: 'tool', toolName: `Task: ${event.taskId}` });
+        updateLastHistoryItem(item => ({
+          events: [...item.events, {
+            id: `task-status-${event.taskId}-${Date.now()}`,
+            event,
+            completed: event.status === 'complete' || event.status === 'failed',
+          }],
+        }));
+        break;
+        
       case 'done': {
         const doneEvent = event as DoneEvent;
         updateLastHistoryItem(item => {
@@ -171,7 +194,7 @@ export function useAgentRunner(
         ...agentConfig,
         signal: abortController.signal,
       });
-      const stream = agent.run(query, inMemoryChatHistoryRef.current!);
+      const stream = agent.runWithTasks(query, inMemoryChatHistoryRef.current!);
       
       for await (const event of stream) {
         // Capture the final answer from the done event
