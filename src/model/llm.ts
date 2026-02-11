@@ -218,13 +218,13 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
     const messages = buildAnthropicMessages(finalSystemPrompt, prompt);
     result = await withRetry(() => runnable.invoke(messages, invokeOpts), provider.displayName);
   } else {
-    // Other providers: use ChatPromptTemplate (OpenAI/Gemini have automatic caching)
-    const promptTemplate = ChatPromptTemplate.fromMessages([
-      ['system', finalSystemPrompt],
-      ['user', '{prompt}'],
-    ]);
-    const chain = promptTemplate.pipe(runnable);
-    result = await withRetry(() => chain.invoke({ prompt }, invokeOpts), provider.displayName);
+    // Other providers: use direct messages to avoid template variable conflicts
+    // (ChatPromptTemplate would treat curly braces in content as variables)
+    const messages = [
+      new SystemMessage(finalSystemPrompt),
+      new HumanMessage(prompt),
+    ];
+    result = await withRetry(() => runnable.invoke(messages, invokeOpts), provider.displayName);
   }
   const usage = extractUsage(result);
 

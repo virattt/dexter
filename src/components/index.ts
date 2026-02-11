@@ -4,6 +4,7 @@ export { CursorText } from './CursorText.js';
 export { AnswerBox } from './AnswerBox.js';
 export { ProviderSelector, ModelSelector, PROVIDERS, getModelsForProvider, getDefaultModelForProvider } from './ModelSelector.js';
 export { ApiKeyConfirm, ApiKeyInput } from './ApiKeyPrompt.js';
+export { PermissionPrompt } from './PermissionPrompt.js';
 export { DebugPanel } from './DebugPanel.js';
 
 // V2 components

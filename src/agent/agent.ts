@@ -9,7 +9,7 @@ import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { getToolDescription } from '../utils/tool-description.js';
 import { estimateTokens, CONTEXT_THRESHOLD, KEEP_TOOL_USES } from '../utils/tokens.js';
 import { createProgressChannel } from '../utils/progress-channel.js';
-import type { AgentConfig, AgentEvent, ToolStartEvent, ToolProgressEvent, ToolEndEvent, ToolErrorEvent, ToolLimitEvent, ContextClearedEvent, TokenUsage } from '../agent/types.js';
+import type { AgentConfig, AgentEvent, ToolStartEvent, ToolProgressEvent, ToolEndEvent, ToolErrorEvent, ToolLimitEvent, ContextClearedEvent, PermissionRequestEvent, TokenUsage } from '../agent/types.js';
 import { TokenCounter } from './token-counter.js';
 
 
@@ -26,6 +26,7 @@ export class Agent {
   private readonly toolMap: Map<string, StructuredToolInterface>;
   private readonly systemPrompt: string;
   private readonly signal?: AbortSignal;
+  private readonly onPermissionRequest?: (path: string, operation: 'read' | 'write') => Promise<boolean>;
 
   private constructor(
     config: AgentConfig,
@@ -39,6 +40,7 @@ export class Agent {
     this.toolMap = new Map(tools.map(t => [t.name, t]));
     this.systemPrompt = systemPrompt;
     this.signal = config.signal;
+    this.onPermissionRequest = config.onPermissionRequest;
   }
 
   /**
@@ -194,7 +196,7 @@ export class Agent {
     response: AIMessage,
     query: string,
     scratchpad: Scratchpad
-  ): AsyncGenerator<ToolStartEvent | ToolProgressEvent | ToolEndEvent | ToolErrorEvent | ToolLimitEvent, void> {
+  ): AsyncGenerator<ToolStartEvent | ToolProgressEvent | ToolEndEvent | ToolErrorEvent | ToolLimitEvent | PermissionRequestEvent, void> {
     for (const toolCall of response.tool_calls!) {
       const toolName = toolCall.name;
       const toolArgs = toolCall.args as Record<string, unknown>;
@@ -225,7 +227,7 @@ export class Agent {
     toolArgs: Record<string, unknown>,
     query: string,
     scratchpad: Scratchpad
-  ): AsyncGenerator<ToolStartEvent | ToolProgressEvent | ToolEndEvent | ToolErrorEvent | ToolLimitEvent, void> {
+  ): AsyncGenerator<ToolStartEvent | ToolProgressEvent | ToolEndEvent | ToolErrorEvent | ToolLimitEvent | PermissionRequestEvent, void> {
     // Extract query string from tool args for similarity detection
     const toolQuery = this.extractQueryFromArgs(toolArgs);
 
@@ -254,7 +256,10 @@ export class Agent {
       // Create a progress channel so subagent tools can stream status updates
       const channel = createProgressChannel();
       const config = {
-        metadata: { onProgress: channel.emit },
+        metadata: { 
+          onProgress: channel.emit,
+          onPermissionRequest: this.onPermissionRequest,
+        },
         ...(this.signal ? { signal: this.signal } : {}),
       };
 
