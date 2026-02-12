@@ -8,6 +8,7 @@ import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import {
   getOpenAIAuthMode,
   isOpenAIOAuthModelSupported,
+  isOpenAIOAuthModelRequired,
   hasOpenAIOAuthCredentials,
   setOpenAIAuthMode,
   startOpenAIDeviceAuth,
@@ -170,7 +171,12 @@ export function useModelSelection(
         setPendingModels(ollamaModels);
         setAppState('model_select');
       } else {
-        setPendingModels(getModelsForProvider(providerId));
+        const models = getModelsForProvider(providerId);
+        if (providerId === 'openai' && !hasOpenAIOAuthCredentials()) {
+          setPendingModels(models.filter((m) => !isOpenAIOAuthModelRequired(m.id)));
+        } else {
+          setPendingModels(models);
+        }
         setAppState('model_select');
       }
     } else {
@@ -200,6 +206,19 @@ export function useModelSelection(
       const hasOpenAIApiKey = checkApiKeyExistsForProvider('openai');
       const hasOpenAIOAuth = hasOpenAIOAuthCredentials();
       const preferredAuthMode = getOpenAIAuthMode();
+      const requiresOauth = isOpenAIOAuthModelRequired(modelId);
+
+      if (requiresOauth) {
+        if (hasOpenAIOAuth) {
+          setOpenAIAuthMode('oauth');
+          completeModelSwitch('openai', modelId);
+          return;
+        }
+
+        setPendingSelectedModelId(modelId);
+        setAppState('openai_auth_select');
+        return;
+      }
 
       if (hasOpenAIOAuth && preferredAuthMode === 'oauth' && isOpenAIOAuthModelSupported(modelId)) {
         completeModelSwitch('openai', modelId);
@@ -280,6 +299,10 @@ export function useModelSelection(
     }
 
     if (method === 'api_key') {
+      if (isOpenAIOAuthModelRequired(pendingSelectedModelId)) {
+        onError(`${pendingSelectedModelId} requires OpenAI OAuth. Choose OAuth and sign in.`);
+        return;
+      }
       setOpenAIAuthMode('api_key');
       setOpenAIOAuthDisplay(null);
       setAppState('api_key_input');
@@ -287,7 +310,7 @@ export function useModelSelection(
     }
 
     if (!isOpenAIOAuthModelSupported(pendingSelectedModelId)) {
-      onError('OpenAI OAuth currently supports Codex models only (for example: gpt-5.2). Choose gpt-5.2 or use API key auth.');
+      onError('OpenAI OAuth currently supports Codex models only (for example: gpt-5.3-codex). Choose a Codex model or use API key auth.');
       return;
     }
 

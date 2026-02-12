@@ -17,6 +17,7 @@ import {
   getOpenAIAuthMode,
   getValidOpenAIOAuthCredentials,
   hasOpenAIOAuthCredentials,
+  isOpenAIOAuthModelRequired,
   isOpenAIOAuthModelSupported,
 } from '@/utils/openai-oauth';
 
@@ -310,6 +311,11 @@ const DEFAULT_FACTORY: ModelFactory = (name, opts) => {
   const hasOauth = hasOpenAIOAuthCredentials();
   const preferredMode = getOpenAIAuthMode();
   const shouldUseOauth = hasOauth && (preferredMode === 'oauth' || !hasApiKey);
+  const oauthRequired = isOpenAIOAuthModelRequired(name);
+
+  if (oauthRequired && !shouldUseOauth) {
+    throw new Error(`${name} requires OpenAI OAuth. Run /model and sign in with OpenAI OAuth.`);
+  }
 
   if (shouldUseOauth) {
     if (isOpenAIOAuthModelSupported(name)) {
@@ -327,7 +333,7 @@ const DEFAULT_FACTORY: ModelFactory = (name, opts) => {
     }
 
     if (!hasApiKey) {
-      throw new Error(`OpenAI OAuth supports Codex models only (for example: gpt-5.2). Selected model: ${name}`);
+      throw new Error(`OpenAI OAuth supports Codex models only (for example: gpt-5.3-codex). Selected model: ${name}`);
     }
   }
 

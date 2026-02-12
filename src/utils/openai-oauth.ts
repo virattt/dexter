@@ -16,6 +16,9 @@ const OPENAI_OAUTH_MODELS = new Set([
   'gpt-5.2-codex',
   'gpt-5.3-codex',
 ]);
+const OPENAI_OAUTH_ONLY_MODELS = new Set([
+  'gpt-5.3-codex',
+]);
 
 export type OpenAIAuthMode = 'api_key' | 'oauth';
 
@@ -128,6 +131,10 @@ export function setOpenAIAuthMode(mode: OpenAIAuthMode): boolean {
 
 export function isOpenAIOAuthModelSupported(modelId: string): boolean {
   return OPENAI_OAUTH_MODELS.has(modelId);
+}
+
+export function isOpenAIOAuthModelRequired(modelId: string): boolean {
+  return OPENAI_OAUTH_ONLY_MODELS.has(modelId);
 }
 
 export function loadOpenAIOAuthCredentials(): OpenAIOAuthCredentials | null {
