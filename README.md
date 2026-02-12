@@ -36,7 +36,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 
 - [Bun](https://bun.com) runtime (v1.0 or higher)
 - OpenAI API key (get [here](https://platform.openai.com/api-keys))
-- Financial Datasets API key (get [here](https://financialdatasets.ai))
+- Financial Datasets API key (get [here](https://financialdatasets.ai)) or Alpha Vantage API key (get [here](https://www.alphavantage.co/support/#api-key))
 - Exa API key (get [here](https://exa.ai)) - optional, for web search
 
 #### Installing Bun
@@ -85,6 +85,7 @@ cp env.example .env
 
 # Institutional-grade market data for agents; AAPL, NVDA, MSFT are free
 # FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
+# ALPHAVANTAGE_API_KEY=your-alphavantage-api-key
 
 # (Optional) If using Ollama locally
 # OLLAMA_BASE_URL=http://127.0.0.1:11434

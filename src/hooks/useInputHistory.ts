@@ -14,6 +14,8 @@ export interface UseInputHistoryResult {
   updateAgentResponse: (response: string) => Promise<void>;
   /** Reset navigation back to typing mode */
   resetNavigation: () => void;
+  /** Clear all stored input history */
+  clearHistory: () => Promise<void>;
 }
 
 /**
@@ -89,6 +91,13 @@ export function useInputHistory(): UseInputHistoryResult {
     setHistoryIndex(-1);
   }, []);
 
+  // Clear all stored history
+  const clearHistory = useCallback(async () => {
+    await storeRef.current.clear();
+    setMessages([]);
+    setHistoryIndex(-1);
+  }, []);
+
   // Compute the current history value based on index
   // Stack ordering: messages[0] is most recent, direct access
   const historyValue = historyIndex === -1 
@@ -102,5 +111,6 @@ export function useInputHistory(): UseInputHistoryResult {
     saveMessage,
     updateAgentResponse,
     resetNavigation,
+    clearHistory,
   };
 }

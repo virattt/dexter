@@ -22,6 +22,7 @@ export interface UseAgentRunnerResult {
   // Actions
   runQuery: (query: string) => Promise<RunQueryResult | undefined>;
   cancelExecution: () => void;
+  clearHistory: () => void;
   setError: (error: string | null) => void;
 }
 
@@ -238,6 +239,11 @@ export function useAgentRunner(
     isProcessing,
     runQuery,
     cancelExecution,
+    clearHistory: () => {
+      setHistory([]);
+      setWorkingState({ status: 'idle' });
+      setError(null);
+    },
     setError,
   };
 }
