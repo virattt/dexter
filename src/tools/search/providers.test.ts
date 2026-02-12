@@ -49,4 +49,15 @@ describe('resolveWebSearchProvider', () => {
 
     expect(resolved).toBe('exa');
   });
+
+  it('returns null when no provider key exists', () => {
+    const resolved = resolveWebSearchProvider('auto', {
+      EXASEARCH_API_KEY: '',
+      PERPLEXITY_API_KEY: '',
+      LANGSEARCH_API_KEY: '',
+      TAVILY_API_KEY: '',
+    });
+
+    expect(resolved).toBeNull();
+  });
 });
