@@ -20,8 +20,8 @@ import { getWebSearchProviderDisplayName } from './tools/search/providers.js';
 import { getFinanceProviderDisplayName } from './tools/finance/providers.js';
 
 import { useModelSelection } from './hooks/useModelSelection.js';
-import { useWebSearchSelection } from './hooks/useWebSearchSelection.js';
-import { useFinanceSelection } from './hooks/useFinanceSelection.js';
+import { useWebSearchSelection } from './hooks/useWebSearchSelection';
+import { useFinanceSelection } from './hooks/useFinanceSelection';
 import { useAgentRunner } from './hooks/useAgentRunner.js';
 import { useInputHistory } from './hooks/useInputHistory.js';
 import { getCommandsHelpText } from './commands.js';
@@ -72,7 +72,7 @@ export function CLI() {
     isInSelectionFlow: isInWebSearchSelectionFlow,
     getPendingProviderName,
     getPendingProviderApiKeyName,
-  } = useWebSearchSelection((errorMsg) => setErrorRef.current?.(errorMsg));
+  } = useWebSearchSelection((errorMsg: string) => setErrorRef.current?.(errorMsg));
 
   // Finance provider selection state and handlers
   const {
@@ -86,7 +86,7 @@ export function CLI() {
     isInSelectionFlow: isInFinanceSelectionFlow,
     getPendingProviderName: getPendingFinanceProviderName,
     getPendingProviderApiKeyName: getPendingFinanceProviderApiKeyName,
-  } = useFinanceSelection((errorMsg) => setErrorRef.current?.(errorMsg));
+  } = useFinanceSelection((errorMsg: string) => setErrorRef.current?.(errorMsg));
   
   // Agent execution state and handlers
   const {
@@ -129,7 +129,7 @@ export function CLI() {
 
     // Handle exit
     if (normalizedQuery.toLowerCase() === 'exit' || normalizedQuery.toLowerCase() === 'quit') {
-      console.log('GoodBye!');
+      console.log('Goodbye!');
       terminateApp();
       return;
     }
@@ -238,7 +238,7 @@ export function CLI() {
       } else if (isProcessing) {
         cancelExecution();
       } else {
-        console.log('\nGoodBye!');
+        console.log('\nGoodbye!');
         terminateApp();
       }
     }
