@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 
 import { colors } from '../theme.js';
@@ -38,7 +38,20 @@ function isCtrlBackspaceEscapeSequence(input: string): boolean {
 export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps) {
   const { text, cursorPosition, actions } = useTextBuffer();
   const slashSuggestions = getSlashCommandSuggestions(text);
-  const showSlashSuggestions = text.trim().startsWith('/') && slashSuggestions.length > 0;
+  const showSlashSuggestions = text.trim().startsWith('/') && !text.includes('\n') && slashSuggestions.length > 0;
+  const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
+
+  // Keep selected index in range when suggestions change.
+  useEffect(() => {
+    if (!showSlashSuggestions) {
+      setSelectedSlashIndex(0);
+      return;
+    }
+    setSelectedSlashIndex((prev) => {
+      if (slashSuggestions.length === 0) return 0;
+      return Math.max(0, Math.min(prev, slashSuggestions.length - 1));
+    });
+  }, [showSlashSuggestions, slashSuggestions.length]);
 
   // Update input buffer when history navigation changes
   useEffect(() => {
@@ -54,6 +67,21 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
   // Handle all input
   useInput((input, key) => {
     const ctx = { text, cursorPosition };
+
+    const wrapIndex = (index: number, length: number): number => {
+      if (length <= 0) return 0;
+      return (index + length) % length;
+    };
+
+    // Slash suggestion navigation (when visible)
+    if (showSlashSuggestions && (key.upArrow || key.downArrow)) {
+      if (key.upArrow) {
+        setSelectedSlashIndex((prev) => wrapIndex(prev - 1, slashSuggestions.length));
+      } else {
+        setSelectedSlashIndex((prev) => wrapIndex(prev + 1, slashSuggestions.length));
+      }
+      return;
+    }
 
     // Some terminals encode Shift+Enter as a CSI sequence instead of a modified return key.
     if (input && isShiftEnterEscapeSequence(input)) {
@@ -150,6 +178,13 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
 
     // Tab - autocomplete slash commands (e.g. /h -> /help)
     if (key.tab) {
+      if (showSlashSuggestions) {
+        const selected = slashSuggestions[selectedSlashIndex];
+        if (selected?.command) {
+          actions.setValue(selected.command);
+          return;
+        }
+      }
       const completed = getSlashAutocomplete(text);
       if (completed) {
         actions.setValue(completed);
@@ -159,6 +194,15 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
 
     // Handle submit (plain Enter)
     if (key.return) {
+      if (showSlashSuggestions) {
+        const selected = slashSuggestions[selectedSlashIndex];
+        const selectedCommand = selected?.command;
+        const current = text.trim();
+        if (selectedCommand && current !== selectedCommand) {
+          actions.setValue(selectedCommand);
+          return;
+        }
+      }
       const val = text.trim();
       if (val) {
         onSubmit(val);
@@ -191,11 +235,19 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
       </Box>
       {showSlashSuggestions && (
         <Box paddingX={1} marginBottom={1} flexDirection="column">
-          {slashSuggestions.map((suggestion) => (
-            <Text key={suggestion.command} color={colors.muted}>
-              {suggestion.command} - {suggestion.description}
-            </Text>
-          ))}
+          {slashSuggestions.map((suggestion, idx) => {
+            const isSelected = idx === selectedSlashIndex;
+            return (
+              <Text
+                key={suggestion.command}
+                color={isSelected ? colors.primaryLight : colors.muted}
+                bold={isSelected}
+              >
+                {isSelected ? '> ' : '  '}
+                {suggestion.command} - {suggestion.description}
+              </Text>
+            );
+          })}
         </Box>
       )}
     </Box>

@@ -42,7 +42,9 @@ export function Intro({ provider, model }: IntroProps) {
 
       <Box marginY={1} flexDirection="column">
         <Text>Your AI assistant for deep financial research.</Text>
-        <Text color={colors.muted}>Model: <Text color={colors.primary}>{getModelDisplayName(model)}.</Text> Type /help for commands, /model for model, /finance for finance data provider, or /search for web search settings.</Text>
+        <Text color={colors.muted}>
+          Model: <Text color={colors.primary}>{getModelDisplayName(model)}.</Text> Type /help for commands.
+        </Text>
       </Box>
     </Box>
   );
