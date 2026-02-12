@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { colors } from '../theme.js';
+import { wrapIndex } from '../utils/wrap-index.js';
 import { FINANCE_PROVIDER_DEFS, type FinanceProviderId, getFinanceProviderDisplayName } from '../tools/finance/providers.js';
 
 interface FinanceProviderSelectorProps {
@@ -25,11 +26,6 @@ export function FinanceProviderSelector({ currentProvider, onSelect, onCancel }:
     const idx = providers.findIndex((p) => p.id === currentProvider);
     return idx >= 0 ? idx : 0;
   });
-
-  const wrapIndex = (index: number, length: number): number => {
-    if (length <= 0) return 0;
-    return (index + length) % length;
-  };
 
   useInput((input, key) => {
     if (key.upArrow || input === 'k') {

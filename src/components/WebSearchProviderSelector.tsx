@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { colors } from '../theme.js';
+import { wrapIndex } from '../utils/wrap-index.js';
 import { WEB_SEARCH_PROVIDER_DEFS, type WebSearchProviderId, getWebSearchProviderDisplayName } from '../tools/search/providers.js';
 
 interface WebSearchProviderSelectorProps {
@@ -25,11 +26,6 @@ export function WebSearchProviderSelector({ currentProvider, onSelect, onCancel 
     const idx = providers.findIndex((p) => p.id === currentProvider);
     return idx >= 0 ? idx : 0;
   });
-
-  const wrapIndex = (index: number, length: number): number => {
-    if (length <= 0) return 0;
-    return (index + length) % length;
-  };
 
   useInput((input, key) => {
     if (key.upArrow || input === 'k') {

@@ -4,6 +4,7 @@ import { Box, Text, useInput } from 'ink';
 import { colors } from '../theme.js';
 import { useTextBuffer } from '../hooks/useTextBuffer.js';
 import { cursorHandlers } from '../utils/input-key-handlers.js';
+import { wrapIndex } from '../utils/wrap-index.js';
 import { CursorText } from './CursorText.js';
 import { getSlashAutocomplete, getSlashCommandSuggestions } from '../commands.js';
 
@@ -67,11 +68,6 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
   // Handle all input
   useInput((input, key) => {
     const ctx = { text, cursorPosition };
-
-    const wrapIndex = (index: number, length: number): number => {
-      if (length <= 0) return 0;
-      return (index + length) % length;
-    };
 
     // Slash suggestion navigation (when visible)
     if (showSlashSuggestions && (key.upArrow || key.downArrow)) {

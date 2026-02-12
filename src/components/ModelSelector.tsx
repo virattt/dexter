@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { colors } from '../theme.js';
 import { PROVIDERS as PROVIDER_DEFS } from '@/providers';
+import { wrapIndex } from '../utils/wrap-index.js';
 
 export interface Model {
   id: string;          // API model identifier (e.g., "claude-opus-4-6")
@@ -47,11 +48,6 @@ const PROVIDERS: Provider[] = PROVIDER_DEFS.map((p) => ({
   providerId: p.id,
   models: PROVIDER_MODELS[p.id] ?? [],
 }));
-
-function wrapIndex(index: number, length: number): number {
-  if (length <= 0) return 0;
-  return (index + length) % length;
-}
 
 export function getModelsForProvider(providerId: string): Model[] {
   const provider = PROVIDERS.find((p) => p.providerId === providerId);
