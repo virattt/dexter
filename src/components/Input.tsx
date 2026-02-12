@@ -5,6 +5,7 @@ import { colors } from '../theme.js';
 import { useTextBuffer } from '../hooks/useTextBuffer.js';
 import { cursorHandlers } from '../utils/input-key-handlers.js';
 import { CursorText } from './CursorText.js';
+import { getSlashAutocomplete, getSlashCommandSuggestions } from '../commands.js';
 
 interface InputProps {
   onSubmit: (value: string) => void;
@@ -14,8 +15,30 @@ interface InputProps {
   onHistoryNavigate?: (direction: 'up' | 'down') => void;
 }
 
+function isShiftEnterEscapeSequence(input: string): boolean {
+  return (
+    input === '\u001b[27;2;13~' ||
+    input === '[27;2;13~' ||
+    input === '\u001b[13;2u' ||
+    input === '[13;2u'
+  );
+}
+
+function isCtrlBackspaceEscapeSequence(input: string): boolean {
+  return (
+    input === '\u001b[127;5u' ||
+    input === '[127;5u' ||
+    input === '\u001b[8;5u' ||
+    input === '[8;5u' ||
+    input === '\u001b[3;5~' ||
+    input === '[3;5~'
+  );
+}
+
 export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps) {
   const { text, cursorPosition, actions } = useTextBuffer();
+  const slashSuggestions = getSlashCommandSuggestions(text);
+  const showSlashSuggestions = text.trim().startsWith('/') && slashSuggestions.length > 0;
 
   // Update input buffer when history navigation changes
   useEffect(() => {
@@ -31,6 +54,17 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
   // Handle all input
   useInput((input, key) => {
     const ctx = { text, cursorPosition };
+
+    // Some terminals encode Shift+Enter as a CSI sequence instead of a modified return key.
+    if (input && isShiftEnterEscapeSequence(input)) {
+      actions.insert('\n');
+      return;
+    }
+
+    if (input && isCtrlBackspaceEscapeSequence(input)) {
+      actions.deleteWordBackward();
+      return;
+    }
 
     // Up arrow: move cursor up if not on first line, else history navigation
     if (key.upArrow) {
@@ -96,6 +130,12 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
       return;
     }
 
+    // Ctrl+W - delete word backward (shell-style)
+    if (key.ctrl && input === 'w') {
+      actions.deleteWordBackward();
+      return;
+    }
+
     // Handle backspace/delete - delete character before cursor
     if (key.backspace || key.delete) {
       actions.deleteBackward();
@@ -105,6 +145,15 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
     // Shift+Enter - insert newline for multi-line input
     if (key.return && key.shift) {
       actions.insert('\n');
+      return;
+    }
+
+    // Tab - autocomplete slash commands (e.g. /h -> /help)
+    if (key.tab) {
+      const completed = getSlashAutocomplete(text);
+      if (completed) {
+        actions.setValue(completed);
+      }
       return;
     }
 
@@ -140,6 +189,15 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
         </Text>
         <CursorText text={text} cursorPosition={cursorPosition} />
       </Box>
+      {showSlashSuggestions && (
+        <Box paddingX={1} marginBottom={1} flexDirection="column">
+          {slashSuggestions.map((suggestion) => (
+            <Text key={suggestion.command} color={colors.muted}>
+              {suggestion.command} - {suggestion.description}
+            </Text>
+          ))}
+        </Box>
+      )}
     </Box>
   );
 }
