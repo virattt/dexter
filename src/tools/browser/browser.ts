@@ -40,7 +40,7 @@ async function ensureBrowser(): Promise<Page> {
 
   if (!page || page.isClosed()) {
     page = await context.newPage();
-    page.on('close', () => {
+    page.once('close', () => {
       page = null;
       currentRefs.clear();
     });
