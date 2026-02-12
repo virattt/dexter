@@ -1,7 +1,10 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { callApi } from './api.js';
 import { formatToolResult } from '../types.js';
+import { runFinanceProviderChain } from './providers/fallback.js';
+import { fdKeyRatiosSnapshot, fdKeyRatios } from './providers/financialdatasets.js';
+import { fmpKeyMetricsSnapshot, fmpKeyMetrics } from './providers/fmp.js';
+import { avKeyRatiosSnapshot } from './providers/alphavantage.js';
 
 const KeyRatiosSnapshotInputSchema = z.object({
   ticker: z
@@ -16,9 +19,31 @@ export const getKeyRatiosSnapshot = new DynamicStructuredTool({
   description: `Fetches a snapshot of the most current key ratios for a company, including key indicators like market capitalization, P/E ratio, and dividend yield. Useful for a quick overview of a company's financial health.`,
   schema: KeyRatiosSnapshotInputSchema,
   func: async (input) => {
-    const params = { ticker: input.ticker };
-    const { data, url } = await callApi('/financial-metrics/snapshot/', params);
-    return formatToolResult(data.snapshot || {}, [url]);
+    const result = await runFinanceProviderChain('get_key_ratios_snapshot', [
+      {
+        provider: 'financialdatasets',
+        run: async () => {
+          const { data, url } = await fdKeyRatiosSnapshot(input.ticker);
+          return { data, sourceUrls: [url] };
+        },
+      },
+      {
+        provider: 'fmp',
+        run: async () => {
+          const { data, url } = await fmpKeyMetricsSnapshot(input.ticker);
+          return { data, sourceUrls: [url] };
+        },
+      },
+      {
+        provider: 'alphavantage',
+        run: async () => {
+          const { data, url } = await avKeyRatiosSnapshot(input.ticker);
+          return { data, sourceUrls: [url] };
+        },
+      },
+    ]);
+
+    return formatToolResult(result.data, result.sourceUrls);
   },
 });
 
@@ -79,7 +104,43 @@ export const getKeyRatios = new DynamicStructuredTool({
       report_period_lt: input.report_period_lt,
       report_period_lte: input.report_period_lte,
     };
-    const { data, url } = await callApi('/financial-metrics/', params);
-    return formatToolResult(data.financial_metrics || [], [url]);
+
+    const reportPeriodGte = input.report_period ?? input.report_period_gte;
+    const reportPeriodLte = input.report_period ?? input.report_period_lte;
+
+    const result = await runFinanceProviderChain('get_key_ratios', [
+      {
+        provider: 'financialdatasets',
+        run: async () => {
+          const { data, url } = await fdKeyRatios(params);
+          return { data, sourceUrls: [url] };
+        },
+      },
+      {
+        provider: 'fmp',
+        run: async () => {
+          const { data, url } = await fmpKeyMetrics({
+            ticker: input.ticker,
+            period: input.period,
+            limit: input.limit,
+            report_period_gt: input.report_period_gt,
+            report_period_gte: reportPeriodGte,
+            report_period_lt: input.report_period_lt,
+            report_period_lte: reportPeriodLte,
+          });
+          return { data, sourceUrls: [url] };
+        },
+      },
+      {
+        provider: 'alphavantage',
+        run: async () => {
+          throw new Error(
+            'Alpha Vantage provider does not support historical key metrics in this tool; use FINANCIAL_DATASETS_API_KEY or FMP_API_KEY'
+          );
+        },
+      },
+    ]);
+
+    return formatToolResult(result.data, result.sourceUrls);
   },
 });

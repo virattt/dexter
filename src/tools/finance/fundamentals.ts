@@ -1,7 +1,23 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { callApi } from './api.js';
 import { formatToolResult } from '../types.js';
+import { runFinanceProviderChain } from './providers/fallback.js';
+import {
+  fdIncomeStatements,
+  fdBalanceSheets,
+  fdCashFlowStatements,
+  fdAllFinancialStatements,
+} from './providers/financialdatasets.js';
+import {
+  fmpIncomeStatements,
+  fmpBalanceSheets,
+  fmpCashFlowStatements,
+} from './providers/fmp.js';
+import {
+  avIncomeStatements,
+  avBalanceSheets,
+  avCashFlowStatements,
+} from './providers/alphavantage.js';
 
 const FinancialStatementsInputSchema = z.object({
   ticker: z
@@ -60,8 +76,47 @@ export const getIncomeStatements = new DynamicStructuredTool({
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
     const params = createParams(input);
-    const { data, url } = await callApi('/financials/income-statements/', params);
-    return formatToolResult(data.income_statements || {}, [url]);
+    const result = await runFinanceProviderChain('get_income_statements', [
+      {
+        provider: 'financialdatasets',
+        run: async () => {
+          const { data, url } = await fdIncomeStatements(params);
+          return { data, sourceUrls: [url] };
+        },
+      },
+      {
+        provider: 'fmp',
+        run: async () => {
+          const { data, url } = await fmpIncomeStatements({
+            ticker: input.ticker,
+            period: input.period,
+            limit: input.limit,
+            report_period_gt: input.report_period_gt,
+            report_period_gte: input.report_period_gte,
+            report_period_lt: input.report_period_lt,
+            report_period_lte: input.report_period_lte,
+          });
+          return { data, sourceUrls: [url] };
+        },
+      },
+      {
+        provider: 'alphavantage',
+        run: async () => {
+          const { data, url } = await avIncomeStatements({
+            ticker: input.ticker,
+            period: input.period,
+            limit: input.limit,
+            report_period_gt: input.report_period_gt,
+            report_period_gte: input.report_period_gte,
+            report_period_lt: input.report_period_lt,
+            report_period_lte: input.report_period_lte,
+          });
+          return { data, sourceUrls: [url] };
+        },
+      },
+    ]);
+
+    return formatToolResult(result.data, result.sourceUrls);
   },
 });
 
@@ -71,8 +126,47 @@ export const getBalanceSheets = new DynamicStructuredTool({
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
     const params = createParams(input);
-    const { data, url } = await callApi('/financials/balance-sheets/', params);
-    return formatToolResult(data.balance_sheets || {}, [url]);
+    const result = await runFinanceProviderChain('get_balance_sheets', [
+      {
+        provider: 'financialdatasets',
+        run: async () => {
+          const { data, url } = await fdBalanceSheets(params);
+          return { data, sourceUrls: [url] };
+        },
+      },
+      {
+        provider: 'fmp',
+        run: async () => {
+          const { data, url } = await fmpBalanceSheets({
+            ticker: input.ticker,
+            period: input.period,
+            limit: input.limit,
+            report_period_gt: input.report_period_gt,
+            report_period_gte: input.report_period_gte,
+            report_period_lt: input.report_period_lt,
+            report_period_lte: input.report_period_lte,
+          });
+          return { data, sourceUrls: [url] };
+        },
+      },
+      {
+        provider: 'alphavantage',
+        run: async () => {
+          const { data, url } = await avBalanceSheets({
+            ticker: input.ticker,
+            period: input.period,
+            limit: input.limit,
+            report_period_gt: input.report_period_gt,
+            report_period_gte: input.report_period_gte,
+            report_period_lt: input.report_period_lt,
+            report_period_lte: input.report_period_lte,
+          });
+          return { data, sourceUrls: [url] };
+        },
+      },
+    ]);
+
+    return formatToolResult(result.data, result.sourceUrls);
   },
 });
 
@@ -82,8 +176,47 @@ export const getCashFlowStatements = new DynamicStructuredTool({
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
     const params = createParams(input);
-    const { data, url } = await callApi('/financials/cash-flow-statements/', params);
-    return formatToolResult(data.cash_flow_statements || {}, [url]);
+    const result = await runFinanceProviderChain('get_cash_flow_statements', [
+      {
+        provider: 'financialdatasets',
+        run: async () => {
+          const { data, url } = await fdCashFlowStatements(params);
+          return { data, sourceUrls: [url] };
+        },
+      },
+      {
+        provider: 'fmp',
+        run: async () => {
+          const { data, url } = await fmpCashFlowStatements({
+            ticker: input.ticker,
+            period: input.period,
+            limit: input.limit,
+            report_period_gt: input.report_period_gt,
+            report_period_gte: input.report_period_gte,
+            report_period_lt: input.report_period_lt,
+            report_period_lte: input.report_period_lte,
+          });
+          return { data, sourceUrls: [url] };
+        },
+      },
+      {
+        provider: 'alphavantage',
+        run: async () => {
+          const { data, url } = await avCashFlowStatements({
+            ticker: input.ticker,
+            period: input.period,
+            limit: input.limit,
+            report_period_gt: input.report_period_gt,
+            report_period_gte: input.report_period_gte,
+            report_period_lt: input.report_period_lt,
+            report_period_lte: input.report_period_lte,
+          });
+          return { data, sourceUrls: [url] };
+        },
+      },
+    ]);
+
+    return formatToolResult(result.data, result.sourceUrls);
   },
 });
 
@@ -93,8 +226,100 @@ export const getAllFinancialStatements = new DynamicStructuredTool({
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
     const params = createParams(input);
-    const { data, url } = await callApi('/financials/', params);
-    return formatToolResult(data.financials || {}, [url]);
+    const result = await runFinanceProviderChain('get_all_financial_statements', [
+      {
+        provider: 'financialdatasets',
+        run: async () => {
+          const { data, url } = await fdAllFinancialStatements(params);
+          return { data, sourceUrls: [url] };
+        },
+      },
+      {
+        provider: 'fmp',
+        run: async () => {
+          const [income, balance, cashflow] = await Promise.all([
+            fmpIncomeStatements({
+              ticker: input.ticker,
+              period: input.period,
+              limit: input.limit,
+              report_period_gt: input.report_period_gt,
+              report_period_gte: input.report_period_gte,
+              report_period_lt: input.report_period_lt,
+              report_period_lte: input.report_period_lte,
+            }),
+            fmpBalanceSheets({
+              ticker: input.ticker,
+              period: input.period,
+              limit: input.limit,
+              report_period_gt: input.report_period_gt,
+              report_period_gte: input.report_period_gte,
+              report_period_lt: input.report_period_lt,
+              report_period_lte: input.report_period_lte,
+            }),
+            fmpCashFlowStatements({
+              ticker: input.ticker,
+              period: input.period,
+              limit: input.limit,
+              report_period_gt: input.report_period_gt,
+              report_period_gte: input.report_period_gte,
+              report_period_lt: input.report_period_lt,
+              report_period_lte: input.report_period_lte,
+            }),
+          ]);
+          return {
+            data: {
+              income_statements: income.data,
+              balance_sheets: balance.data,
+              cash_flow_statements: cashflow.data,
+            },
+            sourceUrls: [income.url, balance.url, cashflow.url],
+          };
+        },
+      },
+      {
+        provider: 'alphavantage',
+        run: async () => {
+          const [income, balance, cashflow] = await Promise.all([
+            avIncomeStatements({
+              ticker: input.ticker,
+              period: input.period,
+              limit: input.limit,
+              report_period_gt: input.report_period_gt,
+              report_period_gte: input.report_period_gte,
+              report_period_lt: input.report_period_lt,
+              report_period_lte: input.report_period_lte,
+            }),
+            avBalanceSheets({
+              ticker: input.ticker,
+              period: input.period,
+              limit: input.limit,
+              report_period_gt: input.report_period_gt,
+              report_period_gte: input.report_period_gte,
+              report_period_lt: input.report_period_lt,
+              report_period_lte: input.report_period_lte,
+            }),
+            avCashFlowStatements({
+              ticker: input.ticker,
+              period: input.period,
+              limit: input.limit,
+              report_period_gt: input.report_period_gt,
+              report_period_gte: input.report_period_gte,
+              report_period_lt: input.report_period_lt,
+              report_period_lte: input.report_period_lte,
+            }),
+          ]);
+          return {
+            data: {
+              income_statements: income.data,
+              balance_sheets: balance.data,
+              cash_flow_statements: cashflow.data,
+            },
+            sourceUrls: [income.url, balance.url, cashflow.url],
+          };
+        },
+      },
+    ]);
+
+    return formatToolResult(result.data, result.sourceUrls);
   },
 });
-
