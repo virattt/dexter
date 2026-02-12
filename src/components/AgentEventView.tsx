@@ -1,6 +1,5 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import Spinner from 'ink-spinner';
 import { colors } from '../theme.js';
 import type { AgentEvent } from '../agent/types.js';
 
@@ -148,10 +147,7 @@ export function ToolStartView({ tool, args, isActive = false, progressMessage }:
       {isActive && (
         <Box marginLeft={2}>
           <Text color={colors.muted}>⎿  </Text>
-          <Text color={colors.muted}>
-            <Spinner type="dots" />
-          </Text>
-          <Text> {progressMessage || 'Searching...'}</Text>
+          <Text>{progressMessage || 'Searching...'}</Text>
         </Box>
       )}
     </Box>
@@ -331,10 +327,7 @@ function BrowserSessionView({ events, activeStepId }: BrowserSessionViewProps) {
       </Box>
       <Box marginLeft={2}>
         <Text color={colors.muted}>⎿  </Text>
-        {activeStepId && (
-          <Text color={colors.muted}><Spinner type="dots" /></Text>
-        )}
-        {currentStep && <Text>{activeStepId ? ' ' : ''}{currentStep}</Text>}
+        {currentStep && <Text>{currentStep}</Text>}
       </Box>
     </Box>
   );

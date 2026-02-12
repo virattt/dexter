@@ -48,6 +48,11 @@ const PROVIDERS: Provider[] = PROVIDER_DEFS.map((p) => ({
   models: PROVIDER_MODELS[p.id] ?? [],
 }));
 
+function wrapIndex(index: number, length: number): number {
+  if (length <= 0) return 0;
+  return (index + length) % length;
+}
+
 export function getModelsForProvider(providerId: string): Model[] {
   const provider = PROVIDERS.find((p) => p.providerId === providerId);
   return provider?.models ?? [];
@@ -94,9 +99,9 @@ export function ProviderSelector({ provider, onSelect }: ProviderSelectorProps) 
 
   useInput((input, key) => {
     if (key.upArrow || input === 'k') {
-      setSelectedIndex((prev) => Math.max(0, prev - 1));
+      setSelectedIndex((prev) => wrapIndex(prev - 1, PROVIDERS.length));
     } else if (key.downArrow || input === 'j') {
-      setSelectedIndex((prev) => Math.min(PROVIDERS.length - 1, prev + 1));
+      setSelectedIndex((prev) => wrapIndex(prev + 1, PROVIDERS.length));
     } else if (key.return) {
       onSelect(PROVIDERS[selectedIndex].providerId);
     } else if (key.escape) {
@@ -221,9 +226,9 @@ export function ModelSelector({ providerId, models, currentModel, onSelect }: Mo
 
   useInput((input, key) => {
     if (key.upArrow || input === 'k') {
-      setSelectedIndex((prev) => Math.max(0, prev - 1));
+      setSelectedIndex((prev) => wrapIndex(prev - 1, models.length));
     } else if (key.downArrow || input === 'j') {
-      setSelectedIndex((prev) => Math.min(models.length - 1, prev + 1));
+      setSelectedIndex((prev) => wrapIndex(prev + 1, models.length));
     } else if (key.return) {
       if (models.length > 0) {
         onSelect(models[selectedIndex].id);
