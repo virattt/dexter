@@ -67,7 +67,7 @@ export class Agent {
     const ctx = createRunContext(query);
 
     // Build initial prompt with conversation history context
-    let currentPrompt = this.buildInitialPrompt(query, inMemoryHistory);
+    let currentPrompt = await this.buildInitialPrompt(query, inMemoryHistory);
 
     // Main agent loop
     while (ctx.iteration < this.maxIterations) {
@@ -198,21 +198,32 @@ export class Agent {
   /**
    * Build initial prompt with conversation history context if available
    */
-  private buildInitialPrompt(
+  private async buildInitialPrompt(
     query: string,
     inMemoryChatHistory?: InMemoryChatHistory
-  ): string {
+  ): Promise<string> {
     if (!inMemoryChatHistory?.hasMessages()) {
       return query;
     }
 
-    const userMessages = inMemoryChatHistory.getUserMessages();
-    if (userMessages.length === 0) {
+    const completed = inMemoryChatHistory
+      .getMessages()
+      .filter(m => m.answer !== null);
+
+    let selectedMessages = completed.length <= 2
+      ? completed
+      : await inMemoryChatHistory.selectRelevantMessages(query);
+
+    if (selectedMessages.length === 0) {
+      selectedMessages = completed.slice(-3);
+    }
+
+    if (selectedMessages.length === 0) {
       return query;
     }
 
-    const historyContext = userMessages.map((msg, i) => `${i + 1}. ${msg}`).join('\n');
-    return `Current query to answer: ${query}\n\nPrevious user queries for context:\n${historyContext}`;
+    const context = inMemoryChatHistory.formatForAnswerGeneration(selectedMessages);
+    return `Current query to answer: ${query}\n\nRelevant previous context:\n${context}`;
   }
 
 }
