@@ -203,7 +203,7 @@ export function CLI() {
     if (result?.answer) {
       await updateAgentResponse(result.answer);
     }
-  }, [terminateApp, startSelection, startWebSearchSelection, startFinanceSelection, isInSelectionFlow, isInWebSearchSelectionFlow, isInFinanceSelectionFlow, workingState.status, runQuery, saveMessage, updateAgentResponse, resetNavigation, setError, isProcessing, cancelExecution, inMemoryChatHistoryRef, clearHistory, clearInputHistory]);
+  }, [terminateApp, startSelection, startWebSearchSelection, startFinanceSelection, isInSelectionFlow, isInWebSearchSelectionFlow, isInFinanceSelectionFlow, workingState.status, runQuery, saveMessage, updateAgentResponse, resetNavigation, setError, setNotice, isProcessing, cancelExecution, inMemoryChatHistoryRef, clearHistory, clearInputHistory]);
   
   // Handle keyboard shortcuts
   useInput((input, key) => {
