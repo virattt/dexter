@@ -11,6 +11,7 @@ import { Input } from './components/Input.js';
 import { Intro } from './components/Intro.js';
 import { ProviderSelector, ModelSelector, ModelInputField } from './components/ModelSelector.js';
 import { ApiKeyConfirm, ApiKeyInput } from './components/ApiKeyPrompt.js';
+import { OpenAIAuthMethodPrompt, OpenAIOAuthWait } from './components/OpenAIAuthPrompt.js';
 import { DebugPanel } from './components/DebugPanel.js';
 import { HistoryItemView, WorkingIndicator } from './components/index.js';
 import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js';
@@ -40,6 +41,7 @@ export function CLI() {
     handleProviderSelect,
     handleModelSelect,
     handleModelInputSubmit,
+    handleOpenAIAuthMethodSelect,
     handleApiKeyConfirm,
     handleApiKeySubmit,
     isInSelectionFlow,
@@ -135,7 +137,7 @@ export function CLI() {
   });
   
   // Render selection screens
-  const { appState, pendingProvider, pendingModels } = selectionState;
+  const { appState, pendingProvider, pendingModels, openAIOAuthDisplay } = selectionState;
   
   if (appState === 'provider_select') {
     return (
@@ -165,6 +167,25 @@ export function CLI() {
           providerId={pendingProvider}
           currentModel={provider === pendingProvider ? model : undefined}
           onSubmit={handleModelInputSubmit}
+        />
+      </Box>
+    );
+  }
+
+  if (appState === 'openai_auth_select') {
+    return (
+      <Box flexDirection="column">
+        <OpenAIAuthMethodPrompt onSelect={(method) => { void handleOpenAIAuthMethodSelect(method); }} />
+      </Box>
+    );
+  }
+
+  if (appState === 'openai_oauth_wait' && openAIOAuthDisplay) {
+    return (
+      <Box flexDirection="column">
+        <OpenAIOAuthWait
+          verificationUrl={openAIOAuthDisplay.verificationUrl}
+          userCode={openAIOAuthDisplay.userCode}
         />
       </Box>
     );

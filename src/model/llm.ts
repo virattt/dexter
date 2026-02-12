@@ -13,6 +13,12 @@ import { DEFAULT_SYSTEM_PROMPT } from '@/agent/prompts';
 import type { TokenUsage } from '@/agent/types';
 import { logger } from '@/utils';
 import { resolveProvider, getProviderById } from '@/providers';
+import {
+  getOpenAIAuthMode,
+  getValidOpenAIOAuthCredentials,
+  hasOpenAIOAuthCredentials,
+  isOpenAIOAuthModelSupported,
+} from '@/utils/openai-oauth';
 
 export const DEFAULT_PROVIDER = 'openai';
 export const DEFAULT_MODEL = 'gpt-5.2';
@@ -50,12 +56,87 @@ interface ModelOpts {
 
 type ModelFactory = (name: string, opts: ModelOpts) => BaseChatModel;
 
+const OPENAI_CODEX_RESPONSES_ENDPOINT = 'https://chatgpt.com/backend-api/codex/responses';
+const OPENAI_OAUTH_DUMMY_KEY = 'oauth-placeholder';
+
 function getApiKey(envVar: string): string {
   const apiKey = process.env[envVar];
   if (!apiKey) {
     throw new Error(`${envVar} not found in environment variables`);
   }
   return apiKey;
+}
+
+function hasOpenAIApiKeyConfigured(): boolean {
+  const value = process.env.OPENAI_API_KEY;
+  return Boolean(value && value.trim() && !value.trim().startsWith('your-'));
+}
+
+function parseRequestUrl(requestInput: RequestInfo | URL): URL {
+  if (requestInput instanceof URL) {
+    return new URL(requestInput.toString());
+  }
+  if (requestInput instanceof Request) {
+    return new URL(requestInput.url);
+  }
+  return new URL(requestInput);
+}
+
+function shouldRewriteOpenAIUrl(url: URL): boolean {
+  return url.pathname.includes('/v1/responses') || url.pathname.includes('/chat/completions');
+}
+
+function mergeHeaders(requestInput: RequestInfo | URL, init?: RequestInit): Headers {
+  const headers = new Headers();
+
+  if (requestInput instanceof Request) {
+    requestInput.headers.forEach((value, key) => {
+      headers.set(key, value);
+    });
+  }
+
+  if (init?.headers) {
+    const incoming = new Headers(init.headers);
+    incoming.forEach((value, key) => {
+      headers.set(key, value);
+    });
+  }
+
+  return headers;
+}
+
+function createOpenAIOAuthFetch(): typeof fetch {
+  const oauthFetch = (async (requestInput: RequestInfo | URL, init?: RequestInit) => {
+    const credentials = await getValidOpenAIOAuthCredentials();
+    if (!credentials) {
+      throw new Error('OpenAI OAuth credentials are missing. Run /model and login again.');
+    }
+
+    const headers = mergeHeaders(requestInput, init);
+    headers.set('authorization', `Bearer ${credentials.accessToken}`);
+    headers.delete('x-api-key');
+    if (credentials.accountId) {
+      headers.set('ChatGPT-Account-Id', credentials.accountId);
+    }
+    headers.set('originator', 'dexter');
+
+    const originalUrl = parseRequestUrl(requestInput);
+    const finalUrl = shouldRewriteOpenAIUrl(originalUrl)
+      ? new URL(OPENAI_CODEX_RESPONSES_ENDPOINT)
+      : originalUrl;
+
+    const finalInput =
+      requestInput instanceof Request
+        ? new Request(finalUrl.toString(), requestInput)
+        : finalUrl;
+
+    return fetch(finalInput, {
+      ...init,
+      headers,
+    });
+  }) as typeof fetch;
+
+  return oauthFetch;
 }
 
 // Factories keyed by provider id — prefix routing is handled by resolveProvider()
@@ -116,12 +197,35 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
     }),
 };
 
-const DEFAULT_FACTORY: ModelFactory = (name, opts) =>
-  new ChatOpenAI({
+const DEFAULT_FACTORY: ModelFactory = (name, opts) => {
+  const hasApiKey = hasOpenAIApiKeyConfigured();
+  const hasOauth = hasOpenAIOAuthCredentials();
+  const preferredMode = getOpenAIAuthMode();
+  const shouldUseOauth = hasOauth && (preferredMode === 'oauth' || !hasApiKey);
+
+  if (shouldUseOauth) {
+    if (isOpenAIOAuthModelSupported(name)) {
+      return new ChatOpenAI({
+        model: name,
+        ...opts,
+        apiKey: OPENAI_OAUTH_DUMMY_KEY,
+        configuration: {
+          fetch: createOpenAIOAuthFetch(),
+        },
+      });
+    }
+
+    if (!hasApiKey) {
+      throw new Error(`OpenAI OAuth supports Codex models only (for example: gpt-5.2). Selected model: ${name}`);
+    }
+  }
+
+  return new ChatOpenAI({
     model: name,
     ...opts,
     apiKey: getApiKey('OPENAI_API_KEY'),
   });
+};
 
 export function getChatModel(
   modelName: string = DEFAULT_MODEL,

@@ -5,19 +5,42 @@ import { getModelsForProvider, getDefaultModelForProvider, type Model } from '..
 import { getOllamaModels } from '../utils/ollama.js';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from '../model/llm.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
+import {
+  getOpenAIAuthMode,
+  isOpenAIOAuthModelSupported,
+  hasOpenAIOAuthCredentials,
+  setOpenAIAuthMode,
+  startOpenAIDeviceAuth,
+  pollOpenAIDeviceAuth,
+  saveOpenAIOAuthCredentials,
+} from '../utils/openai-oauth.js';
 
 // ============================================================================
 // Types
 // ============================================================================
 
-const SELECTION_STATES = ['provider_select', 'model_select', 'model_input', 'api_key_confirm', 'api_key_input'] as const;
+const SELECTION_STATES = [
+  'provider_select',
+  'model_select',
+  'model_input',
+  'openai_auth_select',
+  'openai_oauth_wait',
+  'api_key_confirm',
+  'api_key_input',
+] as const;
 type SelectionState = typeof SELECTION_STATES[number];
 type AppState = 'idle' | SelectionState;
+
+export interface OpenAIOAuthDisplay {
+  verificationUrl: string;
+  userCode: string;
+}
 
 export interface ModelSelectionState {
   appState: AppState;
   pendingProvider: string | null;
   pendingModels: Model[];
+  openAIOAuthDisplay: OpenAIOAuthDisplay | null;
 }
 
 export interface UseModelSelectionResult {
@@ -33,6 +56,7 @@ export interface UseModelSelectionResult {
   handleProviderSelect: (providerId: string | null) => Promise<void>;
   handleModelSelect: (modelId: string | null) => void;
   handleModelInputSubmit: (modelName: string | null) => void;
+  handleOpenAIAuthMethodSelect: (method: 'oauth' | 'api_key' | null) => Promise<void>;
   handleApiKeyConfirm: (wantsToSet: boolean) => void;
   handleApiKeySubmit: (apiKey: string | null) => void;
   
@@ -46,6 +70,17 @@ export interface UseModelSelectionResult {
 
 function isSelectionState(state: AppState): state is SelectionState {
   return (SELECTION_STATES as readonly string[]).includes(state);
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return String(error);
+}
+
+function isOpenAIOAuthCancelError(error: unknown): boolean {
+  return error instanceof Error && error.message === 'OpenAI OAuth cancelled.';
 }
 
 // ============================================================================
@@ -71,12 +106,16 @@ export function useModelSelection(
   const [pendingProvider, setPendingProvider] = useState<string | null>(null);
   const [pendingModels, setPendingModels] = useState<Model[]>([]);
   const [pendingSelectedModelId, setPendingSelectedModelId] = useState<string | null>(null);
+  const [openAIOAuthDisplay, setOpenAIOAuthDisplay] = useState<OpenAIOAuthDisplay | null>(null);
+  const openAIOAuthAbortControllerRef = useRef<AbortController | null>(null);
   
   // Message history ref - shared with agent runner
   const inMemoryChatHistoryRef = useRef<InMemoryChatHistory>(new InMemoryChatHistory(model));
   
   // Helper to complete a model switch (DRY pattern)
   const completeModelSwitch = useCallback((newProvider: string, newModelId: string) => {
+    openAIOAuthAbortControllerRef.current?.abort();
+    openAIOAuthAbortControllerRef.current = null;
     setProvider(newProvider);
     setModel(newModelId);
     setSetting('provider', newProvider);
@@ -85,14 +124,18 @@ export function useModelSelection(
     setPendingProvider(null);
     setPendingModels([]);
     setPendingSelectedModelId(null);
+    setOpenAIOAuthDisplay(null);
     setAppState('idle');
   }, []);
   
   // Reset pending state
   const resetPendingState = useCallback(() => {
+    openAIOAuthAbortControllerRef.current?.abort();
+    openAIOAuthAbortControllerRef.current = null;
     setPendingProvider(null);
     setPendingModels([]);
     setPendingSelectedModelId(null);
+    setOpenAIOAuthDisplay(null);
     setAppState('idle');
   }, []);
   
@@ -152,6 +195,33 @@ export function useModelSelection(
       completeModelSwitch(pendingProvider, fullModelId);
       return;
     }
+
+    if (pendingProvider === 'openai') {
+      const hasOpenAIApiKey = checkApiKeyExistsForProvider('openai');
+      const hasOpenAIOAuth = hasOpenAIOAuthCredentials();
+      const preferredAuthMode = getOpenAIAuthMode();
+
+      if (hasOpenAIOAuth && preferredAuthMode === 'oauth' && isOpenAIOAuthModelSupported(modelId)) {
+        completeModelSwitch('openai', modelId);
+        return;
+      }
+
+      if (hasOpenAIApiKey) {
+        setOpenAIAuthMode('api_key');
+        completeModelSwitch('openai', modelId);
+        return;
+      }
+
+      if (hasOpenAIOAuth && isOpenAIOAuthModelSupported(modelId)) {
+        setOpenAIAuthMode('oauth');
+        completeModelSwitch('openai', modelId);
+        return;
+      }
+
+      setPendingSelectedModelId(modelId);
+      setAppState('openai_auth_select');
+      return;
+    }
     
     // For cloud providers, check API key
     if (checkApiKeyExistsForProvider(pendingProvider)) {
@@ -186,6 +256,71 @@ export function useModelSelection(
       setAppState('api_key_confirm');
     }
   }, [pendingProvider, completeModelSwitch]);
+
+  // OpenAI auth method selection handler
+  const handleOpenAIAuthMethodSelect = useCallback(async (method: 'oauth' | 'api_key' | null) => {
+    if (!pendingProvider || pendingProvider !== 'openai') {
+      resetPendingState();
+      return;
+    }
+
+    if (!pendingSelectedModelId) {
+      onError('No model selected.');
+      resetPendingState();
+      return;
+    }
+
+    if (!method) {
+      setPendingProvider(null);
+      setPendingModels([]);
+      setPendingSelectedModelId(null);
+      setOpenAIOAuthDisplay(null);
+      setAppState('provider_select');
+      return;
+    }
+
+    if (method === 'api_key') {
+      setOpenAIAuthMode('api_key');
+      setOpenAIOAuthDisplay(null);
+      setAppState('api_key_input');
+      return;
+    }
+
+    if (!isOpenAIOAuthModelSupported(pendingSelectedModelId)) {
+      onError('OpenAI OAuth currently supports Codex models only (for example: gpt-5.2). Choose gpt-5.2 or use API key auth.');
+      return;
+    }
+
+    try {
+      const session = await startOpenAIDeviceAuth();
+      setOpenAIOAuthDisplay({
+        verificationUrl: session.verificationUrl,
+        userCode: session.userCode,
+      });
+      setAppState('openai_oauth_wait');
+
+      const controller = new AbortController();
+      openAIOAuthAbortControllerRef.current = controller;
+
+      const credentials = await pollOpenAIDeviceAuth(session, { signal: controller.signal });
+      const saved = saveOpenAIOAuthCredentials(credentials);
+      if (!saved) {
+        throw new Error('Failed to save OpenAI OAuth credentials.');
+      }
+
+      setOpenAIAuthMode('oauth');
+      completeModelSwitch('openai', pendingSelectedModelId);
+    } catch (error) {
+      if (isOpenAIOAuthCancelError(error)) {
+        return;
+      }
+      onError(getErrorMessage(error));
+      setOpenAIOAuthDisplay(null);
+      setAppState('openai_auth_select');
+    } finally {
+      openAIOAuthAbortControllerRef.current = null;
+    }
+  }, [pendingProvider, pendingSelectedModelId, completeModelSwitch, resetPendingState, onError]);
   
   // API key confirmation handler
   const handleApiKeyConfirm = useCallback((wantsToSet: boolean) => {
@@ -214,6 +349,9 @@ export function useModelSelection(
     if (apiKey && pendingProvider) {
       const saved = saveApiKeyForProvider(pendingProvider, apiKey);
       if (saved) {
+        if (pendingProvider === 'openai') {
+          setOpenAIAuthMode('api_key');
+        }
         completeModelSwitch(pendingProvider, pendingSelectedModelId);
       } else {
         onError('Failed to save API key.');
@@ -233,6 +371,7 @@ export function useModelSelection(
       appState,
       pendingProvider,
       pendingModels,
+      openAIOAuthDisplay,
     },
     provider,
     model,
@@ -242,6 +381,7 @@ export function useModelSelection(
     handleProviderSelect,
     handleModelSelect,
     handleModelInputSubmit,
+    handleOpenAIAuthMethodSelect,
     handleApiKeyConfirm,
     handleApiKeySubmit,
     isInSelectionFlow,
