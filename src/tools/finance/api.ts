@@ -507,15 +507,6 @@ export async function callApi(
   params: Record<string, ApiParamValue>,
   options?: { cacheable?: boolean }
 ): Promise<ApiResponse> {
-  const label = describeRequest(endpoint, params);
-
-  if (options?.cacheable) {
-    const cached = readCache(endpoint, params);
-    if (cached) {
-      return cached;
-    }
-  }
-
   const configuredProvider = getSetting('financeProvider', 'auto');
   const resolvedProvider = resolveFinanceProvider(
     typeof configuredProvider === 'string' ? configuredProvider : 'auto',
@@ -527,13 +518,23 @@ export async function callApi(
     );
   }
 
+  const label = describeRequest(endpoint, params);
+  const providerScopedEndpoint = `${resolvedProvider}:${endpoint}`;
+
+  if (options?.cacheable) {
+    const cached = readCache(providerScopedEndpoint, params);
+    if (cached) {
+      return cached;
+    }
+  }
+
   try {
     const result = resolvedProvider === 'financialdatasets'
       ? await callFinancialDatasetsApi(endpoint, params, label)
       : await callAlphaVantageApi(endpoint, params);
 
     if (options?.cacheable) {
-      writeCache(endpoint, params, result.data, result.url);
+      writeCache(providerScopedEndpoint, params, result.data, result.url);
     }
 
     return result;

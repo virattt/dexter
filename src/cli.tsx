@@ -20,8 +20,8 @@ import { getWebSearchProviderDisplayName } from './tools/search/providers.js';
 import { getFinanceProviderDisplayName } from './tools/finance/providers.js';
 
 import { useModelSelection } from './hooks/useModelSelection.js';
-import { useWebSearchSelection } from './hooks/useWebSearchSelection';
-import { useFinanceSelection } from './hooks/useFinanceSelection';
+import { useWebSearchSelection } from './hooks/useWebSearchSelection.js';
+import { useFinanceSelection } from './hooks/useFinanceSelection.js';
 import { useAgentRunner } from './hooks/useAgentRunner.js';
 import { useInputHistory } from './hooks/useInputHistory.js';
 import { getCommandsHelpText } from './commands.js';

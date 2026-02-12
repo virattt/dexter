@@ -21,6 +21,15 @@ interface PageWithSnapshotForAI extends Page {
   _snapshotForAI?: (opts: { timeout: number; track: string }) => Promise<SnapshotForAIResult>;
 }
 
+function attachPageCloseHandler(trackedPage: Page): void {
+  trackedPage.once('close', () => {
+    if (page === trackedPage) {
+      page = null;
+      currentRefs.clear();
+    }
+  });
+}
+
 /**
  * Ensure browser and page are initialized.
  * Lazily launches a headless Chromium browser on first use.
@@ -40,10 +49,7 @@ async function ensureBrowser(): Promise<Page> {
 
   if (!page || page.isClosed()) {
     page = await context.newPage();
-    page.once('close', () => {
-      page = null;
-      currentRefs.clear();
-    });
+    attachPageCloseHandler(page);
   }
 
   return page;
@@ -197,7 +203,9 @@ export const browserTool = new DynamicStructuredTool({
             return formatToolResult({ error: 'url is required for open action' });
           }
           const currentPage = await ensureBrowser();
-          const newPage = await context!.newPage();
+          const activeContext = currentPage.context();
+          const newPage = await activeContext.newPage();
+          attachPageCloseHandler(newPage);
           await newPage.goto(url, { timeout: 30000, waitUntil: 'networkidle' });
           // Switch to the new page
           await currentPage.close().catch(() => {});

@@ -26,6 +26,12 @@ export async function getFilingItemTypes(): Promise<FilingItemTypes> {
     typeof configuredProvider === 'string' ? configuredProvider : 'auto',
   );
 
+  if (!resolvedProvider) {
+    throw new Error(
+      'No finance provider is configured. Please configure a finance provider/API key to use filing item types.',
+    );
+  }
+
   if (resolvedProvider !== 'financialdatasets') {
     throw new Error('Filing item types are only supported with Financial Datasets provider.');
   }
