@@ -39,6 +39,11 @@ const PROVIDER_MODELS: Record<string, Model[]> = {
     { id: 'deepseek-chat', displayName: 'DeepSeek V3' },
     { id: 'deepseek-reasoner', displayName: 'DeepSeek R1' },
   ],
+  'zai-coding-plan': [
+    { id: 'glm-4.7', displayName: 'GLM 4.7' },
+    { id: 'glm-4.6', displayName: 'GLM 4.6' },
+    { id: 'glm-4.5-flash', displayName: 'GLM 4.5 Flash' },
+  ],
 };
 
 // Derive the provider list from the canonical registry, attaching local model lists

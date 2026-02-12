@@ -82,6 +82,7 @@ cp env.example .env
 # GOOGLE_API_KEY=your-google-api-key (optional)
 # XAI_API_KEY=your-xai-api-key (optional)
 # OPENROUTER_API_KEY=your-openrouter-api-key (optional)
+# ZHIPU_API_KEY=your-z-ai-api-key (optional, Z.AI Coding Plan)
 
 # Institutional-grade market data for agents; AAPL, NVDA, MSFT are free
 # FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key

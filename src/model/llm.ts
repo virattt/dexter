@@ -108,6 +108,15 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
         baseURL: 'https://api.deepseek.com',
       },
     }),
+  'zai-coding-plan': (name, opts) =>
+    new ChatOpenAI({
+      model: name,
+      ...opts,
+      apiKey: getApiKey('ZHIPU_API_KEY'),
+      configuration: {
+        baseURL: 'https://open.bigmodel.cn/api/coding/paas/v4',
+      },
+    }),
   ollama: (name, opts) =>
     new ChatOllama({
       model: name.replace(/^ollama:/, ''),

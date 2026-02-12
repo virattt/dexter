@@ -60,6 +60,13 @@ export const PROVIDERS: ProviderDef[] = [
     fastModel: 'deepseek-chat',
   },
   {
+    id: 'zai-coding-plan',
+    displayName: 'Z.AI Coding Plan',
+    modelPrefix: 'glm-',
+    apiKeyEnvVar: 'ZHIPU_API_KEY',
+    fastModel: 'glm-4.5-flash',
+  },
+  {
     id: 'openrouter',
     displayName: 'OpenRouter',
     modelPrefix: 'openrouter:',
