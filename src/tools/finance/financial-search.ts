@@ -21,6 +21,19 @@ import { getSegmentedRevenues } from './segments.js';
 import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
 import { getInsiderTrades } from './insider_trades.js';
 import { getCompanyFacts } from './company_facts.js';
+import {
+  getQuiverCongressTrading,
+  getQuiverLobbying,
+  getQuiverInsiders,
+  getQuiverBillSummaries,
+} from './quiver.js';
+import { getQuartrData } from './quartr.js';
+import {
+  resolveSecCik,
+  getSecSubmissions,
+  getSecCompanyFacts,
+  getSecFilingDocumentUrls,
+} from './sec-edgar.js';
 
 // All finance tools available for routing
 const FINANCE_TOOLS: StructuredToolInterface[] = [
@@ -44,6 +57,18 @@ const FINANCE_TOOLS: StructuredToolInterface[] = [
   getInsiderTrades,
   getSegmentedRevenues,
   getCompanyFacts,
+  // SEC EDGAR
+  resolveSecCik,
+  getSecSubmissions,
+  getSecCompanyFacts,
+  getSecFilingDocumentUrls,
+  // Quartr
+  getQuartrData,
+  // Quiver Quantitative
+  getQuiverCongressTrading,
+  getQuiverLobbying,
+  getQuiverInsiders,
+  getQuiverBillSummaries,
 ];
 
 // Create a map for quick tool lookup by name
@@ -76,6 +101,10 @@ Given a user's natural language query about financial data, call the appropriate
    - For debt, assets, equity → get_balance_sheets
    - For cash flow, free cash flow → get_cash_flow_statements
    - For comprehensive analysis → get_all_financial_statements
+   - For official SEC EDGAR filings metadata or XBRL facts → use resolve_sec_cik, get_sec_submissions, get_sec_company_facts
+   - For SEC filing document URLs by accession number → use get_sec_filing_document_urls
+   - For earnings transcripts, event metadata, and reports from Quartr → use get_quartr_data with resource set to transcripts/events/reports
+   - For congressional trading, lobbying, insider activity, or U.S. bill summaries → use Quiver tools
 
 4. **Efficiency**:
    - Prefer specific tools over general ones when possible
@@ -104,7 +133,10 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
 - Analyst estimates and price targets
 - Company news
 - Insider trading activity
-- Cryptocurrency prices`,
+- Cryptocurrency prices
+- SEC EDGAR submissions and company facts
+- Quartr transcripts/events/reports
+- Quiver congressional trading, lobbying, insiders, and bills`,
     schema: FinancialSearchInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
       const onProgress = config?.metadata?.onProgress as ((msg: string) => void) | undefined;

@@ -8,7 +8,9 @@ export { getSegmentedRevenues } from './segments.js';
 export { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
 export { getInsiderTrades } from './insider_trades.js';
 export { getCompanyFacts } from './company_facts.js';
+export { getQuiverCongressTrading, getQuiverLobbying, getQuiverInsiders, getQuiverBillSummaries } from './quiver.js';
+export { getQuartrData } from './quartr.js';
+export { resolveSecCik, getSecSubmissions, getSecCompanyFacts, getSecFilingDocumentUrls } from './sec-edgar.js';
 export { createFinancialSearch } from './financial-search.js';
 export { createFinancialMetrics } from './financial-metrics.js';
 export { createReadFilings } from './read-filings.js';
-

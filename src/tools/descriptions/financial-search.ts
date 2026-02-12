@@ -16,6 +16,9 @@ Intelligent meta-tool for financial data research. Takes a natural language quer
 - Insider trading activity
 - Cryptocurrency prices
 - Revenue segment breakdowns
+- SEC EDGAR submissions and XBRL company facts
+- Quartr transcripts, reports, and event datasets
+- Quiver Quantitative alternative datasets (congressional trading, lobbying, bill summaries)
 - Multi-company comparisons (pass the full query, it handles routing internally)
 
 ## When NOT to Use
