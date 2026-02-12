@@ -197,9 +197,7 @@ export const browserTool = new DynamicStructuredTool({
             return formatToolResult({ error: 'url is required for open action' });
           }
           const currentPage = await ensureBrowser();
-          const newContext = context ?? currentPage.context();
-          context = newContext;
-          const newPage = await newContext.newPage();
+          const newPage = await context!.newPage();
           await newPage.goto(url, { timeout: 30000, waitUntil: 'networkidle' });
           // Switch to the new page
           await currentPage.close().catch(() => {});
