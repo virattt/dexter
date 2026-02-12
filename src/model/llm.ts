@@ -105,6 +105,105 @@ function mergeHeaders(requestInput: RequestInfo | URL, init?: RequestInit): Head
   return headers;
 }
 
+function extractTextFromMessageContent(content: unknown): string {
+  if (typeof content === 'string') {
+    return content.trim();
+  }
+
+  if (!Array.isArray(content)) {
+    return '';
+  }
+
+  const parts: string[] = [];
+  for (const item of content) {
+    if (!item || typeof item !== 'object') {
+      continue;
+    }
+
+    const record = item as Record<string, unknown>;
+    const text = record.text;
+    if (typeof text === 'string' && text.trim()) {
+      parts.push(text.trim());
+    }
+  }
+
+  return parts.join('\n');
+}
+
+async function normalizeCodexRequestBody(
+  requestInput: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<BodyInit | null | undefined> {
+  const rawBody = (() => {
+    if (typeof init?.body === 'string') {
+      return init.body;
+    }
+    if (requestInput instanceof Request) {
+      return null;
+    }
+    return null;
+  })();
+
+  const bodyText = rawBody ?? (requestInput instanceof Request ? await requestInput.clone().text() : '');
+  if (!bodyText) {
+    return init?.body;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(bodyText);
+  } catch {
+    return init?.body;
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    return init?.body;
+  }
+
+  const body = parsed as Record<string, unknown>;
+  const input = Array.isArray(body.input) ? body.input : null;
+
+  if (!body.instructions && input) {
+    const instructionParts: string[] = [];
+    const filteredInput: unknown[] = [];
+
+    for (const item of input) {
+      if (!item || typeof item !== 'object') {
+        filteredInput.push(item);
+        continue;
+      }
+
+      const record = item as Record<string, unknown>;
+      const role = record.role;
+
+      if (role === 'system' || role === 'developer') {
+        const text = extractTextFromMessageContent(record.content);
+        if (text) {
+          instructionParts.push(text);
+        }
+        continue;
+      }
+
+      filteredInput.push(item);
+    }
+
+    if (instructionParts.length > 0) {
+      body.instructions = instructionParts.join('\n\n');
+      body.input = filteredInput;
+    }
+  }
+
+  if (body.store !== false) {
+    body.store = false;
+  }
+
+  if (body.stream !== true) {
+    body.stream = true;
+  }
+
+  return JSON.stringify(body);
+}
+
 function createOpenAIOAuthFetch(): typeof fetch {
   const oauthFetch = (async (requestInput: RequestInfo | URL, init?: RequestInit) => {
     const credentials = await getValidOpenAIOAuthCredentials();
@@ -125,6 +224,14 @@ function createOpenAIOAuthFetch(): typeof fetch {
       ? new URL(OPENAI_CODEX_RESPONSES_ENDPOINT)
       : originalUrl;
 
+    const isCodexRequest = finalUrl.toString() === OPENAI_CODEX_RESPONSES_ENDPOINT;
+    const normalizedBody = isCodexRequest
+      ? await normalizeCodexRequestBody(requestInput, init)
+      : init?.body;
+    if (isCodexRequest && normalizedBody !== undefined) {
+      headers.delete('content-length');
+    }
+
     const finalInput =
       requestInput instanceof Request
         ? new Request(finalUrl.toString(), requestInput)
@@ -133,6 +240,7 @@ function createOpenAIOAuthFetch(): typeof fetch {
     return fetch(finalInput, {
       ...init,
       headers,
+      ...(normalizedBody !== undefined ? { body: normalizedBody } : {}),
     });
   }) as typeof fetch;
 
@@ -208,6 +316,9 @@ const DEFAULT_FACTORY: ModelFactory = (name, opts) => {
       return new ChatOpenAI({
         model: name,
         ...opts,
+        streaming: true,
+        useResponsesApi: true,
+        zdrEnabled: true,
         apiKey: OPENAI_OAUTH_DUMMY_KEY,
         configuration: {
           fetch: createOpenAIOAuthFetch(),
@@ -278,6 +389,31 @@ function extractUsage(result: unknown): TokenUsage | undefined {
   return undefined;
 }
 
+function extractTextFromLlmContent(content: unknown): string {
+  if (typeof content === 'string') {
+    return content;
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (typeof item === 'string') {
+          return item;
+        }
+        if (item && typeof item === 'object') {
+          const text = (item as Record<string, unknown>).text;
+          if (typeof text === 'string') {
+            return text;
+          }
+        }
+        return '';
+      })
+      .join('');
+  }
+
+  return '';
+}
+
 /**
  * Build messages with Anthropic cache_control on the system prompt.
  * Marks the system prompt as ephemeral so Anthropic caches the prefix,
@@ -335,7 +471,8 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
   // If no outputSchema and no tools, extract content from AIMessage
   // When tools are provided, return the full AIMessage to preserve tool_calls
   if (!outputSchema && !tools && result && typeof result === 'object' && 'content' in result) {
-    return { response: (result as { content: string }).content, usage };
+    const content = extractTextFromLlmContent((result as { content: unknown }).content);
+    return { response: content, usage };
   }
   return { response: result as AIMessage, usage };
 }
