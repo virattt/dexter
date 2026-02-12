@@ -1,21 +1,38 @@
-import { AIMessage } from '@langchain/core/messages';
-import { StructuredToolInterface } from '@langchain/core/tools';
-import { callLlm } from '../model/llm.js';
-import { Scratchpad, type ToolContext } from './scratchpad.js';
-import { getTools } from '../tools/registry.js';
-import { buildSystemPrompt, buildIterationPrompt, buildFinalAnswerPrompt } from '../agent/prompts.js';
-import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
-import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
-import { getToolDescription } from '../utils/tool-description.js';
-import { estimateTokens, CONTEXT_THRESHOLD, KEEP_TOOL_USES } from '../utils/tokens.js';
-import { createProgressChannel } from '../utils/progress-channel.js';
-import type { AgentConfig, AgentEvent, ToolStartEvent, ToolProgressEvent, ToolEndEvent, ToolErrorEvent, ToolLimitEvent, ContextClearedEvent, TokenUsage } from '../agent/types.js';
-import { TokenCounter } from './token-counter.js';
-import { ComplexityClassifier, TaskPlanner, TaskExecutor, TaskStore } from './task/index.js';
-import { resolveProvider } from '../providers.js';
+import { AIMessage } from "@langchain/core/messages";
+import { StructuredToolInterface } from "@langchain/core/tools";
+import { callLlm } from "../model/llm.js";
+import { getTools } from "../tools/registry.js";
+import {
+  buildSystemPrompt,
+  buildIterationPrompt,
+  buildFinalAnswerPrompt,
+} from "../agent/prompts.js";
+import { extractTextContent, hasToolCalls } from "../utils/ai-message.js";
+import { InMemoryChatHistory } from "../utils/in-memory-chat-history.js";
+import {
+  estimateTokens,
+  CONTEXT_THRESHOLD,
+  KEEP_TOOL_USES,
+} from "../utils/tokens.js";
+import type {
+  AgentConfig,
+  AgentEvent,
+  ContextClearedEvent,
+  TokenUsage,
+} from "../agent/types.js";
+import { createRunContext, type RunContext } from "./run-context.js";
+import { buildFinalAnswerContext } from "./final-answer-context.js";
+import { AgentToolExecutor } from "./tool-executor.js";
+import { TokenCounter } from "./token-counter.js";
+import {
+  ComplexityClassifier,
+  TaskPlanner,
+  TaskExecutor,
+  TaskStore,
+} from "./task/index.js";
+import { resolveProvider } from "../providers.js";
 
-
-
+const DEFAULT_MODEL = "gpt-5.2";
 const DEFAULT_MAX_ITERATIONS = 10;
 
 /**
@@ -23,23 +40,23 @@ const DEFAULT_MAX_ITERATIONS = 10;
  */
 export class Agent {
   private readonly model: string;
-  private readonly modelProvider: string;
   private readonly maxIterations: number;
   private readonly tools: StructuredToolInterface[];
   private readonly toolMap: Map<string, StructuredToolInterface>;
+  private readonly toolExecutor: AgentToolExecutor;
   private readonly systemPrompt: string;
   private readonly signal?: AbortSignal;
 
   private constructor(
     config: AgentConfig,
     tools: StructuredToolInterface[],
-    systemPrompt: string
+    systemPrompt: string,
   ) {
-    this.model = config.model ?? 'gpt-5.2';
-    this.modelProvider = config.modelProvider ?? 'openai';
+    this.model = config.model ?? DEFAULT_MODEL;
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
     this.tools = tools;
-    this.toolMap = new Map(tools.map(t => [t.name, t]));
+    this.toolMap = new Map(tools.map((t) => [t.name, t]));
+    this.toolExecutor = new AgentToolExecutor(this.toolMap, config.signal);
     this.systemPrompt = systemPrompt;
     this.signal = config.signal;
   }
@@ -48,7 +65,7 @@ export class Agent {
    * Create a new Agent instance with tools.
    */
   static create(config: AgentConfig = {}): Agent {
-    const model = config.model ?? 'gpt-5.2';
+    const model = config.model ?? DEFAULT_MODEL;
     const tools = getTools(model);
     const systemPrompt = buildSystemPrompt(model);
     return new Agent(config, tools, systemPrompt);
@@ -57,22 +74,25 @@ export class Agent {
   /**
    * Run the agent with automatic complexity detection and task planning.
    * This is the recommended entry point for production use.
-   * 
+   *
    * - Simple queries: Fast path using normal run()
    * - Complex queries: Task planning and structured execution
    */
-  async *runWithTasks(query: string, inMemoryHistory?: InMemoryChatHistory): AsyncGenerator<AgentEvent> {
+  async *runWithTasks(
+    query: string,
+    inMemoryHistory?: InMemoryChatHistory,
+  ): AsyncGenerator<AgentEvent> {
     const provider = resolveProvider(this.model);
-    
+
     // 1. Classify query complexity
     const complexity = await ComplexityClassifier.classify(
       query,
       this.model,
-      provider.id
+      provider.id,
     );
 
     // Debug logging
-    console.log('[Task System] Complexity classification:', {
+    console.log("[Task System] Complexity classification:", {
       query,
       isComplex: complexity.isComplex,
       reason: complexity.reason,
@@ -81,35 +101,42 @@ export class Agent {
 
     // 2. Simple queries: Use fast path (no task overhead)
     if (!complexity.isComplex) {
-      console.log('[Task System] Using normal execution (query classified as simple)');
+      console.log(
+        "[Task System] Using normal execution (query classified as simple)",
+      );
       yield* this.run(query, inMemoryHistory);
       return;
     }
 
-    console.log('[Task System] Creating task plan (query classified as complex)...');
+    console.log(
+      "[Task System] Creating task plan (query classified as complex)...",
+    );
 
     // 3. Complex queries: Use task planning
     const plan = await TaskPlanner.createPlan(
       query,
       this.tools,
       this.model,
-      provider.id
+      provider.id,
     );
 
     // Validate task plan
     const validation = TaskPlanner.validatePlan(plan);
     if (!validation.valid) {
       // Fallback to normal execution if plan is invalid
-      console.warn('Task plan validation failed, using normal execution:', validation.errors);
+      console.warn(
+        "Task plan validation failed, using normal execution:",
+        validation.errors,
+      );
       yield* this.run(query, inMemoryHistory);
       return;
     }
 
-    console.log('[Task System] Task plan created:', plan.tasks.length, 'tasks');
+    console.log("[Task System] Task plan created:", plan.tasks.length, "tasks");
 
     // Emit task plan created event
     yield {
-      type: 'task_plan_created',
+      type: "task_plan_created",
       plan,
     };
 
@@ -121,7 +148,7 @@ export class Agent {
       yield event;
 
       // Save plan state after each task status change
-      if (event.type === 'task_status_changed') {
+      if (event.type === "task_status_changed") {
         await store.save(plan);
       }
     }
@@ -135,21 +162,30 @@ export class Agent {
    * Anthropic-style context management: full tool results during iteration,
    * with threshold-based clearing of oldest results when context exceeds limit.
    */
-  async *run(query: string, inMemoryHistory?: InMemoryChatHistory): AsyncGenerator<AgentEvent> {
+  async *run(
+    query: string,
+    inMemoryHistory?: InMemoryChatHistory,
+  ): AsyncGenerator<AgentEvent> {
     const startTime = Date.now();
     const tokenCounter = new TokenCounter();
-    
+
     if (this.tools.length === 0) {
-      yield { type: 'done', answer: 'No tools available. Please check your API key configuration.', toolCalls: [], iterations: 0, totalTime: Date.now() - startTime };
+      yield {
+        type: "done",
+        answer: "No tools available. Please check your API key configuration.",
+        toolCalls: [],
+        iterations: 0,
+        totalTime: Date.now() - startTime,
+      };
       return;
     }
 
     // Create scratchpad for this query - single source of truth for all work done
     const scratchpad = new Scratchpad(query);
-    
+
     // Build initial prompt with conversation history context
     let currentPrompt = this.buildInitialPrompt(query, inMemoryHistory);
-    
+
     let iteration = 0;
 
     // Main agent loop
@@ -158,39 +194,62 @@ export class Agent {
 
       const { response, usage } = await this.callModel(currentPrompt);
       tokenCounter.add(usage);
-      const responseText = typeof response === 'string' ? response : extractTextContent(response);
+      const responseText =
+        typeof response === "string" ? response : extractTextContent(response);
 
       // Emit thinking if there are also tool calls (skip whitespace-only responses)
-      if (responseText?.trim() && typeof response !== 'string' && hasToolCalls(response)) {
+      if (
+        responseText?.trim() &&
+        typeof response !== "string" &&
+        hasToolCalls(response)
+      ) {
         const trimmedText = responseText.trim();
         scratchpad.addThinking(trimmedText);
-        yield { type: 'thinking', message: trimmedText };
+        yield { type: "thinking", message: trimmedText };
       }
 
       // No tool calls = ready to generate final answer
-      if (typeof response === 'string' || !hasToolCalls(response)) {
+      if (typeof response === "string" || !hasToolCalls(response)) {
         // If no tools were called at all, just use the direct response
         // This handles greetings, clarifying questions, etc.
         if (!scratchpad.hasToolResults() && responseText) {
-          yield { type: 'answer_start' };
+          yield { type: "answer_start" };
           const totalTime = Date.now() - startTime;
-          yield { type: 'done', answer: responseText, toolCalls: [], iterations: iteration, totalTime, tokenUsage: tokenCounter.getUsage(), tokensPerSecond: tokenCounter.getTokensPerSecond(totalTime) };
+          yield {
+            type: "done",
+            answer: responseText,
+            toolCalls: [],
+            iterations: iteration,
+            totalTime,
+            tokenUsage: tokenCounter.getUsage(),
+            tokensPerSecond: tokenCounter.getTokensPerSecond(totalTime),
+          };
           return;
         }
 
         // Generate final answer with full context from scratchpad
         const fullContext = this.buildFullContextForAnswer(query, scratchpad);
         const finalPrompt = buildFinalAnswerPrompt(query, fullContext);
-        
-        yield { type: 'answer_start' };
-        const { response: finalResponse, usage: finalUsage } = await this.callModel(finalPrompt, false);
+
+        yield { type: "answer_start" };
+        const { response: finalResponse, usage: finalUsage } =
+          await this.callModel(finalPrompt, false);
         tokenCounter.add(finalUsage);
-        const answer = typeof finalResponse === 'string' 
-          ? finalResponse 
-          : extractTextContent(finalResponse);
+        const answer =
+          typeof finalResponse === "string"
+            ? finalResponse
+            : extractTextContent(finalResponse);
 
         const totalTime = Date.now() - startTime;
-        yield { type: 'done', answer, toolCalls: scratchpad.getToolCallRecords(), iterations: iteration, totalTime, tokenUsage: tokenCounter.getUsage(), tokensPerSecond: tokenCounter.getTokensPerSecond(totalTime) };
+        yield {
+          type: "done",
+          answer,
+          toolCalls: scratchpad.getToolCallRecords(),
+          iterations: iteration,
+          totalTime,
+          tokenUsage: tokenCounter.getUsage(),
+          tokensPerSecond: tokenCounter.getTokensPerSecond(totalTime),
+        };
         return;
       }
 
@@ -203,49 +262,59 @@ export class Agent {
         yield result.value;
         result = await generator.next();
       }
-      
+
       // Anthropic-style context management: get full tool results
       let fullToolResults = scratchpad.getToolResults();
-      
+
       // Check context threshold and clear oldest tool results if needed
-      const estimatedContextTokens = estimateTokens(this.systemPrompt + query + fullToolResults);
+      const estimatedContextTokens = estimateTokens(
+        this.systemPrompt + query + fullToolResults,
+      );
       if (estimatedContextTokens > CONTEXT_THRESHOLD) {
         const clearedCount = scratchpad.clearOldestToolResults(KEEP_TOOL_USES);
         if (clearedCount > 0) {
-          yield { type: 'context_cleared', clearedCount, keptCount: KEEP_TOOL_USES } as ContextClearedEvent;
+          yield {
+            type: "context_cleared",
+            clearedCount,
+            keptCount: KEEP_TOOL_USES,
+          } as ContextClearedEvent;
           // Re-fetch after clearing
           fullToolResults = scratchpad.getToolResults();
         }
       }
-      
+
       // Build iteration prompt with full tool results (Anthropic-style)
       currentPrompt = buildIterationPrompt(
-        query, 
+        query,
         fullToolResults,
-        scratchpad.formatToolUsageForPrompt()
+        scratchpad.formatToolUsageForPrompt(),
       );
     }
 
     // Max iterations reached - still generate proper final answer
     const fullContext = this.buildFullContextForAnswer(query, scratchpad);
     const finalPrompt = buildFinalAnswerPrompt(query, fullContext);
-    
-    yield { type: 'answer_start' };
-    const { response: finalResponse, usage: finalUsage } = await this.callModel(finalPrompt, false);
+
+    yield { type: "answer_start" };
+    const { response: finalResponse, usage: finalUsage } = await this.callModel(
+      finalPrompt,
+      false,
+    );
     tokenCounter.add(finalUsage);
-    const answer = typeof finalResponse === 'string' 
-      ? finalResponse 
-      : extractTextContent(finalResponse);
+    const answer =
+      typeof finalResponse === "string"
+        ? finalResponse
+        : extractTextContent(finalResponse);
 
     const totalTime = Date.now() - startTime;
     yield {
-      type: 'done',
+      type: "done",
       answer: answer || `Reached maximum iterations (${this.maxIterations}).`,
       toolCalls: scratchpad.getToolCallRecords(),
       iterations: iteration,
       totalTime,
       tokenUsage: tokenCounter.getUsage(),
-      tokensPerSecond: tokenCounter.getTokensPerSecond(totalTime)
+      tokensPerSecond: tokenCounter.getTokensPerSecond(totalTime),
     };
   }
 
@@ -254,7 +323,10 @@ export class Agent {
    * @param prompt - The prompt to send to the LLM
    * @param useTools - Whether to bind tools (default: true). When false, returns string directly.
    */
-  private async callModel(prompt: string, useTools: boolean = true): Promise<{ response: AIMessage | string; usage?: TokenUsage }> {
+  private async callModel(
+    prompt: string,
+    useTools: boolean = true,
+  ): Promise<{ response: AIMessage | string; usage?: TokenUsage }> {
     const result = await callLlm(prompt, {
       model: this.model,
       systemPrompt: this.systemPrompt,
@@ -272,19 +344,31 @@ export class Agent {
   private async *executeToolCalls(
     response: AIMessage,
     query: string,
-    scratchpad: Scratchpad
-  ): AsyncGenerator<ToolStartEvent | ToolProgressEvent | ToolEndEvent | ToolErrorEvent | ToolLimitEvent, void> {
+    scratchpad: Scratchpad,
+  ): AsyncGenerator<
+    | ToolStartEvent
+    | ToolProgressEvent
+    | ToolEndEvent
+    | ToolErrorEvent
+    | ToolLimitEvent,
+    void
+  > {
     for (const toolCall of response.tool_calls!) {
       const toolName = toolCall.name;
       const toolArgs = toolCall.args as Record<string, unknown>;
 
       // Deduplicate skill calls - each skill can only run once per query
-      if (toolName === 'skill') {
+      if (toolName === "skill") {
         const skillName = toolArgs.skill as string;
         if (scratchpad.hasExecutedSkill(skillName)) continue;
       }
 
-      const generator = this.executeToolCall(toolName, toolArgs, query, scratchpad);
+      const generator = this.executeToolCall(
+        toolName,
+        toolArgs,
+        query,
+        scratchpad,
+      );
       let result = await generator.next();
 
       while (!result.done) {
@@ -303,24 +387,31 @@ export class Agent {
     toolName: string,
     toolArgs: Record<string, unknown>,
     query: string,
-    scratchpad: Scratchpad
-  ): AsyncGenerator<ToolStartEvent | ToolProgressEvent | ToolEndEvent | ToolErrorEvent | ToolLimitEvent, void> {
+    scratchpad: Scratchpad,
+  ): AsyncGenerator<
+    | ToolStartEvent
+    | ToolProgressEvent
+    | ToolEndEvent
+    | ToolErrorEvent
+    | ToolLimitEvent,
+    void
+  > {
     // Extract query string from tool args for similarity detection
     const toolQuery = this.extractQueryFromArgs(toolArgs);
 
     // Check tool limits - yields warning if approaching/over limits
     const limitCheck = scratchpad.canCallTool(toolName, toolQuery);
-    
+
     if (limitCheck.warning) {
-      yield { 
-        type: 'tool_limit', 
-        tool: toolName, 
-        warning: limitCheck.warning, 
-        blocked: false 
+      yield {
+        type: "tool_limit",
+        tool: toolName,
+        warning: limitCheck.warning,
+        blocked: false,
       };
     }
 
-    yield { type: 'tool_start', tool: toolName, args: toolArgs };
+    yield { type: "tool_start", tool: toolName, args: toolArgs };
 
     const toolStartTime = Date.now();
 
@@ -339,21 +430,38 @@ export class Agent {
 
       // Launch tool invocation -- closes the channel when it settles
       const toolPromise = tool.invoke(toolArgs, config).then(
-        (raw) => { channel.close(); return raw; },
-        (err) => { channel.close(); throw err; },
+        (raw) => {
+          channel.close();
+          return raw;
+        },
+        (err) => {
+          channel.close();
+          throw err;
+        },
       );
 
       // Drain progress events in real-time as the tool executes
       for await (const message of channel) {
-        yield { type: 'tool_progress', tool: toolName, message } as ToolProgressEvent;
+        yield {
+          type: "tool_progress",
+          tool: toolName,
+          message,
+        } as ToolProgressEvent;
       }
 
       // Tool has finished -- collect the result
       const rawResult = await toolPromise;
-      const result = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
+      const result =
+        typeof rawResult === "string" ? rawResult : JSON.stringify(rawResult);
       const duration = Date.now() - toolStartTime;
 
-      yield { type: 'tool_end', tool: toolName, args: toolArgs, result, duration };
+      yield {
+        type: "tool_end",
+        tool: toolName,
+        args: toolArgs,
+        result,
+        duration,
+      };
 
       // Record the tool call for limit tracking
       scratchpad.recordToolCall(toolName, toolQuery);
@@ -361,8 +469,9 @@ export class Agent {
       // Add full tool result to scratchpad (Anthropic-style: no inline summarization)
       scratchpad.addToolResult(toolName, toolArgs, result);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      yield { type: 'tool_error', tool: toolName, error: errorMessage };
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      yield { type: "tool_error", tool: toolName, error: errorMessage };
 
       // Still record the call even on error (counts toward limit)
       scratchpad.recordToolCall(toolName, toolQuery);
@@ -376,15 +485,17 @@ export class Agent {
    * Extract query string from tool arguments for similarity detection.
    * Looks for common query-like argument names.
    */
-  private extractQueryFromArgs(args: Record<string, unknown>): string | undefined {
-    const queryKeys = ['query', 'search', 'question', 'q', 'text', 'input'];
-    
+  private extractQueryFromArgs(
+    args: Record<string, unknown>,
+  ): string | undefined {
+    const queryKeys = ["query", "search", "question", "q", "text", "input"];
+
     for (const key of queryKeys) {
-      if (typeof args[key] === 'string') {
+      if (typeof args[key] === "string") {
         return args[key] as string;
       }
     }
-    
+
     return undefined;
   }
 
@@ -393,7 +504,7 @@ export class Agent {
    */
   private buildInitialPrompt(
     query: string,
-    inMemoryChatHistory?: InMemoryChatHistory
+    inMemoryChatHistory?: InMemoryChatHistory,
   ): string {
     if (!inMemoryChatHistory?.hasMessages()) {
       return query;
@@ -404,7 +515,9 @@ export class Agent {
       return query;
     }
 
-    const historyContext = userMessages.map((msg, i) => `${i + 1}. ${msg}`).join('\n');
+    const historyContext = userMessages
+      .map((msg, i) => `${i + 1}. ${msg}`)
+      .join("\n");
     return `Current query to answer: ${query}\n\nPrevious user queries for context:\n${historyContext}`;
   }
 
@@ -413,22 +526,27 @@ export class Agent {
    * Anthropic-style: uses all full tool results (cleared entries were already
    * handled during iteration, final answer gets comprehensive context).
    */
-  private buildFullContextForAnswer(_query: string, scratchpad: Scratchpad): string {
+  private buildFullContextForAnswer(
+    _query: string,
+    scratchpad: Scratchpad,
+  ): string {
     const contexts = scratchpad.getFullContexts();
 
     if (contexts.length === 0) {
-      return 'No data was gathered.';
+      return "No data was gathered.";
     }
 
     // Filter out error results
-    const validContexts = contexts.filter(ctx => !ctx.result.startsWith('Error:'));
+    const validContexts = contexts.filter(
+      (ctx) => !ctx.result.startsWith("Error:"),
+    );
 
     if (validContexts.length === 0) {
-      return 'No data was successfully gathered.';
+      return "No data was successfully gathered.";
     }
 
     // Format all contexts with full data
-    return validContexts.map(ctx => this.formatToolContext(ctx)).join('\n\n');
+    return validContexts.map((ctx) => this.formatToolContext(ctx)).join("\n\n");
   }
 
   /**
