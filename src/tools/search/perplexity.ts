@@ -36,7 +36,7 @@ async function callPerplexity(query: string): Promise<PerplexityCompletionRespon
     body: JSON.stringify({
       model: SONAR_MODEL,
       messages: [{ role: 'user' as const, content: query }],
-      max_tokens: 1024,
+      max_tokens: 4096,
     }),
   });
 
