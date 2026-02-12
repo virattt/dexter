@@ -135,4 +135,15 @@ export class LongTermChatHistory {
 
     return result;
   }
+
+  /**
+   * Clears all stored messages and persists empty history.
+   */
+  async clear(): Promise<void> {
+    if (!this.loaded) {
+      await this.load();
+    }
+    this.messages = [];
+    await this.save();
+  }
 }
