@@ -24,6 +24,7 @@
     "@langchain/openai": "^1.1.3",
     "@langchain/tavily": "^1.0.1",
     "@mozilla/readability": "^0.6.0",
+    "@perplexity-ai/perplexity_ai": "^0.23.0",
     "dotenv": "^17.2.3",
     "exa-js": "^2.2.0",
     "gray-matter": "^4.0.3",

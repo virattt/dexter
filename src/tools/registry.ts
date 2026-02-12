@@ -1,11 +1,22 @@
-import { StructuredToolInterface } from '@langchain/core/tools';
-import { createFinancialSearch, createFinancialMetrics, createReadFilings } from './finance/index.js';
-import { exaSearch, tavilySearch } from './search/index.js';
-import { skillTool, SKILL_TOOL_DESCRIPTION } from './skill.js';
-import { webFetchTool } from './fetch/index.js';
-import { browserTool } from './browser/index.js';
-import { FINANCIAL_SEARCH_DESCRIPTION, FINANCIAL_METRICS_DESCRIPTION, WEB_SEARCH_DESCRIPTION, WEB_FETCH_DESCRIPTION, READ_FILINGS_DESCRIPTION, BROWSER_DESCRIPTION } from './descriptions/index.js';
-import { discoverSkills } from '../skills/index.js';
+import { StructuredToolInterface } from "@langchain/core/tools";
+import {
+  createFinancialSearch,
+  createFinancialMetrics,
+  createReadFilings,
+} from "./finance/index.js";
+import { exaSearch, tavilySearch, perplexitySearch } from "./search/index.js";
+import { skillTool, SKILL_TOOL_DESCRIPTION } from "./skill.js";
+import { webFetchTool } from "./fetch/index.js";
+import { browserTool } from "./browser/index.js";
+import {
+  FINANCIAL_SEARCH_DESCRIPTION,
+  FINANCIAL_METRICS_DESCRIPTION,
+  WEB_SEARCH_DESCRIPTION,
+  WEB_FETCH_DESCRIPTION,
+  READ_FILINGS_DESCRIPTION,
+  BROWSER_DESCRIPTION,
+} from "./descriptions/index.js";
+import { discoverSkills } from "../skills/index.js";
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -29,42 +40,48 @@ export interface RegisteredTool {
 export function getToolRegistry(model: string): RegisteredTool[] {
   const tools: RegisteredTool[] = [
     {
-      name: 'financial_search',
+      name: "financial_search",
       tool: createFinancialSearch(model),
       description: FINANCIAL_SEARCH_DESCRIPTION,
     },
     {
-      name: 'financial_metrics',
+      name: "financial_metrics",
       tool: createFinancialMetrics(model),
       description: FINANCIAL_METRICS_DESCRIPTION,
     },
     {
-      name: 'read_filings',
+      name: "read_filings",
       tool: createReadFilings(model),
       description: READ_FILINGS_DESCRIPTION,
     },
     {
-      name: 'web_fetch',
+      name: "web_fetch",
       tool: webFetchTool,
       description: WEB_FETCH_DESCRIPTION,
     },
     {
-      name: 'browser',
+      name: "browser",
       tool: browserTool,
       description: BROWSER_DESCRIPTION,
     },
   ];
 
-  // Include web_search if Exa or Tavily API key is configured (Exa preferred)
+  // Include web_search based on available API keys (priority: Exa > Perplexity > Tavily)
   if (process.env.EXASEARCH_API_KEY) {
     tools.push({
-      name: 'web_search',
+      name: "web_search",
       tool: exaSearch,
+      description: WEB_SEARCH_DESCRIPTION,
+    });
+  } else if (process.env.PERPLEXITY_API_KEY) {
+    tools.push({
+      name: "web_search",
+      tool: perplexitySearch,
       description: WEB_SEARCH_DESCRIPTION,
     });
   } else if (process.env.TAVILY_API_KEY) {
     tools.push({
-      name: 'web_search',
+      name: "web_search",
       tool: tavilySearch,
       description: WEB_SEARCH_DESCRIPTION,
     });
@@ -74,7 +91,7 @@ export function getToolRegistry(model: string): RegisteredTool[] {
   const availableSkills = discoverSkills();
   if (availableSkills.length > 0) {
     tools.push({
-      name: 'skill',
+      name: "skill",
       tool: skillTool,
       description: SKILL_TOOL_DESCRIPTION,
     });
@@ -103,5 +120,5 @@ export function getTools(model: string): StructuredToolInterface[] {
 export function buildToolDescriptions(model: string): string {
   return getToolRegistry(model)
     .map((t) => `### ${t.name}\n\n${t.description}`)
-    .join('\n\n');
+    .join("\n\n");
 }

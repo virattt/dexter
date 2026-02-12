@@ -13,6 +13,7 @@
         "@langchain/openai": "^1.1.3",
         "@langchain/tavily": "^1.0.1",
         "@mozilla/readability": "^0.6.0",
+        "@perplexity-ai/perplexity_ai": "^0.23.0",
         "dotenv": "^17.2.3",
         "exa-js": "^2.2.0",
         "gray-matter": "^4.0.3",
@@ -320,6 +321,8 @@
     "@langchain/tavily": ["@langchain/tavily@1.0.1", "", { "dependencies": { "zod": "^3.25.76 || ^4" }, "peerDependencies": { "@langchain/core": "^1.0.0" } }, "sha512-trpCFvp/6fChSzNr250i2/0ma0zu5nQvJuuMIRlOnv9mQWGuVeevVIWcI/ZXM9tDoRXWFqkeeldKAPS4QdFkAg=="],
 
     "@mozilla/readability": ["@mozilla/readability@0.6.0", "", {}, "sha512-juG5VWh4qAivzTAeMzvY9xs9HY5rAcr2E4I7tiSSCokRFi7XIZCAu92ZkSTsIj1OPceCifL3cpfteP3pDT9/QQ=="],
+
+    "@perplexity-ai/perplexity_ai": ["@perplexity-ai/perplexity_ai@0.23.0", "", {}, "sha512-NmOgDW1rKNYvQ9/TYqIwG0Qhca8/PokJNTTcyl2fTofGtB/YKYUR9eMbndic+LBDzgj08dLKMb3zVzD8+OADKg=="],
 
     "@sinclair/typebox": ["@sinclair/typebox@0.27.8", "", {}, "sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA=="],
 
