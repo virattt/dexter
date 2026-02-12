@@ -8,3 +8,5 @@ export { WEB_SEARCH_DESCRIPTION } from './web-search.js';
 export { READ_FILINGS_DESCRIPTION } from './read-filings.js';
 export { WEB_FETCH_DESCRIPTION } from './web-fetch.js';
 export { BROWSER_DESCRIPTION } from './browser.js';
+export { TRADING_DESCRIPTION } from './trading.js';
+export { TECHNICAL_ANALYSIS_DESCRIPTION } from './technical-analysis.js';
