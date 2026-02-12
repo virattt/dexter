@@ -5,11 +5,23 @@ describe('resolveWebSearchProvider', () => {
   it('uses auto order when preferred provider is auto', () => {
     const resolved = resolveWebSearchProvider('auto', {
       EXASEARCH_API_KEY: '',
+      PERPLEXITY_API_KEY: '',
       LANGSEARCH_API_KEY: 'lang-key',
       TAVILY_API_KEY: 'tav-key',
     });
 
     expect(resolved).toBe('langsearch');
+  });
+
+  it('prefers perplexity over langsearch/tavily in auto mode', () => {
+    const resolved = resolveWebSearchProvider('auto', {
+      EXASEARCH_API_KEY: '',
+      PERPLEXITY_API_KEY: 'pplx-key',
+      LANGSEARCH_API_KEY: 'lang-key',
+      TAVILY_API_KEY: 'tav-key',
+    });
+
+    expect(resolved).toBe('perplexity');
   });
 
   it('honors preferred provider when key exists', () => {

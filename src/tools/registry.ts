@@ -1,6 +1,6 @@
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { createFinancialSearch, createFinancialMetrics, createReadFilings } from './finance/index.js';
-import { exaSearch, tavilySearch, langSearch, resolveWebSearchProvider } from './search/index.js';
+import { exaSearch, perplexitySearch, tavilySearch, langSearch, resolveWebSearchProvider } from './search/index.js';
 import { skillTool, SKILL_TOOL_DESCRIPTION } from './skill.js';
 import { webFetchTool } from './fetch/index.js';
 import { browserTool } from './browser/index.js';
@@ -66,6 +66,12 @@ export function getToolRegistry(model: string): RegisteredTool[] {
     tools.push({
       name: 'web_search',
       tool: exaSearch,
+      description: WEB_SEARCH_DESCRIPTION,
+    });
+  } else if (resolvedWebSearchProvider === 'perplexity') {
+    tools.push({
+      name: 'web_search',
+      tool: perplexitySearch,
       description: WEB_SEARCH_DESCRIPTION,
     });
   } else if (resolvedWebSearchProvider === 'langsearch') {

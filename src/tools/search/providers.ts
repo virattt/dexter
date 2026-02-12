@@ -1,4 +1,4 @@
-export type WebSearchProviderId = 'auto' | 'exa' | 'langsearch' | 'tavily';
+export type WebSearchProviderId = 'auto' | 'exa' | 'perplexity' | 'langsearch' | 'tavily';
 
 export interface WebSearchProviderDef {
   id: Exclude<WebSearchProviderId, 'auto'>;
@@ -7,14 +7,16 @@ export interface WebSearchProviderDef {
 }
 
 export const WEB_SEARCH_PROVIDER_DEFS: readonly WebSearchProviderDef[] = [
-  { id: 'langsearch', displayName: 'LangSearch', apiKeyEnvVar: 'LANGSEARCH_API_KEY' },
   { id: 'exa', displayName: 'Exa', apiKeyEnvVar: 'EXASEARCH_API_KEY' },
+  { id: 'perplexity', displayName: 'Perplexity', apiKeyEnvVar: 'PERPLEXITY_API_KEY' },
+  { id: 'langsearch', displayName: 'LangSearch', apiKeyEnvVar: 'LANGSEARCH_API_KEY' },
   { id: 'tavily', displayName: 'Tavily', apiKeyEnvVar: 'TAVILY_API_KEY' },
 ] as const;
 
 // Keep existing behavior: Exa is default priority in auto mode.
 export const AUTO_WEB_SEARCH_ORDER: readonly WebSearchProviderDef['id'][] = [
   'exa',
+  'perplexity',
   'langsearch',
   'tavily',
 ] as const;
