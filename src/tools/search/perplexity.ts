@@ -24,7 +24,7 @@ interface PerplexityCompletionResponse {
 async function callPerplexity(query: string): Promise<PerplexityCompletionResponse> {
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) {
-    throw new Error('PERPLEXITY_API_KEY is not set');
+    throw new Error('[Perplexity API] PERPLEXITY_API_KEY is not set');
   }
 
   const response = await fetch(PERPLEXITY_API_URL, {
@@ -42,7 +42,7 @@ async function callPerplexity(query: string): Promise<PerplexityCompletionRespon
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`Perplexity API ${response.status}: ${text}`);
+    throw new Error(`[Perplexity API] ${response.status}: ${text}`);
   }
 
   return response.json() as Promise<PerplexityCompletionResponse>;

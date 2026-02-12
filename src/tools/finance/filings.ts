@@ -21,7 +21,7 @@ export interface FilingItemTypes {
 export async function getFilingItemTypes(): Promise<FilingItemTypes> {
   const response = await fetch('https://api.financialdatasets.ai/filings/items/types/');
   if (!response.ok) {
-    throw new Error(`Failed to fetch filing item types: ${response.status}`);
+    throw new Error(`[Financial Datasets API] Failed to fetch filing item types: ${response.status}`);
   }
   return response.json();
 }
