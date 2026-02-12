@@ -40,6 +40,7 @@ const PROVIDER_MODELS: Record<string, Model[]> = {
     { id: 'deepseek-reasoner', displayName: 'DeepSeek R1' },
   ],
   'zai-coding-plan': [
+    { id: 'glm-5', displayName: 'GLM 5' },
     { id: 'glm-4.7', displayName: 'GLM 4.7' },
     { id: 'glm-4.6', displayName: 'GLM 4.6' },
     { id: 'glm-4.5-flash', displayName: 'GLM 4.5 Flash' },
