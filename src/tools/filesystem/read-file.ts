@@ -64,23 +64,15 @@ The tool will request permission from the user before reading files.`,
         });
       }
 
-      // Check existing permission
-      const hasPermission = checkPermission(absolutePath, 'read');
+      // Always request permission for every read operation
+      onProgress?.(`Requesting permission to read: ${absolutePath}`);
+      const granted = await requestPermission(absolutePath, config);
 
-      if (!hasPermission) {
-        // Request permission from user
-        onProgress?.(`Requesting permission to read: ${absolutePath}`);
-        const granted = await requestPermission(absolutePath, config);
-
-        if (!granted) {
-          return formatToolResult({
-            error: 'Permission denied by user',
-            path: absolutePath,
-          });
-        }
-
-        // Save the granted permission
-        grantPermission(absolutePath, 'file', 'read');
+      if (!granted) {
+        return formatToolResult({
+          error: 'Permission denied by user',
+          path: absolutePath,
+        });
       }
 
       // Read the file
