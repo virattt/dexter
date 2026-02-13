@@ -12,6 +12,7 @@ function formatSubToolName(name: string): string {
 }
 
 // Import all finance tools directly (avoid circular deps with index.ts)
+import { getDirectSecFilings } from './sec_scraper.js';
 import { getIncomeStatements, getBalanceSheets, getCashFlowStatements, getAllFinancialStatements } from './fundamentals.js';
 import { getPriceSnapshot, getPrices } from './prices.js';
 import { getKeyRatiosSnapshot, getKeyRatios } from './key-ratios.js';
@@ -35,6 +36,8 @@ const FINANCE_TOOLS: StructuredToolInterface[] = [
   getBalanceSheets,
   getCashFlowStatements,
   getAllFinancialStatements,
+  // SEC Filings (direct scraper)
+  getDirectSecFilings,
   // Key Ratios & Estimates
   getKeyRatiosSnapshot,
   getKeyRatios,
@@ -46,7 +49,6 @@ const FINANCE_TOOLS: StructuredToolInterface[] = [
   getCompanyFacts,
 ];
 
-// Create a map for quick tool lookup by name
 const FINANCE_TOOL_MAP = new Map(FINANCE_TOOLS.map(t => [t.name, t]));
 
 // Build the router system prompt - simplified since LLM sees tool schemas
@@ -69,6 +71,7 @@ Given a user's natural language query about financial data, call the appropriate
    - "YTD" → start_date Jan 1 of current year, end_date today
 
 3. **Tool Selection**:
+   - For SEC filings (8-K, 6-K, 10-K, 10-Q, etc.), use get_direct_sec_filings.
    - For "current" or "latest" data, use snapshot tools (get_price_snapshot, get_key_ratios_snapshot)
    - For "historical" or "over time" data, use date-range tools
    - For P/E ratio, market cap, valuation metrics → get_key_ratios_snapshot
@@ -85,7 +88,6 @@ Given a user's natural language query about financial data, call the appropriate
 Call the appropriate tool(s) now.`;
 }
 
-// Input schema for the financial_search tool
 const FinancialSearchInputSchema = z.object({
   query: z.string().describe('Natural language query about financial data'),
 });
@@ -93,6 +95,7 @@ const FinancialSearchInputSchema = z.object({
 /**
  * Create a financial_search tool configured with the specified model.
  * Uses native LLM tool calling for routing queries to finance tools.
+ * Includes SEC filing force-route and API-failure fallback to get_direct_sec_filings.
  */
 export function createFinancialSearch(model: string): DynamicStructuredTool {
   return new DynamicStructuredTool({
@@ -101,6 +104,7 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
 - Stock prices (current or historical)
 - Company financials (income statements, balance sheets, cash flow)
 - Financial metrics (P/E ratio, market cap, EPS, dividend yield)
+- SEC filings (8-K, 6-K, 10-K, 10-Q, etc.)
 - Analyst estimates and price targets
 - Company news
 - Insider trading activity
@@ -108,6 +112,28 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
     schema: FinancialSearchInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
       const onProgress = config?.metadata?.onProgress as ((msg: string) => void) | undefined;
+      const q = input.query;
+
+      // SEC filing force-route: when query clearly asks for filings and has a ticker
+      const isFilingRequest = /filing|8-k|6-k|10-k|10-q|report|sec/i.test(q);
+      const tickerMatch = q.match(/\b[A-Z]{2,5}\b/i);
+      const likelyTicker = tickerMatch ? tickerMatch[0].toUpperCase() : null;
+
+      if (isFilingRequest && likelyTicker) {
+        onProgress?.(`Fetching SEC filings for ${likelyTicker}...`);
+        try {
+          const result = await getDirectSecFilings.invoke({ ticker: likelyTicker });
+          const parsed = JSON.parse(typeof result === 'string' ? result : JSON.stringify(result));
+          if (!parsed.error) {
+            return formatToolResult(
+              { get_direct_sec_filings: parsed.data ?? parsed },
+              parsed.sourceUrls ?? []
+            );
+          }
+        } catch {
+          // Fall through to LLM routing
+        }
+      }
 
       // 1. Call LLM with finance tools bound (native tool calling)
       onProgress?.('Searching...');
@@ -131,9 +157,7 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
         toolCalls.map(async (tc) => {
           try {
             const tool = FINANCE_TOOL_MAP.get(tc.name);
-            if (!tool) {
-              throw new Error(`Tool '${tc.name}' not found`);
-            }
+            if (!tool) throw new Error(`Tool '${tc.name}' not found`);
             const rawResult = await tool.invoke(tc.args);
             const result = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
             const parsed = JSON.parse(result);
@@ -141,7 +165,7 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
               tool: tc.name,
               args: tc.args,
               data: parsed.data,
-              sourceUrls: parsed.sourceUrls || [],
+              sourceUrls: parsed.sourceUrls ?? [],
               error: null,
             };
           } catch (error) {
@@ -149,31 +173,56 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
               tool: tc.name,
               args: tc.args,
               data: null,
-              sourceUrls: [],
+              sourceUrls: [] as string[],
               error: error instanceof Error ? error.message : String(error),
             };
           }
         })
       );
 
-      // 4. Combine results
-      const successfulResults = results.filter((r) => r.error === null);
-      const failedResults = results.filter((r) => r.error !== null);
-
-      // Collect all source URLs
       const allUrls = results.flatMap((r) => r.sourceUrls);
-
-      // Build combined data structure
       const combinedData: Record<string, unknown> = {};
+      const failedResults: Array<{ tool: string; args: unknown; error: string }> = [];
 
-      for (const result of successfulResults) {
-        // Use tool name as key, or tool_ticker for multiple calls to same tool
-        const ticker = (result.args as Record<string, unknown>).ticker as string | undefined;
-        const key = ticker ? `${result.tool}_${ticker}` : result.tool;
-        combinedData[key] = result.data;
+      for (const r of results) {
+        const isApiError =
+          r.error &&
+          (String(r.error).includes('402') ||
+            String(r.error).includes('Payment') ||
+            String(r.error).includes('Subscription') ||
+            String(r.error).includes('Financial Datasets API'));
+        const ticker =
+          ((r.args as Record<string, unknown>)?.ticker as string | undefined) ??
+          (q.match(/\b[A-Z]{2,5}\b/i)?.[0]?.toUpperCase());
+
+        if (isApiError && ticker) {
+          try {
+            const fallbackResult = await getDirectSecFilings.invoke({ ticker });
+            const parsedFallback = JSON.parse(
+              typeof fallbackResult === 'string' ? fallbackResult : JSON.stringify(fallbackResult)
+            );
+            if (!parsedFallback.error) {
+              combinedData['sec_filing_data'] = parsedFallback.data ?? parsedFallback;
+              if (Array.isArray(parsedFallback.sourceUrls)) {
+                allUrls.push(...parsedFallback.sourceUrls);
+              }
+              continue;
+            }
+          } catch {
+            // Fall through to record as failed
+          }
+        }
+
+        if (r.error === null) {
+          const key = (r.args as Record<string, unknown>).ticker
+            ? `${r.tool}_${(r.args as Record<string, unknown>).ticker}`
+            : r.tool;
+          combinedData[key] = r.data;
+        } else {
+          failedResults.push({ tool: r.tool, args: r.args, error: r.error });
+        }
       }
 
-      // Add errors if any
       if (failedResults.length > 0) {
         combinedData._errors = failedResults.map((r) => ({
           tool: r.tool,
