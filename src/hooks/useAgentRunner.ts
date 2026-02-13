@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { Agent } from '../agent/agent.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import type { HistoryItem, WorkingState } from '../components/index.js';
-import type { AgentConfig, AgentEvent, DoneEvent } from '../agent/index.js';
+import type { AgentConfig, AgentEvent, AskUserEvent, DoneEvent } from '../agent/index.js';
 
 // ============================================================================
 // Types
@@ -18,11 +18,12 @@ export interface UseAgentRunnerResult {
   workingState: WorkingState;
   error: string | null;
   isProcessing: boolean;
-  
+
   // Actions
   runQuery: (query: string) => Promise<RunQueryResult | undefined>;
   cancelExecution: () => void;
   setError: (error: string | null) => void;
+  submitAskUserResponse: (answer: string) => void;
 }
 
 // ============================================================================
@@ -36,9 +37,10 @@ export function useAgentRunner(
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [workingState, setWorkingState] = useState<WorkingState>({ status: 'idle' });
   const [error, setError] = useState<string | null>(null);
-  
+
   const abortControllerRef = useRef<AbortController | null>(null);
-  
+  const askUserResolveRef = useRef<((answer: string) => void) | null>(null);
+
   // Helper to update the last (processing) history item
   const updateLastHistoryItem = useCallback((
     updater: (item: HistoryItem) => Partial<HistoryItem>
@@ -49,7 +51,7 @@ export function useAgentRunner(
       return [...prev.slice(0, -1), { ...last, ...updater(last) }];
     });
   }, []);
-  
+
   // Handle agent events
   const handleEvent = useCallback((event: AgentEvent) => {
     switch (event.type) {
@@ -63,7 +65,7 @@ export function useAgentRunner(
           }],
         }));
         break;
-        
+
       case 'tool_start': {
         const toolId = `tool-${event.tool}-${Date.now()}`;
         setWorkingState({ status: 'tool', toolName: event.tool });
@@ -87,35 +89,42 @@ export function useAgentRunner(
           ),
         }));
         break;
-        
+
       case 'tool_end':
         setWorkingState({ status: 'thinking' });
         updateLastHistoryItem(item => ({
           activeToolId: undefined,
-          events: item.events.map(e => 
+          events: item.events.map(e =>
             e.id === item.activeToolId
               ? { ...e, completed: true, endEvent: event }
               : e
           ),
         }));
         break;
-        
+
       case 'tool_error':
         setWorkingState({ status: 'thinking' });
         updateLastHistoryItem(item => ({
           activeToolId: undefined,
-          events: item.events.map(e => 
+          events: item.events.map(e =>
             e.id === item.activeToolId
               ? { ...e, completed: true, endEvent: event }
               : e
           ),
         }));
         break;
-        
+
       case 'answer_start':
         setWorkingState({ status: 'answering', startTime: Date.now() });
         break;
-        
+
+      case 'ask_user': {
+        const askEvent = event as AskUserEvent;
+        askUserResolveRef.current = askEvent.resolve;
+        setWorkingState({ status: 'ask_user', question: askEvent.question });
+        break;
+      }
+
       case 'done': {
         const doneEvent = event as DoneEvent;
         updateLastHistoryItem(item => {
@@ -138,16 +147,16 @@ export function useAgentRunner(
       }
     }
   }, [updateLastHistoryItem, inMemoryChatHistoryRef]);
-  
+
   // Run a query through the agent
   const runQuery = useCallback(async (query: string): Promise<RunQueryResult | undefined> => {
     // Create abort controller for this execution
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
-    
+
     // Track the final answer to return
     let finalAnswer: string | undefined;
-    
+
     // Add to history immediately
     const itemId = Date.now().toString();
     const startTime = Date.now();
@@ -159,20 +168,20 @@ export function useAgentRunner(
       status: 'processing',
       startTime,
     }]);
-    
+
     // Save query to chat history immediately for multi-turn context
     inMemoryChatHistoryRef.current?.saveUserQuery(query);
-    
+
     setError(null);
     setWorkingState({ status: 'thinking' });
-    
+
     try {
       const agent = await Agent.create({
         ...agentConfig,
         signal: abortController.signal,
       });
       const stream = agent.run(query, inMemoryChatHistoryRef.current!);
-      
+
       for await (const event of stream) {
         // Capture the final answer from the done event
         if (event.type === 'done') {
@@ -180,7 +189,7 @@ export function useAgentRunner(
         }
         handleEvent(event);
       }
-      
+
       // Return the answer if we got one
       if (finalAnswer) {
         return { answer: finalAnswer };
@@ -196,7 +205,7 @@ export function useAgentRunner(
         setWorkingState({ status: 'idle' });
         return undefined;
       }
-      
+
       const errorMsg = e instanceof Error ? e.message : String(e);
       setError(errorMsg);
       // Mark the history item as error
@@ -211,14 +220,14 @@ export function useAgentRunner(
       abortControllerRef.current = null;
     }
   }, [agentConfig, inMemoryChatHistoryRef, handleEvent]);
-  
+
   // Cancel the current execution
   const cancelExecution = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    
+
     // Mark current processing item as interrupted
     setHistory(prev => {
       const last = prev[prev.length - 1];
@@ -227,10 +236,19 @@ export function useAgentRunner(
     });
     setWorkingState({ status: 'idle' });
   }, []);
-  
+
   // Check if currently processing
   const isProcessing = history.length > 0 && history[history.length - 1].status === 'processing';
-  
+
+  // Submit an answer to an ask_user question
+  const submitAskUserResponse = useCallback((answer: string) => {
+    if (askUserResolveRef.current) {
+      askUserResolveRef.current(answer);
+      askUserResolveRef.current = null;
+      setWorkingState({ status: 'thinking' });
+    }
+  }, []);
+
   return {
     history,
     workingState,
@@ -239,5 +257,6 @@ export function useAgentRunner(
     runQuery,
     cancelExecution,
     setError,
+    submitAskUserResponse,
   };
 }
