@@ -24,6 +24,20 @@ function elide(text: string, maxLen: number): string {
   return text.slice(0, maxLen - 3) + '...';
 }
 
+/**
+ * Clean up markdown for WhatsApp compatibility.
+ * - Converts `**text**` (markdown bold) to `*text*` (WhatsApp bold)
+ * - Merges adjacent bold sections to prevent literal asterisks showing
+ */
+function cleanMarkdownForWhatsApp(text: string): string {
+  let result = text;
+  // Convert markdown bold (**text**) to WhatsApp bold (*text*)
+  result = result.replace(/\*\*([^*]+)\*\*/g, '*$1*');
+  // Merge adjacent bold sections: `*foo* *bar*` -> `*foo bar*`
+  result = result.replace(/\*([^*]+)\*\s+\*([^*]+)\*/g, '*$1 $2*');
+  return result;
+}
+
 async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage): Promise<void> {
   const bodyPreview = elide(inbound.body.replace(/\n/g, ' '), 50);
   console.log(`Inbound message ${inbound.from} (${inbound.chatType}, ${inbound.body.length} chars): "${bodyPreview}"`);
@@ -82,11 +96,12 @@ async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage
     stopTypingLoop();
 
     if (answer.trim()) {
-      // Reply using replyToJid (resolved from LID to phone JID for reliable delivery)
+      // Clean up markdown for WhatsApp and reply
+      const cleanedAnswer = cleanMarkdownForWhatsApp(answer);
       debugLog(`[gateway] sending reply to ${inbound.replyToJid}`);
       await sendMessageWhatsApp({
         to: inbound.replyToJid,
-        body: `[Dexter] ${answer}`,
+        body: `[Dexter] ${cleanedAnswer}`,
         accountId: inbound.accountId,
       });
       console.log(`Sent reply (${answer.length} chars, ${durationMs}ms)`);
