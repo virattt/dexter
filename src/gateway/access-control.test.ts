@@ -81,5 +81,41 @@ describe('access control', () => {
     });
     expect(result.allowed).toBe(false);
   });
+
+  test('blocks group messages in self-chat mode even when group policy is open', async () => {
+    const result = await checkInboundAccessControl({
+      accountId: 'default',
+      from: '+15551234567',
+      selfE164: '+15551234567',
+      senderE164: '+15551234567',
+      group: true,
+      isFromMe: true,
+      dmPolicy: 'open',
+      groupPolicy: 'open',
+      allowFrom: ['+15551234567'],
+      groupAllowFrom: ['*'],
+      reply: async () => {},
+    });
+    expect(result.allowed).toBe(false);
+    expect(result.denyReason).toBe('group_blocked_self_chat_mode');
+  });
+
+  test('blocks non-self sender in self-chat mode', async () => {
+    const result = await checkInboundAccessControl({
+      accountId: 'default',
+      from: '+15550000000',
+      selfE164: '+15551234567',
+      senderE164: '+15550000000',
+      group: false,
+      isFromMe: false,
+      dmPolicy: 'open',
+      groupPolicy: 'disabled',
+      allowFrom: ['+15551234567'],
+      groupAllowFrom: [],
+      reply: async () => {},
+    });
+    expect(result.allowed).toBe(false);
+    expect(result.denyReason).toBe('sender_not_self_in_self_chat_mode');
+  });
 });
 

@@ -1,6 +1,11 @@
 import { createChannelManager } from './channels/manager.js';
 import { createWhatsAppPlugin } from './channels/whatsapp/plugin.js';
-import { sendComposing, sendMessageWhatsApp, type WhatsAppInboundMessage } from './channels/whatsapp/index.js';
+import {
+  assertOutboundAllowed,
+  sendComposing,
+  sendMessageWhatsApp,
+  type WhatsAppInboundMessage,
+} from './channels/whatsapp/index.js';
 import { resolveRoute } from './routing/resolve-route.js';
 import { resolveSessionStorePath, upsertSessionMeta } from './sessions/store.js';
 import { loadGatewayConfig, type GatewayConfig } from './config.js';
@@ -79,6 +84,16 @@ async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage
   };
 
   try {
+    // Defense-in-depth: verify outbound destination is allowed before any messaging
+    try {
+      assertOutboundAllowed({ to: inbound.replyToJid, accountId: inbound.accountId });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      debugLog(`[gateway] outbound BLOCKED: ${msg}`);
+      console.log(msg);
+      return;
+    }
+
     await startTypingLoop();
     console.log(`Processing message with agent...`);
     debugLog(`[gateway] running agent for session=${route.sessionKey}`);

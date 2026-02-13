@@ -156,7 +156,7 @@ Chat with Dexter through WhatsApp by linking your phone to the gateway. Messages
 # Link your WhatsApp account (scan QR code)
 bun run gateway:login
 
-# Start the gateway
+# Start the gateway (runs under Node for WhatsApp reliability)
 bun run gateway
 ```
 

@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { WaSocket } from './session.js';
-import { toWhatsappJid } from '../../utils.js';
+import { loadGatewayConfig, resolveWhatsAppAccount } from '../../config.js';
+import { normalizeE164, toWhatsappJid } from '../../utils.js';
 
 function debugLog(msg: string) {
   const logPath = path.join(os.homedir(), '.dexter', 'gateway-debug.log');
@@ -39,6 +40,47 @@ function getActive(accountId?: string): ActiveListener {
   return first;
 }
 
+function extractE164FromJid(jid: string): string | null {
+  const localPart = jid.split('@')[0] ?? '';
+  const rawPhone = localPart.includes(':') ? localPart.split(':')[0] : localPart;
+  if (!/^\d+$/.test(rawPhone)) {
+    return null;
+  }
+  return normalizeE164(rawPhone);
+}
+
+export function assertOutboundAllowed(params: {
+  to: string;
+  accountId?: string;
+}): { toJid: string; recipientE164: string } {
+  const cfg = loadGatewayConfig();
+  const accountId = params.accountId ?? cfg.gateway.accountId;
+  const account = resolveWhatsAppAccount(cfg, accountId);
+  const toJid = toWhatsappJid(params.to);
+
+  if (toJid.endsWith('@g.us')) {
+    throw new Error('Outbound blocked: group destinations are disabled in strict self-chat mode.');
+  }
+
+  const recipientE164 = extractE164FromJid(toJid);
+  if (!recipientE164) {
+    throw new Error(`Outbound blocked: invalid recipient JID ${toJid}`);
+  }
+
+  // Strict mode: require explicit recipient allowlist entries and ignore wildcard.
+  const explicitAllowedRecipients = account.allowFrom
+    .filter((entry) => entry !== '*')
+    .map(normalizeE164);
+  if (explicitAllowedRecipients.length === 0) {
+    throw new Error('Outbound blocked: no explicit allowFrom recipient configured.');
+  }
+  if (!explicitAllowedRecipients.includes(recipientE164)) {
+    throw new Error(`Outbound blocked: ${recipientE164} is not in allowFrom.`);
+  }
+
+  return { toJid, recipientE164 };
+}
+
 export async function sendMessageWhatsApp(params: {
   to: string;
   body: string;
@@ -47,7 +89,7 @@ export async function sendMessageWhatsApp(params: {
 }): Promise<{ messageId: string; toJid: string }> {
   const active = getActive(params.accountId);
   debugLog(`[outbound] input to=${params.to}`);
-  const to = toWhatsappJid(params.to);
+  const { toJid: to } = assertOutboundAllowed({ to: params.to, accountId: params.accountId });
   debugLog(`[outbound] normalized to=${to}`);
   const payload = params.media ?? { text: params.body };
   debugLog(`[outbound] sending message...`);
@@ -62,7 +104,7 @@ export async function sendMessageWhatsApp(params: {
 
 export async function sendComposing(params: { to: string; accountId?: string }): Promise<void> {
   const active = getActive(params.accountId);
-  const to = toWhatsappJid(params.to);
+  const { toJid: to } = assertOutboundAllowed({ to: params.to, accountId: params.accountId });
   await active.sock.sendPresenceUpdate('composing', to);
 }
 

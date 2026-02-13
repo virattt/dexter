@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env tsx
 import { existsSync } from 'node:fs';
 import util from 'node:util';
 import {

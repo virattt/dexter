@@ -137,7 +137,7 @@ export async function monitorWebInbox(params: {
 
   const onMessagesUpsert = async (upsert: { type?: string; messages?: WAMessage[] }) => {
     debugLog(`[inbound] upsert type=${upsert.type} count=${upsert.messages?.length ?? 0}`);
-    if (upsert.type !== 'notify') {
+    if (upsert.type !== 'notify' && upsert.type !== 'append') {
       return;
     }
     for (const message of upsert.messages ?? []) {
@@ -176,7 +176,7 @@ export async function monitorWebInbox(params: {
       const messageTimestampMs = message.messageTimestamp
         ? Number(message.messageTimestamp) * 1000
         : undefined;
-      debugLog(`[inbound] from=${from} selfE164=${selfE164} isGroup=${isGroup} isFromMe=${message.key?.fromMe} allowFrom=${JSON.stringify(params.allowFrom)}`);
+      debugLog(`[inbound] from=${from} selfE164=${selfE164} isGroup=${isGroup} isFromMe=${message.key?.fromMe} allowFrom=${JSON.stringify(params.allowFrom)} dmPolicy=${params.dmPolicy} groupPolicy=${params.groupPolicy}`);
       const access = await checkInboundAccessControl({
         accountId: params.accountId,
         from,
@@ -194,7 +194,9 @@ export async function monitorWebInbox(params: {
           await sock.sendMessage(remoteJid, { text });
         },
       });
-      debugLog(`[inbound] access allowed=${access.allowed} isSelfChat=${access.isSelfChat} shouldMarkRead=${access.shouldMarkRead}`);
+      debugLog(
+        `[inbound] access allowed=${access.allowed} denyReason=${access.denyReason ?? 'none'} isSelfChat=${access.isSelfChat} shouldMarkRead=${access.shouldMarkRead}`,
+      );
       if (!access.allowed) {
         continue;
       }
@@ -256,6 +258,11 @@ export async function monitorWebInbox(params: {
             fromMe: false,
           },
         ]);
+      }
+      // History/offline catch-up: mark read above but skip auto-reply.
+      if (upsert.type === 'append') {
+        debugLog(`[inbound] skipping append message (read-only, no reply)`);
+        continue;
       }
       debugLog(`[inbound] calling onMessage for ${from}: "${body.slice(0, 30)}..."`);
       await params.onMessage(inbound);

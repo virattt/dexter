@@ -89,6 +89,7 @@ export type InboundAccessControlResult = {
   shouldMarkRead: boolean;
   isSelfChat: boolean;
   resolvedAccountId: string;
+  denyReason?: string;
 };
 
 export async function checkInboundAccessControl(params: {
@@ -108,7 +109,10 @@ export async function checkInboundAccessControl(params: {
   pairingGraceMs?: number;
   reply: (text: string) => Promise<void>;
 }): Promise<InboundAccessControlResult> {
-  const isSamePhone = params.from === params.selfE164;
+  const normalizedSelfE164 = params.selfE164 ? normalizeE164(params.selfE164) : null;
+  const normalizedFrom = normalizeE164(params.from);
+  const normalizedSenderE164 = params.senderE164 ? normalizeE164(params.senderE164) : null;
+  const isSamePhone = normalizedSelfE164 != null && normalizedFrom === normalizedSelfE164;
   const isSelfChat = isSelfChatMode(params.selfE164, params.allowFrom);
   const pairingGraceMs =
     typeof params.pairingGraceMs === 'number' && params.pairingGraceMs > 0
@@ -126,13 +130,50 @@ export async function checkInboundAccessControl(params: {
     .filter((entry) => entry !== '*')
     .map(normalizeE164);
 
-  if (params.group && params.groupPolicy === 'disabled') {
+  // Strict self-chat mode: only allow direct messages to/from the user's own number.
+  // This provides fail-closed behavior even if policies are accidentally broadened.
+  if (isSelfChat) {
+    if (params.group) {
+      return {
+        allowed: false,
+        shouldMarkRead: false,
+        isSelfChat,
+        resolvedAccountId: params.accountId,
+        denyReason: 'group_blocked_self_chat_mode',
+      };
+    }
+    const senderIsSelf =
+      normalizedSelfE164 != null &&
+      (normalizedFrom === normalizedSelfE164 || normalizedSenderE164 === normalizedSelfE164);
+    if (!senderIsSelf) {
+      return {
+        allowed: false,
+        shouldMarkRead: false,
+        isSelfChat,
+        resolvedAccountId: params.accountId,
+        denyReason: 'sender_not_self_in_self_chat_mode',
+      };
+    }
     return {
-      allowed: false,
-      shouldMarkRead: false,
+      allowed: true,
+      shouldMarkRead: true,
       isSelfChat,
       resolvedAccountId: params.accountId,
     };
+  }
+
+  // Block group messages unless explicitly allowed via 'open' or 'allowlist' policy.
+  // Fail-safe: if groupPolicy is missing/invalid, groups are blocked.
+  if (params.group) {
+    if (params.groupPolicy !== 'open' && params.groupPolicy !== 'allowlist') {
+      return {
+        allowed: false,
+        shouldMarkRead: false,
+        isSelfChat,
+        resolvedAccountId: params.accountId,
+        denyReason: 'group_policy_not_permissive',
+      };
+    }
   }
 
   if (params.group && params.groupPolicy === 'allowlist') {
@@ -142,55 +183,61 @@ export async function checkInboundAccessControl(params: {
         shouldMarkRead: false,
         isSelfChat,
         resolvedAccountId: params.accountId,
+        denyReason: 'group_allowlist_empty',
       };
     }
     const senderAllowed =
       groupHasWildcard ||
-      (params.senderE164 != null && normalizedGroupAllowFrom.includes(params.senderE164));
+      (normalizedSenderE164 != null && normalizedGroupAllowFrom.includes(normalizedSenderE164));
     if (!senderAllowed) {
       return {
         allowed: false,
         shouldMarkRead: false,
         isSelfChat,
         resolvedAccountId: params.accountId,
+        denyReason: 'group_sender_not_allowlisted',
       };
     }
   }
 
   if (!params.group) {
-    // Skip outbound DMs to other people, but allow self-chat
-    // In self-chat mode with LID format, isSamePhone may be false even for self-chat
-    if (params.isFromMe && !isSamePhone && !isSelfChat) {
-      return {
-        allowed: false,
-        shouldMarkRead: false,
-        isSelfChat,
-        resolvedAccountId: params.accountId,
-      };
-    }
     if (params.dmPolicy === 'disabled') {
       return {
         allowed: false,
         shouldMarkRead: false,
         isSelfChat,
         resolvedAccountId: params.accountId,
+        denyReason: 'dm_policy_disabled',
       };
     }
-    // In self-chat mode, skip allowlist check (LID won't match phone number)
-    if (params.dmPolicy !== 'open' && !isSamePhone && !isSelfChat) {
+
+    // Skip outbound DMs to other people (messages I sent to others)
+    if (params.isFromMe && !isSamePhone) {
+      return {
+        allowed: false,
+        shouldMarkRead: false,
+        isSelfChat,
+        resolvedAccountId: params.accountId,
+        denyReason: 'outbound_dm_to_non_self',
+      };
+    }
+
+    // For DMs from others, check allowlist (unless policy is 'open')
+    if (params.dmPolicy !== 'open' && !isSamePhone) {
       const allowed =
         dmHasWildcard ||
-        (normalizedAllowFrom.length > 0 && normalizedAllowFrom.includes(params.from));
+        (normalizedAllowFrom.length > 0 && normalizedAllowFrom.includes(normalizedFrom));
       if (!allowed) {
         if (params.dmPolicy === 'pairing' && !suppressPairingReply) {
-          const pairing = recordPairingRequest(params.from);
-          await params.reply(buildPairingReply(pairing.code, params.from));
+          const pairing = recordPairingRequest(normalizedFrom);
+          await params.reply(buildPairingReply(pairing.code, normalizedFrom));
         }
         return {
           allowed: false,
           shouldMarkRead: false,
           isSelfChat,
           resolvedAccountId: params.accountId,
+          denyReason: 'dm_sender_not_allowlisted',
         };
       }
     }
