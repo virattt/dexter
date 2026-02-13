@@ -29,6 +29,8 @@
 - Install deps: `bun install`
 - Run: `bun run start` or `bun run src/index.tsx`
 - Dev (watch mode): `bun run dev`
+- Build: `bun run build`
+- Lint: `bun run lint`
 - Type-check: `bun run typecheck`
 - Tests: `bun test`
 - Evals: `bun run src/evals/run.ts` (full) or `bun run src/evals/run.ts --sample 10` (sampled)
@@ -45,9 +47,9 @@
 
 ## LLM Providers
 
-- Supported: OpenAI (default), Anthropic, Google, xAI (Grok), OpenRouter, Ollama (local).
-- Default model: `gpt-5.2`. Provider detection is prefix-based (`claude-` -> Anthropic, `gemini-` -> Google, etc.).
-- Fast models for lightweight tasks: see `FAST_MODELS` map in `src/model/llm.ts`.
+- Supported: OpenAI (default), Anthropic, Google, xAI (Grok), GroqCloud, Moonshot, DeepSeek, OpenRouter, Ollama (local).
+- Default model: `gpt-5.2`. Provider detection is prefix-based (`claude-` -> Anthropic, `gemini-` -> Google, `grok-` -> xAI, `groq:` -> GroqCloud, `openrouter:` -> OpenRouter, `ollama:` -> Ollama, etc.).
+- Fast models for lightweight tasks: configured per provider via `fastModel` in `src/providers.ts` (used by `getFastModel()` in `src/model/llm.ts`).
 - Anthropic uses explicit `cache_control` on system prompt for prompt caching cost savings.
 - Users switch providers/models via `/model` command in the CLI.
 
@@ -78,7 +80,7 @@
 
 ## Environment Variables
 
-- LLM keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `XAI_API_KEY`, `OPENROUTER_API_KEY`
+- LLM keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `XAI_API_KEY`, `GROQ_API_KEY`, `MOONSHOT_API_KEY`, `DEEPSEEK_API_KEY`, `OPENROUTER_API_KEY`
 - Ollama: `OLLAMA_BASE_URL` (default `http://127.0.0.1:11434`)
 - Finance: `FINANCIAL_DATASETS_API_KEY`
 - Search: `EXASEARCH_API_KEY` (preferred), `TAVILY_API_KEY` (fallback)
