@@ -97,8 +97,8 @@ export function HistoryItemView({ item }: HistoryItemViewProps) {
         </Box>
       )}
       
-      {/* Performance stats - only show when token data is present */}
-      {item.status === 'complete' && item.tokenUsage && (
+      {/* Performance stats - only show when task took 10s+ and token data is present */}
+      {item.status === 'complete' && item.tokenUsage && item.duration !== undefined && item.duration >= 10_000 && (
         <Box marginTop={1}>
           <Text color={colors.muted}>✻ {formatPerformanceStats(item.duration, item.tokenUsage, item.tokensPerSecond)}</Text>
         </Box>

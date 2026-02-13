@@ -190,10 +190,10 @@ async function fetchWithRedirects(params: {
     try {
       parsedUrl = new URL(currentUrl);
     } catch {
-      throw new Error("Invalid URL: must be http or https");
+      throw new Error("[Web Fetch] Invalid URL: must be http or https");
     }
     if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-      throw new Error("Invalid URL: must be http or https");
+      throw new Error("[Web Fetch] Invalid URL: must be http or https");
     }
 
     const response = await fetch(parsedUrl.toString(), {
@@ -205,15 +205,15 @@ async function fetchWithRedirects(params: {
     if (isRedirectStatus(response.status)) {
       const location = response.headers.get("location");
       if (!location) {
-        throw new Error(`Redirect missing location header (${response.status})`);
+        throw new Error(`[Web Fetch] Redirect missing location header (${response.status})`);
       }
       redirectCount += 1;
       if (redirectCount > params.maxRedirects) {
-        throw new Error(`Too many redirects (limit: ${params.maxRedirects})`);
+        throw new Error(`[Web Fetch] Too many redirects (limit: ${params.maxRedirects})`);
       }
       const nextUrl = new URL(location, parsedUrl).toString();
       if (visited.has(nextUrl)) {
-        throw new Error("Redirect loop detected");
+        throw new Error("[Web Fetch] Redirect loop detected");
       }
       visited.add(nextUrl);
       currentUrl = nextUrl;
@@ -249,10 +249,10 @@ async function runWebFetch(params: {
   try {
     parsedUrl = new URL(params.url);
   } catch {
-    throw new Error("Invalid URL: must be http or https");
+    throw new Error("[Web Fetch] Invalid URL: must be http or https");
   }
   if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-    throw new Error("Invalid URL: must be http or https");
+    throw new Error("[Web Fetch] Invalid URL: must be http or https");
   }
 
   const start = Date.now();
@@ -275,7 +275,7 @@ async function runWebFetch(params: {
       maxChars: DEFAULT_ERROR_MAX_CHARS,
     });
     const wrappedDetail = wrapWebFetchContent(detail || res.statusText, DEFAULT_ERROR_MAX_CHARS);
-    throw new Error(`Web fetch failed (${res.status}): ${wrappedDetail.text}`);
+    throw new Error(`[Web Fetch] failed (${res.status}): ${wrappedDetail.text}`);
   }
 
   const contentType = res.headers.get("content-type") ?? "application/octet-stream";
