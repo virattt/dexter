@@ -1,10 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 
 import { colors } from '../theme.js';
 import { useTextBuffer } from '../hooks/useTextBuffer.js';
 import { cursorHandlers } from '../utils/input-key-handlers.js';
+import { wrapIndex } from '../utils/wrap-index.js';
 import { CursorText } from './CursorText.js';
+import { getSlashAutocomplete, getSlashCommandSuggestions } from '../commands.js';
 
 interface InputProps {
   onSubmit: (value: string) => void;
@@ -14,8 +16,43 @@ interface InputProps {
   onHistoryNavigate?: (direction: 'up' | 'down') => void;
 }
 
+function isShiftEnterEscapeSequence(input: string): boolean {
+  return (
+    input === '\u001b[27;2;13~' ||
+    input === '[27;2;13~' ||
+    input === '\u001b[13;2u' ||
+    input === '[13;2u'
+  );
+}
+
+function isCtrlBackspaceEscapeSequence(input: string): boolean {
+  return (
+    input === '\u001b[127;5u' ||
+    input === '[127;5u' ||
+    input === '\u001b[8;5u' ||
+    input === '[8;5u' ||
+    input === '\u001b[3;5~' ||
+    input === '[3;5~'
+  );
+}
+
 export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps) {
   const { text, cursorPosition, actions } = useTextBuffer();
+  const slashSuggestions = getSlashCommandSuggestions(text);
+  const showSlashSuggestions = text.trim().startsWith('/') && !text.includes('\n') && slashSuggestions.length > 0;
+  const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
+
+  // Keep selected index in range when suggestions change.
+  useEffect(() => {
+    if (!showSlashSuggestions) {
+      setSelectedSlashIndex(0);
+      return;
+    }
+    setSelectedSlashIndex((prev) => {
+      if (slashSuggestions.length === 0) return 0;
+      return Math.max(0, Math.min(prev, slashSuggestions.length - 1));
+    });
+  }, [showSlashSuggestions, slashSuggestions.length]);
 
   // Update input buffer when history navigation changes
   useEffect(() => {
@@ -31,6 +68,27 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
   // Handle all input
   useInput((input, key) => {
     const ctx = { text, cursorPosition };
+
+    // Slash suggestion navigation (when visible)
+    if (showSlashSuggestions && (key.upArrow || key.downArrow)) {
+      if (key.upArrow) {
+        setSelectedSlashIndex((prev) => wrapIndex(prev - 1, slashSuggestions.length));
+      } else {
+        setSelectedSlashIndex((prev) => wrapIndex(prev + 1, slashSuggestions.length));
+      }
+      return;
+    }
+
+    // Some terminals encode Shift+Enter as a CSI sequence instead of a modified return key.
+    if (input && isShiftEnterEscapeSequence(input)) {
+      actions.insert('\n');
+      return;
+    }
+
+    if (input && isCtrlBackspaceEscapeSequence(input)) {
+      actions.deleteWordBackward();
+      return;
+    }
 
     // Up arrow: move cursor up if not on first line, else history navigation
     if (key.upArrow) {
@@ -96,6 +154,12 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
       return;
     }
 
+    // Ctrl+W - delete word backward (shell-style)
+    if (key.ctrl && input === 'w') {
+      actions.deleteWordBackward();
+      return;
+    }
+
     // Handle backspace/delete - delete character before cursor
     if (key.backspace || key.delete) {
       actions.deleteBackward();
@@ -108,8 +172,33 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
       return;
     }
 
+    // Tab - autocomplete slash commands (e.g. /h -> /help)
+    if (key.tab) {
+      if (showSlashSuggestions) {
+        const selected = slashSuggestions[selectedSlashIndex];
+        if (selected?.command) {
+          actions.setValue(selected.command);
+          return;
+        }
+      }
+      const completed = getSlashAutocomplete(text);
+      if (completed) {
+        actions.setValue(completed);
+      }
+      return;
+    }
+
     // Handle submit (plain Enter)
     if (key.return) {
+      if (showSlashSuggestions) {
+        const selected = slashSuggestions[selectedSlashIndex];
+        const selectedCommand = selected?.command;
+        const current = text.trim();
+        if (selectedCommand && current !== selectedCommand) {
+          actions.setValue(selectedCommand);
+          return;
+        }
+      }
       const val = text.trim();
       if (val) {
         onSubmit(val);
@@ -140,6 +229,23 @@ export function Input({ onSubmit, historyValue, onHistoryNavigate }: InputProps)
         </Text>
         <CursorText text={text} cursorPosition={cursorPosition} />
       </Box>
+      {showSlashSuggestions && (
+        <Box paddingX={1} marginBottom={1} flexDirection="column">
+          {slashSuggestions.map((suggestion, idx) => {
+            const isSelected = idx === selectedSlashIndex;
+            return (
+              <Text
+                key={suggestion.command}
+                color={isSelected ? colors.primaryLight : colors.muted}
+                bold={isSelected}
+              >
+                {isSelected ? '> ' : '  '}
+                {suggestion.command} - {suggestion.description}
+              </Text>
+            );
+          })}
+        </Box>
+      )}
     </Box>
   );
 }

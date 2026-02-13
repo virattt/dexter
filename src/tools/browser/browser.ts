@@ -1,10 +1,11 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
-import { chromium, Browser, Page } from 'playwright';
+import { chromium, Browser, BrowserContext, Page } from 'playwright';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
 import { logger } from '@/utils';
 
 let browser: Browser | null = null;
+let context: BrowserContext | null = null;
 let page: Page | null = null;
 
 // Store refs from the last snapshot for action resolution
@@ -20,18 +21,37 @@ interface PageWithSnapshotForAI extends Page {
   _snapshotForAI?: (opts: { timeout: number; track: string }) => Promise<SnapshotForAIResult>;
 }
 
+function attachPageCloseHandler(trackedPage: Page): void {
+  trackedPage.once('close', () => {
+    if (page === trackedPage) {
+      page = null;
+      currentRefs.clear();
+    }
+  });
+}
+
 /**
  * Ensure browser and page are initialized.
  * Lazily launches a headless Chromium browser on first use.
  */
 async function ensureBrowser(): Promise<Page> {
-  if (!browser) {
-    browser = await chromium.launch({ headless: false });
+  if (!browser || !browser.isConnected()) {
+    const headless = process.env.DEXTER_BROWSER_HEADFUL !== '1';
+    browser = await chromium.launch({ headless });
+    context = null;
+    page = null;
+    currentRefs.clear();
   }
-  if (!page) {
-    const context = await browser.newContext();
+
+  if (!context) {
+    context = await browser.newContext();
+  }
+
+  if (!page || page.isClosed()) {
     page = await context.newPage();
+    attachPageCloseHandler(page);
   }
+
   return page;
 }
 
@@ -42,6 +62,7 @@ async function closeBrowser(): Promise<void> {
   if (browser) {
     await browser.close();
     browser = null;
+    context = null;
     page = null;
     currentRefs.clear();
   }
@@ -182,10 +203,12 @@ export const browserTool = new DynamicStructuredTool({
             return formatToolResult({ error: 'url is required for open action' });
           }
           const currentPage = await ensureBrowser();
-          const context = currentPage.context();
-          const newPage = await context.newPage();
+          const activeContext = currentPage.context();
+          const newPage = await activeContext.newPage();
+          attachPageCloseHandler(newPage);
           await newPage.goto(url, { timeout: 30000, waitUntil: 'networkidle' });
           // Switch to the new page
+          await currentPage.close().catch(() => {});
           page = newPage;
           return formatToolResult({
             ok: true,

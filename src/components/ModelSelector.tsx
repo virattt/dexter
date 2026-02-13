@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { colors } from '../theme.js';
 import { PROVIDERS as PROVIDER_DEFS } from '@/providers';
+import { wrapIndex } from '../utils/wrap-index.js';
 
 export interface Model {
   id: string;          // API model identifier (e.g., "claude-opus-4-6")
@@ -94,9 +95,9 @@ export function ProviderSelector({ provider, onSelect }: ProviderSelectorProps) 
 
   useInput((input, key) => {
     if (key.upArrow || input === 'k') {
-      setSelectedIndex((prev) => Math.max(0, prev - 1));
+      setSelectedIndex((prev) => wrapIndex(prev - 1, PROVIDERS.length));
     } else if (key.downArrow || input === 'j') {
-      setSelectedIndex((prev) => Math.min(PROVIDERS.length - 1, prev + 1));
+      setSelectedIndex((prev) => wrapIndex(prev + 1, PROVIDERS.length));
     } else if (key.return) {
       onSelect(PROVIDERS[selectedIndex].providerId);
     } else if (key.escape) {
@@ -221,9 +222,9 @@ export function ModelSelector({ providerId, models, currentModel, onSelect }: Mo
 
   useInput((input, key) => {
     if (key.upArrow || input === 'k') {
-      setSelectedIndex((prev) => Math.max(0, prev - 1));
+      setSelectedIndex((prev) => wrapIndex(prev - 1, models.length));
     } else if (key.downArrow || input === 'j') {
-      setSelectedIndex((prev) => Math.min(models.length - 1, prev + 1));
+      setSelectedIndex((prev) => wrapIndex(prev + 1, models.length));
     } else if (key.return) {
       if (models.length > 0) {
         onSelect(models[selectedIndex].id);
