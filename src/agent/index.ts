@@ -4,8 +4,8 @@ export { Scratchpad } from './scratchpad.js';
 
 export { getCurrentDate, buildSystemPrompt, buildIterationPrompt, DEFAULT_SYSTEM_PROMPT } from './prompts.js';
 
-export type { 
-  AgentConfig, 
+export type {
+  AgentConfig,
   Message,
   AgentEvent,
   ThinkingEvent,
@@ -14,13 +14,14 @@ export type {
   ToolEndEvent,
   ToolErrorEvent,
   ToolLimitEvent,
+  AskUserEvent,
   AnswerStartEvent,
   DoneEvent,
 } from './types.js';
 
-export type { 
-  ToolCallRecord, 
-  ToolContext, 
+export type {
+  ToolCallRecord,
+  ToolContext,
   ScratchpadEntry,
   ToolLimitConfig,
   ToolUsageStatus,
