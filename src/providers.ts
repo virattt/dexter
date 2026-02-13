@@ -46,6 +46,13 @@ export const PROVIDERS: ProviderDef[] = [
     fastModel: 'grok-4-1-fast-reasoning',
   },
   {
+    id: 'groq',
+    displayName: 'GroqCloud',
+    modelPrefix: 'groq:',
+    apiKeyEnvVar: 'GROQ_API_KEY',
+    fastModel: 'groq:llama-3.1-8b-instant',
+  },
+  {
     id: 'moonshot',
     displayName: 'Moonshot',
     modelPrefix: 'kimi-',

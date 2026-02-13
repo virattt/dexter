@@ -35,7 +35,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 ## ✅ Prerequisites
 
 - [Bun](https://bun.com) runtime (v1.0 or higher)
-- OpenAI API key (get [here](https://platform.openai.com/api-keys))
+- At least one supported LLM API key (OpenAI default; GroqCloud optional)
 - Financial Datasets API key (get [here](https://financialdatasets.ai))
 - Exa API key (get [here](https://exa.ai)) - optional, for web search
 
@@ -81,6 +81,7 @@ cp env.example .env
 # ANTHROPIC_API_KEY=your-anthropic-api-key (optional)
 # GOOGLE_API_KEY=your-google-api-key (optional)
 # XAI_API_KEY=your-xai-api-key (optional)
+# GROQ_API_KEY=your-groq-api-key (optional)
 # OPENROUTER_API_KEY=your-openrouter-api-key (optional)
 
 # Institutional-grade market data for agents; AAPL, NVDA, MSFT are free
@@ -93,6 +94,8 @@ cp env.example .env
 # EXASEARCH_API_KEY=your-exa-api-key
 # TAVILY_API_KEY=your-tavily-api-key
 ```
+
+**Note**: GroqCloud uses an OpenAI-compatible Chat Completions API. You can switch providers/models anytime via `/model` inside the CLI.
 
 ## 🚀 How to Run
 

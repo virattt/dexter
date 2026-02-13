@@ -32,6 +32,12 @@ const PROVIDER_MODELS: Record<string, Model[]> = {
     { id: 'grok-4-0709', displayName: 'Grok 4' },
     { id: 'grok-4-1-fast-reasoning', displayName: 'Grok 4.1 Fast Reasoning' },
   ],
+  groq: [
+    { id: 'groq:llama-3.1-8b-instant', displayName: 'Llama 3.1 8B (Instant)' },
+    { id: 'groq:llama-3.3-70b-versatile', displayName: 'Llama 3.3 70B (Versatile)' },
+    { id: 'groq:openai/gpt-oss-20b', displayName: 'GPT OSS 20B' },
+    { id: 'groq:openai/gpt-oss-120b', displayName: 'GPT OSS 120B' },
+  ],
   moonshot: [
     { id: 'kimi-k2-5', displayName: 'Kimi K2.5' },
   ],
@@ -64,7 +70,7 @@ export function getDefaultModelForProvider(providerId: string): string | undefin
 
 export function getModelDisplayName(modelId: string): string {
   // Handle prefixed model IDs (e.g., "ollama:llama3", "openrouter:anthropic/claude-3.5")
-  const normalizedId = modelId.replace(/^(ollama|openrouter):/, '');
+  const normalizedId = modelId.replace(/^(ollama|openrouter|groq):/, '');
   
   // Search through all providers for the model
   for (const provider of PROVIDERS) {
