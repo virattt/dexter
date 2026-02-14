@@ -12,8 +12,25 @@ function escapeTemplateVars(str: string): string {
   return str.replace(/\{/g, '{{').replace(/\}/g, '}}');
 }
 
-// Step 1 tools: get filing metadata
-const STEP1_TOOLS: StructuredToolInterface[] = [getFilings];
+const FilingTypeSchema = z.enum(['10-K', '10-Q', '8-K']);
+
+const FilingPlanSchema = z.object({
+  ticker: z
+    .string()
+    .describe('Stock ticker symbol (e.g. AAPL, TSLA, MSFT)'),
+  filing_types: z
+    .array(FilingTypeSchema)
+    .min(1)
+    .describe('Filing type(s) required to answer the query'),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(10)
+    .describe('Maximum filings to retrieve per request (default 10)'),
+});
+
+type FilingPlan = z.infer<typeof FilingPlanSchema>;
 
 // Step 2 tools: read filing content
 const STEP2_TOOLS: StructuredToolInterface[] = [
@@ -24,11 +41,14 @@ const STEP2_TOOLS: StructuredToolInterface[] = [
 
 const STEP2_TOOL_MAP = new Map(STEP2_TOOLS.map(t => [t.name, t]));
 
-function buildStep1Prompt(): string {
-  return `You are a SEC filings routing assistant.
+function buildPlanPrompt(): string {
+  return `You are a SEC filings planning assistant.
 Current date: ${getCurrentDate()}
 
-Given a user query about SEC filings, call get_filings to fetch available filings.
+Given a user query about SEC filings, return structured plan fields:
+- ticker
+- filing_types
+- limit
 
 ## Guidelines
 
@@ -40,11 +60,12 @@ Given a user query about SEC filings, call get_filings to fetch available filing
    - Risk factors, business description, annual data → 10-K
    - Quarterly results, recent performance → 10-Q
    - Material events, acquisitions, earnings announcements → 8-K
-   - If unclear, omit filing_type to get recent filings of any type
+   - If a query spans multiple time horizons or intents, include multiple filing types
+   - If the query is broad, include all relevant filing types instead of leaving this empty
 
-3. **Limit**: Default to 3 filings unless query specifies otherwise
+3. **Limit**: Default to 10 unless query specifies otherwise
 
-Call get_filings now with appropriate parameters.`;
+Return only the structured output fields.`;
 }
 
 function buildStep2Prompt(
@@ -52,37 +73,45 @@ function buildStep2Prompt(
   filingsData: unknown,
   itemTypes: FilingItemTypes
 ): string {
+  const escapedQuery = escapeTemplateVars(originalQuery);
   const escapedFilings = escapeTemplateVars(JSON.stringify(filingsData, null, 2));
-  
-  // Format item types for the prompt
-  const format10K = itemTypes['10-K'].map(i => `${i.name} (${i.title})`).join(', ');
-  const format10Q = itemTypes['10-Q'].map(i => `${i.name} (${i.title})`).join(', ');
-  
+
+  // Format item types with descriptions so the LLM can make informed selections
+  const format10K = escapeTemplateVars(
+    itemTypes['10-K'].map(i => `- ${i.name}: ${i.title} — ${i.description}`).join('\n')
+  );
+  const format10Q = escapeTemplateVars(
+    itemTypes['10-Q'].map(i => `- ${i.name}: ${i.title} — ${i.description}`).join('\n')
+  );
+
   return `You are a SEC filings content retrieval assistant.
 Current date: ${getCurrentDate()}
 
-Original user query: "${originalQuery}"
+Original user query: "${escapedQuery}"
 
 Available filings:
 ${escapedFilings}
 
-## Valid Item Names
+## Available Items
 
-**10-K items:** ${format10K}
+### 10-K Items
+${format10K}
 
-**10-Q items:** ${format10Q}
+### 10-Q Items
+${format10Q}
 
 ## Guidelines
 
 1. Select the most relevant filing(s) based on the original query
 2. Maximum 3 filings to read
-3. **Always specify items** when the query targets specific sections - don't fetch entire filings unnecessarily:
+3. **Always specify items for 10-K and 10-Q**. Full filing payloads are massive and should be avoided.
    - Risk factors → items: ["Item-1A"]
    - Business description → items: ["Item-1"]
    - MD&A → items: ["Item-7"] (10-K) or ["Part-1,Item-2"] (10-Q)
    - Financial statements → items: ["Item-8"] (10-K) or ["Part-1,Item-1"] (10-Q)
-4. If the query is broad or unclear, omit items to get the full filing
-5. Call the appropriate items tool based on filing_type:
+4. Select the minimum set of items required to answer the query
+5. For 8-K filings, call get_8K_filing_items (items filtering is not required)
+6. Call the appropriate items tool based on filing_type:
    - 10-K filings → get_10K_filing_items
    - 10-Q filings → get_10Q_filing_items  
    - 8-K filings → get_8K_filing_items
@@ -96,7 +125,7 @@ const ReadFilingsInputSchema = z.object({
 
 /**
  * Create a read_filings tool configured with the specified model.
- * Uses two-step LLM workflow: Step 1 gets filings, Step 2 reads content.
+ * Two-LLM-call workflow: structured output planning, then tool-calling item selection.
  */
 export function createReadFilings(model: string): DynamicStructuredTool {
   return new DynamicStructuredTool({
@@ -109,40 +138,81 @@ export function createReadFilings(model: string): DynamicStructuredTool {
     func: async (input, _runManager, config?: RunnableConfig) => {
       const onProgress = config?.metadata?.onProgress as ((msg: string) => void) | undefined;
 
-      // Step 1: Get filings metadata
-      onProgress?.('Searching for relevant filings...');
-      const { response: step1Response } = await callLlm(input.query, {
-        model,
-        systemPrompt: buildStep1Prompt(),
-        tools: STEP1_TOOLS,
-      });
-      const step1Message = step1Response as AIMessage;
+      // Step 1: Plan ticker + filing types using structured output
+      onProgress?.('Planning filing search...');
+      let filingPlan: FilingPlan;
+      try {
+        const { response: step1Response } = await callLlm(input.query, {
+          model,
+          systemPrompt: buildPlanPrompt(),
+          outputSchema: FilingPlanSchema,
+        });
+        filingPlan = FilingPlanSchema.parse(step1Response);
+      } catch (error) {
+        return formatToolResult(
+          {
+            error: 'Failed to plan filing search',
+            details: error instanceof Error ? error.message : String(error),
+          },
+          []
+        );
+      }
+      const filingLimit = filingPlan.limit ?? 10;
 
-      const step1ToolCalls = step1Message.tool_calls as ToolCall[];
-      if (!step1ToolCalls || step1ToolCalls.length === 0) {
-        return formatToolResult({ error: 'Failed to parse query for filings' }, []);
+      // Steps 2-3: Fetch filings metadata + canonical item types in parallel
+      onProgress?.(`Fetching ${filingPlan.filing_types.join(', ')} filings for ${filingPlan.ticker}...`);
+      let filingsResult: { data: unknown[]; sourceUrls: string[] };
+      let itemTypes: FilingItemTypes;
+      try {
+        const [filingsRaw, fetchedItemTypes] = await Promise.all([
+          getFilings.invoke({
+            ticker: filingPlan.ticker,
+            filing_type: filingPlan.filing_types,
+            limit: filingLimit,
+          }),
+          getFilingItemTypes(),
+        ]);
+        const parsedFilings = JSON.parse(
+          typeof filingsRaw === 'string' ? filingsRaw : JSON.stringify(filingsRaw)
+        ) as { data?: unknown; sourceUrls?: unknown };
+        filingsResult = {
+          data: Array.isArray(parsedFilings.data) ? parsedFilings.data : [],
+          sourceUrls: Array.isArray(parsedFilings.sourceUrls)
+            ? parsedFilings.sourceUrls.filter((u): u is string => typeof u === 'string')
+            : [],
+        };
+        itemTypes = fetchedItemTypes;
+      } catch (error) {
+        return formatToolResult(
+          {
+            error: 'Failed to fetch filings metadata',
+            details: error instanceof Error ? error.message : String(error),
+            params: {
+              ticker: filingPlan.ticker,
+              filing_type: filingPlan.filing_types,
+              limit: filingLimit,
+            },
+          },
+          []
+        );
       }
 
-      // Execute getFilings
-      const filingsCall = step1ToolCalls[0];
-      const filingsRaw = await (STEP1_TOOLS[0] as StructuredToolInterface).invoke(filingsCall.args);
-      const filingsResult = JSON.parse(typeof filingsRaw === 'string' ? filingsRaw : JSON.stringify(filingsRaw));
-      
-      if (!filingsResult.data?.length) {
-        return formatToolResult({ 
-          error: 'No filings found', 
-          params: filingsCall.args 
-        }, filingsResult.sourceUrls || []);
+      if (filingsResult.data.length === 0) {
+        return formatToolResult({
+          error: 'No filings found',
+          params: {
+            ticker: filingPlan.ticker,
+            filing_type: filingPlan.filing_types,
+            limit: filingLimit,
+          },
+        }, filingsResult.sourceUrls);
       }
-
-      // Fetch canonical item types for Step 2
-      const itemTypes = await getFilingItemTypes();
 
       const filingCount = filingsResult.data.length;
       onProgress?.(`Found ${filingCount} filing${filingCount !== 1 ? 's' : ''}, selecting content to read...`);
 
       // Step 2: Select and read filing content with canonical item names
-      const { response: step2Response } = await callLlm(input.query, {
+      const { response: step2Response } = await callLlm('Select and call the appropriate filing item tools.', {
         model,
         systemPrompt: buildStep2Prompt(input.query, filingsResult.data, itemTypes),
         tools: STEP2_TOOLS,
@@ -157,10 +227,12 @@ export function createReadFilings(model: string): DynamicStructuredTool {
         }, filingsResult.sourceUrls || []);
       }
 
+      const limitedToolCalls = step2ToolCalls.slice(0, 3);
+
       // Execute filing items calls in parallel
-      onProgress?.(`Reading ${step2ToolCalls.length} filing${step2ToolCalls.length !== 1 ? 's' : ''}...`);
+      onProgress?.(`Reading ${limitedToolCalls.length} filing${limitedToolCalls.length !== 1 ? 's' : ''}...`);
       const results = await Promise.all(
-        step2ToolCalls.map(async (tc) => {
+        limitedToolCalls.map(async (tc) => {
           try {
             const tool = STEP2_TOOL_MAP.get(tc.name);
             if (!tool) {
@@ -197,9 +269,10 @@ export function createReadFilings(model: string): DynamicStructuredTool {
       ];
 
       const combinedData: Record<string, unknown> = {};
-      for (const result of successfulResults) {
+      for (const [index, result] of successfulResults.entries()) {
         const accession = (result.args as Record<string, unknown>).accession_number as string;
-        combinedData[accession] = result.data;
+        const key = accession || `${result.tool}_${index}`;
+        combinedData[key] = result.data;
       }
 
       if (failedResults.length > 0) {
