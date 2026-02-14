@@ -36,7 +36,9 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 ## ✅ Prerequisites
 
 - [Bun](https://bun.com) runtime (v1.0 or higher)
-- OpenAI API key (get [here](https://platform.openai.com/api-keys))
+- Azure OpenAI access (uses managed identity - no API key needed in production)
+  - For local development, ensure you're logged in via Azure CLI: `az login`
+  - Alternatively, use OpenAI API key (get [here](https://platform.openai.com/api-keys))
 - Financial Datasets API key (get [here](https://financialdatasets.ai))
 - Exa API key (get [here](https://exa.ai)) - optional, for web search
 
@@ -77,8 +79,18 @@ bun install
 # Copy the example environment file
 cp env.example .env
 
-# Edit .env and add your API keys (if using cloud providers)
-# OPENAI_API_KEY=your-openai-api-key
+# Azure OpenAI Configuration (Default Provider)
+# Configure your Azure OpenAI endpoint and deployment
+# AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+# AZURE_OPENAI_DEPLOYMENT=your-deployment-name
+# AZURE_OPENAI_API_VERSION=2025-01-01-preview
+# AZURE_OPENAI_SCOPE=https://cognitiveservices.azure.com/.default
+# AZURE_OPENAI_MANAGED_IDENTITY_CLIENT_ID=your-managed-identity-client-id
+
+# For local development with Azure OpenAI, ensure you're logged in: az login
+
+# Alternative LLM Provider API Keys (optional)
+# OPENAI_API_KEY=your-openai-api-key (use openai: prefix for models)
 # ANTHROPIC_API_KEY=your-anthropic-api-key (optional)
 # GOOGLE_API_KEY=your-google-api-key (optional)
 # XAI_API_KEY=your-xai-api-key (optional)
@@ -93,6 +105,9 @@ cp env.example .env
 # Web Search (Exa preferred, Tavily fallback)
 # EXASEARCH_API_KEY=your-exa-api-key
 # TAVILY_API_KEY=your-tavily-api-key
+
+# Note: NODE_ENV=production uses Azure Managed Identity
+# NODE_ENV=development uses Azure CLI credentials
 ```
 
 ## 🚀 How to Run

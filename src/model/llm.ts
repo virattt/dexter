@@ -13,8 +13,16 @@ import { DEFAULT_SYSTEM_PROMPT } from '@/agent/prompts';
 import type { TokenUsage } from '@/agent/types';
 import { logger } from '@/utils';
 import { resolveProvider, getProviderById } from '@/providers';
+import { AzureCliCredential, ManagedIdentityCredential } from '@azure/identity';
+import {
+  AZURE_OPENAI_ENDPOINT,
+  AZURE_OPENAI_DEPLOYMENT,
+  AZURE_OPENAI_API_VERSION,
+  AZURE_OPENAI_SCOPE,
+  AZURE_OPENAI_MANAGED_IDENTITY_CLIENT_ID,
+} from './azure-openai-models.js';
 
-export const DEFAULT_PROVIDER = 'openai';
+export const DEFAULT_PROVIDER = 'azureopenai';
 export const DEFAULT_MODEL = 'gpt-5.2';
 
 /**
@@ -58,8 +66,67 @@ function getApiKey(envVar: string): string {
   return apiKey;
 }
 
+// Helper to get Azure credential for managed identity
+function getAzureCredential() {
+  const credential = process.env.NODE_ENV === 'production'
+    ? new ManagedIdentityCredential(AZURE_OPENAI_MANAGED_IDENTITY_CLIENT_ID)
+    : new AzureCliCredential();
+
+  logger.info(`[Azure OpenAI] Using ${process.env.NODE_ENV === 'production' ? 'ManagedIdentityCredential' : 'AzureCliCredential'}`);
+
+  return credential;
+}
+
+// Cache for Azure token to avoid fetching on every request
+let cachedAzureToken: { token: string; expiresAt: number } | null = null;
+
+async function getAzureToken(): Promise<string> {
+  // Return cached token if still valid (with 5 min buffer)
+  if (cachedAzureToken && Date.now() < cachedAzureToken.expiresAt - 5 * 60 * 1000) {
+    return cachedAzureToken.token;
+  }
+
+  const credential = getAzureCredential();
+  const tokenResponse = await credential.getToken(AZURE_OPENAI_SCOPE);
+
+  cachedAzureToken = {
+    token: tokenResponse.token,
+    expiresAt: tokenResponse.expiresOnTimestamp,
+  };
+
+  logger.info('[Azure OpenAI] Token refreshed');
+  return tokenResponse.token;
+}
+
 // Factories keyed by provider id — prefix routing is handled by resolveProvider()
 const MODEL_FACTORIES: Record<string, ModelFactory> = {
+  azureopenai: (name, opts) => {
+    // Use a custom fetch that injects the Azure AD token
+    const customFetch = async (input: string | URL | Request, init?: RequestInit) => {
+      const token = await getAzureToken();
+      const headers = new Headers(init?.headers);
+      headers.set('Authorization', `Bearer ${token}`);
+      headers.set('api-key', token);
+
+      return fetch(input, {
+        ...init,
+        headers,
+      });
+    };
+
+    return new ChatOpenAI({
+      model: name,
+      ...opts,
+      temperature: 1,
+      // Use empty API key since we're providing auth via custom fetch
+      apiKey: 'managed-identity',
+      configuration: {
+        baseURL: `${AZURE_OPENAI_ENDPOINT}openai/deployments/${AZURE_OPENAI_DEPLOYMENT}`,
+        defaultQuery: { 'api-version': AZURE_OPENAI_API_VERSION },
+        fetch: customFetch,
+      },
+    });
+  },
   anthropic: (name, opts) =>
     new ChatAnthropic({
       model: name,
