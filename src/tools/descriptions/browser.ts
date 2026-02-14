@@ -5,16 +5,18 @@
 export const BROWSER_DESCRIPTION = `
 Control a web browser to navigate websites and extract information.
 
+**NOTE: For simply reading a web page's content, prefer web_fetch which returns content directly in a single call. Use browser only for interactive tasks requiring JavaScript rendering, clicking, or form filling.**
+
 ## When to Use
 
-- Reading earnings reports, press releases from company investor relations sites
-- Accessing dynamic/JavaScript-rendered content that web_search cannot retrieve
+- Accessing dynamic/JavaScript-rendered content that requires a real browser
 - Multi-step web navigation (click links, fill search boxes)
-- When web_search doesn't have the specific information you need
-- Accessing primary sources on company websites
+- Interacting with SPAs or pages that require JavaScript to load content
+- When web_fetch fails or returns incomplete content due to JS-dependent rendering
 
 ## When NOT to Use
 
+- Reading static web pages or articles (use **web_fetch** instead — it is faster and returns content in a single call)
 - Simple queries that web_search can already answer
 - Structured financial data (use financial_search instead)
 - SEC filings content (use read_filings instead)
