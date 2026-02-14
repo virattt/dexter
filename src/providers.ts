@@ -18,9 +18,16 @@ export interface ProviderDef {
 
 export const PROVIDERS: ProviderDef[] = [
   {
+    id: 'azureopenai',
+    displayName: 'Azure OpenAI',
+    modelPrefix: '',
+    // No API key needed - uses Azure Managed Identity
+    fastModel: 'gpt-5.2',
+  },
+  {
     id: 'openai',
     displayName: 'OpenAI',
-    modelPrefix: '',
+    modelPrefix: 'openai:',
     apiKeyEnvVar: 'OPENAI_API_KEY',
     fastModel: 'gpt-4.1',
   },
@@ -73,7 +80,7 @@ export const PROVIDERS: ProviderDef[] = [
   },
 ];
 
-const defaultProvider = PROVIDERS.find((p) => p.id === 'openai')!;
+const defaultProvider = PROVIDERS.find((p) => p.id === 'azureopenai')!;
 
 /**
  * Resolve the provider for a given model name based on its prefix.
