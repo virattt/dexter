@@ -223,8 +223,8 @@ export function CLI() {
         />
       </Box>
       
-      {/* Debug Panel - set show={false} to hide */}
-      <DebugPanel maxLines={8} show={true} />
+      {/* Debug Panel - set show={true} to enable */}
+      <DebugPanel maxLines={8} show={false} />
     </Box>
   );
 }
