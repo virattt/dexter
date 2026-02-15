@@ -6,8 +6,14 @@ export type { RegisteredTool } from './registry.js';
 export { createFinancialSearch } from './finance/index.js';
 export { tavilySearch } from './search/index.js';
 
+// File system tools
+export { readFileTool, writeFileTool, editFileTool } from './filesystem/index.js';
+
 // Tool descriptions
 export {
   FINANCIAL_SEARCH_DESCRIPTION,
   WEB_SEARCH_DESCRIPTION,
+  READ_FILE_DESCRIPTION,
+  WRITE_FILE_DESCRIPTION,
+  EDIT_FILE_DESCRIPTION,
 } from './descriptions/index.js';
