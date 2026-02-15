@@ -94,6 +94,17 @@ export interface ContextClearedEvent {
 }
 
 /**
+ * Agent is asking the user a clarifying question
+ */
+export interface AskUserEvent {
+  type: 'ask_user';
+  /** The question to display to the user */
+  question: string;
+  /** Callback to provide the user's answer — resolves the tool's promise */
+  resolve: (answer: string) => void;
+}
+
+/**
  * Final answer generation started
  */
 export interface AnswerStartEvent {
@@ -132,6 +143,7 @@ export type AgentEvent =
   | ToolEndEvent
   | ToolErrorEvent
   | ToolLimitEvent
+  | AskUserEvent
   | ContextClearedEvent
   | AnswerStartEvent
   | DoneEvent;

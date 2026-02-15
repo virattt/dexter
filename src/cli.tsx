@@ -24,11 +24,11 @@ config({ quiet: true });
 
 export function CLI() {
   const { exit } = useApp();
-  
+
   // Ref to hold setError - avoids TDZ issue since useModelSelection needs to call
   // setError but useAgentRunner (which provides setError) depends on useModelSelection's outputs
   const setErrorRef = useRef<((error: string | null) => void) | null>(null);
-  
+
   // Model selection state and handlers
   const {
     selectionState,
@@ -44,7 +44,7 @@ export function CLI() {
     handleApiKeySubmit,
     isInSelectionFlow,
   } = useModelSelection((errorMsg) => setErrorRef.current?.(errorMsg));
-  
+
   // Agent execution state and handlers
   const {
     history,
@@ -54,11 +54,12 @@ export function CLI() {
     runQuery,
     cancelExecution,
     setError,
+    submitAskUserResponse,
   } = useAgentRunner({ model, modelProvider: provider, maxIterations: 10 }, inMemoryChatHistoryRef);
-  
+
   // Assign setError to ref so useModelSelection's callback can access it
   setErrorRef.current = setError;
-  
+
   // Input history for up/down arrow navigation
   const {
     historyValue,
@@ -68,7 +69,7 @@ export function CLI() {
     updateAgentResponse,
     resetNavigation,
   } = useInputHistory();
-  
+
   // Handle history navigation from Input component
   const handleHistoryNavigate = useCallback((direction: 'up' | 'down') => {
     if (direction === 'up') {
@@ -77,7 +78,7 @@ export function CLI() {
       navigateDown();
     }
   }, [navigateUp, navigateDown]);
-  
+
   // Handle user input submission
   const handleSubmit = useCallback(async (query: string) => {
     // Handle exit
@@ -86,27 +87,33 @@ export function CLI() {
       exit();
       return;
     }
-    
+
     // Handle model selection command
     if (query === '/model') {
       startSelection();
       return;
     }
-    
+
+    // If agent is waiting for user answer, route input there
+    if (workingState.status === 'ask_user') {
+      submitAskUserResponse(query);
+      return;
+    }
+
     // Ignore if not idle (processing or in selection flow)
     if (isInSelectionFlow() || workingState.status !== 'idle') return;
-    
+
     // Save user message to history immediately and reset navigation
     await saveMessage(query);
     resetNavigation();
-    
+
     // Run query and save agent response when complete
     const result = await runQuery(query);
     if (result?.answer) {
       await updateAgentResponse(result.answer);
     }
-  }, [exit, startSelection, isInSelectionFlow, workingState.status, runQuery, saveMessage, updateAgentResponse, resetNavigation]);
-  
+  }, [exit, startSelection, isInSelectionFlow, workingState.status, submitAskUserResponse, runQuery, saveMessage, updateAgentResponse, resetNavigation]);
+
   // Handle keyboard shortcuts
   useInput((input, key) => {
     // Escape key - cancel selection flows or running agent
@@ -120,7 +127,7 @@ export function CLI() {
         return;
       }
     }
-    
+
     // Ctrl+C - cancel or exit
     if (key.ctrl && input === 'c') {
       if (isInSelectionFlow()) {
@@ -133,10 +140,10 @@ export function CLI() {
       }
     }
   });
-  
+
   // Render selection screens
   const { appState, pendingProvider, pendingModels } = selectionState;
-  
+
   if (appState === 'provider_select') {
     return (
       <Box flexDirection="column">
@@ -144,7 +151,7 @@ export function CLI() {
       </Box>
     );
   }
-  
+
   if (appState === 'model_select' && pendingProvider) {
     return (
       <Box flexDirection="column">
@@ -157,7 +164,7 @@ export function CLI() {
       </Box>
     );
   }
-  
+
   if (appState === 'model_input' && pendingProvider) {
     return (
       <Box flexDirection="column">
@@ -169,60 +176,60 @@ export function CLI() {
       </Box>
     );
   }
-  
+
   if (appState === 'api_key_confirm' && pendingProvider) {
     return (
       <Box flexDirection="column">
-        <ApiKeyConfirm 
-          providerName={getProviderDisplayName(pendingProvider)} 
-          onConfirm={handleApiKeyConfirm} 
+        <ApiKeyConfirm
+          providerName={getProviderDisplayName(pendingProvider)}
+          onConfirm={handleApiKeyConfirm}
         />
       </Box>
     );
   }
-  
+
   if (appState === 'api_key_input' && pendingProvider) {
     const apiKeyName = getApiKeyNameForProvider(pendingProvider) || '';
     return (
       <Box flexDirection="column">
-        <ApiKeyInput 
+        <ApiKeyInput
           providerName={getProviderDisplayName(pendingProvider)}
           apiKeyName={apiKeyName}
-          onSubmit={handleApiKeySubmit} 
+          onSubmit={handleApiKeySubmit}
         />
       </Box>
     );
   }
-  
+
   // Main chat interface
   return (
     <Box flexDirection="column">
       <Intro provider={provider} model={model} />
-      
+
       {/* All history items (queries, events, answers) */}
       {history.map(item => (
         <HistoryItemView key={item.id} item={item} />
       ))}
-      
+
       {/* Error display */}
       {error && (
         <Box marginBottom={1}>
           <Text color="red">Error: {error}</Text>
         </Box>
       )}
-      
+
       {/* Working indicator - only show when processing */}
       {isProcessing && <WorkingIndicator state={workingState} />}
-      
+
       {/* Input */}
       <Box marginTop={1}>
-        <Input 
-          onSubmit={handleSubmit} 
+        <Input
+          onSubmit={handleSubmit}
           historyValue={historyValue}
           onHistoryNavigate={handleHistoryNavigate}
         />
       </Box>
-      
+
       {/* Debug Panel - set show={false} to hide */}
       <DebugPanel maxLines={8} show={true} />
     </Box>
