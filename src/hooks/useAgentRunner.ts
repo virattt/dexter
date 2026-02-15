@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { Agent } from '../agent/agent.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import type { HistoryItem, WorkingState } from '../components/index.js';
-import type { AgentConfig, AgentEvent, DoneEvent } from '../agent/index.js';
+import type { AgentConfig, AgentEvent, DoneEvent, PermissionRequestEvent } from '../agent/index.js';
 
 // ============================================================================
 // Types
@@ -18,11 +18,13 @@ export interface UseAgentRunnerResult {
   workingState: WorkingState;
   error: string | null;
   isProcessing: boolean;
+  permissionRequest: { path: string; operation: 'read' | 'write' } | null;
   
   // Actions
   runQuery: (query: string) => Promise<RunQueryResult | undefined>;
   cancelExecution: () => void;
   setError: (error: string | null) => void;
+  respondToPermission: (granted: boolean) => void;
 }
 
 // ============================================================================
@@ -36,8 +38,27 @@ export function useAgentRunner(
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [workingState, setWorkingState] = useState<WorkingState>({ status: 'idle' });
   const [error, setError] = useState<string | null>(null);
+  const [permissionRequest, setPermissionRequest] = useState<{ path: string; operation: 'read' | 'write' } | null>(null);
   
   const abortControllerRef = useRef<AbortController | null>(null);
+  const permissionResolverRef = useRef<((granted: boolean) => void) | null>(null);
+  
+  // Handle permission response
+  const respondToPermission = useCallback((granted: boolean) => {
+    if (permissionResolverRef.current) {
+      permissionResolverRef.current(granted);
+      permissionResolverRef.current = null;
+    }
+    setPermissionRequest(null);
+  }, []);
+  
+  // Permission request handler
+  const handlePermissionRequest = useCallback(async (path: string, operation: 'read' | 'write'): Promise<boolean> => {
+    return new Promise<boolean>((resolve) => {
+      permissionResolverRef.current = resolve;
+      setPermissionRequest({ path, operation });
+    });
+  }, []);
   
   // Helper to update the last (processing) history item
   const updateLastHistoryItem = useCallback((
@@ -170,6 +191,7 @@ export function useAgentRunner(
       const agent = await Agent.create({
         ...agentConfig,
         signal: abortController.signal,
+        onPermissionRequest: handlePermissionRequest,
       });
       const stream = agent.run(query, inMemoryChatHistoryRef.current!);
       
@@ -210,7 +232,7 @@ export function useAgentRunner(
     } finally {
       abortControllerRef.current = null;
     }
-  }, [agentConfig, inMemoryChatHistoryRef, handleEvent]);
+  }, [agentConfig, inMemoryChatHistoryRef, handleEvent, handlePermissionRequest]);
   
   // Cancel the current execution
   const cancelExecution = useCallback(() => {
@@ -236,8 +258,10 @@ export function useAgentRunner(
     workingState,
     error,
     isProcessing,
+    permissionRequest,
     runQuery,
     cancelExecution,
     setError,
+    respondToPermission,
   };
 }

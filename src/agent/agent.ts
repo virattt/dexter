@@ -1,12 +1,15 @@
 import { AIMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlm } from '../model/llm.js';
+import { Scratchpad, type ToolContext } from './scratchpad.js';
 import { getTools } from '../tools/registry.js';
 import { buildSystemPrompt, buildIterationPrompt, buildFinalAnswerPrompt } from '../agent/prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { estimateTokens, CONTEXT_THRESHOLD, KEEP_TOOL_USES } from '../utils/tokens.js';
-import type { AgentConfig, AgentEvent, ContextClearedEvent, TokenUsage } from '../agent/types.js';
+import { createProgressChannel } from '../utils/progress-channel.js';
+import type { AgentConfig, AgentEvent, ToolStartEvent, ToolProgressEvent, ToolEndEvent, ToolErrorEvent, ToolLimitEvent, ContextClearedEvent, PermissionRequestEvent, TokenUsage } from '../agent/types.js';
+import { TokenCounter } from './token-counter.js';
 import { createRunContext, type RunContext } from './run-context.js';
 import { buildFinalAnswerContext } from './final-answer-context.js';
 import { AgentToolExecutor } from './tool-executor.js';
@@ -26,6 +29,7 @@ export class Agent {
   private readonly toolExecutor: AgentToolExecutor;
   private readonly systemPrompt: string;
   private readonly signal?: AbortSignal;
+  private readonly onPermissionRequest?: (path: string, operation: 'read' | 'write') => Promise<boolean>;
 
   private constructor(
     config: AgentConfig,
@@ -36,9 +40,10 @@ export class Agent {
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
     this.tools = tools;
     this.toolMap = new Map(tools.map(t => [t.name, t]));
-    this.toolExecutor = new AgentToolExecutor(this.toolMap, config.signal);
+    this.toolExecutor = new AgentToolExecutor(this.toolMap, config.signal, config.onPermissionRequest);
     this.systemPrompt = systemPrompt;
     this.signal = config.signal;
+    this.onPermissionRequest = config.onPermissionRequest;
   }
 
   /**
@@ -63,6 +68,9 @@ export class Agent {
       yield { type: 'done', answer: 'No tools available. Please check your API key configuration.', toolCalls: [], iterations: 0, totalTime: Date.now() - startTime };
       return;
     }
+
+    // Create scratchpad for this query - single source of truth for all work done
+    const scratchpad = new Scratchpad(query);
 
     const ctx = createRunContext(query);
 
@@ -132,8 +140,137 @@ export class Agent {
   }
 
   /**
+   * Execute all tool calls from an LLM response and add results to scratchpad.
+   * Deduplicates skill calls - each skill can only be executed once per query.
+   * Includes graceful exit mechanism - checks tool limits before executing.
+   */
+
+  private async *executeToolCalls(
+    response: AIMessage,
+    query: string,
+    scratchpad: Scratchpad
+  ): AsyncGenerator<ToolStartEvent | ToolProgressEvent | ToolEndEvent | ToolErrorEvent | ToolLimitEvent | PermissionRequestEvent, void> {
+    for (const toolCall of response.tool_calls!) {
+      const toolName = toolCall.name;
+      const toolArgs = toolCall.args as Record<string, unknown>;
+
+      // Deduplicate skill calls - each skill can only run once per query
+      if (toolName === 'skill') {
+        const skillName = toolArgs.skill as string;
+        if (scratchpad.hasExecutedSkill(skillName)) continue;
+      }
+
+      const generator = this.executeToolCall(toolName, toolArgs, query, scratchpad);
+      let result = await generator.next();
+
+      while (!result.done) {
+        yield result.value;
+        result = await generator.next();
+      }
+    }
+  }
+
+   /**
+   * Execute a single tool call and add result to scratchpad.
+   * Yields start/end/error events for UI updates.
+   * Includes soft limit warnings to guide the LLM.
+   */
+  private async *executeToolCall(
+    toolName: string,
+    toolArgs: Record<string, unknown>,
+    query: string,
+    scratchpad: Scratchpad
+  ): AsyncGenerator<ToolStartEvent | ToolProgressEvent | ToolEndEvent | ToolErrorEvent | ToolLimitEvent | PermissionRequestEvent, void> {
+    // Extract query string from tool args for similarity detection
+    const toolQuery = this.extractQueryFromArgs(toolArgs);
+
+    // Check tool limits - yields warning if approaching/over limits
+    const limitCheck = scratchpad.canCallTool(toolName, toolQuery);
+
+    if (limitCheck.warning) {
+      yield { 
+        type: 'tool_limit', 
+        tool: toolName, 
+        warning: limitCheck.warning, 
+        blocked: false 
+      };
+    }
+
+    yield { type: 'tool_start', tool: toolName, args: toolArgs };
+
+    const toolStartTime = Date.now();
+
+    try {
+      const tool = this.toolMap.get(toolName);
+      if (!tool) {
+        throw new Error(`Tool '${toolName}' not found`);
+      }
+
+      // Create a progress channel so subagent tools can stream status updates
+      const channel = createProgressChannel();
+      const config = {
+        metadata: { 
+          onProgress: channel.emit,
+          onPermissionRequest: this.onPermissionRequest,
+        },
+        ...(this.signal ? { signal: this.signal } : {}),
+      };
+
+      // Launch tool invocation -- closes the channel when it settles
+      const toolPromise = tool.invoke(toolArgs, config).then(
+        (raw) => { channel.close(); return raw; },
+        (err) => { channel.close(); throw err; },
+      );
+
+      // Drain progress events in real-time as the tool executes
+      for await (const message of channel) {
+        yield { type: 'tool_progress', tool: toolName, message } as ToolProgressEvent;
+      }
+
+      // Tool has finished -- collect the result
+      const rawResult = await toolPromise;
+      const result = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
+      const duration = Date.now() - toolStartTime;
+
+      yield { type: 'tool_end', tool: toolName, args: toolArgs, result, duration };
+
+      // Record the tool call for limit tracking
+      scratchpad.recordToolCall(toolName, toolQuery);
+
+      // Add full tool result to scratchpad (Anthropic-style: no inline summarization)
+      scratchpad.addToolResult(toolName, toolArgs, result);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      yield { type: 'tool_error', tool: toolName, error: errorMessage };
+
+      // Still record the call even on error (counts toward limit)
+      scratchpad.recordToolCall(toolName, toolQuery);
+
+      // Add error to scratchpad
+      scratchpad.addToolResult(toolName, toolArgs, `Error: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Extract query string from tool arguments for similarity detection.
+   * Looks for common query-like argument names.
+   */
+  private extractQueryFromArgs(args: Record<string, unknown>): string | undefined {
+    const queryKeys = ['query', 'search', 'question', 'q', 'text', 'input'];
+
+    for (const key of queryKeys) {
+      if (typeof args[key] === 'string') {
+        return args[key] as string;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
    * Generate final answer with full scratchpad context.
    */
+
   private async *handleDirectResponse(
     responseText: string,
     ctx: RunContext

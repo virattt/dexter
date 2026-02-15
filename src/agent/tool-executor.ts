@@ -23,7 +23,8 @@ type ToolExecutionEvent =
 export class AgentToolExecutor {
   constructor(
     private readonly toolMap: Map<string, StructuredToolInterface>,
-    private readonly signal?: AbortSignal
+    private readonly signal?: AbortSignal,
+    private readonly onPermissionRequest?: (path: string, operation: 'read' | 'write') => Promise<boolean>
   ) {}
 
   async *executeAll(
@@ -74,7 +75,10 @@ export class AgentToolExecutor {
       // Create a progress channel so subagent tools can stream status updates
       const channel = createProgressChannel();
       const config = {
-        metadata: { onProgress: channel.emit },
+        metadata: { 
+          onProgress: channel.emit,
+          onPermissionRequest: this.onPermissionRequest,
+        },
         ...(this.signal ? { signal: this.signal } : {}),
       };
 

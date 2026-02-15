@@ -11,6 +11,7 @@ import { Input } from './components/Input.js';
 import { Intro } from './components/Intro.js';
 import { ProviderSelector, ModelSelector, ModelInputField } from './components/ModelSelector.js';
 import { ApiKeyConfirm, ApiKeyInput } from './components/ApiKeyPrompt.js';
+import { PermissionPrompt } from './components/PermissionPrompt.js';
 import { DebugPanel } from './components/DebugPanel.js';
 import { HistoryItemView, WorkingIndicator } from './components/index.js';
 import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js';
@@ -51,9 +52,11 @@ export function CLI() {
     workingState,
     error,
     isProcessing,
+    permissionRequest,
     runQuery,
     cancelExecution,
     setError,
+    respondToPermission,
   } = useAgentRunner({ model, modelProvider: provider, maxIterations: 10 }, inMemoryChatHistoryRef);
   
   // Assign setError to ref so useModelSelection's callback can access it
@@ -136,6 +139,19 @@ export function CLI() {
   
   // Render selection screens
   const { appState, pendingProvider, pendingModels } = selectionState;
+  
+  // Show permission prompt if one is pending
+  if (permissionRequest) {
+    return (
+      <Box flexDirection="column">
+        <PermissionPrompt
+          path={permissionRequest.path}
+          operation={permissionRequest.operation}
+          onResponse={respondToPermission}
+        />
+      </Box>
+    );
+  }
   
   if (appState === 'provider_select') {
     return (

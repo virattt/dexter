@@ -10,6 +10,8 @@ export interface AgentConfig {
   maxIterations?: number;
   /** AbortSignal for cancelling agent execution */
   signal?: AbortSignal;
+  /** Permission request handler for filesystem access */
+  onPermissionRequest?: (path: string, operation: 'read' | 'write') => Promise<boolean>;
 }
 
 /**
@@ -94,6 +96,19 @@ export interface ContextClearedEvent {
 }
 
 /**
+ * Permission request for filesystem access
+ */
+export interface PermissionRequestEvent {
+  type: 'permission_request';
+  /** Path being requested */
+  path: string;
+  /** Operation type (read or write) */
+  operation: 'read' | 'write';
+  /** Callback to resolve the permission request */
+  onResponse: (granted: boolean) => void;
+}
+
+/**
  * Final answer generation started
  */
 export interface AnswerStartEvent {
@@ -133,5 +148,6 @@ export type AgentEvent =
   | ToolErrorEvent
   | ToolLimitEvent
   | ContextClearedEvent
+  | PermissionRequestEvent
   | AnswerStartEvent
   | DoneEvent;
