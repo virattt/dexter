@@ -2,6 +2,7 @@ import { AIMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { createProgressChannel } from '../utils/progress-channel.js';
 import type {
+  AskUserEvent,
   ToolEndEvent,
   ToolErrorEvent,
   ToolLimitEvent,
@@ -15,7 +16,8 @@ type ToolExecutionEvent =
   | ToolProgressEvent
   | ToolEndEvent
   | ToolErrorEvent
-  | ToolLimitEvent;
+  | ToolLimitEvent
+  | AskUserEvent;
 
 /**
  * Executes tool calls and emits streaming tool lifecycle events.
@@ -24,7 +26,7 @@ export class AgentToolExecutor {
   constructor(
     private readonly toolMap: Map<string, StructuredToolInterface>,
     private readonly signal?: AbortSignal
-  ) {}
+  ) { }
 
   async *executeAll(
     response: AIMessage,
@@ -64,6 +66,26 @@ export class AgentToolExecutor {
     yield { type: 'tool_start', tool: toolName, args: toolArgs };
 
     const toolStartTime = Date.now();
+
+    // Special handling for ask_user tool: yield event and wait for user response
+    if (toolName === 'ask_user') {
+      const question = (toolArgs.question as string) || 'Can you provide more details?';
+      let resolveAnswer!: (answer: string) => void;
+      const answerPromise = new Promise<string>((resolve) => {
+        resolveAnswer = resolve;
+      });
+
+      yield { type: 'ask_user', question, resolve: resolveAnswer } as AskUserEvent;
+
+      const userAnswer = await answerPromise;
+      const duration = Date.now() - toolStartTime;
+      const result = `User answered: ${userAnswer}`;
+
+      yield { type: 'tool_end', tool: toolName, args: toolArgs, result, duration };
+      ctx.scratchpad.recordToolCall(toolName, question);
+      ctx.scratchpad.addToolResult(toolName, toolArgs, result);
+      return;
+    }
 
     try {
       const tool = this.toolMap.get(toolName);

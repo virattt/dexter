@@ -20,15 +20,15 @@ function formatToolName(name: string): string {
  */
 function truncateAtWord(str: string, maxLength: number): string {
   if (str.length <= maxLength) return str;
-  
+
   // Find last space before maxLength
   const lastSpace = str.lastIndexOf(' ', maxLength);
-  
+
   // If there's a space in a reasonable position (at least 50% of maxLength), use it
   if (lastSpace > maxLength * 0.5) {
     return str.slice(0, lastSpace) + '...';
   }
-  
+
   // No good word boundary - truncate at maxLength
   return str.slice(0, maxLength) + '...';
 }
@@ -42,7 +42,7 @@ function formatArgs(args: Record<string, unknown>): string {
     const query = String(args.query);
     return `"${truncateAtWord(query, 60)}"`;
   }
-  
+
   // For other tools, format key=value pairs with truncation
   return Object.entries(args)
     .map(([key, value]) => {
@@ -119,10 +119,10 @@ export function ThinkingView({ message }: ThinkingViewProps) {
   const trimmedMessage = message.trim();
   if (!trimmedMessage) return null;
 
-  const displayMessage = trimmedMessage.length > 200 
-    ? trimmedMessage.slice(0, 200) + '...' 
+  const displayMessage = trimmedMessage.length > 200
+    ? trimmedMessage.slice(0, 200) + '...'
     : trimmedMessage;
-  
+
   return (
     <Box>
       <Text>{displayMessage}</Text>
@@ -168,7 +168,7 @@ interface ToolEndViewProps {
 export function ToolEndView({ tool, args, result, duration }: ToolEndViewProps) {
   // Parse result to get a summary
   let summary = 'Received data';
-  
+
   // Special handling for skill tool
   if (tool === 'skill') {
     const skillName = args.skill as string;
@@ -181,11 +181,11 @@ export function ToolEndView({ tool, args, result, duration }: ToolEndViewProps) 
           summary = `Received ${parsed.data.length} items`;
         } else if (typeof parsed.data === 'object') {
           const keys = Object.keys(parsed.data).filter(k => !k.startsWith('_')); // Exclude _errors
-          
+
           // Tool-specific summaries
           if (tool === 'financial_search') {
-            summary = keys.length === 1 
-              ? `Called 1 data source` 
+            summary = keys.length === 1
+              ? `Called 1 data source`
               : `Called ${keys.length} data sources`;
           } else if (tool === 'web_search') {
             summary = `Did 1 search`;
@@ -199,7 +199,7 @@ export function ToolEndView({ tool, args, result, duration }: ToolEndViewProps) 
       summary = truncateResult(result, 50);
     }
   }
-  
+
   return (
     <Box flexDirection="column">
       <Box>
@@ -298,7 +298,7 @@ function findCurrentBrowserStep(events: DisplayEvent[], activeStepId?: string): 
       if (step) return step;
     }
   }
-  
+
   // Otherwise, find the most recent displayable step (working backwards)
   for (let i = events.length - 1; i >= 0; i--) {
     const event = events[i];
@@ -307,7 +307,7 @@ function findCurrentBrowserStep(events: DisplayEvent[], activeStepId?: string): 
       if (step) return step;
     }
   }
-  
+
   return null;
 }
 
@@ -353,34 +353,48 @@ export function AgentEventView({ event, isActive = false, progressMessage }: Age
   switch (event.type) {
     case 'thinking':
       return <ThinkingView message={event.message} />;
-    
+
     case 'tool_start':
       return <ToolStartView tool={event.tool} args={event.args} isActive={isActive} progressMessage={progressMessage} />;
-    
+
     case 'tool_end':
       return <ToolEndView tool={event.tool} args={event.args} result={event.result} duration={event.duration} />;
-    
+
     case 'tool_error':
       return <ToolErrorView tool={event.tool} error={event.error} />;
-    
+
     case 'tool_limit':
       return <ToolLimitView tool={event.tool} warning={event.warning} />;
-    
+
     case 'context_cleared':
       return <ContextClearedView clearedCount={event.clearedCount} keptCount={event.keptCount} />;
-    
+
+    case 'ask_user':
+      return (
+        <Box flexDirection="column">
+          <Box>
+            <Text>❓ </Text>
+            <Text bold>Dexter wants to ask you:</Text>
+          </Box>
+          <Box marginLeft={2}>
+            <Text color={colors.muted}>⎿  </Text>
+            <Text>{event.question}</Text>
+          </Box>
+        </Box>
+      );
+
     case 'answer_start':
     case 'done':
       // These are handled separately by the parent component
       return null;
-    
+
     default:
       return null;
   }
 }
 
 // Event grouping types for consolidated display
-type EventGroup = 
+type EventGroup =
   | { type: 'browser_session'; id: string; events: DisplayEvent[]; activeStepId?: string }
   | { type: 'single'; displayEvent: DisplayEvent };
 
@@ -446,21 +460,21 @@ export function EventListView({ events, activeToolId }: EventListViewProps) {
 
         // Render single events as before
         const { id, event, completed, endEvent, progressMessage } = group.displayEvent;
-        
+
         // For tool events, show the end state if completed
         if (event.type === 'tool_start' && completed && endEvent?.type === 'tool_end') {
           return (
             <Box key={id} marginBottom={1}>
-              <ToolEndView 
-                tool={endEvent.tool} 
-                args={event.args} 
-                result={endEvent.result} 
-                duration={endEvent.duration} 
+              <ToolEndView
+                tool={endEvent.tool}
+                args={event.args}
+                result={endEvent.result}
+                duration={endEvent.duration}
               />
             </Box>
           );
         }
-        
+
         if (event.type === 'tool_start' && completed && endEvent?.type === 'tool_error') {
           return (
             <Box key={id} marginBottom={1}>
@@ -468,11 +482,11 @@ export function EventListView({ events, activeToolId }: EventListViewProps) {
             </Box>
           );
         }
-        
+
         return (
           <Box key={id} marginBottom={1}>
-            <AgentEventView 
-              event={event} 
+            <AgentEventView
+              event={event}
               isActive={!completed && id === activeToolId}
               progressMessage={progressMessage}
             />
