@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
+import { CACHE_TTL_MONTHLY } from '../../utils/cache.js';
 import { formatToolResult } from '../types.js';
 
 const AnalystEstimatesInputSchema = z.object({
@@ -24,7 +25,7 @@ export const getAnalystEstimates = new DynamicStructuredTool({
       ticker: input.ticker,
       period: input.period,
     };
-    const { data, url } = await callApi('/analyst-estimates/', params);
+    const { data, url } = await callApi('/analyst-estimates/', params, { cacheable: true, cacheTtlMs: CACHE_TTL_MONTHLY });
     return formatToolResult(data.analyst_estimates || [], [url]);
   },
 });

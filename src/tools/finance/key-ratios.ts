@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
+import { CACHE_TTL_WEEKLY, CACHE_TTL_QUARTERLY } from '../../utils/cache.js';
 import { formatToolResult } from '../types.js';
 
 const KeyRatiosSnapshotInputSchema = z.object({
@@ -17,7 +18,7 @@ export const getKeyRatiosSnapshot = new DynamicStructuredTool({
   schema: KeyRatiosSnapshotInputSchema,
   func: async (input) => {
     const params = { ticker: input.ticker };
-    const { data, url } = await callApi('/financial-metrics/snapshot/', params);
+    const { data, url } = await callApi('/financial-metrics/snapshot/', params, { cacheable: true, cacheTtlMs: CACHE_TTL_WEEKLY });
     return formatToolResult(data.snapshot || {}, [url]);
   },
 });
@@ -79,7 +80,7 @@ export const getKeyRatios = new DynamicStructuredTool({
       report_period_lt: input.report_period_lt,
       report_period_lte: input.report_period_lte,
     };
-    const { data, url } = await callApi('/financial-metrics/', params);
+    const { data, url } = await callApi('/financial-metrics/', params, { cacheable: true, cacheTtlMs: CACHE_TTL_QUARTERLY });
     return formatToolResult(data.financial_metrics || [], [url]);
   },
 });

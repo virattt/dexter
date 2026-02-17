@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
+import { CACHE_TTL_QUARTERLY } from '../../utils/cache.js';
 import { formatToolResult } from '../types.js';
 
 const FinancialStatementsInputSchema = z.object({
@@ -60,7 +61,7 @@ export const getIncomeStatements = new DynamicStructuredTool({
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
     const params = createParams(input);
-    const { data, url } = await callApi('/financials/income-statements/', params);
+    const { data, url } = await callApi('/financials/income-statements/', params, { cacheable: true, cacheTtlMs: CACHE_TTL_QUARTERLY });
     return formatToolResult(data.income_statements || {}, [url]);
   },
 });
@@ -71,7 +72,7 @@ export const getBalanceSheets = new DynamicStructuredTool({
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
     const params = createParams(input);
-    const { data, url } = await callApi('/financials/balance-sheets/', params);
+    const { data, url } = await callApi('/financials/balance-sheets/', params, { cacheable: true, cacheTtlMs: CACHE_TTL_QUARTERLY });
     return formatToolResult(data.balance_sheets || {}, [url]);
   },
 });
@@ -82,7 +83,7 @@ export const getCashFlowStatements = new DynamicStructuredTool({
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
     const params = createParams(input);
-    const { data, url } = await callApi('/financials/cash-flow-statements/', params);
+    const { data, url } = await callApi('/financials/cash-flow-statements/', params, { cacheable: true, cacheTtlMs: CACHE_TTL_QUARTERLY });
     return formatToolResult(data.cash_flow_statements || {}, [url]);
   },
 });
@@ -93,7 +94,7 @@ export const getAllFinancialStatements = new DynamicStructuredTool({
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
     const params = createParams(input);
-    const { data, url } = await callApi('/financials/', params);
+    const { data, url } = await callApi('/financials/', params, { cacheable: true, cacheTtlMs: CACHE_TTL_QUARTERLY });
     return formatToolResult(data.financials || {}, [url]);
   },
 });

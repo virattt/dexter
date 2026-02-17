@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
+import { CACHE_TTL_QUARTERLY } from '../../utils/cache.js';
 import { formatToolResult } from '../types.js';
 
 const InsiderTradesInputSchema = z.object({
@@ -47,7 +48,7 @@ export const getInsiderTrades = new DynamicStructuredTool({
       filing_date_gt: input.filing_date_gt,
       filing_date_lt: input.filing_date_lt,
     };
-    const { data, url } = await callApi('/insider-trades/', params);
+    const { data, url } = await callApi('/insider-trades/', params, { cacheable: true, cacheTtlMs: CACHE_TTL_QUARTERLY });
     return formatToolResult(data.insider_trades || [], [url]);
   },
 });
