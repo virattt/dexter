@@ -3,6 +3,26 @@ import { logger } from '../../utils/logger.js';
 
 const BASE_URL = 'https://api.financialdatasets.ai';
 
+// Lazy-loaded, in-memory cache for the investor list (~10k names, ~200KB).
+// Fetched once per session on first institutional-ownership-by-investor query.
+let _investorList: string[] | null = null;
+
+export async function getInvestorList(): Promise<string[]> {
+  if (_investorList) return _investorList;
+  const url = `${BASE_URL}/institutional-ownership/investors/`;
+  try {
+    const response = await fetch(url, {
+      headers: { 'x-api-key': process.env.FINANCIAL_DATASETS_API_KEY || '' },
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    _investorList = (data.investors as string[]) || [];
+    return _investorList;
+  } catch {
+    return [];
+  }
+}
+
 export interface ApiResponse {
   data: Record<string, unknown>;
   url: string;
