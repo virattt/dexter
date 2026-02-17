@@ -26,7 +26,7 @@ export interface RegisteredTool {
  * @param model - The model name (needed for tools that require model-specific configuration)
  * @returns Array of registered tools
  */
-export function getToolRegistry(model: string): RegisteredTool[] {
+export function getToolRegistry(model: string, modelProvider: string = 'openai'): RegisteredTool[] {
   const tools: RegisteredTool[] = [
     {
       name: 'financial_search',
@@ -35,12 +35,12 @@ export function getToolRegistry(model: string): RegisteredTool[] {
     },
     {
       name: 'financial_metrics',
-      tool: createFinancialMetrics(model),
+      tool: createFinancialMetrics(model, modelProvider),
       description: FINANCIAL_METRICS_DESCRIPTION,
     },
     {
       name: 'read_filings',
-      tool: createReadFilings(model),
+      tool: createReadFilings(model, modelProvider),
       description: READ_FILINGS_DESCRIPTION,
     },
     {
@@ -95,8 +95,8 @@ export function getToolRegistry(model: string): RegisteredTool[] {
  * @param model - The model name
  * @returns Array of tool instances
  */
-export function getTools(model: string): StructuredToolInterface[] {
-  return getToolRegistry(model).map((t) => t.tool);
+export function getTools(model: string, modelProvider: string = 'openai'): StructuredToolInterface[] {
+  return getToolRegistry(model, modelProvider).map((t) => t.tool);
 }
 
 /**
@@ -106,8 +106,8 @@ export function getTools(model: string): StructuredToolInterface[] {
  * @param model - The model name
  * @returns Formatted string with all tool descriptions
  */
-export function buildToolDescriptions(model: string): string {
-  return getToolRegistry(model)
+export function buildToolDescriptions(model: string, modelProvider: string = 'openai'): string {
+  return getToolRegistry(model, modelProvider)
     .map((t) => `### ${t.name}\n\n${t.description}`)
     .join('\n\n');
 }

@@ -97,8 +97,8 @@ Keep tables compact:
  * Build the system prompt for the agent.
  * @param model - The model name (used to get appropriate tool descriptions)
  */
-export function buildSystemPrompt(model: string): string {
-  const toolDescriptions = buildToolDescriptions(model);
+export function buildSystemPrompt(model: string, modelProvider: string = 'openai'): string {
+  const toolDescriptions = buildToolDescriptions(model, modelProvider);
 
   return `You are Dexter, a CLI assistant with access to research tools.
 

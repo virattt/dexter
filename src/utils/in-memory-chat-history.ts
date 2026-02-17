@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import { callLlm, DEFAULT_MODEL } from '../model/llm.js';
+import { callLlm, DEFAULT_MODEL, getFastModel, DEFAULT_PROVIDER } from '../model/llm.js';
 import { z } from 'zod';
 
 /**
@@ -38,10 +38,12 @@ Return only message IDs that contain information directly useful for answering t
 export class InMemoryChatHistory {
   private messages: Message[] = [];
   private model: string;
+  private modelProvider: string;
   private relevantMessagesByQuery: Map<string, Message[]> = new Map();
 
-  constructor(model: string = DEFAULT_MODEL) {
+  constructor(model: string = DEFAULT_MODEL, modelProvider: string = DEFAULT_PROVIDER) {
     this.model = model;
+    this.modelProvider = modelProvider;
   }
 
   /**
@@ -54,8 +56,11 @@ export class InMemoryChatHistory {
   /**
    * Updates the model used for LLM calls (e.g., when user switches models)
    */
-  setModel(model: string): void {
+  setModel(model: string, modelProvider?: string): void {
     this.model = model;
+    if (modelProvider !== undefined) {
+      this.modelProvider = modelProvider;
+    }
   }
 
   /**
@@ -72,7 +77,7 @@ Generate a brief 1-2 sentence summary of this answer.`;
     try {
       const { response } = await callLlm(prompt, {
         systemPrompt: MESSAGE_SUMMARY_SYSTEM_PROMPT,
-        model: this.model,
+        model: getFastModel(this.modelProvider, this.model),
       });
       return typeof response === 'string' ? response.trim() : String(response).trim();
     } catch {
@@ -146,7 +151,7 @@ Select which previous messages are relevant to understanding or answering the cu
     try {
       const { response } = await callLlm(prompt, {
         systemPrompt: MESSAGE_SELECTION_SYSTEM_PROMPT,
-        model: this.model,
+        model: getFastModel(this.modelProvider, this.model),
         outputSchema: SelectedMessagesSchema,
       });
 

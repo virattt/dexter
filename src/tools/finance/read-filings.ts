@@ -2,7 +2,7 @@ import { DynamicStructuredTool, StructuredToolInterface } from '@langchain/core/
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { AIMessage, ToolCall } from '@langchain/core/messages';
 import { z } from 'zod';
-import { callLlm } from '../../model/llm.js';
+import { callLlm, getFastModel } from '../../model/llm.js';
 import { formatToolResult } from '../types.js';
 import { getCurrentDate } from '../../agent/prompts.js';
 import { getFilings, get10KFilingItems, get10QFilingItems, get8KFilingItems, getFilingItemTypes, type FilingItemTypes } from './filings.js';
@@ -127,7 +127,7 @@ const ReadFilingsInputSchema = z.object({
  * Create a read_filings tool configured with the specified model.
  * Two-LLM-call workflow: structured output planning, then tool-calling item selection.
  */
-export function createReadFilings(model: string): DynamicStructuredTool {
+export function createReadFilings(model: string, modelProvider: string = 'openai'): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: 'read_filings',
     description: `Intelligent tool for reading SEC filing content. Takes a natural language query and retrieves full text from 10-K, 10-Q, or 8-K filings. Use for:
@@ -143,7 +143,7 @@ export function createReadFilings(model: string): DynamicStructuredTool {
       let filingPlan: FilingPlan;
       try {
         const { response: step1Response } = await callLlm(input.query, {
-          model,
+          model: getFastModel(modelProvider, model),
           systemPrompt: buildPlanPrompt(),
           outputSchema: FilingPlanSchema,
         });
@@ -213,7 +213,7 @@ export function createReadFilings(model: string): DynamicStructuredTool {
 
       // Step 2: Select and read filing content with canonical item names
       const { response: step2Response } = await callLlm('Select and call the appropriate filing item tools.', {
-        model,
+        model: getFastModel(modelProvider, model),
         systemPrompt: buildStep2Prompt(input.query, filingsResult.data, itemTypes),
         tools: STEP2_TOOLS,
       });

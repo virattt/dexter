@@ -2,7 +2,7 @@ import { DynamicStructuredTool, StructuredToolInterface } from '@langchain/core/
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { AIMessage, ToolCall } from '@langchain/core/messages';
 import { z } from 'zod';
-import { callLlm } from '../../model/llm.js';
+import { callLlm, getFastModel } from '../../model/llm.js';
 import { formatToolResult } from '../types.js';
 import { getCurrentDate } from '../../agent/prompts.js';
 
@@ -79,7 +79,7 @@ const FinancialMetricsInputSchema = z.object({
  * Create a financial_metrics tool configured with the specified model.
  * Uses native LLM tool calling for routing queries to fundamental analysis tools.
  */
-export function createFinancialMetrics(model: string): DynamicStructuredTool {
+export function createFinancialMetrics(model: string, modelProvider: string = 'openai'): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: 'financial_metrics',
     description: `Intelligent agentic search for fundamental analysis. Takes a natural language query and automatically routes to financial statements and key ratios tools. Use for:
@@ -96,7 +96,7 @@ export function createFinancialMetrics(model: string): DynamicStructuredTool {
       // 1. Call LLM with metrics tools bound (native tool calling)
       onProgress?.('Searching...');
       const { response } = await callLlm(input.query, {
-        model,
+        model: getFastModel(modelProvider, model),
         systemPrompt: buildRouterPrompt(),
         tools: METRICS_TOOLS,
       });

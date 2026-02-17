@@ -73,7 +73,7 @@ export function useModelSelection(
   const [pendingSelectedModelId, setPendingSelectedModelId] = useState<string | null>(null);
   
   // Message history ref - shared with agent runner
-  const inMemoryChatHistoryRef = useRef<InMemoryChatHistory>(new InMemoryChatHistory(model));
+  const inMemoryChatHistoryRef = useRef<InMemoryChatHistory>(new InMemoryChatHistory(model, provider));
   
   // Helper to complete a model switch (DRY pattern)
   const completeModelSwitch = useCallback((newProvider: string, newModelId: string) => {
@@ -81,7 +81,7 @@ export function useModelSelection(
     setModel(newModelId);
     setSetting('provider', newProvider);
     setSetting('modelId', newModelId);
-    inMemoryChatHistoryRef.current.setModel(newModelId);
+    inMemoryChatHistoryRef.current.setModel(newModelId, newProvider);
     setPendingProvider(null);
     setPendingModels([]);
     setPendingSelectedModelId(null);

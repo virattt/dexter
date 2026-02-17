@@ -46,8 +46,9 @@ export class Agent {
    */
   static create(config: AgentConfig = {}): Agent {
     const model = config.model ?? DEFAULT_MODEL;
-    const tools = getTools(model);
-    const systemPrompt = buildSystemPrompt(model);
+    const modelProvider = config.modelProvider ?? 'openai';
+    const tools = getTools(model, modelProvider);
+    const systemPrompt = buildSystemPrompt(model, modelProvider);
     return new Agent(config, tools, systemPrompt);
   }
 
