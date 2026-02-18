@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { Agent } from '../agent/agent.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import type { HistoryItem, WorkingState } from '../components/index.js';
-import type { AgentConfig, AgentEvent, DoneEvent } from '../agent/index.js';
+import type { ApprovalDecision, AgentConfig, AgentEvent, DoneEvent } from '../agent/index.js';
 
 // ============================================================================
 // Types
@@ -18,10 +18,12 @@ export interface UseAgentRunnerResult {
   workingState: WorkingState;
   error: string | null;
   isProcessing: boolean;
+  pendingApproval: { tool: string; args: Record<string, unknown> } | null;
   
   // Actions
   runQuery: (query: string) => Promise<RunQueryResult | undefined>;
   cancelExecution: () => void;
+  respondToApproval: (decision: ApprovalDecision) => void;
   setError: (error: string | null) => void;
 }
 
@@ -36,8 +38,11 @@ export function useAgentRunner(
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [workingState, setWorkingState] = useState<WorkingState>({ status: 'idle' });
   const [error, setError] = useState<string | null>(null);
+  const [pendingApproval, setPendingApproval] = useState<{ tool: string; args: Record<string, unknown> } | null>(null);
   
   const abortControllerRef = useRef<AbortController | null>(null);
+  const approvalResolveRef = useRef<((decision: ApprovalDecision) => void) | null>(null);
+  const sessionApprovedToolsRef = useRef<Set<string>>(new Set());
   
   // Helper to update the last (processing) history item
   const updateLastHistoryItem = useCallback((
@@ -48,6 +53,25 @@ export function useAgentRunner(
       if (!last || last.status !== 'processing') return prev;
       return [...prev.slice(0, -1), { ...last, ...updater(last) }];
     });
+  }, []);
+
+  const requestToolApproval = useCallback((request: { tool: string; args: Record<string, unknown> }) => {
+    return new Promise<ApprovalDecision>((resolve) => {
+      approvalResolveRef.current = resolve;
+      setPendingApproval(request);
+      setWorkingState({ status: 'approval', toolName: request.tool });
+    });
+  }, []);
+
+  const respondToApproval = useCallback((decision: ApprovalDecision) => {
+    if (approvalResolveRef.current) {
+      approvalResolveRef.current(decision);
+      approvalResolveRef.current = null;
+      setPendingApproval(null);
+      if (decision !== 'deny') {
+        setWorkingState({ status: 'thinking' });
+      }
+    }
   }, []);
   
   // Handle agent events
@@ -97,6 +121,26 @@ export function useAgentRunner(
               ? { ...e, completed: true, endEvent: event }
               : e
           ),
+        }));
+        break;
+
+      case 'tool_approval':
+        updateLastHistoryItem(item => ({
+          events: [...item.events, {
+            id: `approval-${event.tool}-${Date.now()}`,
+            event,
+            completed: true,
+          }],
+        }));
+        break;
+
+      case 'tool_denied':
+        updateLastHistoryItem(item => ({
+          events: [...item.events, {
+            id: `denied-${event.tool}-${Date.now()}`,
+            event,
+            completed: true,
+          }],
         }));
         break;
         
@@ -170,6 +214,8 @@ export function useAgentRunner(
       const agent = await Agent.create({
         ...agentConfig,
         signal: abortController.signal,
+        requestToolApproval,
+        sessionApprovedTools: sessionApprovedToolsRef.current,
       });
       const stream = agent.run(query, inMemoryChatHistoryRef.current!);
       
@@ -218,6 +264,11 @@ export function useAgentRunner(
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    if (approvalResolveRef.current) {
+      approvalResolveRef.current('deny');
+      approvalResolveRef.current = null;
+      setPendingApproval(null);
+    }
     
     // Mark current processing item as interrupted
     setHistory(prev => {
@@ -236,8 +287,10 @@ export function useAgentRunner(
     workingState,
     error,
     isProcessing,
+    pendingApproval,
     runQuery,
     cancelExecution,
+    respondToApproval,
     setError,
   };
 }

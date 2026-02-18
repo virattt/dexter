@@ -57,6 +57,7 @@ export type WorkingState =
   | { status: 'idle' }
   | { status: 'thinking' }
   | { status: 'tool'; toolName: string }
+  | { status: 'approval'; toolName: string }
   | { status: 'answering'; startTime: number };
 
 interface WorkingIndicatorProps {
@@ -73,8 +74,12 @@ export function WorkingIndicator({ state }: WorkingIndicatorProps) {
   
   // Pick a new random verb when transitioning into thinking/tool state
   useEffect(() => {
-    const isThinking = state.status === 'thinking' || state.status === 'tool';
-    const wasThinking = prevStatusRef.current === 'thinking' || prevStatusRef.current === 'tool';
+    const isThinking =
+      state.status === 'thinking' || state.status === 'tool' || state.status === 'approval';
+    const wasThinking =
+      prevStatusRef.current === 'thinking' ||
+      prevStatusRef.current === 'tool' ||
+      prevStatusRef.current === 'approval';
     
     if (isThinking && !wasThinking) {
       setThinkingVerb(getRandomThinkingVerb());
@@ -110,6 +115,10 @@ export function WorkingIndicator({ state }: WorkingIndicatorProps) {
     case 'thinking':
     case 'tool':
       statusWord = `${thinkingVerb}...`;
+      suffixEnd = ' to interrupt)';
+      break;
+    case 'approval':
+      statusWord = 'Waiting for approval...';
       suffixEnd = ' to interrupt)';
       break;
     case 'answering':

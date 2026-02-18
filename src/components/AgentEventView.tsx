@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import Spinner from 'ink-spinner';
 import { colors } from '../theme.js';
-import type { AgentEvent } from '../agent/types.js';
+import type { AgentEvent, ApprovalDecision } from '../agent/types.js';
 
 /**
  * Format tool name from snake_case to Title Case
@@ -43,10 +43,9 @@ function formatArgs(args: Record<string, unknown>): string {
     return `"${truncateAtWord(query, 60)}"`;
   }
   
-  // For other tools, format key=value pairs with truncation
   return Object.entries(args)
     .map(([key, value]) => {
-      const strValue = String(value);
+      const strValue = String(value).replace(/\n/g, '\\n');
       return `${key}=${truncateAtWord(strValue, 60)}`;
     })
     .join(', ');
@@ -259,6 +258,58 @@ export function ToolLimitView({ tool, warning }: ToolLimitViewProps) {
   );
 }
 
+interface ToolApprovalViewProps {
+  tool: string;
+  approved: ApprovalDecision;
+}
+
+function approvalLabel(decision: ApprovalDecision): string {
+  switch (decision) {
+    case 'allow-once': return 'Approved';
+    case 'allow-session': return 'Approved (session)';
+    case 'deny': return 'Denied';
+  }
+}
+
+export function ToolApprovalView({ tool, approved }: ToolApprovalViewProps) {
+  return (
+    <Box flexDirection="column">
+      <Box>
+        <Text>⏺ </Text>
+        <Text>{formatToolName(tool)}</Text>
+      </Box>
+      <Box marginLeft={2}>
+        <Text color={colors.muted}>⎿  </Text>
+        <Text color={approved !== 'deny' ? colors.primary : colors.warning}>
+          {approvalLabel(approved)}
+        </Text>
+      </Box>
+    </Box>
+  );
+}
+
+interface ToolDeniedViewProps {
+  tool: string;
+  args: Record<string, unknown>;
+}
+
+export function ToolDeniedView({ tool, args }: ToolDeniedViewProps) {
+  const path = (args.path as string) || '';
+  const action = tool === 'write_file' ? 'write to' : tool === 'edit_file' ? 'edit of' : tool;
+  return (
+    <Box flexDirection="column">
+      <Box>
+        <Text>⏺ </Text>
+        <Text>{formatToolName(tool)}</Text>
+      </Box>
+      <Box marginLeft={2}>
+        <Text color={colors.muted}>⎿  </Text>
+        <Text color={colors.warning}>User denied {action} {path}</Text>
+      </Box>
+    </Box>
+  );
+}
+
 interface ContextClearedViewProps {
   clearedCount: number;
   keptCount: number;
@@ -365,6 +416,12 @@ export function AgentEventView({ event, isActive = false, progressMessage }: Age
     
     case 'tool_limit':
       return <ToolLimitView tool={event.tool} warning={event.warning} />;
+
+    case 'tool_approval':
+      return <ToolApprovalView tool={event.tool} approved={event.approved} />;
+
+    case 'tool_denied':
+      return <ToolDeniedView tool={event.tool} args={event.args} />;
     
     case 'context_cleared':
       return <ContextClearedView clearedCount={event.clearedCount} keptCount={event.keptCount} />;

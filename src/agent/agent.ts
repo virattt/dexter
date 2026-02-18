@@ -36,7 +36,7 @@ export class Agent {
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
     this.tools = tools;
     this.toolMap = new Map(tools.map(t => [t.name, t]));
-    this.toolExecutor = new AgentToolExecutor(this.toolMap, config.signal);
+    this.toolExecutor = new AgentToolExecutor(this.toolMap, config.signal, config.requestToolApproval, config.sessionApprovedTools);
     this.systemPrompt = systemPrompt;
     this.signal = config.signal;
   }
@@ -99,7 +99,22 @@ export class Agent {
       }
 
       // Execute tools and add results to scratchpad (response is AIMessage here)
-      yield* this.toolExecutor.executeAll(response, ctx);
+      for await (const event of this.toolExecutor.executeAll(response, ctx)) {
+        yield event;
+        if (event.type === 'tool_denied') {
+          const totalTime = Date.now() - ctx.startTime;
+          yield {
+            type: 'done',
+            answer: '',
+            toolCalls: ctx.scratchpad.getToolCallRecords(),
+            iterations: ctx.iteration,
+            totalTime,
+            tokenUsage: ctx.tokenCounter.getUsage(),
+            tokensPerSecond: ctx.tokenCounter.getTokensPerSecond(totalTime),
+          };
+          return;
+        }
+      }
       yield* this.manageContextThreshold(ctx);
 
       // Build iteration prompt with full tool results (Anthropic-style)

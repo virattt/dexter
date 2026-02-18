@@ -1,4 +1,12 @@
 /**
+ * User's response to a tool approval prompt.
+ * - 'allow-once': approve this single invocation
+ * - 'allow-session': approve all invocations of this tool for the rest of the session
+ * - 'deny': reject and immediately end the agent's turn
+ */
+export type ApprovalDecision = 'allow-once' | 'allow-session' | 'deny';
+
+/**
  * Agent configuration
  */
 export interface AgentConfig {
@@ -10,6 +18,10 @@ export interface AgentConfig {
   maxIterations?: number;
   /** AbortSignal for cancelling agent execution */
   signal?: AbortSignal;
+  /** Called when a tool needs explicit user approval to proceed */
+  requestToolApproval?: (request: { tool: string; args: Record<string, unknown> }) => Promise<ApprovalDecision>;
+  /** Shared set of tool names that have been session-approved (persists across queries) */
+  sessionApprovedTools?: Set<string>;
 }
 
 /**
@@ -83,6 +95,25 @@ export interface ToolLimitEvent {
 }
 
 /**
+ * Tool approval decision event for sensitive tools.
+ */
+export interface ToolApprovalEvent {
+  type: 'tool_approval';
+  tool: string;
+  args: Record<string, unknown>;
+  approved: ApprovalDecision;
+}
+
+/**
+ * Tool execution was denied by user approval flow.
+ */
+export interface ToolDeniedEvent {
+  type: 'tool_denied';
+  tool: string;
+  args: Record<string, unknown>;
+}
+
+/**
  * Context was cleared due to exceeding token threshold (Anthropic-style)
  */
 export interface ContextClearedEvent {
@@ -131,6 +162,8 @@ export type AgentEvent =
   | ToolProgressEvent
   | ToolEndEvent
   | ToolErrorEvent
+  | ToolApprovalEvent
+  | ToolDeniedEvent
   | ToolLimitEvent
   | ContextClearedEvent
   | AnswerStartEvent

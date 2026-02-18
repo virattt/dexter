@@ -11,6 +11,7 @@ import { Input } from './components/Input.js';
 import { Intro } from './components/Intro.js';
 import { ProviderSelector, ModelSelector, ModelInputField } from './components/ModelSelector.js';
 import { ApiKeyConfirm, ApiKeyInput } from './components/ApiKeyPrompt.js';
+import { ApprovalPrompt } from './components/ApprovalPrompt.js';
 import { DebugPanel } from './components/DebugPanel.js';
 import { HistoryItemView, WorkingIndicator } from './components/index.js';
 import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js';
@@ -51,8 +52,10 @@ export function CLI() {
     workingState,
     error,
     isProcessing,
+    pendingApproval,
     runQuery,
     cancelExecution,
+    respondToApproval,
     setError,
   } = useAgentRunner({ model, modelProvider: provider, maxIterations: 10 }, inMemoryChatHistoryRef);
   
@@ -93,8 +96,8 @@ export function CLI() {
       return;
     }
     
-    // Ignore if not idle (processing or in selection flow)
-    if (isInSelectionFlow() || workingState.status !== 'idle') return;
+    // Ignore if not idle (processing, approval pending, or in selection flow)
+    if (isInSelectionFlow() || pendingApproval || workingState.status !== 'idle') return;
     
     // Save user message to history immediately and reset navigation
     await saveMessage(query);
@@ -105,7 +108,7 @@ export function CLI() {
     if (result?.answer) {
       await updateAgentResponse(result.answer);
     }
-  }, [exit, startSelection, isInSelectionFlow, workingState.status, runQuery, saveMessage, updateAgentResponse, resetNavigation]);
+  }, [exit, startSelection, isInSelectionFlow, pendingApproval, workingState.status, runQuery, saveMessage, updateAgentResponse, resetNavigation]);
   
   // Handle keyboard shortcuts
   useInput((input, key) => {
@@ -214,13 +217,21 @@ export function CLI() {
       {/* Working indicator - only show when processing */}
       {isProcessing && <WorkingIndicator state={workingState} />}
       
-      {/* Input */}
+      {/* Input / approval prompt */}
       <Box marginTop={1}>
-        <Input 
-          onSubmit={handleSubmit} 
-          historyValue={historyValue}
-          onHistoryNavigate={handleHistoryNavigate}
-        />
+        {pendingApproval ? (
+          <ApprovalPrompt
+            tool={pendingApproval.tool}
+            args={pendingApproval.args}
+            onSelect={respondToApproval}
+          />
+        ) : (
+          <Input 
+            onSubmit={handleSubmit} 
+            historyValue={historyValue}
+            onHistoryNavigate={handleHistoryNavigate}
+          />
+        )}
       </Box>
       
       {/* Debug Panel - set show={false} to hide */}

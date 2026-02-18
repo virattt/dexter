@@ -2,6 +2,9 @@ import { AIMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { createProgressChannel } from '../utils/progress-channel.js';
 import type {
+  ApprovalDecision,
+  ToolApprovalEvent,
+  ToolDeniedEvent,
   ToolEndEvent,
   ToolErrorEvent,
   ToolLimitEvent,
@@ -15,16 +18,29 @@ type ToolExecutionEvent =
   | ToolProgressEvent
   | ToolEndEvent
   | ToolErrorEvent
+  | ToolApprovalEvent
+  | ToolDeniedEvent
   | ToolLimitEvent;
+
+const TOOLS_REQUIRING_APPROVAL = ['write_file', 'edit_file'] as const;
 
 /**
  * Executes tool calls and emits streaming tool lifecycle events.
  */
 export class AgentToolExecutor {
+  private readonly sessionApprovedTools: Set<string>;
+
   constructor(
     private readonly toolMap: Map<string, StructuredToolInterface>,
-    private readonly signal?: AbortSignal
-  ) {}
+    private readonly signal?: AbortSignal,
+    private readonly requestToolApproval?: (request: {
+      tool: string;
+      args: Record<string, unknown>;
+    }) => Promise<ApprovalDecision>,
+    sessionApprovedTools?: Set<string>,
+  ) {
+    this.sessionApprovedTools = sessionApprovedTools ?? new Set();
+  }
 
   async *executeAll(
     response: AIMessage,
@@ -50,6 +66,21 @@ export class AgentToolExecutor {
     ctx: RunContext
   ): AsyncGenerator<ToolExecutionEvent, void> {
     const toolQuery = this.extractQueryFromArgs(toolArgs);
+
+    if (this.requiresApproval(toolName) && !this.sessionApprovedTools.has(toolName)) {
+      const decision = (await this.requestToolApproval?.({ tool: toolName, args: toolArgs })) ?? 'deny';
+      yield { type: 'tool_approval', tool: toolName, args: toolArgs, approved: decision };
+      if (decision === 'deny') {
+        yield { type: 'tool_denied', tool: toolName, args: toolArgs };
+        return;
+      }
+      if (decision === 'allow-session') {
+        for (const name of TOOLS_REQUIRING_APPROVAL) {
+          this.sessionApprovedTools.add(name);
+        }
+      }
+    }
+
     const limitCheck = ctx.scratchpad.canCallTool(toolName, toolQuery);
 
     if (limitCheck.warning) {
@@ -129,5 +160,9 @@ export class AgentToolExecutor {
     }
 
     return undefined;
+  }
+
+  private requiresApproval(toolName: string): boolean {
+    return (TOOLS_REQUIRING_APPROVAL as readonly string[]).includes(toolName);
   }
 }

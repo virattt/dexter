@@ -27,6 +27,7 @@
     "@langchain/tavily": "^1.0.1",
     "@mozilla/readability": "^0.6.0",
     "@whiskeysockets/baileys": "7.0.0-rc.9",
+    "diff": "^8.0.3",
     "dotenv": "^17.2.3",
     "exa-js": "^2.2.0",
     "gray-matter": "^4.0.3",
