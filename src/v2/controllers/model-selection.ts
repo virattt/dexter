@@ -8,7 +8,7 @@ import {
   getDefaultModelForProvider,
   getModelsForProvider,
   type Model,
-} from '../../components/ModelSelector.js';
+} from '../../utils/model.js';
 import { getOllamaModels } from '../../utils/ollama.js';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from '../../model/llm.js';
 import { InMemoryChatHistory } from '../../utils/in-memory-chat-history.js';

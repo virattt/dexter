@@ -6,9 +6,8 @@ import type {
   ApprovalDecision,
   DoneEvent,
 } from '../../agent/index.js';
-import type { DisplayEvent } from '../../components/AgentEventView.js';
-import type { HistoryItem, HistoryItemStatus } from '../../components/HistoryItemView.js';
-import type { WorkingState } from '../../components/WorkingIndicator.js';
+import type { DisplayEvent } from '../../agent/types.js';
+import type { HistoryItem, HistoryItemStatus, WorkingState } from '../types.js';
 
 type ChangeListener = () => void;
 

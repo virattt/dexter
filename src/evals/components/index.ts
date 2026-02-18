@@ -1,5 +1,5 @@
-export { EvalApp, type EvalProgressEvent } from './EvalApp.js';
-export { EvalProgress } from './EvalProgress.js';
-export { EvalCurrentQuestion } from './EvalCurrentQuestion.js';
-export { EvalStats } from './EvalStats.js';
-export { EvalRecentResults, type EvalResult } from './EvalRecentResults.js';
+export { EvalApp, type EvalProgressEvent } from './eval-app.js';
+export { EvalProgress } from './eval-progress.js';
+export { EvalCurrentQuestion } from './eval-current-question.js';
+export { EvalStats } from './eval-stats.js';
+export { EvalRecentResults, type EvalResult } from './eval-recent-results.js';

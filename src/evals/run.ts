@@ -7,8 +7,7 @@
  */
 
 import 'dotenv/config';
-import React from 'react';
-import { render } from 'ink';
+import { ProcessTerminal, TUI } from '@mariozechner/pi-tui';
 import { Client } from 'langsmith';
 import type { EvaluationResult } from 'langsmith/evaluation';
 import { ChatOpenAI } from '@langchain/openai';
@@ -344,12 +343,18 @@ async function main() {
   // Create the evaluation runner with the sample size
   const runEvaluation = createEvaluationRunner(sampleSize);
 
-  // Render the Ink UI
-  const { waitUntilExit } = render(
-    React.createElement(EvalApp, { runEvaluation })
-  );
-  
-  await waitUntilExit();
+  const tui = new TUI(new ProcessTerminal());
+  const evalApp = new EvalApp(tui, runEvaluation);
+
+  tui.addChild(evalApp);
+  tui.start();
+
+  try {
+    await evalApp.run();
+  } finally {
+    evalApp.dispose();
+    tui.stop();
+  }
 }
 
 main().catch(console.error);

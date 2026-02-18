@@ -168,3 +168,15 @@ export type AgentEvent =
   | ContextClearedEvent
   | AnswerStartEvent
   | DoneEvent;
+
+/**
+ * Aggregated event used by the CLI history renderer.
+ * Combines lifecycle events (tool_start/tool_end/tool_error) into a single display row.
+ */
+export interface DisplayEvent {
+  id: string;
+  event: AgentEvent;
+  completed?: boolean;
+  endEvent?: AgentEvent;
+  progressMessage?: string;
+}

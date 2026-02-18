@@ -1,5 +1,5 @@
 import { Container, Loader, type TUI } from '@mariozechner/pi-tui';
-import type { WorkingState } from '../../components/WorkingIndicator.js';
+import type { WorkingState } from '../types.js';
 import { getRandomThinkingVerb } from '../../utils/thinking-verbs.js';
 import { theme } from '../theme.js';
 
