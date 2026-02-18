@@ -1,17 +1,17 @@
-import { getSetting, setSetting } from '../../utils/config.js';
+import { getSetting, setSetting } from '../utils/config.js';
 import {
   checkApiKeyExistsForProvider,
   getProviderDisplayName,
   saveApiKeyForProvider,
-} from '../../utils/env.js';
+} from '../utils/env.js';
 import {
   getDefaultModelForProvider,
   getModelsForProvider,
   type Model,
-} from '../../utils/model.js';
-import { getOllamaModels } from '../../utils/ollama.js';
-import { DEFAULT_MODEL, DEFAULT_PROVIDER } from '../../model/llm.js';
-import { InMemoryChatHistory } from '../../utils/in-memory-chat-history.js';
+} from '../utils/model.js';
+import { getOllamaModels } from '../utils/ollama.js';
+import { DEFAULT_MODEL, DEFAULT_PROVIDER } from '../model/llm.js';
+import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 
 const SELECTION_STATES = [
   'provider_select',

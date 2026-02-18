@@ -1,6 +1,6 @@
 import { Container, Input, SelectList, Text, type SelectItem, getEditorKeybindings } from '@mariozechner/pi-tui';
-import { PROVIDERS, type Model } from '../../utils/model.js';
-import type { ApprovalDecision } from '../../agent/types.js';
+import { PROVIDERS, type Model } from '../utils/model.js';
+import type { ApprovalDecision } from '../agent/types.js';
 import { selectListTheme, theme } from '../theme.js';
 
 class VimSelectList extends SelectList {

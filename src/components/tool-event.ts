@@ -1,5 +1,5 @@
-import { Container, Text } from '@mariozechner/pi-tui';
-import type { ApprovalDecision } from '../../agent/types.js';
+import { Container, Spacer, Text } from '@mariozechner/pi-tui';
+import type { ApprovalDecision } from '../agent/types.js';
 import { theme } from '../theme.js';
 
 function formatToolName(name: string): string {
@@ -23,11 +23,13 @@ function truncateAtWord(str: string, maxLength: number): string {
 function formatArgs(args: Record<string, unknown>): string {
   if (Object.keys(args).length === 1 && 'query' in args) {
     const query = String(args.query);
-    return `"${truncateAtWord(query, 60)}"`;
+    return theme.muted(`"${truncateAtWord(query, 60)}"`);
   }
-  return Object.entries(args)
-    .map(([key, value]) => `${key}=${truncateAtWord(String(value).replace(/\n/g, '\\n'), 60)}`)
-    .join(', ');
+  return theme.muted(
+    Object.entries(args)
+      .map(([key, value]) => `${key}=${truncateAtWord(String(value).replace(/\n/g, '\\n'), 60)}`)
+      .join(', '),
+  );
 }
 
 function formatDuration(ms: number): string {
@@ -54,7 +56,8 @@ export class ToolEventComponent extends Container {
 
   constructor(_tui: unknown, tool: string, args: Record<string, unknown>) {
     super();
-    const title = `${formatToolName(tool)}${args ? `(${formatArgs(args)})` : ''}`;
+    this.addChild(new Spacer(1));
+    const title = `${formatToolName(tool)}${args ? `${theme.muted('(')}${formatArgs(args)}${theme.muted(')')}` : ''}`;
     this.header = new Text(`⏺ ${title}`, 0, 0);
     this.addChild(this.header);
   }

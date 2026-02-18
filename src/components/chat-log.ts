@@ -1,5 +1,5 @@
-import { Container, Text, type TUI } from '@mariozechner/pi-tui';
-import type { TokenUsage } from '../../agent/types.js';
+import { Container, Spacer, Text, type TUI } from '@mariozechner/pi-tui';
+import type { TokenUsage } from '../agent/types.js';
 import { theme } from '../theme.js';
 import { AnswerBoxComponent } from './answer-box.js';
 import { ToolEventComponent } from './tool-event.js';
@@ -65,6 +65,7 @@ class BrowserSessionComponent extends Container implements ToolDisplayComponent 
 
   constructor(_tui: TUI) {
     super();
+    this.addChild(new Spacer(1));
     this.header = new Text('⏺ Browser', 0, 0);
     this.addChild(this.header);
   }
@@ -278,6 +279,7 @@ export class ChatLogComponent extends Container {
     if (tokensPerSecond !== undefined) {
       parts.push(`(${tokensPerSecond.toFixed(1)} tok/s)`);
     }
+    this.addChild(new Spacer(1));
     this.addChild(new Text(`${theme.muted('✻ ')}${theme.muted(parts.join(' · '))}`, 0, 0));
   }
 }

@@ -1,5 +1,5 @@
 import { Container, Spacer, Text, type TUI } from '@mariozechner/pi-tui';
-import { theme } from '../../v2/theme.js';
+import { theme } from '../../theme.js';
 import { EvalCurrentQuestion } from './eval-current-question.js';
 import { EvalProgress } from './eval-progress.js';
 import { EvalRecentResults, type EvalResult } from './eval-recent-results.js';

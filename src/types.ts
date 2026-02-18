@@ -1,4 +1,4 @@
-import type { DisplayEvent, TokenUsage } from '../agent/types.js';
+import type { DisplayEvent, TokenUsage } from './agent/types.js';
 
 export type WorkingState =
   | { status: 'idle' }

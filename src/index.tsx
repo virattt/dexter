@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { config } from 'dotenv';
-import { runCli } from './v2/cli.js';
+import { runCli } from './cli.js';
 
 // Load environment variables
 config({ quiet: true });

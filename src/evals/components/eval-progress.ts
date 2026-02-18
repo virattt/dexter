@@ -1,5 +1,5 @@
 import { Container, Text } from '@mariozechner/pi-tui';
-import { theme } from '../../v2/theme.js';
+import { theme } from '../../theme.js';
 
 export class EvalProgress extends Container {
   private readonly progressText: Text;
