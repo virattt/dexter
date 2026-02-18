@@ -1,81 +1,24 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React from 'react';
 import { Box, Text } from 'ink';
 import { colors } from '../theme.js';
 import { formatResponse } from '../utils/markdown-table.js';
 
 interface AnswerBoxProps {
-  stream?: AsyncGenerator<string>;
   text?: string;
-  onStart?: () => void;
-  onComplete?: (answer: string) => void;
+  answer?: string;
 }
 
-export const AnswerBox = React.memo(function AnswerBox({ stream, text, onStart, onComplete }: AnswerBoxProps) {
-  const [content, setContent] = useState(text || '');
-  const [isStreaming, setIsStreaming] = useState(!!stream);
-
-  // Store callbacks in refs to avoid effect re-runs when references change
-  const onStartRef = useRef(onStart);
-  const onCompleteRef = useRef(onComplete);
-  onStartRef.current = onStart;
-  onCompleteRef.current = onComplete;
-
-  // Sync content with text prop when not streaming (used by V2 CLI)
-  useEffect(() => {
-    if (!stream && text !== undefined) {
-      setContent(text);
-    }
-  }, [stream, text]);
-
-  useEffect(() => {
-    if (!stream) return;
-
-    let collected = text || '';
-    let started = false;
-    
-    (async () => {
-      try {
-        for await (const chunk of stream) {
-          if (!started && chunk.trim()) {
-            started = true;
-            onStartRef.current?.();
-          }
-          collected += chunk;
-          setContent(collected);
-        }
-      } finally {
-        setIsStreaming(false);
-        onCompleteRef.current?.(collected);
-      }
-    })();
-  }, [stream, text]);
-
-  // Apply pre-render formatting (tables, bold)
-  const displayContent = useMemo(() => formatResponse(content), [content]);
+export function AnswerBox({ text, answer }: AnswerBoxProps) {
+  const content = answer ?? text ?? '';
+  const lines = formatResponse(content).split('\n');
 
   return (
-    <Box flexDirection="column">
-      <Box>
-        <Text color={colors.muted}>⏺ </Text>
-        <Text>
-          {displayContent}
-          {isStreaming && '▌'}
+    <Box flexDirection="column" marginTop={1}>
+      {lines.map((line, index) => (
+        <Text key={`${index}-${line.slice(0, 10)}`} color={colors.primary}>
+          {line}
         </Text>
-      </Box>
-    </Box>
-  );
-});
-
-interface UserQueryProps {
-  query: string;
-}
-
-export function UserQuery({ query }: UserQueryProps) {
-  return (
-    <Box marginTop={1} paddingRight={2}>
-      <Text color={colors.white} backgroundColor={colors.mutedDark}>
-        {'>'} {query}{' '}
-      </Text>
+      ))}
     </Box>
   );
 }

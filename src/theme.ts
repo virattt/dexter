@@ -18,4 +18,3 @@ export const dimensions = {
   boxWidth: 80,
   introWidth: 50,
 } as const;
-

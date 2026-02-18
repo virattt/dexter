@@ -9,9 +9,7 @@
   },
   "scripts": {
     "start": "bun run src/index.tsx",
-    "start:v2": "bun run src/v2/index.ts",
     "dev": "bun --watch run src/index.tsx",
-    "dev:v2": "bun --watch run src/v2/index.ts",
     "gateway": "tsx src/gateway/index.ts run",
     "gateway:login": "tsx src/gateway/index.ts login",
     "typecheck": "tsc --noEmit",
@@ -35,7 +33,6 @@
     "gray-matter": "^4.0.3",
     "ink": "^6.5.1",
     "ink-spinner": "^5.0.0",
-    "ink-text-input": "^6.0.0",
     "@mariozechner/pi-tui": "^0.52.9",
     "langsmith": "^0.4.10",
     "linkedom": "^0.18.12",
