@@ -32,6 +32,8 @@
     "exa-js": "^2.2.0",
     "gray-matter": "^4.0.3",
     "@mariozechner/pi-tui": "^0.52.9",
+    "ink-text-input": "^6.0.0",
+    "kiteconnect": "^5.1.0",
     "langsmith": "^0.4.10",
     "linkedom": "^0.18.12",
     "playwright": "^1.52.0",

@@ -85,6 +85,18 @@ export function createApprovalSelector(onSelect: (decision: ApprovalDecision) =>
   return list;
 }
 
+/** Approval selector for trading tools (Zerodha etc.): Yes / No only, no session-wide allow. */
+export function createTradingApprovalSelector(onSelect: (decision: ApprovalDecision) => void) {
+  const items: SelectItem[] = [
+    { value: 'allow-once', label: '1. Yes' },
+    { value: 'deny', label: '2. No' },
+  ];
+  const list = new VimSelectList(items, 4, selectListTheme);
+  list.onSelect = (item) => onSelect(item.value as ApprovalDecision);
+  list.onCancel = () => onSelect('deny');
+  return list;
+}
+
 export function createApiKeyConfirmSelector(onConfirm: (wantsToSet: boolean) => void) {
   const items: SelectItem[] = [
     { value: 'yes', label: '1. Yes' },

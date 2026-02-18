@@ -22,7 +22,13 @@ type ToolExecutionEvent =
   | ToolDeniedEvent
   | ToolLimitEvent;
 
-const TOOLS_REQUIRING_APPROVAL = ['write_file', 'edit_file'] as const;
+const TOOLS_REQUIRING_APPROVAL = [
+  'write_file',
+  'edit_file',
+  'zerodha_place_order',
+  'zerodha_modify_order',
+  'zerodha_cancel_order',
+] as const;
 
 /**
  * Executes tool calls and emits streaming tool lifecycle events.
@@ -75,8 +81,10 @@ export class AgentToolExecutor {
         return;
       }
       if (decision === 'allow-session') {
-        for (const name of TOOLS_REQUIRING_APPROVAL) {
-          this.sessionApprovedTools.add(name);
+        // Only file tools support session-wide approval; never auto-approve trading
+        if (toolName === 'write_file' || toolName === 'edit_file') {
+          this.sessionApprovedTools.add('write_file');
+          this.sessionApprovedTools.add('edit_file');
         }
       }
     }

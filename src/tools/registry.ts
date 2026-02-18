@@ -5,7 +5,38 @@ import { skillTool, SKILL_TOOL_DESCRIPTION } from './skill.js';
 import { webFetchTool } from './fetch/index.js';
 import { browserTool } from './browser/index.js';
 import { readFileTool, writeFileTool, editFileTool } from './filesystem/index.js';
-import { FINANCIAL_SEARCH_DESCRIPTION, FINANCIAL_METRICS_DESCRIPTION, WEB_SEARCH_DESCRIPTION, WEB_FETCH_DESCRIPTION, READ_FILINGS_DESCRIPTION, BROWSER_DESCRIPTION, READ_FILE_DESCRIPTION, WRITE_FILE_DESCRIPTION, EDIT_FILE_DESCRIPTION } from './descriptions/index.js';
+import {
+  zerodhaHoldingsTool,
+  zerodhaPositionsTool,
+  zerodhaMarginsTool,
+  zerodhaOrdersTool,
+  zerodhaInstrumentsTool,
+  zerodhaQuoteTool,
+  zerodhaPlaceOrderTool,
+  zerodhaModifyOrderTool,
+  zerodhaCancelOrderTool,
+} from './zerodha/index.js';
+import { isZerodhaConfigured } from './zerodha/client.js';
+import {
+  FINANCIAL_SEARCH_DESCRIPTION,
+  FINANCIAL_METRICS_DESCRIPTION,
+  WEB_SEARCH_DESCRIPTION,
+  WEB_FETCH_DESCRIPTION,
+  READ_FILINGS_DESCRIPTION,
+  BROWSER_DESCRIPTION,
+  READ_FILE_DESCRIPTION,
+  WRITE_FILE_DESCRIPTION,
+  EDIT_FILE_DESCRIPTION,
+  ZERODHA_HOLDINGS_DESCRIPTION,
+  ZERODHA_POSITIONS_DESCRIPTION,
+  ZERODHA_MARGINS_DESCRIPTION,
+  ZERODHA_ORDERS_DESCRIPTION,
+  ZERODHA_INSTRUMENTS_DESCRIPTION,
+  ZERODHA_QUOTE_DESCRIPTION,
+  ZERODHA_PLACE_ORDER_DESCRIPTION,
+  ZERODHA_MODIFY_ORDER_DESCRIPTION,
+  ZERODHA_CANCEL_ORDER_DESCRIPTION,
+} from './descriptions/index.js';
 import { discoverSkills } from '../skills/index.js';
 
 /**
@@ -100,6 +131,21 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: skillTool,
       description: SKILL_TOOL_DESCRIPTION,
     });
+  }
+
+  // Zerodha Kite (Indian market) - only when API key and access token are configured
+  if (isZerodhaConfigured()) {
+    tools.push(
+      { name: 'zerodha_holdings', tool: zerodhaHoldingsTool, description: ZERODHA_HOLDINGS_DESCRIPTION },
+      { name: 'zerodha_positions', tool: zerodhaPositionsTool, description: ZERODHA_POSITIONS_DESCRIPTION },
+      { name: 'zerodha_margins', tool: zerodhaMarginsTool, description: ZERODHA_MARGINS_DESCRIPTION },
+      { name: 'zerodha_orders', tool: zerodhaOrdersTool, description: ZERODHA_ORDERS_DESCRIPTION },
+      { name: 'zerodha_instruments', tool: zerodhaInstrumentsTool, description: ZERODHA_INSTRUMENTS_DESCRIPTION },
+      { name: 'zerodha_quote', tool: zerodhaQuoteTool, description: ZERODHA_QUOTE_DESCRIPTION },
+      { name: 'zerodha_place_order', tool: zerodhaPlaceOrderTool, description: ZERODHA_PLACE_ORDER_DESCRIPTION },
+      { name: 'zerodha_modify_order', tool: zerodhaModifyOrderTool, description: ZERODHA_MODIFY_ORDER_DESCRIPTION },
+      { name: 'zerodha_cancel_order', tool: zerodhaCancelOrderTool, description: ZERODHA_CANCEL_ORDER_DESCRIPTION },
+    );
   }
 
   return tools;
