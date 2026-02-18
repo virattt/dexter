@@ -6,7 +6,6 @@ import { theme } from '../theme.js';
 export class WorkingIndicatorComponent extends Container {
   private readonly tui: TUI;
   private loader: Loader | null = null;
-  private timer: NodeJS.Timeout | null = null;
   private state: WorkingState = { status: 'idle' };
   private thinkingVerb = getRandomThinkingVerb();
   private prevStatus: WorkingState['status'] = 'idle';
@@ -30,7 +29,6 @@ export class WorkingIndicatorComponent extends Container {
     this.prevStatus = state.status;
     this.state = state;
     if (state.status === 'idle') {
-      this.stopTimer();
       this.stopLoader();
       this.renderIdle();
       return;
@@ -39,7 +37,6 @@ export class WorkingIndicatorComponent extends Container {
   }
 
   dispose() {
-    this.stopTimer();
     this.stopLoader();
   }
 
@@ -51,11 +48,6 @@ export class WorkingIndicatorComponent extends Container {
     this.clear();
     this.ensureLoader();
     this.updateMessage();
-    if (this.state.status === 'answering') {
-      this.startTimer();
-    } else {
-      this.stopTimer();
-    }
   }
 
   private ensureLoader() {
@@ -80,24 +72,6 @@ export class WorkingIndicatorComponent extends Container {
     this.loader = null;
   }
 
-  private startTimer() {
-    if (this.timer) {
-      return;
-    }
-    this.timer = setInterval(() => {
-      this.updateMessage();
-      this.tui.requestRender();
-    }, 1000);
-  }
-
-  private stopTimer() {
-    if (!this.timer) {
-      return;
-    }
-    clearInterval(this.timer);
-    this.timer = null;
-  }
-
   private updateMessage() {
     if (!this.loader || this.state.status === 'idle') {
       return;
@@ -107,8 +81,7 @@ export class WorkingIndicatorComponent extends Container {
       return;
     }
     if (this.state.status === 'answering') {
-      const elapsed = Math.floor((Date.now() - this.state.startTime) / 1000);
-      this.loader.setMessage(`Answering (${elapsed}s, esc to interrupt)`);
+      this.loader.setMessage('Answering... (esc to interrupt)');
       return;
     }
     this.loader.setMessage(`${this.thinkingVerb}... (esc to interrupt)`);
