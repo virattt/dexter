@@ -20,6 +20,7 @@ import { getAnalystEstimates } from './estimates.js';
 import { getSegmentedRevenues } from './segments.js';
 import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
 import { getInsiderTrades } from './insider_trades.js';
+import { getInstitutionalOwnershipByTicker, getInstitutionalOwnershipByInvestor } from './institutional-ownership.js';
 import { getCompanyFacts } from './company_facts.js';
 
 // All finance tools available for routing
@@ -42,6 +43,8 @@ const FINANCE_TOOLS: StructuredToolInterface[] = [
   // Other Data
   getNews,
   getInsiderTrades,
+  getInstitutionalOwnershipByTicker,
+  getInstitutionalOwnershipByInvestor,
   getSegmentedRevenues,
   getCompanyFacts,
 ];
@@ -77,7 +80,13 @@ Given a user's natural language query about financial data, call the appropriate
    - For cash flow, free cash flow → get_cash_flow_statements
    - For comprehensive analysis → get_all_financial_statements
 
-4. **Efficiency**:
+4. **Institutional Ownership (13-F)**:
+   - "Who owns AAPL?" or "top holders of Tesla" → get_institutional_ownership_by_ticker
+   - "What does Berkshire own?" or "Bridgewater portfolio" → get_institutional_ownership_by_investor
+   - For investor queries, pass the investor name in plain English (e.g. "Scion Asset Management", "Berkshire Hathaway") — the tool resolves it to the API format automatically. Do NOT try to format or uppercase the name yourself.
+   - These use SEC Form 13-F data (quarterly, 45-day lag from quarter end)
+
+5. **Efficiency**:
    - Prefer specific tools over general ones when possible
    - Use get_all_financial_statements only when multiple statement types needed
    - For comparisons between companies, call the same tool for each ticker
@@ -104,6 +113,7 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
 - Analyst estimates and price targets
 - Company news
 - Insider trading activity
+- Institutional ownership / 13-F holdings (by ticker or by investor)
 - Cryptocurrency prices`,
     schema: FinancialSearchInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
