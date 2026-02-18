@@ -9,7 +9,6 @@ export class UserQueryComponent extends Container {
     this.addChild(new Spacer(1));
     this.body = new Text('', 0, 0);
     this.addChild(this.body);
-    this.addChild(new Spacer(1));
     this.setQuery(query);
   }
 

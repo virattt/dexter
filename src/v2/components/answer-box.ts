@@ -12,7 +12,6 @@ export class AnswerBoxComponent extends Container {
     this.addChild(new Spacer(1));
     this.body = new Markdown('', 0, 0, markdownTheme, { color: (line) => line });
     this.addChild(this.body);
-    this.addChild(new Spacer(1));
     this.setText(initialText);
   }
 
