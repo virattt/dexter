@@ -21,7 +21,7 @@ const PROVIDER_MODELS: Record<string, Model[]> = {
     { id: 'gpt-4.1', displayName: 'GPT 4.1' },
   ],
   anthropic: [
-    { id: 'claude-sonnet-4-5', displayName: 'Sonnet 4.5' },
+    { id: 'claude-sonnet-4-6', displayName: 'Sonnet 4.6' },
     { id: 'claude-opus-4-6', displayName: 'Opus 4.6' },
   ],
   google: [
