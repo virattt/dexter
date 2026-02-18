@@ -30,7 +30,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt) [![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=social&logo=discord)](https://discord.gg/jpGHv2XB6T)
 
-<img width="1006" height="633" alt="Screenshot 2026-02-16 at 6 09 01 PM" src="https://github.com/user-attachments/assets/bb763107-8894-4cb7-9e04-d87299a6e142" />
+<img width="1042" height="638" alt="Screenshot 2026-02-18 at 12 21 25 PM" src="https://github.com/user-attachments/assets/2a6334f9-863f-4bd2-a56f-923e42f4711e" />
 
 
 ## ✅ Prerequisites
