@@ -146,7 +146,7 @@ Generate a brief 1-2 sentence summary of this answer.`;
    * Saves a new user query to history immediately (before answer is available).
    * Answer and summary are null until saveAnswer() is called with the answer.
    */
-  saveUserQuery(query: string): void {
+  async saveUserQuery(query: string): Promise<void> {
     // Clear the relevance cache since message history has changed
     this.relevantMessagesByQuery.clear();
 
