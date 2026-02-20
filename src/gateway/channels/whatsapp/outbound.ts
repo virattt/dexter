@@ -7,8 +7,14 @@ import { loadGatewayConfig, resolveWhatsAppAccount } from '../../config.js';
 import { normalizeE164, toWhatsappJid } from '../../utils.js';
 
 function debugLog(msg: string) {
-  const logPath = path.join(os.homedir(), '.dexter', 'gateway-debug.log');
-  fs.appendFileSync(logPath, `${new Date().toISOString()} ${msg}\n`);
+  const logDir = path.join(os.homedir(), '.dexter');
+  const logPath = path.join(logDir, 'gateway-debug.log');
+  try {
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+    fs.appendFileSync(logPath, `${new Date().toISOString()} ${msg}\n`);
+  } catch {
+    // Ignore logging errors in test/CI environments
+  }
 }
 
 type ActiveListener = {
