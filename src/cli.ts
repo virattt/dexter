@@ -182,9 +182,6 @@ export async function runCli() {
     tui.requestRender();
   });
 
-  // Load conversation history to resume previous session
-  modelSelection.loadHistory();
-
   const agentRunner = new AgentRunnerController(
     { model: modelSelection.model, modelProvider: modelSelection.provider, maxIterations: 10 },
     modelSelection.inMemoryChatHistory,
@@ -195,6 +192,11 @@ export async function runCli() {
       tui.requestRender();
     },
   );
+
+  // Load conversation history to resume previous session
+  modelSelection.loadHistory().then(() => {
+    agentRunner.loadPreviousHistory();
+  });
 
   const intro = new IntroComponent(modelSelection.model);
   const errorText = new Text('', 0, 0);
