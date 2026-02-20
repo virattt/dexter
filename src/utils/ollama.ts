@@ -20,13 +20,15 @@ export async function getOllamaModels(): Promise<string[]> {
   
   try {
     const response = await fetch(`${baseUrl}/api/tags`);
-    
+
     if (!response.ok) {
       return [];
     }
-    
+
     const data = (await response.json()) as OllamaTagsResponse;
-    return data.models.map((m) => m.name);
+    return (data?.models ?? [])
+      .map((m) => m?.name)
+      .filter((n): n is string => typeof n === 'string');
   } catch {
     // Ollama not running or unreachable
     return [];

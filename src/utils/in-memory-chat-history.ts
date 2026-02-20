@@ -15,8 +15,8 @@ const CONTEXT_FILE = 'conversation.json';
 export interface Message {
   id: number;
   query: string;
-  answer: string;
-  summary: string; // LLM-generated summary of the answer
+  answer: string | null;   // null until answer completes
+  summary: string | null;  // LLM-generated summary, null until answer arrives
 }
 
 /**
@@ -131,7 +131,7 @@ Answer: "${answerPreview}"
 Generate a brief 1-2 sentence summary of this answer.`;
 
     try {
-      const response = await callLlm(prompt, {
+      const { response } = await callLlm(prompt, {
         systemPrompt: MESSAGE_SUMMARY_SYSTEM_PROMPT,
         model: this.model,
       });
@@ -143,18 +143,18 @@ Generate a brief 1-2 sentence summary of this answer.`;
   }
 
   /**
-   * Adds a new conversation turn to history with an LLM-generated summary
+   * Saves a new user query to history immediately (before answer is available).
+   * Answer and summary are null until saveAnswer() is called with the answer.
    */
-  async addMessage(query: string, answer: string): Promise<void> {
+  saveUserQuery(query: string): void {
     // Clear the relevance cache since message history has changed
     this.relevantMessagesByQuery.clear();
 
-    const summary = await this.generateSummary(query, answer);
     this.messages.push({
       id: this.messages.length,
       query,
-      answer,
-      summary,
+      answer: null,
+      summary: null,
     });
 
     // Persist to disk
@@ -162,11 +162,28 @@ Generate a brief 1-2 sentence summary of this answer.`;
   }
 
   /**
+   * Saves the answer to the most recent message and generates a summary.
+   * Should be called when the agent completes answering.
+   */
+  async saveAnswer(answer: string): Promise<void> {
+    const lastMessage = this.messages[this.messages.length - 1];
+    if (!lastMessage || lastMessage.answer !== null) {
+      return; // No pending query or already has answer
+    }
+
+    lastMessage.answer = answer;
+    lastMessage.summary = await this.generateSummary(lastMessage.query, answer);
+  }
+
+  /**
    * Uses LLM to select which messages are relevant to the current query.
    * Results are cached by query hash to avoid redundant LLM calls within the same query.
+   * Only considers messages with completed answers for relevance selection.
    */
   async selectRelevantMessages(currentQuery: string): Promise<Message[]> {
-    if (this.messages.length === 0) {
+    // Only consider messages with completed answers
+    const completedMessages = this.messages.filter((m) => m.answer !== null);
+    if (completedMessages.length === 0) {
       return [];
     }
 
@@ -177,7 +194,7 @@ Generate a brief 1-2 sentence summary of this answer.`;
       return cached;
     }
 
-    const messagesInfo = this.messages.map((message) => ({
+    const messagesInfo = completedMessages.map((message) => ({
       id: message.id,
       query: message.query,
       summary: message.summary,
@@ -191,17 +208,18 @@ ${JSON.stringify(messagesInfo, null, 2)}
 Select which previous messages are relevant to understanding or answering the current query.`;
 
     try {
-      const response = await callLlm(prompt, {
+      const { response } = await callLlm(prompt, {
         systemPrompt: MESSAGE_SELECTION_SYSTEM_PROMPT,
         model: this.model,
         outputSchema: SelectedMessagesSchema,
       });
 
-      const selectedIds = (response as { message_ids: number[] }).message_ids || [];
+      const selectedIds = (response as unknown as { message_ids: number[] }).message_ids || [];
 
       const selectedMessages = selectedIds
         .filter((idx) => idx >= 0 && idx < this.messages.length)
-        .map((idx) => this.messages[idx]);
+        .map((idx) => this.messages[idx])
+        .filter((m) => m.answer !== null); // Ensure we only return completed messages
 
       // Cache the result
       this.relevantMessagesByQuery.set(cacheKey, selectedMessages);

@@ -1,4 +1,5 @@
 import { buildToolDescriptions } from '../tools/registry.js';
+import { buildSkillMetadataSection, discoverSkills } from '../skills/index.js';
 
 // ============================================================================
 // Helper Functions
@@ -15,6 +16,31 @@ export function getCurrentDate(): string {
     day: 'numeric',
   };
   return new Date().toLocaleDateString('en-US', options);
+}
+
+/**
+ * Build the skills section for the system prompt.
+ * Only includes skill metadata if skills are available.
+ */
+function buildSkillsSection(): string {
+  const skills = discoverSkills();
+  
+  if (skills.length === 0) {
+    return '';
+  }
+
+  const skillList = buildSkillMetadataSection();
+  
+  return `## Available Skills
+
+${skillList}
+
+## Skill Usage Policy
+
+- Check if available skills can help complete the task more effectively
+- When a skill is relevant, invoke it IMMEDIATELY as your first action
+- Skills provide specialized workflows for complex tasks (e.g., DCF valuation)
+- Do not invoke a skill that has already been invoked for the current query`;
 }
 
 // ============================================================================
@@ -90,7 +116,12 @@ ${toolDescriptions}
 - ALWAYS prefer financial_search over web_search for any financial data (prices, metrics, filings, etc.)
 - Call financial_search ONCE with the full natural language query - it handles multi-company/multi-metric requests internally
 - Do NOT break up queries into multiple tool calls when one call can handle the request
-- If a query can be answered from general knowledge, respond directly without using tools
+- Use web_fetch as the DEFAULT for reading any web page content (articles, press releases, investor relations pages)
+- Only use browser when you need JavaScript rendering or interactive navigation (clicking links, filling forms, navigating SPAs)
+- For factual questions about entities (companies, people, organizations), use tools to verify current state
+- Only respond directly for: conceptual definitions, stable historical facts, or conversational queries
+
+${buildSkillsSection()}
 
 ## Behavior
 
@@ -136,19 +167,38 @@ Keep tables compact:
 // ============================================================================
 
 /**
- * Build user prompt for agent iteration with tool summaries (context compaction).
- * Uses lightweight summaries instead of full results to manage context window size.
+ * Build user prompt for agent iteration with full tool results.
+ * Anthropic-style: full results in context for accurate decision-making.
+ * Context clearing happens at threshold, not inline summarization.
+ * 
+ * @param originalQuery - The user's original query
+ * @param fullToolResults - Formatted full tool results (or placeholder for cleared)
+ * @param toolUsageStatus - Optional tool usage status for graceful exit mechanism
  */
 export function buildIterationPrompt(
   originalQuery: string,
-  toolSummaries: string[]
+  fullToolResults: string,
+  toolUsageStatus?: string | null
 ): string {
-  return `Query: ${originalQuery}
+  let prompt = `Query: ${originalQuery}`;
 
-Data retrieved and work completed so far:
-${toolSummaries.join('\n')}
+  if (fullToolResults.trim()) {
+    prompt += `
 
-Review the data above. If you have sufficient information to answer the query, respond directly WITHOUT calling any tools. Only call additional tools if there are specific data gaps that prevent you from answering.`;
+Data retrieved from tool calls:
+${fullToolResults}`;
+  }
+
+  // Add tool usage status if available (graceful exit mechanism)
+  if (toolUsageStatus) {
+    prompt += `\n\n${toolUsageStatus}`;
+  }
+
+  prompt += `
+
+Continue working toward answering the query. If you have gathered actual content (not just links or titles), you may respond. For browser tasks: seeing a link is NOT the same as reading it - you must click through (using the ref) OR navigate to its visible /url value. NEVER guess at URLs - use ONLY URLs visible in snapshots.`;
+
+  return prompt;
 }
 
 // ============================================================================
@@ -171,28 +221,3 @@ ${fullContextData}
 Answer the user's query using this data. Do not ask the user to provide additional data, paste values, or reference JSON/API internals. If data is incomplete, answer with what you have.`;
 }
 
-// ============================================================================
-// Tool Summary Generation
-// ============================================================================
-
-/**
- * Build prompt for LLM-generated tool result summaries.
- * Used for context compaction - the LLM summarizes what it learned from each tool call.
- */
-export function buildToolSummaryPrompt(
-  originalQuery: string,
-  toolName: string,
-  toolArgs: Record<string, unknown>,
-  result: string
-): string {
-  const argsStr = Object.entries(toolArgs).map(([k, v]) => `${k}=${v}`).join(', ');
-  return `Summarize this tool result concisely.
-
-Query: ${originalQuery}
-Tool: ${toolName}(${argsStr})
-Result:
-${result}
-
-Write a 1 sentence summary of what was retrieved. Include specific values (numbers, dates) if relevant.
-Format: "[tool_call] -> [what was learned]"`;
-}

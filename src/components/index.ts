@@ -1,17 +1,16 @@
-export { Intro } from './Intro.js';
-export { Input } from './Input.js';
-export { CursorText } from './CursorText.js';
-export { AnswerBox } from './AnswerBox.js';
-export { ProviderSelector, ModelSelector, PROVIDERS, getModelsForProvider, getDefaultModelForProvider } from './ModelSelector.js';
-export { ApiKeyConfirm, ApiKeyInput } from './ApiKeyPrompt.js';
-export { DebugPanel } from './DebugPanel.js';
-
-// V2 components
-export { EventListView } from './AgentEventView.js';
-export type { DisplayEvent } from './AgentEventView.js';
-
-export { WorkingIndicator } from './WorkingIndicator.js';
-export type { WorkingState } from './WorkingIndicator.js';
-
-export { HistoryItemView } from './HistoryItemView.js';
-export type { HistoryItem } from './HistoryItemView.js';
+export { AnswerBoxComponent } from './answer-box.js';
+export { ApprovalPromptComponent } from './approval-prompt.js';
+export { ChatLogComponent } from './chat-log.js';
+export { DebugPanelComponent } from './debug-panel.js';
+export { CustomEditor } from './custom-editor.js';
+export { IntroComponent } from './intro.js';
+export {
+  ApiKeyInputComponent,
+  createApiKeyConfirmSelector,
+  createApprovalSelector,
+  createModelSelector,
+  createProviderSelector,
+} from './select-list.js';
+export { ToolEventComponent } from './tool-event.js';
+export { UserQueryComponent } from './user-query.js';
+export { WorkingIndicatorComponent } from './working-indicator.js';
