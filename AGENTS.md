@@ -59,7 +59,6 @@
 - `web_search`: general web search (Exa if `EXASEARCH_API_KEY` set, else Tavily if `TAVILY_API_KEY` set).
 - `browser`: Playwright-based web scraping for reading pages the agent discovers.
 - `skill`: invokes SKILL.md-defined workflows (e.g. DCF valuation). Each skill runs at most once per query.
-- **Zerodha Kite** (Indian market): when `KITE_API_KEY` and `KITE_ACCESS_TOKEN` (or `KITE_REQUEST_TOKEN` + `KITE_API_SECRET`) are set: `zerodha_holdings`, `zerodha_positions`, `zerodha_margins`, `zerodha_orders`, `zerodha_instruments`, `zerodha_quote` (read-only), and `zerodha_place_order`, `zerodha_modify_order`, `zerodha_cancel_order` (trading; **require explicit user approval** before each execution).
 - Tool registry: `src/tools/registry.ts`. Tools are conditionally included based on env vars.
 
 ## Skills
@@ -83,7 +82,6 @@
 - Ollama: `OLLAMA_BASE_URL` (default `http://127.0.0.1:11434`)
 - Finance: `FINANCIAL_DATASETS_API_KEY`
 - Search: `EXASEARCH_API_KEY` (preferred), `TAVILY_API_KEY` (fallback)
-- Zerodha Kite (Indian market): `KITE_API_KEY`, `KITE_ACCESS_TOKEN`; or `KITE_REQUEST_TOKEN` + `KITE_API_SECRET` to generate session
 - Tracing: `LANGSMITH_API_KEY`, `LANGSMITH_ENDPOINT`, `LANGSMITH_PROJECT`, `LANGSMITH_TRACING`
 - Never commit `.env` files or real API keys.
 
