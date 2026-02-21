@@ -83,7 +83,10 @@ export function buildCacheKey(
     .replace(/\//g, '_');
 
   // Prefix with ticker when available for human-readable filenames (optional)
-  const ticker = typeof params.ticker === 'string' ? params.ticker.toUpperCase() : null;
+  // Sanitize ticker to prevent path traversal: allow only alphanumeric and hyphens
+  const ticker = typeof params.ticker === 'string' 
+    ? params.ticker.replace(/[^a-zA-Z0-9-]/g, '').toUpperCase() 
+    : null;
   const prefix = ticker ? `${ticker}_` : '';
 
   return `${cleanEndpoint}/${prefix}${hash}.json`;
