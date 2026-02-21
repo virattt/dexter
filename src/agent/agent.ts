@@ -221,13 +221,16 @@ export class Agent {
       return query;
     }
 
-    const userMessages = inMemoryChatHistory.getUserMessages();
-    if (userMessages.length === 0) {
+    const messages = inMemoryChatHistory.getMessages();
+    if (messages.length === 0) {
       return query;
     }
 
-    const historyContext = userMessages.map((msg, i) => `${i + 1}. ${msg}`).join('\n');
-    return `Current query to answer: ${query}\n\nPrevious user queries for context:\n${historyContext}`;
+    // Include both queries and summaries for proper context
+    const historyContext = messages
+      .map((msg, i) => `${i + 1}. User: ${msg.query}\n   Assistant: ${msg.summary}`)
+      .join('\n');
+    return `Current query to answer: ${query}\n\nPrevious conversation for context:\n${historyContext}`;
   }
 
 }

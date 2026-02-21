@@ -53,6 +53,19 @@ export class ModelSelectionController {
     this.chatHistory.setModel(this.modelValue);
   }
 
+  /**
+   * Load conversation history from disk to resume previous session.
+   * Call this after construction to enable session resumption.
+   */
+  async loadHistory(): Promise<void> {
+    try {
+      await this.chatHistory.load();
+    } catch (err) {
+      // Non-critical: app works without history, but log for debugging
+      console.warn('Failed to load conversation history:', err);
+    }
+  }
+
   get state(): ModelSelectionState {
     return {
       appState: this.appStateValue,

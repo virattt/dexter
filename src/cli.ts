@@ -193,6 +193,11 @@ export async function runCli() {
     },
   );
 
+  // Load conversation history to resume previous session
+  modelSelection.loadHistory().then(() => {
+    agentRunner.loadPreviousHistory();
+  });
+
   const intro = new IntroComponent(modelSelection.model);
   const errorText = new Text('', 0, 0);
   const workingIndicator = new WorkingIndicatorComponent(tui);
