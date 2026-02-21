@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
+import { CACHE_TTL_QUARTERLY } from '../../utils/cache.js';
 import { formatToolResult } from '../types.js';
 
 const SegmentedRevenuesInputSchema = z.object({
@@ -27,7 +28,7 @@ export const getSegmentedRevenues = new DynamicStructuredTool({
       period: input.period,
       limit: input.limit,
     };
-    const { data, url } = await callApi('/financials/segmented-revenues/', params);
+    const { data, url } = await callApi('/financials/segmented-revenues/', params, { cacheable: true, cacheTtlMs: CACHE_TTL_QUARTERLY });
     return formatToolResult(data.segmented_revenues || {}, [url]);
   },
 });

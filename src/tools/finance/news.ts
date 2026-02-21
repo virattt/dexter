@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
+import { CACHE_TTL_WEEKLY } from '../../utils/cache.js';
 import { formatToolResult } from '../types.js';
 
 const NewsInputSchema = z.object({
@@ -29,7 +30,7 @@ export const getNews = new DynamicStructuredTool({
       start_date: input.start_date,
       end_date: input.end_date,
     };
-    const { data, url } = await callApi('/news/', params);
+    const { data, url } = await callApi('/news/', params, { cacheable: true, cacheTtlMs: CACHE_TTL_WEEKLY });
     return formatToolResult(data.news || [], [url]);
   },
 });

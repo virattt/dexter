@@ -26,9 +26,26 @@ interface CacheEntry {
   data: Record<string, unknown>;
   url: string;
   cachedAt: string;
+  ttlMs?: number;
 }
 
 const CACHE_DIR = '.dexter/cache';
+
+// ============================================================================
+// TTL constants — aligned to data release cadence
+// ============================================================================
+
+/** 7 days — real-time-ish data: price snapshots, news, crypto snapshots */
+export const CACHE_TTL_WEEKLY = 7 * 24 * 60 * 60 * 1000;
+
+/** 30 days — periodically updated: analyst estimates, company facts */
+export const CACHE_TTL_MONTHLY = 30 * 24 * 60 * 60 * 1000;
+
+/** 90 days — quarterly/immutable: financial statements, SEC filings, insider trades, historical prices */
+export const CACHE_TTL_QUARTERLY = 90 * 24 * 60 * 60 * 1000;
+
+/** Default TTL for entries that don't specify one (backward compat) */
+const CACHE_TTL_DEFAULT = CACHE_TTL_WEEKLY;
 
 // ============================================================================
 // Helpers
@@ -148,6 +165,15 @@ export function readCache(
       return null;
     }
 
+    // Check TTL — use per-entry TTL if stored, otherwise fall back to default
+    const ttl = parsed.ttlMs ?? CACHE_TTL_DEFAULT;
+    const age = Date.now() - new Date(parsed.cachedAt).getTime();
+    if (age > ttl) {
+      logger.warn(`Cache expired (${Math.round(age / 86400000)}d old, ttl ${Math.round(ttl / 86400000)}d): ${label}`, { filepath });
+      removeCacheFile(filepath);
+      return null;
+    }
+
     return { data: parsed.data, url: parsed.url };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -167,7 +193,8 @@ export function writeCache(
   endpoint: string,
   params: Record<string, string | number | string[] | undefined>,
   data: Record<string, unknown>,
-  url: string
+  url: string,
+  ttlMs?: number
 ): void {
   const cacheKey = buildCacheKey(endpoint, params);
   const filepath = join(CACHE_DIR, cacheKey);
@@ -179,6 +206,7 @@ export function writeCache(
     data,
     url,
     cachedAt: new Date().toISOString(),
+    ...(ttlMs !== undefined ? { ttlMs } : {}),
   };
 
   try {

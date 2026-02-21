@@ -11,7 +11,7 @@ export interface ApiResponse {
 export async function callApi(
   endpoint: string,
   params: Record<string, string | number | string[] | undefined>,
-  options?: { cacheable?: boolean }
+  options?: { cacheable?: boolean; cacheTtlMs?: number }
 ): Promise<ApiResponse> {
   const label = describeRequest(endpoint, params);
 
@@ -70,7 +70,7 @@ export async function callApi(
 
   // Persist for future requests when the caller marked the response as cacheable
   if (options?.cacheable) {
-    writeCache(endpoint, params, data, url.toString());
+    writeCache(endpoint, params, data, url.toString(), options.cacheTtlMs);
   }
 
   return { data, url: url.toString() };

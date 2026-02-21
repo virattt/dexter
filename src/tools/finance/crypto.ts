@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
+import { CACHE_TTL_WEEKLY, CACHE_TTL_QUARTERLY } from '../../utils/cache.js';
 import { formatToolResult } from '../types.js';
 
 const CryptoPriceSnapshotInputSchema = z.object({
@@ -17,7 +18,7 @@ export const getCryptoPriceSnapshot = new DynamicStructuredTool({
   schema: CryptoPriceSnapshotInputSchema,
   func: async (input) => {
     const params = { ticker: input.ticker };
-    const { data, url } = await callApi('/crypto/prices/snapshot/', params);
+    const { data, url } = await callApi('/crypto/prices/snapshot/', params, { cacheable: true, cacheTtlMs: CACHE_TTL_WEEKLY });
     return formatToolResult(data.snapshot || {}, [url]);
   },
 });
@@ -56,7 +57,7 @@ export const getCryptoPrices = new DynamicStructuredTool({
     const endDate = new Date(input.end_date + 'T00:00:00');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const { data, url } = await callApi('/crypto/prices/', params, { cacheable: endDate < today });
+    const { data, url } = await callApi('/crypto/prices/', params, { cacheable: endDate < today, cacheTtlMs: CACHE_TTL_QUARTERLY });
     return formatToolResult(data.prices || [], [url]);
   },
 });
