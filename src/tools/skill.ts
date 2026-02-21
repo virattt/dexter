@@ -1,4 +1,5 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
+import { dirname, resolve } from 'path';
 import { z } from 'zod';
 import { getSkill, discoverSkills } from '../skills/index.js';
 
@@ -55,7 +56,18 @@ export const skillTool = new DynamicStructuredTool({
       result += `**Arguments provided:** ${args}\n\n`;
     }
     
-    result += skillDef.instructions;
+    // Resolve relative markdown links to absolute paths so the agent's
+    // read_file tool can find referenced files (e.g., sector-wacc.md).
+    const skillDir = dirname(skillDef.path);
+    const resolved = skillDef.instructions.replace(
+      /\[([^\]]+)\]\(([^)]+\.md)\)/g,
+      (_match, label, relPath) => {
+        if (relPath.startsWith('/') || relPath.startsWith('http')) return _match;
+        return `[${label}](${resolve(skillDir, relPath)})`;
+      },
+    );
+
+    result += resolved;
 
     return result;
   },
