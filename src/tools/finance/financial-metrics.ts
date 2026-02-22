@@ -13,7 +13,7 @@ function formatSubToolName(name: string): string {
 
 // Import fundamental analysis tools directly (avoid circular deps with index.ts)
 import { getIncomeStatements, getBalanceSheets, getCashFlowStatements, getAllFinancialStatements } from './fundamentals.js';
-import { getKeyRatiosSnapshot, getKeyRatios } from './key-ratios.js';
+import { getKeyRatios } from './key-ratios.js';
 
 // Fundamental analysis tools available for routing
 const METRICS_TOOLS: StructuredToolInterface[] = [
@@ -23,7 +23,6 @@ const METRICS_TOOLS: StructuredToolInterface[] = [
   getCashFlowStatements,
   getAllFinancialStatements,
   // Key Ratios
-  getKeyRatiosSnapshot,
   getKeyRatios,
 ];
 
@@ -50,7 +49,6 @@ Given a user's natural language query about financial statements or metrics, cal
    - "YTD" → report_period_gte Jan 1 of current year
 
 3. **Tool Selection**:
-   - For "current" or "latest" metrics → get_key_ratios_snapshot
    - For historical metrics over time → get_key_ratios
    - For revenue, earnings, profitability → get_income_statements
    - For debt, assets, equity, cash position → get_balance_sheets

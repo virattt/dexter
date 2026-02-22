@@ -13,20 +13,15 @@ function formatSubToolName(name: string): string {
 
 // Import all finance tools directly (avoid circular deps with index.ts)
 import { getIncomeStatements, getBalanceSheets, getCashFlowStatements, getAllFinancialStatements } from './fundamentals.js';
-import { getPriceSnapshot, getPrices } from './prices.js';
-import { getKeyRatiosSnapshot, getKeyRatios } from './key-ratios.js';
-import { getNews } from './news.js';
+import { getKeyRatios } from './key-ratios.js';
 import { getAnalystEstimates } from './estimates.js';
 import { getSegmentedRevenues } from './segments.js';
 import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
 import { getInsiderTrades } from './insider_trades.js';
-import { getCompanyFacts } from './company_facts.js';
 
 // All finance tools available for routing
 const FINANCE_TOOLS: StructuredToolInterface[] = [
   // Price Data
-  getPriceSnapshot,
-  getPrices,
   getCryptoPriceSnapshot,
   getCryptoPrices,
   getCryptoTickers,
@@ -36,14 +31,11 @@ const FINANCE_TOOLS: StructuredToolInterface[] = [
   getCashFlowStatements,
   getAllFinancialStatements,
   // Key Ratios & Estimates
-  getKeyRatiosSnapshot,
   getKeyRatios,
   getAnalystEstimates,
   // Other Data
-  getNews,
   getInsiderTrades,
   getSegmentedRevenues,
-  getCompanyFacts,
 ];
 
 // Create a map for quick tool lookup by name
@@ -69,9 +61,8 @@ Given a user's natural language query about financial data, call the appropriate
    - "YTD" → start_date Jan 1 of current year, end_date today
 
 3. **Tool Selection**:
-   - For "current" or "latest" data, use snapshot tools (get_price_snapshot, get_key_ratios_snapshot)
    - For "historical" or "over time" data, use date-range tools
-   - For P/E ratio, market cap, valuation metrics → get_key_ratios_snapshot
+   - For P/E ratio, market cap, valuation metrics → get_key_ratios
    - For revenue, earnings, profitability → get_income_statements
    - For debt, assets, equity → get_balance_sheets
    - For cash flow, free cash flow → get_cash_flow_statements
@@ -98,11 +89,9 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: 'financial_search',
     description: `Intelligent agentic search for financial data. Takes a natural language query and automatically routes to appropriate financial data tools. Use for:
-- Stock prices (current or historical)
 - Company financials (income statements, balance sheets, cash flow)
 - Financial metrics (P/E ratio, market cap, EPS, dividend yield)
 - Analyst estimates and price targets
-- Company news
 - Insider trading activity
 - Cryptocurrency prices`,
     schema: FinancialSearchInputSchema,
