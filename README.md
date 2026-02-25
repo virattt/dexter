@@ -79,6 +79,8 @@ cp env.example .env
 
 # Edit .env and add your API keys (if using cloud providers)
 # OPENAI_API_KEY=your-openai-api-key
+# AZURE_OPENAI_API_KEY=your-azure-openai-api-key (optional)
+# AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com (optional)
 # ANTHROPIC_API_KEY=your-anthropic-api-key (optional)
 # GOOGLE_API_KEY=your-google-api-key (optional)
 # XAI_API_KEY=your-xai-api-key (optional)

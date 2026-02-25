@@ -67,6 +67,12 @@ export const PROVIDERS: ProviderDef[] = [
     fastModel: 'openrouter:openai/gpt-4o-mini',
   },
   {
+    id: 'azure',
+    displayName: 'Azure OpenAI',
+    modelPrefix: 'azure:',
+    apiKeyEnvVar: 'AZURE_OPENAI_API_KEY',
+  },
+  {
     id: 'ollama',
     displayName: 'Ollama',
     modelPrefix: 'ollama:',

@@ -56,7 +56,7 @@ export function getDefaultModelForProvider(providerId: string): string | undefin
 }
 
 export function getModelDisplayName(modelId: string): string {
-  const normalizedId = modelId.replace(/^(ollama|openrouter):/, '');
+  const normalizedId = modelId.replace(/^(ollama|openrouter|azure):/, '');
 
   for (const provider of PROVIDERS) {
     const model = provider.models.find((entry) => entry.id === normalizedId || entry.id === modelId);
