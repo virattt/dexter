@@ -2,8 +2,14 @@
  * LangSmith Evaluation Runner for Dexter
  * 
  * Usage:
- *   bun run src/evals/run.ts              # Run on all questions
- *   bun run src/evals/run.ts --sample 10  # Run on random sample of 10 questions
+ *   bun run src/evals/run.ts                             # Run full default dataset
+ *   bun run src/evals/run.ts --sample 10                 # Run random sample
+ *   bun run src/evals/run.ts --dataset regression        # Run regression dataset
+ *   bun run src/evals/run.ts --dataset ./path/to.csv     # Run custom CSV
+ *
+ * Reliability gate:
+ *   Generated answers must pass deterministic reliability checks
+ *   (no empty responses, tool failure text, raw tool payload leaks).
  */
 
 import 'dotenv/config';
@@ -17,110 +23,15 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { Agent } from '../agent/agent.js';
 import { EvalApp, type EvalProgressEvent } from './components/index.js';
+import { parseCSV, runReliabilityChecks, formatReliabilityIssues } from './core.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Types
-interface Example {
-  inputs: { question: string };
-  outputs: { answer: string };
-}
-
-// ============================================================================
-// CSV Parser - handles multi-line quoted fields
-// ============================================================================
-
-function parseCSV(csvContent: string): Example[] {
-  const examples: Example[] = [];
-  const lines = csvContent.split('\n');
-  
-  let i = 1; // Skip header row
-  
-  while (i < lines.length) {
-    const result = parseRow(lines, i);
-    if (result) {
-      const { row, nextIndex } = result;
-      if (row.length >= 2 && row[0].trim()) {
-        examples.push({
-          inputs: { question: row[0] },
-          outputs: { answer: row[1] }
-        });
-      }
-      i = nextIndex;
-    } else {
-      i++;
-    }
-  }
-  
-  return examples;
-}
-
-function parseRow(lines: string[], startIndex: number): { row: string[]; nextIndex: number } | null {
-  if (startIndex >= lines.length || !lines[startIndex].trim()) {
-    return null;
-  }
-  
-  const fields: string[] = [];
-  let currentField = '';
-  let inQuotes = false;
-  let lineIndex = startIndex;
-  let charIndex = 0;
-  
-  while (lineIndex < lines.length) {
-    const line = lines[lineIndex];
-    
-    while (charIndex < line.length) {
-      const char = line[charIndex];
-      const nextChar = line[charIndex + 1];
-      
-      if (inQuotes) {
-        if (char === '"' && nextChar === '"') {
-          // Escaped quote
-          currentField += '"';
-          charIndex += 2;
-        } else if (char === '"') {
-          // End of quoted field
-          inQuotes = false;
-          charIndex++;
-        } else {
-          currentField += char;
-          charIndex++;
-        }
-      } else {
-        if (char === '"') {
-          // Start of quoted field
-          inQuotes = true;
-          charIndex++;
-        } else if (char === ',') {
-          // End of field
-          fields.push(currentField);
-          currentField = '';
-          charIndex++;
-        } else {
-          currentField += char;
-          charIndex++;
-        }
-      }
-    }
-    
-    if (inQuotes) {
-      // Continue to next line (multi-line field)
-      currentField += '\n';
-      lineIndex++;
-      charIndex = 0;
-    } else {
-      // Row complete
-      fields.push(currentField);
-      return { row: fields, nextIndex: lineIndex + 1 };
-    }
-  }
-  
-  // Handle case where file ends while in quotes
-  if (currentField) {
-    fields.push(currentField);
-  }
-  return { row: fields, nextIndex: lineIndex };
+interface DatasetConfig {
+  datasetPath: string;
+  datasetLabel: string;
 }
 
 // ============================================================================
@@ -151,6 +62,64 @@ async function target(inputs: { question: string }): Promise<{ answer: string }>
   }
   
   return { answer };
+}
+
+// ============================================================================
+// CLI arg helpers
+// ============================================================================
+
+function getArgValue(args: string[], flag: string): string | undefined {
+  const idx = args.indexOf(flag);
+  if (idx === -1 || idx === args.length - 1) {
+    return undefined;
+  }
+  return args[idx + 1];
+}
+
+function parseSampleSize(args: string[]): number | undefined {
+  const raw = getArgValue(args, '--sample');
+  if (!raw) return undefined;
+
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`Invalid --sample value: ${raw}`);
+  }
+  return parsed;
+}
+
+function resolveDatasetConfig(args: string[]): DatasetConfig {
+  const raw = getArgValue(args, '--dataset');
+  const datasetArg = raw?.trim() || 'finance_agent';
+  const datasetDir = path.join(__dirname, 'dataset');
+
+  if (datasetArg === 'finance_agent') {
+    return {
+      datasetPath: path.join(datasetDir, 'finance_agent.csv'),
+      datasetLabel: 'finance_agent',
+    };
+  }
+
+  if (datasetArg === 'regression' || datasetArg === 'finance_agent_regression') {
+    return {
+      datasetPath: path.join(datasetDir, 'finance_agent_regression.csv'),
+      datasetLabel: 'finance_agent_regression',
+    };
+  }
+
+  const isPathLike = datasetArg.endsWith('.csv') || datasetArg.includes('/') || datasetArg.includes('\\');
+  if (isPathLike) {
+    const resolved = path.isAbsolute(datasetArg)
+      ? datasetArg
+      : path.resolve(process.cwd(), datasetArg);
+    return {
+      datasetPath: resolved,
+      datasetLabel: path.basename(resolved, '.csv') || 'custom_dataset',
+    };
+  }
+
+  throw new Error(
+    `Unknown dataset "${datasetArg}". Use finance_agent, regression, or a CSV file path.`
+  );
 }
 
 // ============================================================================
@@ -214,12 +183,16 @@ Evaluate and provide:
 // Evaluation generator - yields progress events for the UI
 // ============================================================================
 
-function createEvaluationRunner(sampleSize?: number) {
+function createEvaluationRunner(sampleSize: number | undefined, dataset: DatasetConfig) {
   return async function* runEvaluation(): AsyncGenerator<EvalProgressEvent, void, unknown> {
     // Load and parse dataset
-    const csvPath = path.join(__dirname, 'dataset', 'finance_agent.csv');
-    const csvContent = fs.readFileSync(csvPath, 'utf-8');
+    const csvContent = fs.readFileSync(dataset.datasetPath, 'utf-8');
     let examples = parseCSV(csvContent);
+
+    if (examples.length === 0) {
+      throw new Error(`Dataset has no examples: ${dataset.datasetPath}`);
+    }
+
     const totalCount = examples.length;
 
     // Apply sampling if requested
@@ -232,30 +205,32 @@ function createEvaluationRunner(sampleSize?: number) {
 
     // Create a unique dataset name for this run (sampling creates different datasets)
     const datasetName = sampleSize 
-      ? `dexter-finance-eval-sample-${sampleSize}-${Date.now()}`
-      : 'dexter-finance-eval';
+      ? `dexter-${dataset.datasetLabel}-sample-${sampleSize}-${Date.now()}`
+      : `dexter-${dataset.datasetLabel}`;
 
     // Yield init event
     yield {
       type: 'init',
       total: examples.length,
-      datasetName: sampleSize ? `finance_agent (sample ${sampleSize}/${totalCount})` : 'finance_agent',
+      datasetName: sampleSize
+        ? `${dataset.datasetLabel} (sample ${sampleSize}/${totalCount})`
+        : dataset.datasetLabel,
     };
 
     // Check if dataset exists (only for full runs)
-    let dataset;
+    let langsmithDataset;
     if (!sampleSize) {
       try {
-        dataset = await client.readDataset({ datasetName });
+        langsmithDataset = await client.readDataset({ datasetName });
       } catch {
         // Dataset doesn't exist, will create
-        dataset = null;
+        langsmithDataset = null;
       }
     }
 
     // Create dataset if needed
-    if (!dataset) {
-      dataset = await client.createDataset(datasetName, {
+    if (!langsmithDataset) {
+      langsmithDataset = await client.createDataset(datasetName, {
         description: sampleSize 
           ? `Finance agent evaluation (sample of ${sampleSize})`
           : 'Finance agent evaluation dataset',
@@ -263,7 +238,7 @@ function createEvaluationRunner(sampleSize?: number) {
 
       // Upload examples
       await client.createExamples({
-        datasetId: dataset.id,
+        datasetId: langsmithDataset.id,
         inputs: examples.map((e) => e.inputs),
         outputs: examples.map((e) => e.outputs),
       });
@@ -287,12 +262,24 @@ function createEvaluationRunner(sampleSize?: number) {
       const outputs = await target(example.inputs);
       const endTime = Date.now();
 
-      // Run the correctness evaluator
-      const evalResult = await correctnessEvaluator({
-        inputs: example.inputs,
-        outputs,
-        referenceOutputs: example.outputs,
-      });
+      // Run reliability checks first; skip judge call on obvious failures
+      const reliability = runReliabilityChecks(outputs.answer);
+
+      let evalResult: EvaluationResult;
+      if (!reliability.passed) {
+        evalResult = {
+          key: 'correctness',
+          score: 0,
+          comment: `Reliability check failed. ${formatReliabilityIssues(reliability.issues)}`,
+        };
+      } else {
+        // Run the correctness evaluator
+        evalResult = await correctnessEvaluator({
+          inputs: example.inputs,
+          outputs,
+          referenceOutputs: example.outputs,
+        });
+      }
 
       // Log to LangSmith for tracking
       await client.createRun({
@@ -309,6 +296,10 @@ function createEvaluationRunner(sampleSize?: number) {
           evaluation: {
             score: evalResult.score,
             comment: evalResult.comment,
+            reliability: {
+              passed: reliability.passed,
+              issues: reliability.issues,
+            },
           },
         },
       });
@@ -337,11 +328,11 @@ function createEvaluationRunner(sampleSize?: number) {
 async function main() {
   // Parse CLI arguments
   const args = process.argv.slice(2);
-  const sampleIndex = args.indexOf('--sample');
-  const sampleSize = sampleIndex !== -1 ? parseInt(args[sampleIndex + 1]) : undefined;
+  const sampleSize = parseSampleSize(args);
+  const dataset = resolveDatasetConfig(args);
 
-  // Create the evaluation runner with the sample size
-  const runEvaluation = createEvaluationRunner(sampleSize);
+  // Create the evaluation runner with selected options
+  const runEvaluation = createEvaluationRunner(sampleSize, dataset);
 
   const tui = new TUI(new ProcessTerminal());
   const evalApp = new EvalApp(tui, runEvaluation);
@@ -357,4 +348,7 @@ async function main() {
   }
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
