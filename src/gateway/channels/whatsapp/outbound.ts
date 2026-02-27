@@ -8,6 +8,10 @@ import { normalizeE164, toWhatsappJid } from '../../utils.js';
 
 function debugLog(msg: string) {
   const logPath = path.join(os.homedir(), '.dexter', 'gateway-debug.log');
+  const dir = path.dirname(logPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
   fs.appendFileSync(logPath, `${new Date().toISOString()} ${msg}\n`);
 }
 

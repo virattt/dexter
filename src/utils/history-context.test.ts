@@ -53,7 +53,7 @@ describe('buildHistoryContext', () => {
     const total = DEFAULT_HISTORY_LIMIT + 5;
 
     for (let i = 0; i < total; i++) {
-      entries.push({ role: 'user', content: `Msg-${i}` });
+      entries.push({ role: 'user', content: `Msg-${String(i).padStart(2, '0')}` });
     }
 
     const context = buildHistoryContext({
@@ -61,13 +61,13 @@ describe('buildHistoryContext', () => {
       currentMessage: 'Current message',
     });
 
-    // Oldest messages beyond the default limit should not appear (use Msg-X to avoid substring collisions)
-    expect(context).not.toContain('Msg-0');
-    expect(context).not.toContain('Msg-1');
+    // Oldest messages beyond the default limit should not appear (zero-pad to avoid substring collisions)
+    expect(context).not.toContain('Msg-00');
+    expect(context).not.toContain('Msg-01');
 
     // Most recent messages should still be present
-    expect(context).toContain(`Msg-${total - 1}`);
-    expect(context).toContain(`Msg-${total - 2}`);
+    expect(context).toContain(`Msg-${String(total - 1).padStart(2, '0')}`);
+    expect(context).toContain(`Msg-${String(total - 2).padStart(2, '0')}`);
   });
 
   test('respects an explicit historyLimit override', () => {
