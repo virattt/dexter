@@ -29,13 +29,14 @@ export interface RegisteredTool {
  * Conditionally includes tools based on environment configuration.
  *
  * @param model - The model name (needed for tools that require model-specific configuration)
+ * @param apiKeys - Optional API keys from the client
  * @returns Array of registered tools
  */
-export function getToolRegistry(model: string): RegisteredTool[] {
+export function getToolRegistry(model: string, apiKeys?: Record<string, string>): RegisteredTool[] {
   const tools: RegisteredTool[] = [
     {
       name: 'financial_search',
-      tool: createFinancialSearch(model),
+      tool: createFinancialSearch(model, apiKeys),
       description: FINANCIAL_SEARCH_DESCRIPTION,
     },
     {
@@ -113,10 +114,11 @@ export function getToolRegistry(model: string): RegisteredTool[] {
  * Get just the tool instances for binding to the LLM.
  *
  * @param model - The model name
+ * @param apiKeys - Optional API keys from the client
  * @returns Array of tool instances
  */
-export function getTools(model: string): StructuredToolInterface[] {
-  return getToolRegistry(model).map((t) => t.tool);
+export function getTools(model: string, apiKeys?: Record<string, string>): StructuredToolInterface[] {
+  return getToolRegistry(model, apiKeys).map((t) => t.tool);
 }
 
 /**

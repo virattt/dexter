@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { config } from 'dotenv';
-import { getProviderById } from '@/providers';
+import { getProviderById } from '../providers.js';
 
 // Load .env on module import
 config({ quiet: true });
@@ -21,20 +21,26 @@ export function checkApiKeyExistsForProvider(providerId: string): boolean {
 
 export function checkApiKeyExists(apiKeyName: string): boolean {
   const value = process.env[apiKeyName];
-  if (value && value.trim() && !value.trim().startsWith('your-')) {
-    return true;
+  if (value && value.trim()) {
+    const trimmed = value.trim().replace(/^["']|["']$/g, '');
+    if (trimmed && !trimmed.startsWith('your-')) {
+      return true;
+    }
   }
 
   // Also check .env file directly
   if (existsSync('.env')) {
     const envContent = readFileSync('.env', 'utf-8');
-    const lines = envContent.split('\n');
+    // Handle both \r\n and \n
+    const lines = envContent.replace(/\r/g, '').split('\n');
     for (const line of lines) {
       const trimmed = line.trim();
       if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
         const [key, ...valueParts] = trimmed.split('=');
         if (key.trim() === apiKeyName) {
-          const val = valueParts.join('=').trim();
+          let val = valueParts.join('=').trim();
+          // Remove potential surrounding quotes
+          val = val.replace(/^["']|["']$/g, '');
           if (val && !val.startsWith('your-')) {
             return true;
           }
@@ -53,7 +59,8 @@ export function saveApiKeyToEnv(apiKeyName: string, apiKeyValue: string): boolea
 
     if (existsSync('.env')) {
       const existingContent = readFileSync('.env', 'utf-8');
-      const existingLines = existingContent.split('\n');
+      // Normalize line endings to avoid \r contamination
+      const existingLines = existingContent.replace(/\r/g, '').split('\n');
 
       for (const line of existingLines) {
         const stripped = line.trim();

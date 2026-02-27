@@ -1,249 +1,136 @@
-import { AIMessage } from '@langchain/core/messages';
+import { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { AIMessage, HumanMessage, SystemMessage, BaseMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
-import { callLlm } from '../model/llm.js';
+import { createLLM } from '../model/llm.js';
 import { getTools } from '../tools/registry.js';
-import { buildSystemPrompt, buildIterationPrompt, loadSoulDocument } from '../agent/prompts.js';
-import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
-import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
-import { buildHistoryContext } from '../utils/history-context.js';
-import { estimateTokens, CONTEXT_THRESHOLD, KEEP_TOOL_USES } from '../utils/tokens.js';
-import { formatUserFacingError, isContextOverflowError } from '../utils/errors.js';
-import type { AgentConfig, AgentEvent, ContextClearedEvent, TokenUsage } from '../agent/types.js';
-import { createRunContext, type RunContext } from './run-context.js';
+import { loadSoulDocument, buildSystemPrompt, buildIterationPrompt } from './prompts.js';
+import { createRunContext } from './run-context.js';
 import { AgentToolExecutor } from './tool-executor.js';
-
-
-const DEFAULT_MODEL = 'gpt-5.2';
-const DEFAULT_MAX_ITERATIONS = 10;
-const MAX_OVERFLOW_RETRIES = 2;
-const OVERFLOW_KEEP_TOOL_USES = 3;
+import type { AgentConfig, AgentEvent } from './types.js';
+import type { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 
 /**
- * The core agent class that handles the agent loop and tool execution.
+ * High-level AI Agent that executes research queries via an iterative loop.
  */
 export class Agent {
-  private readonly model: string;
-  private readonly maxIterations: number;
-  private readonly tools: StructuredToolInterface[];
-  private readonly toolMap: Map<string, StructuredToolInterface>;
-  private readonly toolExecutor: AgentToolExecutor;
-  private readonly systemPrompt: string;
-  private readonly signal?: AbortSignal;
-
   private constructor(
-    config: AgentConfig,
-    tools: StructuredToolInterface[],
-    systemPrompt: string
-  ) {
-    this.model = config.model ?? DEFAULT_MODEL;
-    this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
-    this.tools = tools;
-    this.toolMap = new Map(tools.map(t => [t.name, t]));
-    this.toolExecutor = new AgentToolExecutor(this.toolMap, config.signal, config.requestToolApproval, config.sessionApprovedTools);
-    this.systemPrompt = systemPrompt;
-    this.signal = config.signal;
-  }
+    private readonly llm: BaseChatModel,
+    private readonly toolMap: Map<string, StructuredToolInterface>,
+    private readonly config: AgentConfig
+  ) { }
 
   /**
-   * Create a new Agent instance with tools.
+   * Create a new Agent instance.
    */
   static async create(config: AgentConfig = {}): Promise<Agent> {
-    const model = config.model ?? DEFAULT_MODEL;
-    const tools = getTools(model);
-    const soulContent = await loadSoulDocument();
-    const systemPrompt = buildSystemPrompt(model, soulContent);
-    return new Agent(config, tools, systemPrompt);
+    const model = config.model || process.env.DEFAULT_MODEL || 'gpt-4o';
+    const provider = config.modelProvider || process.env.DEFAULT_PROVIDER || 'openai';
+
+    // Model initialization
+    const llm = createLLM({
+      model,
+      provider,
+      apiKeys: config.apiKeys,
+    });
+
+    // Tool initialization - propagate API keys for tool specialized providers (e.g. Alpha Vantage)
+    const toolList = await getTools(model, config.apiKeys);
+    const toolMap = new Map(toolList.map((t) => [t.name, t]));
+
+    return new Agent(llm, toolMap, config);
   }
 
   /**
-   * Run the agent and yield events for real-time UI updates.
-   * Anthropic-style context management: full tool results during iteration,
-   * with threshold-based clearing of oldest results when context exceeds limit.
+   * Run the agent on a user query, yielding real-time events.
    */
-  async *run(query: string, inMemoryHistory?: InMemoryChatHistory): AsyncGenerator<AgentEvent> {
+  async *run(query: string, history?: InMemoryChatHistory): AsyncGenerator<AgentEvent, void> {
+    const ctx = createRunContext(query);
+    const soulContent = await loadSoulDocument();
+
+    // Build initial system prompt
+    const systemPrompt = buildSystemPrompt(this.config.model || 'gpt-4o', soulContent);
+    const maxIterations = this.config.maxIterations ?? 10;
     const startTime = Date.now();
 
-    if (this.tools.length === 0) {
-      yield { type: 'done', answer: 'No tools available. Please check your API key configuration.', toolCalls: [], iterations: 0, totalTime: Date.now() - startTime };
+    const toolExecutor = new AgentToolExecutor(
+      this.toolMap,
+      this.config.signal,
+      this.config.requestToolApproval,
+      this.config.sessionApprovedTools
+    );
+
+    while (ctx.iteration < maxIterations) {
+      ctx.iteration++;
+
+      // Check for cancellation
+      if (this.config.signal?.aborted) {
+        throw new Error('Agent execution cancelled');
+      }
+
+      // Build context (system + history + tool results)
+      const messages: BaseMessage[] = [
+        new SystemMessage(systemPrompt),
+      ];
+
+      // Inject chat history if available
+      if (history) {
+        for (const turn of history.getRecentTurns()) {
+          if (turn.role === 'user') {
+            messages.push(new HumanMessage(turn.content));
+          } else {
+            messages.push(new AIMessage(turn.content));
+          }
+        }
+      }
+
+      // Add current iteration prompt
+      messages.push(new HumanMessage(buildIterationPrompt(
+        ctx.query,
+        ctx.scratchpad.getToolResults(),
+        ctx.scratchpad.formatToolUsageForPrompt()
+      )));
+
+      yield { type: 'thinking', message: ctx.iteration === 1 ? 'Analyzing query...' : 'Analyzing results...' };
+
+      // Call LLM
+      const response = await this.llm.invoke(messages, { signal: this.config.signal });
+
+      // Handle raw thinking/reasoning if present
+      if (response.content) {
+        const thought = typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
+        ctx.scratchpad.addThinking(thought);
+      }
+
+      // Check for tool calls
+      if (response.tool_calls && response.tool_calls.length > 0) {
+        // Execute all tool calls in the response
+        yield* toolExecutor.executeAll(response, ctx);
+        // Continue to next iteration to process tool results
+        continue;
+      }
+
+      // No tool calls -> work done, final answer reached
+      const totalTime = Date.now() - startTime;
+      const answer = typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
+
+      yield {
+        type: 'done',
+        answer,
+        toolCalls: ctx.scratchpad.getToolCallRecords(),
+        iterations: ctx.iteration,
+        totalTime,
+        tokenUsage: response.additional_kwargs?.tokenUsage as any,
+      };
       return;
     }
 
-    const ctx = createRunContext(query);
-
-    // Build initial prompt with conversation history context
-    let currentPrompt = this.buildInitialPrompt(query, inMemoryHistory);
-
-    // Main agent loop
-    let overflowRetries = 0;
-    while (ctx.iteration < this.maxIterations) {
-      ctx.iteration++;
-
-      let response: AIMessage | string;
-      let usage: TokenUsage | undefined;
-
-      while (true) {
-        try {
-          const result = await this.callModel(currentPrompt);
-          response = result.response;
-          usage = result.usage;
-          overflowRetries = 0;
-          break;
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-
-          if (isContextOverflowError(errorMessage) && overflowRetries < MAX_OVERFLOW_RETRIES) {
-            overflowRetries++;
-            const clearedCount = ctx.scratchpad.clearOldestToolResults(OVERFLOW_KEEP_TOOL_USES);
-
-            if (clearedCount > 0) {
-              yield { type: 'context_cleared', clearedCount, keptCount: OVERFLOW_KEEP_TOOL_USES };
-              currentPrompt = buildIterationPrompt(
-                query,
-                ctx.scratchpad.getToolResults(),
-                ctx.scratchpad.formatToolUsageForPrompt()
-              );
-              continue;
-            }
-          }
-
-          const totalTime = Date.now() - ctx.startTime;
-          yield {
-            type: 'done',
-            answer: `Error: ${formatUserFacingError(errorMessage)}`,
-            toolCalls: ctx.scratchpad.getToolCallRecords(),
-            iterations: ctx.iteration,
-            totalTime,
-            tokenUsage: ctx.tokenCounter.getUsage(),
-            tokensPerSecond: ctx.tokenCounter.getTokensPerSecond(totalTime),
-          };
-          return;
-        }
-      }
-
-      ctx.tokenCounter.add(usage);
-      const responseText = typeof response === 'string' ? response : extractTextContent(response);
-
-      // Emit thinking if there are also tool calls (skip whitespace-only responses)
-      if (responseText?.trim() && typeof response !== 'string' && hasToolCalls(response)) {
-        const trimmedText = responseText.trim();
-        ctx.scratchpad.addThinking(trimmedText);
-        yield { type: 'thinking', message: trimmedText };
-      }
-
-      // No tool calls = final answer is in this response
-      if (typeof response === 'string' || !hasToolCalls(response)) {
-        yield* this.handleDirectResponse(responseText ?? '', ctx);
-        return;
-      }
-
-      // Execute tools and add results to scratchpad (response is AIMessage here)
-      for await (const event of this.toolExecutor.executeAll(response, ctx)) {
-        yield event;
-        if (event.type === 'tool_denied') {
-          const totalTime = Date.now() - ctx.startTime;
-          yield {
-            type: 'done',
-            answer: '',
-            toolCalls: ctx.scratchpad.getToolCallRecords(),
-            iterations: ctx.iteration,
-            totalTime,
-            tokenUsage: ctx.tokenCounter.getUsage(),
-            tokensPerSecond: ctx.tokenCounter.getTokensPerSecond(totalTime),
-          };
-          return;
-        }
-      }
-      yield* this.manageContextThreshold(ctx);
-
-      // Build iteration prompt with full tool results (Anthropic-style)
-      currentPrompt = buildIterationPrompt(
-        query, 
-        ctx.scratchpad.getToolResults(),
-        ctx.scratchpad.formatToolUsageForPrompt()
-      );
-    }
-
-    // Max iterations reached with no final response
-    const totalTime = Date.now() - ctx.startTime;
+    // Hit max iterations without final answer
     yield {
       type: 'done',
-      answer: `Reached maximum iterations (${this.maxIterations}). I was unable to complete the research in the allotted steps.`,
+      answer: "I've reached the maximum number of attempts and couldn't find a final answer. Here is the information I gathered so far: \n\n" + ctx.scratchpad.getToolResults(),
       toolCalls: ctx.scratchpad.getToolCallRecords(),
       iterations: ctx.iteration,
-      totalTime,
-      tokenUsage: ctx.tokenCounter.getUsage(),
-      tokensPerSecond: ctx.tokenCounter.getTokensPerSecond(totalTime),
+      totalTime: Date.now() - startTime,
     };
-  }
-
-  /**
-   * Call the LLM with the current prompt.
-   * @param prompt - The prompt to send to the LLM
-   * @param useTools - Whether to bind tools (default: true). When false, returns string directly.
-   */
-  private async callModel(prompt: string, useTools: boolean = true): Promise<{ response: AIMessage | string; usage?: TokenUsage }> {
-    const result = await callLlm(prompt, {
-      model: this.model,
-      systemPrompt: this.systemPrompt,
-      tools: useTools ? this.tools : undefined,
-      signal: this.signal,
-    });
-    return { response: result.response, usage: result.usage };
-  }
-
-  /**
-   * Emit the response text as the final answer.
-   */
-  private async *handleDirectResponse(
-    responseText: string,
-    ctx: RunContext
-  ): AsyncGenerator<AgentEvent, void> {
-    const totalTime = Date.now() - ctx.startTime;
-    yield {
-      type: 'done',
-      answer: responseText,
-      toolCalls: ctx.scratchpad.getToolCallRecords(),
-      iterations: ctx.iteration,
-      totalTime,
-      tokenUsage: ctx.tokenCounter.getUsage(),
-      tokensPerSecond: ctx.tokenCounter.getTokensPerSecond(totalTime),
-    };
-  }
-
-  /**
-   * Clear oldest tool results if context size exceeds threshold.
-   */
-  private *manageContextThreshold(ctx: RunContext): Generator<ContextClearedEvent, void> {
-    const fullToolResults = ctx.scratchpad.getToolResults();
-    const estimatedContextTokens = estimateTokens(this.systemPrompt + ctx.query + fullToolResults);
-
-    if (estimatedContextTokens > CONTEXT_THRESHOLD) {
-      const clearedCount = ctx.scratchpad.clearOldestToolResults(KEEP_TOOL_USES);
-      if (clearedCount > 0) {
-        yield { type: 'context_cleared', clearedCount, keptCount: KEEP_TOOL_USES };
-      }
-    }
-  }
-
-  /**
-   * Build initial prompt with conversation history context if available
-   */
-  private buildInitialPrompt(
-    query: string,
-    inMemoryChatHistory?: InMemoryChatHistory
-  ): string {
-    if (!inMemoryChatHistory?.hasMessages()) {
-      return query;
-    }
-
-    const recentTurns = inMemoryChatHistory.getRecentTurns();
-    if (recentTurns.length === 0) {
-      return query;
-    }
-
-    return buildHistoryContext({
-      entries: recentTurns,
-      currentMessage: query,
-    });
   }
 }

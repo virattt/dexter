@@ -1,47 +1,33 @@
-import { AIMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatAnthropic } from '@langchain/anthropic';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { ChatOllama } from '@langchain/ollama';
-import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { AIMessage, HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { Runnable } from '@langchain/core/runnables';
 import { z } from 'zod';
-import { DEFAULT_SYSTEM_PROMPT } from '@/agent/prompts';
-import type { TokenUsage } from '@/agent/types';
-import { logger } from '@/utils';
-import { classifyError, isNonRetryableError } from '@/utils/errors';
-import { resolveProvider, getProviderById } from '@/providers';
+import { resolveProvider } from '../providers.js';
+import { DEFAULT_SYSTEM_PROMPT } from '../agent/prompts.js';
+import type { TokenUsage } from '../agent/types.js';
 
 export const DEFAULT_PROVIDER = 'openai';
-export const DEFAULT_MODEL = 'gpt-5.2';
+export const DEFAULT_MODEL = 'gpt-4o-mini';
 
 /**
- * Gets the fast model variant for the given provider.
- * Falls back to the provided model if no fast variant is configured (e.g., Ollama).
+ * Generic retry helper with exponential backoff
  */
-export function getFastModel(modelProvider: string, fallbackModel: string): string {
-  return getProviderById(modelProvider)?.fastModel ?? fallbackModel;
-}
-
-// Generic retry helper with exponential backoff
 async function withRetry<T>(fn: () => Promise<T>, provider: string, maxAttempts = 3): Promise<T> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       return await fn();
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      const errorType = classifyError(message);
-      logger.error(`[${provider} API] ${errorType} error (attempt ${attempt + 1}/${maxAttempts}): ${message}`);
-
-      if (isNonRetryableError(message)) {
-        throw new Error(`[${provider} API] ${message}`);
-      }
+      console.error(`[${provider} API] error (attempt ${attempt + 1}/${maxAttempts}): ${message}`);
 
       if (attempt === maxAttempts - 1) {
-        throw new Error(`[${provider} API] ${message}`);
+        throw e;
       }
       await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
     }
@@ -49,71 +35,63 @@ async function withRetry<T>(fn: () => Promise<T>, provider: string, maxAttempts 
   throw new Error('Unreachable');
 }
 
-// Model provider configuration
-interface ModelOpts {
-  streaming: boolean;
-}
-
-type ModelFactory = (name: string, opts: ModelOpts) => BaseChatModel;
-
-function getApiKey(envVar: string): string {
-  const apiKey = process.env[envVar];
+/**
+ * Get API key from overrides or environment variables.
+ */
+function getApiKey(envVar: string, overrides?: Record<string, string>): string {
+  const apiKey = overrides?.[envVar] || process.env[envVar];
   if (!apiKey) {
-    throw new Error(`[LLM] ${envVar} not found in environment variables`);
+    throw new Error(`[LLM] ${envVar} not found in environment variables or client overrides`);
   }
   return apiKey;
 }
 
-// Factories keyed by provider id — prefix routing is handled by resolveProvider()
-const MODEL_FACTORIES: Record<string, ModelFactory> = {
+/**
+ * Interface for model options
+ */
+interface ModelOpts {
+  streaming: boolean;
+  apiKeys?: Record<string, string>;
+}
+
+/**
+ * Factory functions for and routing to LLM providers
+ */
+const MODEL_FACTORIES: Record<string, (name: string, opts: ModelOpts) => BaseChatModel> = {
+  openai: (name, opts) =>
+    new ChatOpenAI({
+      model: name,
+      ...opts,
+      apiKey: getApiKey('OPENAI_API_KEY', opts.apiKeys),
+    }),
   anthropic: (name, opts) =>
     new ChatAnthropic({
       model: name,
       ...opts,
-      apiKey: getApiKey('ANTHROPIC_API_KEY'),
+      apiKey: getApiKey('ANTHROPIC_API_KEY', opts.apiKeys),
     }),
   google: (name, opts) =>
     new ChatGoogleGenerativeAI({
       model: name,
       ...opts,
-      apiKey: getApiKey('GOOGLE_API_KEY'),
+      apiKey: getApiKey('GOOGLE_API_KEY', opts.apiKeys),
     }),
-  xai: (name, opts) =>
-    new ChatOpenAI({
-      model: name,
+  openrouter: (name, opts) => {
+    // OpenRouter IDs can look like 'openrouter:openai/gpt-4o' or just 'openai/gpt-4o'
+    const modelId = name.replace(/^(openrouter:|openrouter\/)/, '');
+    return new ChatOpenAI({
+      model: modelId,
       ...opts,
-      apiKey: getApiKey('XAI_API_KEY'),
-      configuration: {
-        baseURL: 'https://api.x.ai/v1',
-      },
-    }),
-  openrouter: (name, opts) =>
-    new ChatOpenAI({
-      model: name.replace(/^openrouter:/, ''),
-      ...opts,
-      apiKey: getApiKey('OPENROUTER_API_KEY'),
+      apiKey: getApiKey('OPENROUTER_API_KEY', opts.apiKeys),
       configuration: {
         baseURL: 'https://openrouter.ai/api/v1',
+        defaultHeaders: {
+          'HTTP-Referer': 'https://github.com/virattt/dexter',
+          'X-Title': 'Dexter',
+        },
       },
-    }),
-  moonshot: (name, opts) =>
-    new ChatOpenAI({
-      model: name,
-      ...opts,
-      apiKey: getApiKey('MOONSHOT_API_KEY'),
-      configuration: {
-        baseURL: 'https://api.moonshot.cn/v1',
-      },
-    }),
-  deepseek: (name, opts) =>
-    new ChatOpenAI({
-      model: name,
-      ...opts,
-      apiKey: getApiKey('DEEPSEEK_API_KEY'),
-      configuration: {
-        baseURL: 'https://api.deepseek.com',
-      },
-    }),
+    });
+  },
   ollama: (name, opts) =>
     new ChatOllama({
       model: name.replace(/^ollama:/, ''),
@@ -122,22 +100,37 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
     }),
 };
 
-const DEFAULT_FACTORY: ModelFactory = (name, opts) =>
-  new ChatOpenAI({
-    model: name,
-    ...opts,
-    apiKey: getApiKey('OPENAI_API_KEY'),
-  });
+/**
+ * Creates a LangChain chat model based on the provider and model name.
+ */
+export function createLLM(config: {
+  model?: string;
+  provider?: string;
+  streaming?: boolean;
+  apiKeys?: Record<string, string>;
+}): BaseChatModel {
+  const model = config.model || DEFAULT_MODEL;
 
-export function getChatModel(
-  modelName: string = DEFAULT_MODEL,
-  streaming: boolean = false
-): BaseChatModel {
-  const opts: ModelOpts = { streaming };
-  const provider = resolveProvider(modelName);
-  const factory = MODEL_FACTORIES[provider.id] ?? DEFAULT_FACTORY;
-  return factory(modelName, opts);
+  // Use provided provider, otherwise resolve from model name
+  let providerId = config.provider;
+  if (!providerId) {
+    const providerDef = resolveProvider(model);
+    providerId = providerDef.id;
+  }
+
+  const factory = MODEL_FACTORIES[providerId] || MODEL_FACTORIES.openai;
+
+  return factory(model, {
+    streaming: config.streaming || false,
+    apiKeys: config.apiKeys,
+  });
 }
+
+/**
+ * Backward compatibility aliases
+ */
+export const getChatModel = (modelName?: string, streaming?: boolean, apiKeys?: Record<string, string>) =>
+  createLLM({ model: modelName, streaming, apiKeys });
 
 interface CallLlmOptions {
   model?: string;
@@ -145,6 +138,7 @@ interface CallLlmOptions {
   outputSchema?: z.ZodType<unknown>;
   tools?: StructuredToolInterface[];
   signal?: AbortSignal;
+  apiKeys?: Record<string, string>;
 }
 
 export interface LlmResult {
@@ -152,92 +146,67 @@ export interface LlmResult {
   usage?: TokenUsage;
 }
 
-function extractUsage(result: unknown): TokenUsage | undefined {
+/**
+ * Helper to extract token usage from various provider response formats.
+ */
+function extractUsage(result: any): TokenUsage | undefined {
   if (!result || typeof result !== 'object') return undefined;
-  const msg = result as Record<string, unknown>;
 
-  const usageMetadata = msg.usage_metadata;
-  if (usageMetadata && typeof usageMetadata === 'object') {
-    const u = usageMetadata as Record<string, unknown>;
-    const input = typeof u.input_tokens === 'number' ? u.input_tokens : 0;
-    const output = typeof u.output_tokens === 'number' ? u.output_tokens : 0;
-    const total = typeof u.total_tokens === 'number' ? u.total_tokens : input + output;
-    return { inputTokens: input, outputTokens: output, totalTokens: total };
+  const usageMetadata = result.usage_metadata;
+  if (usageMetadata) {
+    return {
+      inputTokens: usageMetadata.input_tokens || 0,
+      outputTokens: usageMetadata.output_tokens || 0,
+      totalTokens: usageMetadata.total_tokens || (usageMetadata.input_tokens + usageMetadata.output_tokens) || 0,
+    };
   }
 
-  const responseMetadata = msg.response_metadata;
-  if (responseMetadata && typeof responseMetadata === 'object') {
-    const rm = responseMetadata as Record<string, unknown>;
-    if (rm.usage && typeof rm.usage === 'object') {
-      const u = rm.usage as Record<string, unknown>;
-      const input = typeof u.prompt_tokens === 'number' ? u.prompt_tokens : 0;
-      const output = typeof u.completion_tokens === 'number' ? u.completion_tokens : 0;
-      const total = typeof u.total_tokens === 'number' ? u.total_tokens : input + output;
-      return { inputTokens: input, outputTokens: output, totalTokens: total };
-    }
+  const responseMetadata = result.response_metadata;
+  if (responseMetadata?.usage) {
+    const u = responseMetadata.usage;
+    return {
+      inputTokens: u.prompt_tokens || 0,
+      outputTokens: u.completion_tokens || 0,
+      totalTokens: u.total_tokens || (u.prompt_tokens + u.completion_tokens) || 0,
+    };
   }
 
   return undefined;
 }
 
 /**
- * Build messages with Anthropic cache_control on the system prompt.
- * Marks the system prompt as ephemeral so Anthropic caches the prefix,
- * reducing input token costs by ~90% on subsequent calls.
+ * High-level helper to call an LLM with optional schema or tools.
  */
-function buildAnthropicMessages(systemPrompt: string, userPrompt: string) {
-  return [
-    new SystemMessage({
-      content: [
-        {
-          type: 'text' as const,
-          text: systemPrompt,
-          cache_control: { type: 'ephemeral' },
-        },
-      ],
-    }),
-    new HumanMessage(userPrompt),
-  ];
-}
-
 export async function callLlm(prompt: string, options: CallLlmOptions = {}): Promise<LlmResult> {
-  const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools, signal } = options;
-  const finalSystemPrompt = systemPrompt || DEFAULT_SYSTEM_PROMPT;
+  const { model = DEFAULT_MODEL, systemPrompt = DEFAULT_SYSTEM_PROMPT, outputSchema, tools, signal, apiKeys } = options;
 
-  const llm = getChatModel(model, false);
+  const llm = createLLM({ model, apiKeys });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let runnable: Runnable<any, any> = llm;
-
   if (outputSchema) {
-    runnable = llm.withStructuredOutput(outputSchema, { strict: false });
+    runnable = llm.withStructuredOutput(outputSchema);
   } else if (tools && tools.length > 0 && llm.bindTools) {
     runnable = llm.bindTools(tools);
   }
 
-  const invokeOpts = signal ? { signal } : undefined;
-  const provider = resolveProvider(model);
-  let result;
+  const promptTemplate = ChatPromptTemplate.fromMessages([
+    ['system', systemPrompt],
+    ['user', '{prompt}'],
+  ]);
 
-  if (provider.id === 'anthropic') {
-    // Anthropic: use explicit messages with cache_control for prompt caching (~90% savings)
-    const messages = buildAnthropicMessages(finalSystemPrompt, prompt);
-    result = await withRetry(() => runnable.invoke(messages, invokeOpts), provider.displayName);
-  } else {
-    // Other providers: use ChatPromptTemplate (OpenAI/Gemini have automatic caching)
-    const promptTemplate = ChatPromptTemplate.fromMessages([
-      ['system', finalSystemPrompt],
-      ['user', '{prompt}'],
-    ]);
-    const chain = promptTemplate.pipe(runnable);
-    result = await withRetry(() => chain.invoke({ prompt }, invokeOpts), provider.displayName);
-  }
+  const chain = promptTemplate.pipe(runnable);
+  const provider = resolveProvider(model);
+
+  const result = await withRetry(
+    () => chain.invoke({ prompt }, { signal }),
+    provider.displayName
+  );
+
   const usage = extractUsage(result);
 
-  // If no outputSchema and no tools, extract content from AIMessage
-  // When tools are provided, return the full AIMessage to preserve tool_calls
   if (!outputSchema && !tools && result && typeof result === 'object' && 'content' in result) {
-    return { response: (result as { content: string }).content, usage };
+    return { response: result.content as string, usage };
   }
+
   return { response: result as AIMessage, usage };
 }

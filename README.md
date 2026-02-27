@@ -38,7 +38,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 - [Bun](https://bun.com) runtime (v1.0 or higher)
 - OpenAI API key (get [here](https://platform.openai.com/api-keys))
 - Financial Datasets API key (get [here](https://financialdatasets.ai))
-- Exa API key (get [here](https://exa.ai)) - optional, for web search
+- Tavily API key (get [here](https://tavily.com)) - optional, for web search
 
 #### Installing Bun
 
@@ -78,6 +78,7 @@ bun install
 cp env.example .env
 
 # Edit .env and add your API keys (if using cloud providers)
+# OPENROUTER_API_KEY=your-openrouter-key
 # OPENAI_API_KEY=your-openai-api-key
 # ANTHROPIC_API_KEY=your-anthropic-api-key (optional)
 # GOOGLE_API_KEY=your-google-api-key (optional)
@@ -90,81 +91,28 @@ cp env.example .env
 # (Optional) If using Ollama locally
 # OLLAMA_BASE_URL=http://127.0.0.1:11434
 
-# Web Search (Exa preferred, Tavily fallback)
-# EXASEARCH_API_KEY=your-exa-api-key
+# Other required keys
+# FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
 # TAVILY_API_KEY=your-tavily-api-key
 ```
 
 ## 🚀 How to Run
 
+#### CLI Mode
 Run Dexter in interactive mode:
 ```bash
 bun start
 ```
 
-Or with watch mode for development:
+#### Web UI Mode
+Dexter features a beautiful, real-time web interface.
+
+1. Start the server:
 ```bash
-bun dev
+bun run src/server.ts
 ```
-
-## 📊 How to Evaluate
-
-Dexter includes an evaluation suite that tests the agent against a dataset of financial questions. Evals use LangSmith for tracking and an LLM-as-judge approach for scoring correctness.
-
-**Run on all questions:**
-```bash
-bun run src/evals/run.ts
-```
-
-**Run on a random sample of data:**
-```bash
-bun run src/evals/run.ts --sample 10
-```
-
-The eval runner displays a real-time UI showing progress, current question, and running accuracy statistics. Results are logged to LangSmith for analysis.
-
-## 🐛 How to Debug
-
-Dexter logs all tool calls to a scratchpad file for debugging and history tracking. Each query creates a new JSONL file in `.dexter/scratchpad/`.
-
-**Scratchpad location:**
-```
-.dexter/scratchpad/
-├── 2026-01-30-111400_9a8f10723f79.jsonl
-├── 2026-01-30-143022_a1b2c3d4e5f6.jsonl
-└── ...
-```
-
-Each file contains newline-delimited JSON entries tracking:
-- **init**: The original query
-- **tool_result**: Each tool call with arguments, raw result, and LLM summary
-- **thinking**: Agent reasoning steps
-
-**Example scratchpad entry:**
-```json
-{"type":"tool_result","timestamp":"2026-01-30T11:14:05.123Z","toolName":"get_income_statements","args":{"ticker":"AAPL","period":"annual","limit":5},"result":{...},"llmSummary":"Retrieved 5 years of Apple annual income statements showing revenue growth from $274B to $394B"}
-```
-
-This makes it easy to inspect exactly what data the agent gathered and how it interpreted results.
-
-## 📱 How to Use with WhatsApp
-
-Chat with Dexter through WhatsApp by linking your phone to the gateway. Messages you send to yourself are processed by Dexter and responses are sent back to the same chat.
-
-**Quick start:**
-```bash
-# Link your WhatsApp account (scan QR code)
-bun run gateway:login
-
-# Start the gateway
-bun run gateway
-```
-
-Then open WhatsApp, go to your own chat (message yourself), and ask Dexter a question.
-
-For detailed setup instructions, configuration options, and troubleshooting, see the [WhatsApp Gateway README](src/gateway/channels/whatsapp/README.md).
-
-## 🤝 How to Contribute
+Tip: use deepseek/deepseek-chat for best results
+## How to Contribute
 
 1. Fork the repository
 2. Create a feature branch

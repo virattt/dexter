@@ -1,0 +1,13 @@
+================================================
+   DEXTER DIRECT MODE (Bypassing LLM Router)    
+================================================
+🔍 Fetching Price for TATA MOTORS (TATAMOTORS.BSE) via Alpha Vantage...
+RESULT: {"data":{"error":"No data found for TATAMOTORS.BSE. check validity."}}
+
+🔍 Fetching Fundamentals for TATA MOTORS via Alpha Vantage...
+RESULT: {"data":{"Information":"Thank you for using Alpha Vantage! Please consider spreading out your free API requests more sparingly (1 request per second). You may subscribe to any of the premium plans at https://www.alphavantage.co/premium/ to lift the free key rate limit (25 requests per day), raise the per-second burst limit, and instantly unlock all premium endpoints"},"sourceUrls":["https://www.alphavantage.co"]}
+
+🔍 Checking Yahoo Finance (Fallback) for HDFC BANK...
+Yahoo Output: {"data":{"symbol":"HDFCBANK.NS","price":911,"currency":"INR","exchange":"NSI","open":920,"high":926.1,"low":909.25,"previousClose":918.7,"volume":19220763,"marketCap":14017371308032,"timestamp":"2026-01-23T08:20:47.498Z"},"sourceUrls":["https://finance.yahoo.com/quote/HDFCBANK.NS"]}
+
+================================================

@@ -22,35 +22,35 @@ export const PROVIDERS: ProviderDef[] = [
     displayName: 'OpenAI',
     modelPrefix: '',
     apiKeyEnvVar: 'OPENAI_API_KEY',
-    fastModel: 'gpt-4.1',
+    fastModel: 'gpt-4o-mini',
   },
   {
     id: 'anthropic',
     displayName: 'Anthropic',
     modelPrefix: 'claude-',
     apiKeyEnvVar: 'ANTHROPIC_API_KEY',
-    fastModel: 'claude-haiku-4-5',
+    fastModel: 'claude-3-5-haiku-latest',
   },
   {
     id: 'google',
     displayName: 'Google',
     modelPrefix: 'gemini-',
     apiKeyEnvVar: 'GOOGLE_API_KEY',
-    fastModel: 'gemini-3-flash-preview',
+    fastModel: 'gemini-1.5-flash-latest',
   },
   {
     id: 'xai',
     displayName: 'xAI',
     modelPrefix: 'grok-',
     apiKeyEnvVar: 'XAI_API_KEY',
-    fastModel: 'grok-4-1-fast-reasoning',
+    fastModel: 'grok-beta',
   },
   {
     id: 'moonshot',
     displayName: 'Moonshot',
     modelPrefix: 'kimi-',
     apiKeyEnvVar: 'MOONSHOT_API_KEY',
-    fastModel: 'kimi-k2-5',
+    fastModel: 'moonshot-v1-8k',
   },
   {
     id: 'deepseek',
@@ -64,7 +64,7 @@ export const PROVIDERS: ProviderDef[] = [
     displayName: 'OpenRouter',
     modelPrefix: 'openrouter:',
     apiKeyEnvVar: 'OPENROUTER_API_KEY',
-    fastModel: 'openrouter:openai/gpt-4o-mini',
+    fastModel: 'openai/gpt-4o-mini',
   },
   {
     id: 'ollama',
@@ -81,8 +81,16 @@ const defaultProvider = PROVIDERS.find((p) => p.id === 'openai')!;
  */
 export function resolveProvider(modelName: string): ProviderDef {
   return (
-    PROVIDERS.find((p) => p.modelPrefix && modelName.startsWith(p.modelPrefix)) ??
-    defaultProvider
+    PROVIDERS.find((p) => {
+      if (!p.modelPrefix) return false;
+      // Handle prefixes with both : and / (e.g., 'openrouter:' and 'openrouter/')
+      const normalizedPrefix = p.modelPrefix.endsWith(':')
+        ? p.modelPrefix.slice(0, -1)
+        : p.modelPrefix;
+
+      return modelName.startsWith(`${normalizedPrefix}:`) ||
+        modelName.startsWith(`${normalizedPrefix}/`);
+    }) ?? defaultProvider
   );
 }
 

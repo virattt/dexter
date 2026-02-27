@@ -1,0 +1,11 @@
+--- DEBUG START ---
+
+1. Testing IBM (US Control)
+IBM Result: {"data":{"symbol":"IBM","price":294.67,"open":299.42,"high":300.925,"low":293.5321,"volume":3630464,"latestTradingDay":"2026-01-22","previousClose":297.54,"change":-2.87,"changePercent":"-0.9646%"},"sourceUrls":["https://www.alphavantage.co"]}
+
+2. Testing RELIANCE.BSE
+RELIANCE.BSE Result: {"data":{"symbol":"RELIANCE.BSE","price":1401.8,"open":1410.2,"high":1419.75,"low":1395.1,"volume":712993,"latestTradingDay":"2026-01-22","previousClose":1403.9,"change":-2.1,"changePercent":"-0.1496%"},"sourceUrls":["https://www.alphavantage.co"]}
+
+3. Testing RELIANCE.NSE
+RELIANCE.NSE Result: {"data":{"error":"No data found for RELIANCE.NSE. check validity."}}
+--- DEBUG END ---

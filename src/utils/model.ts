@@ -13,22 +13,26 @@ interface Provider {
 
 const PROVIDER_MODELS: Record<string, Model[]> = {
   openai: [
-    { id: 'gpt-5.2', displayName: 'GPT 5.2' },
-    { id: 'gpt-4.1', displayName: 'GPT 4.1' },
+    { id: 'gpt-4o', displayName: 'GPT-4o' },
+    { id: 'gpt-4o-mini', displayName: 'GPT-4o Mini' },
+    { id: 'o1-preview', displayName: 'O1 Preview' },
+    { id: 'o1-mini', displayName: 'O1 Mini' },
   ],
   anthropic: [
-    { id: 'claude-sonnet-4-6', displayName: 'Sonnet 4.6' },
-    { id: 'claude-opus-4-6', displayName: 'Opus 4.6' },
+    { id: 'claude-3-5-sonnet-latest', displayName: 'Claude 3.5 Sonnet' },
+    { id: 'claude-3-5-haiku-latest', displayName: 'Claude 3.5 Haiku' },
+    { id: 'claude-3-opus-latest', displayName: 'Claude 3 Opus' },
   ],
   google: [
-    { id: 'gemini-3-flash-preview', displayName: 'Gemini 3 Flash' },
-    { id: 'gemini-3-pro-preview', displayName: 'Gemini 3 Pro' },
+    { id: 'gemini-1.5-pro-latest', displayName: 'Gemini 1.5 Pro' },
+    { id: 'gemini-1.5-flash-latest', displayName: 'Gemini 1.5 Flash' },
+    { id: 'gemini-2.0-flash-exp', displayName: 'Gemini 2.0 Flash (Exp)' },
   ],
   xai: [
-    { id: 'grok-4-0709', displayName: 'Grok 4' },
-    { id: 'grok-4-1-fast-reasoning', displayName: 'Grok 4.1 Fast Reasoning' },
+    { id: 'grok-beta', displayName: 'Grok Beta' },
+    { id: 'grok-vision-beta', displayName: 'Grok Vision Beta' },
   ],
-  moonshot: [{ id: 'kimi-k2-5', displayName: 'Kimi K2.5' }],
+  moonshot: [{ id: 'moonshot-v1-8k', displayName: 'Moonshot V1 8K' }],
   deepseek: [
     { id: 'deepseek-chat', displayName: 'DeepSeek V3' },
     { id: 'deepseek-reasoner', displayName: 'DeepSeek R1' },

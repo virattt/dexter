@@ -7,6 +7,7 @@ export { getStockPrice, STOCK_PRICE_DESCRIPTION } from './stock-price.js';
 export { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
 export { getInsiderTrades } from './insider_trades.js';
 export { createFinancialSearch } from './financial-search.js';
+export { getYahooPriceSnapshot, getYahooFundamentals, getYahooNews } from './yahoo.js';
+export { getAlphaVantagePriceSnapshot, getAlphaVantageOverview } from './alpha_vantage.js';
 export { createFinancialMetrics } from './financial-metrics.js';
 export { createReadFilings } from './read-filings.js';
-
