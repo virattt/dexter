@@ -76,7 +76,7 @@ export const PROVIDERS: ProviderDef[] = [
     displayName: 'Novita AI',
     modelPrefix: 'novita:',
     apiKeyEnvVar: 'NOVITA_API_KEY',
-    fastModel: 'novita:deepseek-ai/DeepSeek-V3',
+    fastModel: 'novita:deepseek/deepseek-v3.2',
   },
 ];
 

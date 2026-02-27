@@ -33,6 +33,11 @@ const PROVIDER_MODELS: Record<string, Model[]> = {
     { id: 'deepseek-chat', displayName: 'DeepSeek V3' },
     { id: 'deepseek-reasoner', displayName: 'DeepSeek R1' },
   ],
+  novita: [
+    { id: 'novita:deepseek/deepseek-v3.2', displayName: 'DeepSeek V3.2 (Novita)' },
+    { id: 'novita:minimax/minimax-m2.5', displayName: 'MiniMax M2.5 (Novita)' },
+    { id: 'novita:zai-org/glm-5', displayName: 'GLM-5 (Novita)' },
+  ],
 };
 
 export const PROVIDERS: Provider[] = PROVIDER_DEFS.map((provider) => ({
