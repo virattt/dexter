@@ -8,18 +8,38 @@ export interface HistoryEntry {
   content: string;
 }
 
-export function buildHistoryContext(params: {
+export interface BuildHistoryContextParams {
   entries: HistoryEntry[];
   currentMessage: string;
+  /**
+   * Line break separator to use between lines.
+   * Defaults to '\n'.
+   */
   lineBreak?: string;
-}): string {
+  /**
+   * Maximum number of history entries to include.
+   * If omitted, DEFAULT_HISTORY_LIMIT is used.
+   * If <= 0, all entries are included.
+   */
+  historyLimit?: number;
+}
+
+export function buildHistoryContext(params: BuildHistoryContextParams): string {
   const lineBreak = params.lineBreak ?? '\n';
-  if (params.entries.length === 0) {
+  const effectiveLimit =
+    typeof params.historyLimit === 'number' ? params.historyLimit : DEFAULT_HISTORY_LIMIT;
+
+  const entriesToUse =
+    effectiveLimit > 0 && params.entries.length > effectiveLimit
+      ? params.entries.slice(-effectiveLimit)
+      : params.entries;
+
+  if (entriesToUse.length === 0) {
     return params.currentMessage;
   }
 
-  const historyText = params.entries
-    .map(entry => `${entry.role === 'user' ? 'User' : 'Assistant'}: ${entry.content}`)
+  const historyText = entriesToUse
+    .map((entry) => `${entry.role === 'user' ? 'User' : 'Assistant'}: ${entry.content}`)
     .join(`${lineBreak}${lineBreak}`);
 
   return [
