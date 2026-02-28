@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  dexter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dexter-finance-agent
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/node_modules
+    working_dir: /app
+    command: ["bun", "run", "dev"]
+    stdin_open: true
+    tty: true
+    restart: unless-stopped

@@ -1,0 +1,39 @@
+# Multi-stage build for Dexter Finance Agent
+FROM oven/bun:1.1 AS base
+
+WORKDIR /app
+
+# Install dependencies
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile --production=false
+
+# Copy source code
+COPY . .
+
+# Build TypeScript
+RUN bun run build
+
+# Production stage
+FROM oven/bun:1.1 AS production
+
+WORKDIR /app
+
+# Install production dependencies only
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile --production
+
+# Copy built files
+COPY --from=base /app/dist ./dist
+COPY --from=base /app/src ./src
+
+# Set environment
+ENV NODE_ENV=production
+
+# Run as non-root user
+RUN addgroup -g 1001 -S bun && \
+    adduser -S bun -u 1001 && \
+    chown -R bun:bun /app
+USER bun
+
+# Default command
+CMD ["bun", "run", "start"]

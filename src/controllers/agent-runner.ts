@@ -1,3 +1,4 @@
+import { initializeProviders } from '../tools/registry.js';
 import { Agent } from '../agent/agent.js';
 import type { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import type {
@@ -26,6 +27,7 @@ export class AgentRunnerController {
   private abortController: AbortController | null = null;
   private approvalResolve: ((decision: ApprovalDecision) => void) | null = null;
   private sessionApprovedTools = new Set<string>();
+  private providersInitialized = false;
 
   constructor(
     agentConfig: AgentConfig,
@@ -70,10 +72,12 @@ export class AgentRunnerController {
     }
     this.approvalResolve(decision);
     this.approvalResolve = null;
-    this.pendingApprovalValue = null;
-    if (decision !== 'deny') {
-      this.workingStateValue = { status: 'thinking' };
+    // Add to session-approved tools if allowed (before clearing pendingApprovalValue)
+    if (decision === 'allow-session' && this.pendingApprovalValue?.tool) {
+      this.sessionApprovedTools.add(this.pendingApprovalValue.tool);
     }
+    this.pendingApprovalValue = null;
+    this.workingStateValue = { status: 'thinking' };
     this.emitChange();
   }
 
@@ -93,6 +97,12 @@ export class AgentRunnerController {
   }
 
   async runQuery(query: string): Promise<RunQueryResult | undefined> {
+    // Initialize providers on first query
+    if (!this.providersInitialized) {
+      await initializeProviders();
+      this.providersInitialized = true;
+    }
+
     this.abortController = new AbortController();
     let finalAnswer: string | undefined;
 

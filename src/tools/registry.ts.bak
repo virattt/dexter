@@ -11,8 +11,6 @@ import { FINANCIAL_SEARCH_DESCRIPTION } from './finance/financial-search.js';
 import { FINANCIAL_METRICS_DESCRIPTION } from './finance/financial-metrics.js';
 import { READ_FILINGS_DESCRIPTION } from './finance/read-filings.js';
 import { discoverSkills } from '../skills/index.js';
-import { providerRegistry } from './finance/providers/index.js';
-import { logger } from '@/utils';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -24,20 +22,6 @@ export interface RegisteredTool {
   tool: StructuredToolInterface;
   /** Rich description for system prompt (includes when to use, when not to use, etc.) */
   description: string;
-}
-
-/**
- * Initialize the provider registry.
- * This should be called during application startup.
- */
-export async function initializeProviders(): Promise<void> {
-  try {
-    await providerRegistry.initialize();
-    const available = providerRegistry.getAvailableProviders();
-    logger.info(`Initialized ${available.length} providers:`, available.map(p => p.config.id).join(', '));
-  } catch (error) {
-    logger.warn('Failed to initialize provider registry:', error instanceof Error ? error.message : String(error));
-  }
 }
 
 /**
