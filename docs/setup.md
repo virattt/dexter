@@ -96,28 +96,51 @@ bun run tools:test:providers
 
 ### Option 2: Docker Compose
 
-#### 1. Create docker-compose.yml (if not exists)
-
-The Provider Abstraction Layer runs within the existing Dexter container. No additional services required.
-
-#### 2. Configure Environment
+#### 1. Build and Start Container
 
 ```bash
-# Create .env file with credentials (see Option 1)
-cp .env.example .env
+# Navigate to project directory
+cd ~/Projects/dexter
+
+# Build the Docker image
+docker build -t dexter-finance-agent .
+
+# Start the container
+docker compose up -d
 ```
 
-#### 3. Run with Docker
+#### 2. Verify Deployment
 
 ```bash
-# Build and start container
-docker-compose up -d
+# Check container status
+docker ps | grep dexter
 
 # View logs
-docker-compose logs -f dexter
+docker compose logs -f dexter
 
-# Test inside container
-docker-compose exec dexter bun run tools:test:stock-price --ticker RELIANCE
+# Test provider integration
+docker compose exec dexter bun run tools:test:providers
+```
+
+#### 3. Test Stock Price with Provider Routing
+
+```bash
+# Test with automatic routing (Indian market)
+docker compose exec dexter bun run tools:test:stock-price --ticker RELIANCE --exchange NSE
+
+# Test with specific provider
+docker compose exec dexter bun run tools:test:stock-price --ticker AAPL --provider yahoo
+```
+
+#### 4. Stop Container
+
+```bash
+# Stop the container
+docker compose down
+
+# Stop and remove volumes
+docker compose down -v
+```
 ```
 
 ---

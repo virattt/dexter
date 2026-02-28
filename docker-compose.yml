@@ -12,7 +12,5 @@ services:
       - .:/app
       - /app/node_modules
     working_dir: /app
-    command: ["bun", "run", "dev"]
-    stdin_open: true
-    tty: true
+    command: ["bun", "run", "start"]
     restart: unless-stopped
