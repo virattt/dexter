@@ -16,7 +16,8 @@ export const getCryptoPriceSnapshot = new DynamicStructuredTool({
   description: `Fetches the most recent price snapshot for a specific cryptocurrency, including the latest price, trading volume, and other open, high, low, and close price data. Ticker format: use 'CRYPTO-USD' for USD prices (e.g., 'BTC-USD') or 'CRYPTO-CRYPTO' for crypto-to-crypto prices (e.g., 'BTC-ETH' for Bitcoin priced in Ethereum).`,
   schema: CryptoPriceSnapshotInputSchema,
   func: async (input) => {
-    const params = { ticker: input.ticker };
+    const parsedInput = CryptoPriceSnapshotInputSchema.parse(input);
+    const params = { ticker: parsedInput.ticker };
     const { data, url } = await callApi('/crypto/prices/snapshot/', params);
     return formatToolResult(data.snapshot || {}, [url]);
   },
@@ -45,15 +46,16 @@ export const getCryptoPrices = new DynamicStructuredTool({
   description: `Retrieves historical price data for a cryptocurrency over a specified date range, including open, high, low, close prices, and volume. Ticker format: use 'CRYPTO-USD' for USD prices (e.g., 'BTC-USD') or 'CRYPTO-CRYPTO' for crypto-to-crypto prices (e.g., 'BTC-ETH' for Bitcoin priced in Ethereum).`,
   schema: CryptoPricesInputSchema,
   func: async (input) => {
+    const parsedInput = CryptoPricesInputSchema.parse(input);
     const params = {
-      ticker: input.ticker,
-      interval: input.interval,
-      interval_multiplier: input.interval_multiplier,
-      start_date: input.start_date,
-      end_date: input.end_date,
+      ticker: parsedInput.ticker,
+      interval: parsedInput.interval,
+      interval_multiplier: parsedInput.interval_multiplier,
+      start_date: parsedInput.start_date,
+      end_date: parsedInput.end_date,
     };
     // Cache when the date window is fully closed (OHLCV data is final)
-    const endDate = new Date(input.end_date + 'T00:00:00');
+    const endDate = new Date(parsedInput.end_date + 'T00:00:00');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const { data, url } = await callApi('/crypto/prices/', params, { cacheable: endDate < today });

@@ -61,7 +61,8 @@ export const getIncomeStatements = new DynamicStructuredTool({
   description: `Fetches a company's income statements, detailing its revenues, expenses, net income, etc. over a reporting period. Useful for evaluating a company's profitability and operational efficiency.`,
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
-    const params = createParams(input);
+    const parsedInput = FinancialStatementsInputSchema.parse(input);
+    const params = createParams(parsedInput);
     const { data, url } = await callApi('/financials/income-statements/', params);
     return formatToolResult(
       stripFieldsDeep(data.income_statements || {}, REDUNDANT_FINANCIAL_FIELDS),
@@ -75,7 +76,8 @@ export const getBalanceSheets = new DynamicStructuredTool({
   description: `Retrieves a company's balance sheets, providing a snapshot of its assets, liabilities, shareholders' equity, etc. at a specific point in time. Useful for assessing a company's financial position.`,
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
-    const params = createParams(input);
+    const parsedInput = FinancialStatementsInputSchema.parse(input);
+    const params = createParams(parsedInput);
     const { data, url } = await callApi('/financials/balance-sheets/', params);
     return formatToolResult(
       stripFieldsDeep(data.balance_sheets || {}, REDUNDANT_FINANCIAL_FIELDS),
@@ -89,7 +91,8 @@ export const getCashFlowStatements = new DynamicStructuredTool({
   description: `Retrieves a company's cash flow statements, showing how cash is generated and used across operating, investing, and financing activities. Useful for understanding a company's liquidity and solvency.`,
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
-    const params = createParams(input);
+    const parsedInput = FinancialStatementsInputSchema.parse(input);
+    const params = createParams(parsedInput);
     const { data, url } = await callApi('/financials/cash-flow-statements/', params);
     return formatToolResult(
       stripFieldsDeep(data.cash_flow_statements || {}, REDUNDANT_FINANCIAL_FIELDS),
@@ -103,7 +106,8 @@ export const getAllFinancialStatements = new DynamicStructuredTool({
   description: `Retrieves all three financial statements (income statements, balance sheets, and cash flow statements) for a company in a single API call. This is more efficient than calling each statement type separately when you need all three for comprehensive financial analysis.`,
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
-    const params = createParams(input);
+    const parsedInput = FinancialStatementsInputSchema.parse(input);
+    const params = createParams(parsedInput);
     const { data, url } = await callApi('/financials/', params);
     return formatToolResult(
       stripFieldsDeep(data.financials || {}, REDUNDANT_FINANCIAL_FIELDS),

@@ -30,6 +30,11 @@ Execute a skill to get specialized instructions for complex tasks.
 - Pass any relevant arguments (like ticker symbols) via the args parameter
 `.trim();
 
+const skillInputSchema = z.object({
+  skill: z.string().describe('Name of the skill to invoke (e.g., "dcf")'),
+  args: z.string().optional().describe('Optional arguments for the skill (e.g., ticker symbol)'),
+});
+
 /**
  * Skill invocation tool.
  * Loads and returns skill instructions for the agent to follow.
@@ -37,11 +42,9 @@ Execute a skill to get specialized instructions for complex tasks.
 export const skillTool = new DynamicStructuredTool({
   name: 'skill',
   description: 'Execute a skill to get specialized instructions for a task. Returns instructions to follow.',
-  schema: z.object({
-    skill: z.string().describe('Name of the skill to invoke (e.g., "dcf")'),
-    args: z.string().optional().describe('Optional arguments for the skill (e.g., ticker symbol)'),
-  }),
-  func: async ({ skill, args }) => {
+  schema: skillInputSchema,
+  func: async (input) => {
+    const { skill, args } = skillInputSchema.parse(input);
     const skillDef = getSkill(skill);
 
     if (!skillDef) {

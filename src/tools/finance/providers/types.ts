@@ -101,6 +101,30 @@ export interface FundamentalsResponse {
   sourceUrl: string;
 }
 
+export interface AnalystEstimatesResponse {
+  ticker: string;
+  provider: 'financial-datasets' | 'groww' | 'zerodha' | 'yahoo';
+  analystEstimates: unknown[];
+  period: 'annual' | 'quarterly';
+  sourceUrl: string;
+}
+
+export interface FilingsResponse {
+  ticker: string;
+  provider: 'financial-datasets' | 'groww' | 'zerodha' | 'yahoo';
+  filings: unknown[];
+  sourceUrl: string;
+}
+
+export interface FilingItemsResponse {
+  ticker: string;
+  provider: 'financial-datasets' | 'groww' | 'zerodha' | 'yahoo';
+  filingType: '10-K' | '10-Q' | '8-K';
+  accessionNumber: string;
+  items: unknown;
+  sourceUrl: string;
+}
+
 export interface IncomeStatement {
   fiscalDate: string;
   revenue: number;
@@ -257,6 +281,9 @@ export interface FinancialDataProvider {
   initialize?(): Promise<void>;
   getHistoricalData?(context: ProviderRequestContext): Promise<HistoricalDataResponse>;
   getFundamentals?(context: ProviderRequestContext): Promise<FundamentalsResponse>;
+  getAnalystEstimates?(context: ProviderRequestContext & { period?: 'annual' | 'quarterly' }): Promise<AnalystEstimatesResponse>;
+  getFilings?(context: ProviderRequestContext & { filing_type?: Array<'10-K' | '10-Q' | '8-K'>; limit?: number }): Promise<FilingsResponse>;
+  getFilingItems?(context: ProviderRequestContext & { filing_type: '10-K' | '10-Q' | '8-K'; accession_number: string; items?: string[] }): Promise<FilingItemsResponse>;
   getPositions?(): Promise<Position[]>;
   getHoldings?(): Promise<Holding[]>;
   getMargin?(): Promise<Margin>;

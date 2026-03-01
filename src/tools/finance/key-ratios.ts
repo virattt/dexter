@@ -52,15 +52,16 @@ export const getKeyRatios = new DynamicStructuredTool({
   description: `Retrieves historical key ratios for a company, such as P/E ratio, revenue per share, and enterprise value, over a specified period. Useful for trend analysis and historical performance evaluation.`,
   schema: KeyRatiosInputSchema,
   func: async (input) => {
+    const parsedInput = KeyRatiosInputSchema.parse(input);
     const params: Record<string, string | number | undefined> = {
-      ticker: input.ticker,
-      period: input.period,
-      limit: input.limit,
-      report_period: input.report_period,
-      report_period_gt: input.report_period_gt,
-      report_period_gte: input.report_period_gte,
-      report_period_lt: input.report_period_lt,
-      report_period_lte: input.report_period_lte,
+      ticker: parsedInput.ticker,
+      period: parsedInput.period,
+      limit: parsedInput.limit,
+      report_period: parsedInput.report_period,
+      report_period_gt: parsedInput.report_period_gt,
+      report_period_gte: parsedInput.report_period_gte,
+      report_period_lt: parsedInput.report_period_lt,
+      report_period_lte: parsedInput.report_period_lte,
     };
     const { data, url } = await callApi('/financial-metrics/', params);
     return formatToolResult(

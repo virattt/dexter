@@ -3,7 +3,7 @@
  * Tests for the stock-price tool using provider abstraction
  */
 
-import { describe, it, expect, beforeEach, spyOn } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import { getStockPrice } from '../stock-price.js';
 import { providerRegistry } from '../providers/index.js';
 
@@ -11,14 +11,13 @@ import { providerRegistry } from '../providers/index.js';
 let mockGetProvider: any;
 let mockExecuteFallback: any;
 
-beforeEach(() => {
-  mockGetProvider = spyOn(providerRegistry, 'getProviderForCapability');
-  mockExecuteFallback = spyOn(providerRegistry, 'executeWithFallback');
-});
-
 describe('getStockPrice Tool', () => {
   beforeEach(() => {
-    // Restore mocks using the spy's mockRestore method
+    mockGetProvider = spyOn(providerRegistry, 'getProviderForCapability');
+    mockExecuteFallback = spyOn(providerRegistry, 'executeWithFallback');
+  });
+
+  afterEach(() => {
     if (mockGetProvider?.mockRestore) {
       mockGetProvider.mockRestore();
     }
@@ -186,7 +185,15 @@ describe('getStockPrice Tool', () => {
     });
 
     it('should handle provider errors gracefully', async () => {
-      mockGetProvider.mockReturnValue(null);
+      const mockProvider = {
+        config: { id: 'yahoo' },
+        isAvailable: () => true,
+        getCapabilities: () => ({ livePrices: true }),
+        supportsCapability: () => true,
+        getStockPrice: () => Promise.reject(new Error('Primary failed hard')),
+      };
+
+      mockGetProvider.mockReturnValue(mockProvider);
 
       mockExecuteFallback.mockRejectedValue(new Error('All providers failed'));
 

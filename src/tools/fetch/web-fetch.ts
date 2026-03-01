@@ -386,27 +386,30 @@ async function runWebFetch(params: {
 // Tool definition (adapted for Dexter's LangChain + Zod framework)
 // ============================================================================
 
+const webFetchInputSchema = z.object({
+  url: z.string().describe('HTTP or HTTPS URL to fetch.'),
+  extractMode: z
+    .enum(['markdown', 'text'])
+    .optional()
+    .describe('Extraction mode ("markdown" or "text"). Defaults to "markdown".'),
+  maxChars: z
+    .number()
+    .min(100)
+    .optional()
+    .describe('Maximum characters to return (truncates when exceeded).'),
+});
+
 export const webFetchTool = new DynamicStructuredTool({
   name: 'web_fetch',
   description:
     'Fetch and extract readable content from a URL (HTML → markdown/text). Use for lightweight page access without browser automation.',
-  schema: z.object({
-    url: z.string().describe('HTTP or HTTPS URL to fetch.'),
-    extractMode: z
-      .enum(['markdown', 'text'])
-      .optional()
-      .describe('Extraction mode ("markdown" or "text"). Defaults to "markdown".'),
-    maxChars: z
-      .number()
-      .min(100)
-      .optional()
-      .describe('Maximum characters to return (truncates when exceeded).'),
-  }),
+  schema: webFetchInputSchema,
   func: async (input) => {
-    const extractMode: ExtractMode = input.extractMode === 'text' ? 'text' : 'markdown';
-    const maxChars = resolveMaxChars(input.maxChars, DEFAULT_FETCH_MAX_CHARS, DEFAULT_FETCH_MAX_CHARS);
+    const parsedInput = webFetchInputSchema.parse(input);
+    const extractMode: ExtractMode = parsedInput.extractMode === 'text' ? 'text' : 'markdown';
+    const maxChars = resolveMaxChars(parsedInput.maxChars, DEFAULT_FETCH_MAX_CHARS, DEFAULT_FETCH_MAX_CHARS);
     const result = await runWebFetch({
-      url: input.url,
+      url: parsedInput.url,
       extractMode,
       maxChars,
       maxRedirects: DEFAULT_FETCH_MAX_REDIRECTS,
@@ -414,6 +417,6 @@ export const webFetchTool = new DynamicStructuredTool({
       cacheTtlMs: resolveCacheTtlMs(undefined, DEFAULT_CACHE_TTL_MINUTES),
       userAgent: DEFAULT_FETCH_USER_AGENT,
     });
-    return formatToolResult(result, [input.url]);
+    return formatToolResult(result, [parsedInput.url]);
   },
 });

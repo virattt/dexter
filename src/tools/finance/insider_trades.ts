@@ -40,14 +40,15 @@ export const getInsiderTrades = new DynamicStructuredTool({
   description: `Retrieves insider trading transactions for a given company ticker. Insider trades include purchases and sales of company stock by executives, directors, and other insiders. This data is sourced from SEC Form 4 filings. Use filing_date filters to narrow down results by date range.`,
   schema: InsiderTradesInputSchema,
   func: async (input) => {
+    const parsedInput = InsiderTradesInputSchema.parse(input);
     const params: Record<string, string | number | undefined> = {
-      ticker: input.ticker.toUpperCase(),
-      limit: input.limit,
-      filing_date: input.filing_date,
-      filing_date_gte: input.filing_date_gte,
-      filing_date_lte: input.filing_date_lte,
-      filing_date_gt: input.filing_date_gt,
-      filing_date_lt: input.filing_date_lt,
+      ticker: parsedInput.ticker.toUpperCase(),
+      limit: parsedInput.limit,
+      filing_date: parsedInput.filing_date,
+      filing_date_gte: parsedInput.filing_date_gte,
+      filing_date_lte: parsedInput.filing_date_lte,
+      filing_date_gt: parsedInput.filing_date_gt,
+      filing_date_lt: parsedInput.filing_date_lt,
     };
     const { data, url } = await callApi('/insider-trades/', params);
     return formatToolResult(

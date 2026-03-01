@@ -360,7 +360,7 @@ export class GrowwProvider extends BaseProvider {
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const checksum = createHash('sha256').update(apiSecret + timestamp).digest('hex');
 
-    const response = await this.fetch<{
+    const response = await super.fetch<{
       status: string;
       payload: { token: string; expiry: string };
     }>('/v1/api/trade/token', {

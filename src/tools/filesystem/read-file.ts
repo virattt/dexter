@@ -42,9 +42,10 @@ export const readFileTool = new DynamicStructuredTool({
     'Read text file contents safely from workspace paths. Supports offset/limit pagination for large files.',
   schema: readFileSchema,
   func: async (input) => {
+    const parsedInput = readFileSchema.parse(input);
     const cwd = process.cwd();
     const { resolved: sandboxPath } = await assertSandboxPath({
-      filePath: input.path,
+      filePath: parsedInput.path,
       cwd,
       root: cwd,
     });
@@ -56,17 +57,17 @@ export const readFileTool = new DynamicStructuredTool({
     const allLines = textContent.split('\n');
     const totalFileLines = allLines.length;
 
-    const startLine = input.offset ? Math.max(0, input.offset - 1) : 0;
+    const startLine = parsedInput.offset ? Math.max(0, parsedInput.offset - 1) : 0;
     const startLineDisplay = startLine + 1;
 
     if (startLine >= allLines.length) {
-      throw new Error(`Offset ${input.offset} is beyond end of file (${allLines.length} lines total)`);
+      throw new Error(`Offset ${parsedInput.offset} is beyond end of file (${allLines.length} lines total)`);
     }
 
     let selectedContent: string;
     let userLimitedLines: number | undefined;
-    if (input.limit !== undefined) {
-      const endLine = Math.min(startLine + input.limit, allLines.length);
+    if (parsedInput.limit !== undefined) {
+      const endLine = Math.min(startLine + parsedInput.limit, allLines.length);
       selectedContent = allLines.slice(startLine, endLine).join('\n');
       userLimitedLines = endLine - startLine;
     } else {
@@ -100,7 +101,7 @@ export const readFileTool = new DynamicStructuredTool({
     }
 
     return formatToolResult({
-      path: input.path,
+      path: parsedInput.path,
       content: outputText,
       truncated: truncation.truncated,
       totalLines: totalFileLines,

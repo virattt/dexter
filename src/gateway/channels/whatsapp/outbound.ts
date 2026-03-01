@@ -8,7 +8,12 @@ import { normalizeE164, toWhatsappJid } from '../../utils.js';
 
 function debugLog(msg: string) {
   const logPath = path.join(os.homedir(), '.dexter', 'gateway-debug.log');
-  fs.appendFileSync(logPath, `${new Date().toISOString()} ${msg}\n`);
+  try {
+    fs.mkdirSync(path.dirname(logPath), { recursive: true });
+    fs.appendFileSync(logPath, `${new Date().toISOString()} ${msg}\n`);
+  } catch {
+    // Logging must never break outbound message flow.
+  }
 }
 
 type ActiveListener = {

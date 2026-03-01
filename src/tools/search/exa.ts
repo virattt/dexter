@@ -22,16 +22,19 @@ function getExaTool(): { invoke: (query: string) => Promise<unknown> } {
   return exaTool!;
 }
 
+const exaSearchInputSchema = z.object({
+  query: z.string().describe('The search query to look up on the web'),
+});
+
 export const exaSearch = new DynamicStructuredTool({
   name: 'web_search',
   description:
     'Search the web for current information on any topic. Returns relevant search results with URLs and content snippets.',
-  schema: z.object({
-    query: z.string().describe('The search query to look up on the web'),
-  }),
+  schema: exaSearchInputSchema,
   func: async (input) => {
+    const parsedInput = exaSearchInputSchema.parse(input);
     try {
-      const result = await getExaTool().invoke(input.query);
+      const result = await getExaTool().invoke(parsedInput.query);
       const { parsed, urls } = parseSearchResults(result);
       return formatToolResult(parsed, urls);
     } catch (error) {

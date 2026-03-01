@@ -19,9 +19,10 @@ export const getCompanyNews = new DynamicStructuredTool({
     'Retrieves recent company news headlines for a stock ticker, including title, source, publication date, and URL. Use for company catalysts, price move explanations, press releases, and recent announcements.',
   schema: CompanyNewsInputSchema,
   func: async (input) => {
+    const parsedInput = CompanyNewsInputSchema.parse(input);
     const params: Record<string, string | number | undefined> = {
-      ticker: input.ticker.trim().toUpperCase(),
-      limit: Math.min(input.limit, 10),
+      ticker: parsedInput.ticker.trim().toUpperCase(),
+      limit: Math.min(parsedInput.limit, 10),
     };
     const { data, url } = await callApi('/news', params);
     return formatToolResult((data.news as unknown[]) || [], [url]);

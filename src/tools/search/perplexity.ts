@@ -48,16 +48,19 @@ async function callPerplexity(query: string): Promise<PerplexityCompletionRespon
   return response.json() as Promise<PerplexityCompletionResponse>;
 }
 
+const perplexitySearchInputSchema = z.object({
+  query: z.string().describe('The search query to look up on the web'),
+});
+
 export const perplexitySearch = new DynamicStructuredTool({
   name: 'web_search',
   description:
     'Search the web for current information on any topic. Returns a grounded, citation-backed answer with source URLs.',
-  schema: z.object({
-    query: z.string().describe('The search query to look up on the web'),
-  }),
+  schema: perplexitySearchInputSchema,
   func: async (input) => {
+    const parsedInput = perplexitySearchInputSchema.parse(input);
     try {
-      const res = await callPerplexity(input.query);
+      const res = await callPerplexity(parsedInput.query);
       const content = res.choices?.[0]?.message?.content ?? '';
       const urls: string[] = [];
       if (Array.isArray(res.citations)) {

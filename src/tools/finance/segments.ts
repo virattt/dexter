@@ -24,10 +24,11 @@ export const getSegmentedRevenues = new DynamicStructuredTool({
   description: `Provides a detailed breakdown of a company's revenue by operating segments, such as products, services, or geographic regions. Useful for analyzing the composition of a company's revenue.`,
   schema: SegmentedRevenuesInputSchema,
   func: async (input) => {
+    const parsedInput = SegmentedRevenuesInputSchema.parse(input);
     const params = {
-      ticker: input.ticker,
-      period: input.period,
-      limit: input.limit,
+      ticker: parsedInput.ticker,
+      period: parsedInput.period,
+      limit: parsedInput.limit,
     };
     const { data, url } = await callApi('/financials/segmented-revenues/', params);
     return formatToolResult(

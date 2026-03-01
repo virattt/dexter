@@ -14,16 +14,19 @@ function getTavilyClient(): TavilySearch {
   return tavilyClient;
 }
 
+const tavilySearchInputSchema = z.object({
+  query: z.string().describe('The search query to look up on the web'),
+});
+
 export const tavilySearch = new DynamicStructuredTool({
   name: 'web_search',
   description:
     'Search the web for current information on any topic. Returns relevant search results with URLs and content snippets.',
-  schema: z.object({
-    query: z.string().describe('The search query to look up on the web'),
-  }),
+  schema: tavilySearchInputSchema,
   func: async (input) => {
+    const parsedInput = tavilySearchInputSchema.parse(input);
     try {
-      const result = await getTavilyClient().invoke({ query: input.query });
+      const result = await getTavilyClient().invoke({ query: parsedInput.query });
       const { parsed, urls } = parseSearchResults(result);
       return formatToolResult(parsed, urls);
     } catch (error) {

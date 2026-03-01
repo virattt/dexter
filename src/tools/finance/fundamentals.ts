@@ -35,12 +35,13 @@ export const getFundamentals = new DynamicStructuredTool({
   description: FUNDAMENTALS_DESCRIPTION,
   schema: FundamentalsInputSchema,
   func: async (input) => {
-    const ticker = input.ticker.trim().toUpperCase();
+    const parsedInput = FundamentalsInputSchema.parse(input);
+    const ticker = parsedInput.ticker.trim().toUpperCase();
 
     // Get provider for income statements capability
     const provider = providerRegistry.getProviderForCapability(
       'incomeStatements',
-      input.provider === 'auto' ? undefined : input.provider
+      parsedInput.provider === 'auto' ? undefined : parsedInput.provider
     );
 
     if (!provider) {

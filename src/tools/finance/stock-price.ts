@@ -37,7 +37,7 @@ const StockPriceInputSchema = z.object({
 /**
  * Determine preferred provider based on exchange
  */
-function getPreferredProvider(exchange?: string): string | undefined {
+function getPreferredProvider(exchange?: string): 'groww' | 'yahoo' | undefined {
   if (!exchange) return undefined;
 
   const isIndian = ['NSE', 'BSE'].includes(exchange.toUpperCase());
@@ -49,12 +49,13 @@ export const getStockPrice = new DynamicStructuredTool({
   description: STOCK_PRICE_DESCRIPTION,
   schema: StockPriceInputSchema,
   func: async (input) => {
-    const ticker = input.ticker.trim().toUpperCase();
+    const parsedInput = StockPriceInputSchema.parse(input);
+    const ticker = parsedInput.ticker.trim().toUpperCase();
 
     // Determine preferred provider
-    let preferredProvider = input.provider === 'auto' ? undefined : input.provider;
+    let preferredProvider = parsedInput.provider === 'auto' ? undefined : parsedInput.provider;
     if (!preferredProvider) {
-      preferredProvider = getPreferredProvider(input.exchange);
+      preferredProvider = getPreferredProvider(parsedInput.exchange);
     }
 
     try {
@@ -69,7 +70,7 @@ export const getStockPrice = new DynamicStructuredTool({
           {
             error: 'No provider available for stock prices',
             ticker,
-            exchange: input.exchange,
+            exchange: parsedInput.exchange,
             message: 'Configure at least one provider (Groww, Zerodha, or Yahoo Finance)',
           },
           []
@@ -79,7 +80,7 @@ export const getStockPrice = new DynamicStructuredTool({
       // Fetch price
       const price = await provider.getStockPrice({
         ticker,
-        exchange: input.exchange,
+        exchange: parsedInput.exchange,
       });
 
       return formatToolResult(
@@ -106,7 +107,7 @@ export const getStockPrice = new DynamicStructuredTool({
       try {
         const result = await providerRegistry.executeWithFallback(
           'livePrices',
-          async (p) => p.getStockPrice({ ticker, exchange: input.exchange }),
+          async (p) => p.getStockPrice({ ticker, exchange: parsedInput.exchange }),
           preferredProvider
         );
 

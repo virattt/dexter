@@ -259,16 +259,19 @@ const actRequestSchema = z.object({
   timeMs: z.number().optional().describe('Wait time in milliseconds'),
 });
 
+const browserInputSchema = z.object({
+  action: z.enum(['navigate', 'open', 'snapshot', 'act', 'read', 'close']).describe('The browser action to perform'),
+  url: z.string().optional().describe('URL for navigate action'),
+  maxChars: z.number().optional().describe('Max characters for snapshot (default 50000)'),
+  request: actRequestSchema.optional().describe('Request object for act action'),
+});
+
 export const browserTool = new DynamicStructuredTool({
   name: 'browser',
   description: 'Navigate websites, read content, and interact with pages. Use for accessing company websites, earnings reports, and dynamic content.',
-  schema: z.object({
-    action: z.enum(['navigate', 'open', 'snapshot', 'act', 'read', 'close']).describe('The browser action to perform'),
-    url: z.string().optional().describe('URL for navigate action'),
-    maxChars: z.number().optional().describe('Max characters for snapshot (default 50000)'),
-    request: actRequestSchema.optional().describe('Request object for act action'),
-  }),
-  func: async ({ action, url, maxChars, request }) => {
+  schema: browserInputSchema,
+  func: async (input) => {
+    const { action, url, maxChars, request } = browserInputSchema.parse(input);
     try {
       switch (action) {
         case 'navigate': {

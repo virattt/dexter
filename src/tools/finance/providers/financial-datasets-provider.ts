@@ -7,6 +7,9 @@
 import { BaseProvider } from './base-provider.js';
 import { RateLimiter } from './rate-limiter.js';
 import {
+  AnalystEstimatesResponse,
+  FilingItemsResponse,
+  FilingsResponse,
   ProviderConfig,
   ProviderRequestContext,
   StockPriceResponse,
@@ -189,6 +192,130 @@ export class FinancialDatasetsProvider extends BaseProvider {
       balanceSheets: balanceSheets,
       cashFlowStatements: cashFlowStmts,
       keyRatios: keyRatios,
+      sourceUrl: 'https://financialdatasets.ai',
+    };
+  }
+
+  /**
+   * Get analyst estimates
+   */
+  async getAnalystEstimates(
+    context: ProviderRequestContext & { period?: 'annual' | 'quarterly' }
+  ): Promise<AnalystEstimatesResponse> {
+    if (!this.isAvailable()) {
+      throw this.createError(
+        'Financial Datasets provider not available',
+        ProviderErrorCode.AUTH_MISSING,
+        false
+      );
+    }
+
+    await this.rateLimiter.waitForToken('default');
+
+    const ticker = this.validateTicker(context.ticker);
+    const period = context.period ?? 'annual';
+
+    const response = await this.fetch<{ analyst_estimates?: unknown[]; data?: unknown[] }>(
+      `/analyst-estimates/?${this.buildQueryString({ ticker, period })}`
+    );
+
+    const analystEstimates = Array.isArray(response.analyst_estimates)
+      ? response.analyst_estimates
+      : Array.isArray(response.data)
+        ? response.data
+        : [];
+
+    return {
+      ticker,
+      provider: 'financial-datasets',
+      analystEstimates,
+      period,
+      sourceUrl: 'https://financialdatasets.ai',
+    };
+  }
+
+  /**
+   * Get filings metadata
+   */
+  async getFilings(
+    context: ProviderRequestContext & {
+      filing_type?: Array<'10-K' | '10-Q' | '8-K'>;
+      limit?: number;
+    }
+  ): Promise<FilingsResponse> {
+    if (!this.isAvailable()) {
+      throw this.createError(
+        'Financial Datasets provider not available',
+        ProviderErrorCode.AUTH_MISSING,
+        false
+      );
+    }
+
+    await this.rateLimiter.waitForToken('default');
+
+    const ticker = this.validateTicker(context.ticker);
+    const searchParams = new URLSearchParams();
+    searchParams.set('ticker', ticker);
+    searchParams.set('limit', String(context.limit ?? 10));
+    for (const filingType of context.filing_type ?? []) {
+      searchParams.append('filing_type', filingType);
+    }
+
+    const response = await this.fetch<{ filings?: unknown[]; data?: unknown[] }>(
+      `/filings/?${searchParams.toString()}`
+    );
+
+    const filings = Array.isArray(response.filings)
+      ? response.filings
+      : Array.isArray(response.data)
+        ? response.data
+        : [];
+
+    return {
+      ticker,
+      provider: 'financial-datasets',
+      filings,
+      sourceUrl: 'https://financialdatasets.ai',
+    };
+  }
+
+  /**
+   * Get filing item content
+   */
+  async getFilingItems(
+    context: ProviderRequestContext & {
+      filing_type: '10-K' | '10-Q' | '8-K';
+      accession_number: string;
+      items?: string[];
+    }
+  ): Promise<FilingItemsResponse> {
+    if (!this.isAvailable()) {
+      throw this.createError(
+        'Financial Datasets provider not available',
+        ProviderErrorCode.AUTH_MISSING,
+        false
+      );
+    }
+
+    await this.rateLimiter.waitForToken('default');
+
+    const ticker = this.validateTicker(context.ticker);
+    const searchParams = new URLSearchParams();
+    searchParams.set('ticker', ticker);
+    searchParams.set('filing_type', context.filing_type);
+    searchParams.set('accession_number', context.accession_number);
+    for (const item of context.items ?? []) {
+      searchParams.append('item', item);
+    }
+
+    const items = await this.fetch<unknown>(`/filings/items/?${searchParams.toString()}`);
+
+    return {
+      ticker,
+      provider: 'financial-datasets',
+      filingType: context.filing_type,
+      accessionNumber: context.accession_number,
+      items,
       sourceUrl: 'https://financialdatasets.ai',
     };
   }

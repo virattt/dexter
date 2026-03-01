@@ -38,20 +38,21 @@ export const writeFileTool = new DynamicStructuredTool({
     'Create or overwrite a file inside the workspace. Automatically creates parent directories when needed.',
   schema: writeFileSchema,
   func: async (input) => {
+    const parsedInput = writeFileSchema.parse(input);
     const cwd = process.cwd();
     const { resolved } = await assertSandboxPath({
-      filePath: input.path,
+      filePath: parsedInput.path,
       cwd,
       root: cwd,
     });
     const dir = dirname(resolved);
     await mkdir(dir, { recursive: true });
-    await writeFile(resolved, input.content, 'utf-8');
+    await writeFile(resolved, parsedInput.content, 'utf-8');
 
     return formatToolResult({
-      path: input.path,
-      bytesWritten: Buffer.byteLength(input.content, 'utf-8'),
-      message: `Successfully wrote ${input.content.length} characters to ${input.path}`,
+      path: parsedInput.path,
+      bytesWritten: Buffer.byteLength(parsedInput.content, 'utf-8'),
+      message: `Successfully wrote ${parsedInput.content.length} characters to ${parsedInput.path}`,
     });
   },
 });

@@ -48,9 +48,10 @@ export const editFileTool = new DynamicStructuredTool({
     'Make precise text replacements in a file. The target text must be unique in the file to avoid ambiguous edits.',
   schema: editFileSchema,
   func: async (input) => {
+    const parsedInput = editFileSchema.parse(input);
     const cwd = process.cwd();
     const { resolved } = await assertSandboxPath({
-      filePath: input.path,
+      filePath: parsedInput.path,
       cwd,
       root: cwd,
     });
@@ -58,7 +59,7 @@ export const editFileTool = new DynamicStructuredTool({
     try {
       await access(resolved, constants.R_OK | constants.W_OK);
     } catch {
-      throw new Error(`File not found or not writable: ${input.path}`);
+      throw new Error(`File not found or not writable: ${parsedInput.path}`);
     }
 
     const rawContent = (await readFile(resolved)).toString('utf-8');
@@ -66,13 +67,13 @@ export const editFileTool = new DynamicStructuredTool({
 
     const originalEnding = detectLineEnding(content);
     const normalizedContent = normalizeToLF(content);
-    const normalizedOldText = normalizeToLF(input.old_text);
-    const normalizedNewText = normalizeToLF(input.new_text);
+    const normalizedOldText = normalizeToLF(parsedInput.old_text);
+    const normalizedNewText = normalizeToLF(parsedInput.new_text);
 
     const matchResult = fuzzyFindText(normalizedContent, normalizedOldText);
     if (!matchResult.found) {
       throw new Error(
-        `Could not find the exact text in ${input.path}. The old_text must match exactly including whitespace/newlines.`,
+        `Could not find the exact text in ${parsedInput.path}. The old_text must match exactly including whitespace/newlines.`,
       );
     }
 
@@ -81,7 +82,7 @@ export const editFileTool = new DynamicStructuredTool({
     const occurrences = fuzzyContent.split(fuzzyOldText).length - 1;
     if (occurrences > 1) {
       throw new Error(
-        `Found ${occurrences} occurrences of old_text in ${input.path}. Provide more context so it is unique.`,
+        `Found ${occurrences} occurrences of old_text in ${parsedInput.path}. Provide more context so it is unique.`,
       );
     }
 
@@ -92,7 +93,7 @@ export const editFileTool = new DynamicStructuredTool({
       baseContent.substring(matchResult.index + matchResult.matchLength);
 
     if (baseContent === newContent) {
-      throw new Error(`No changes made to ${input.path}. Replacement produced identical content.`);
+      throw new Error(`No changes made to ${parsedInput.path}. Replacement produced identical content.`);
     }
 
     const finalContent = bom + restoreLineEndings(newContent, originalEnding);
@@ -100,8 +101,8 @@ export const editFileTool = new DynamicStructuredTool({
 
     const diffResult = generateDiffString(baseContent, newContent);
     return formatToolResult({
-      path: input.path,
-      message: `Successfully replaced text in ${input.path}.`,
+      path: parsedInput.path,
+      message: `Successfully replaced text in ${parsedInput.path}.`,
       diff: diffResult.diff,
       firstChangedLine: diffResult.firstChangedLine,
     });
