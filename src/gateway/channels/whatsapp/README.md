@@ -59,12 +59,12 @@ Once the gateway is running:
 2. Go to your own chat (message yourself)
 3. Send a message like "What is Apple's revenue?"
 4. You'll see a typing indicator while Dexter processes
-5. Dexter's response will appear prefixed with `[Dexter]`
+5. Dexter's response will appear in the chat
 
 **Example conversation:**
 ```
 You: What was NVIDIA's revenue in 2024?
-[Dexter]: NVIDIA's revenue for fiscal year 2024 was $60.9 billion...
+Dexter: NVIDIA's revenue for fiscal year 2024 was $60.9 billion...
 ```
 
 ## ⚙️ Configuration
