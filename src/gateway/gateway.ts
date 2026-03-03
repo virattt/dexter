@@ -10,6 +10,8 @@ import { resolveRoute } from './routing/resolve-route.js';
 import { resolveSessionStorePath, upsertSessionMeta } from './sessions/store.js';
 import { loadGatewayConfig, type GatewayConfig } from './config.js';
 import { runAgentForMessage } from './agent-runner.js';
+import { cleanMarkdownForWhatsApp } from './utils.js';
+import { startHeartbeatRunner } from './heartbeat/index.js';
 import { appendFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -27,20 +29,6 @@ export type GatewayService = {
 function elide(text: string, maxLen: number): string {
   if (text.length <= maxLen) return text;
   return text.slice(0, maxLen - 3) + '...';
-}
-
-/**
- * Clean up markdown for WhatsApp compatibility.
- * - Converts `**text**` (markdown bold) to `*text*` (WhatsApp bold)
- * - Merges adjacent bold sections to prevent literal asterisks showing
- */
-function cleanMarkdownForWhatsApp(text: string): string {
-  let result = text;
-  // Convert markdown bold (**text**) to WhatsApp bold (*text*)
-  result = result.replace(/\*\*([^*]+)\*\*/g, '*$1*');
-  // Merge adjacent bold sections: `*foo* *bar*` -> `*foo bar*`
-  result = result.replace(/\*([^*]+)\*\s+\*([^*]+)\*/g, '*$1 $2*');
-  return result;
 }
 
 async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage): Promise<void> {
@@ -148,8 +136,11 @@ export async function startGateway(params: { configPath?: string } = {}): Promis
   });
   await manager.startAll();
 
+  const heartbeat = startHeartbeatRunner({ configPath: params.configPath });
+
   return {
     stop: async () => {
+      heartbeat.stop();
       await manager.stopAll();
     },
     snapshot: () => manager.getSnapshot(),

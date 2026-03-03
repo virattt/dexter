@@ -10,6 +10,7 @@ import { editFileTool, EDIT_FILE_DESCRIPTION } from './filesystem/edit-file.js';
 import { FINANCIAL_SEARCH_DESCRIPTION } from './finance/financial-search.js';
 import { FINANCIAL_METRICS_DESCRIPTION } from './finance/financial-metrics.js';
 import { READ_FILINGS_DESCRIPTION } from './finance/read-filings.js';
+import { heartbeatTool, HEARTBEAT_TOOL_DESCRIPTION } from './heartbeat/heartbeat-tool.js';
 import { discoverSkills } from '../skills/index.js';
 
 /**
@@ -72,6 +73,11 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'edit_file',
       tool: editFileTool,
       description: EDIT_FILE_DESCRIPTION,
+    },
+    {
+      name: 'heartbeat',
+      tool: heartbeatTool,
+      description: HEARTBEAT_TOOL_DESCRIPTION,
     },
   ];
 

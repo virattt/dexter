@@ -38,6 +38,20 @@ export function isSelfChatMode(
  * - For group JIDs (@g.us), returns as-is
  * - Otherwise, normalizes as E.164 and converts to @s.whatsapp.net format
  */
+/**
+ * Clean up markdown for WhatsApp compatibility.
+ * - Converts `**text**` (markdown bold) to `*text*` (WhatsApp bold)
+ * - Merges adjacent bold sections to prevent literal asterisks showing
+ */
+export function cleanMarkdownForWhatsApp(text: string): string {
+  let result = text;
+  // Convert markdown bold (**text**) to WhatsApp bold (*text*)
+  result = result.replace(/\*\*([^*]+)\*\*/g, '*$1*');
+  // Merge adjacent bold sections: `*foo* *bar*` -> `*foo bar*`
+  result = result.replace(/\*([^*]+)\*\s+\*([^*]+)\*/g, '*$1 $2*');
+  return result;
+}
+
 export function toWhatsappJid(input: string): string {
   const clean = input.replace(/^whatsapp:/, '').trim();
   
