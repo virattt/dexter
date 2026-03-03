@@ -29,12 +29,14 @@ const WhatsAppAccountSchema = z.object({
 const HeartbeatConfigSchema = z
   .object({
     enabled: z.boolean().optional().default(false),
-    intervalMinutes: z.number().min(5).optional().default(30),
+    intervalMinutes: z.number().min(5).optional().default(10),
+    // default to NYSE market hours: 9:30 AM - 4:00 PM ET, Mon-Fri
     activeHours: z
       .object({
-        start: z.string().optional().default('09:00'),
-        end: z.string().optional().default('22:00'),
-        timezone: z.string().optional(),
+        start: z.string().optional().default('09:30'),
+        end: z.string().optional().default('16:00'),
+        timezone: z.string().optional().default('America/New_York'),
+        daysOfWeek: z.array(z.number().min(0).max(6)).optional().default([1, 2, 3, 4, 5]),
       })
       .optional(),
     model: z.string().optional(),
@@ -95,7 +97,7 @@ export type GatewayConfig = {
     heartbeat?: {
       enabled: boolean;
       intervalMinutes: number;
-      activeHours?: { start: string; end: string; timezone?: string };
+      activeHours?: { start: string; end: string; timezone?: string; daysOfWeek?: number[] };
       model?: string;
       modelProvider?: string;
       maxIterations: number;
