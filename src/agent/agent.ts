@@ -51,7 +51,7 @@ export class Agent {
     const model = config.model ?? DEFAULT_MODEL;
     const tools = getTools(model);
     const soulContent = await loadSoulDocument();
-    const systemPrompt = buildSystemPrompt(model, soulContent);
+    const systemPrompt = buildSystemPrompt(model, soulContent, config.channel);
     return new Agent(config, tools, systemPrompt);
   }
 

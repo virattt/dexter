@@ -16,24 +16,41 @@ function debugLog(msg: string) {
 }
 
 /**
- * Check if the current time is within the configured active hours.
+ * Check if the current time is within the configured active hours and days.
+ * Defaults to NYSE market hours: 9:30 AM - 4:00 PM ET, Mon-Fri.
  */
 function isWithinActiveHours(activeHours?: {
   start: string;
   end: string;
   timezone?: string;
+  daysOfWeek?: number[];
 }): boolean {
   if (!activeHours) return true;
 
-  const tz = activeHours.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const tz = activeHours.timezone ?? 'America/New_York';
   const now = new Date();
-  const formatter = new Intl.DateTimeFormat('en-US', {
+
+  // Check day of week (0=Sun, 1=Mon, ..., 6=Sat)
+  const allowedDays = activeHours.daysOfWeek ?? [1, 2, 3, 4, 5];
+  const dayFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    weekday: 'short',
+  });
+  const dayStr = dayFormatter.format(now);
+  const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const currentDay = dayMap[dayStr] ?? new Date().getDay();
+  if (!allowedDays.includes(currentDay)) {
+    return false;
+  }
+
+  // Check time window
+  const timeFormatter = new Intl.DateTimeFormat('en-US', {
     timeZone: tz,
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
   });
-  const currentTime = formatter.format(now); // "HH:MM"
+  const currentTime = timeFormatter.format(now); // "HH:MM"
 
   return currentTime >= activeHours.start && currentTime <= activeHours.end;
 }
@@ -125,6 +142,7 @@ export function startHeartbeatRunner(params: { configPath?: string }): Heartbeat
         modelProvider,
         maxIterations: heartbeatCfg.maxIterations,
         isHeartbeat: true,
+        channel: 'whatsapp',
       });
       debugLog(`[heartbeat] agent answer length=${answer.length}`);
 

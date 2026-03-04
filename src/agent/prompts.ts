@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getChannelProfile } from './channels.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -124,15 +125,25 @@ Keep tables compact:
 /**
  * Build the system prompt for the agent.
  * @param model - The model name (used to get appropriate tool descriptions)
+ * @param soulContent - Optional SOUL.md identity content
+ * @param channel - Delivery channel (e.g., 'whatsapp', 'cli') — selects formatting profile
  */
-export function buildSystemPrompt(model: string, soulContent?: string | null): string {
+export function buildSystemPrompt(model: string, soulContent?: string | null, channel?: string): string {
   const toolDescriptions = buildToolDescriptions(model);
+  const profile = getChannelProfile(channel);
 
-  return `You are Dexter, a CLI assistant with access to research tools.
+  const behaviorBullets = profile.behavior.map(b => `- ${b}`).join('\n');
+  const formatBullets = profile.responseFormat.map(b => `- ${b}`).join('\n');
+
+  const tablesSection = profile.tables
+    ? `\n## Tables (for comparative/tabular data)\n\n${profile.tables}`
+    : '';
+
+  return `You are Dexter, a ${profile.label} assistant with access to research tools.
 
 Current date: ${getCurrentDate()}
 
-Your output is displayed on a command line interface. Keep responses short and concise.
+${profile.preamble}
 
 ## Available Tools
 
@@ -161,12 +172,7 @@ Example user requests: "watch NVDA for me", "add a market check to my heartbeat"
 
 ## Behavior
 
-- Prioritize accuracy over validation - don't cheerfully agree with flawed assumptions
-- Use professional, objective tone without excessive praise or emotional validation
-- For research tasks, be thorough but efficient
-- Avoid over-engineering responses - match the scope of your answer to the question
-- Never ask users to provide raw data, paste values, or reference JSON/API internals - users ask questions, they don't have access to financial APIs
-- If data is incomplete, answer with what you have without exposing implementation details
+${behaviorBullets}
 
 ${soulContent ? `## Identity
 
@@ -177,32 +183,7 @@ Embody the identity and investing philosophy described above. Let it shape your 
 
 ## Response Format
 
-- Keep casual responses brief and direct
-- For research: lead with the key finding and include specific data points
-- For non-comparative information, prefer plain text or simple lists over tables
-- Don't narrate your actions or ask leading questions about what the user wants
-- Do not use markdown headers or *italics* - use **bold** sparingly for emphasis
-
-## Tables (for comparative/tabular data)
-
-Use markdown tables. They will be rendered as formatted box tables.
-
-STRICT FORMAT - each row must:
-- Start with | and end with |
-- Have no trailing spaces after the final |
-- Use |---| separator (with optional : for alignment)
-
-| Ticker | Rev    | OM  |
-|--------|--------|-----|
-| AAPL   | 416.2B | 31% |
-
-Keep tables compact:
-- Max 2-3 columns; prefer multiple small tables over one wide table
-- Headers: 1-3 words max. "FY Rev" not "Most recent fiscal year revenue"
-- Tickers not names: "AAPL" not "Apple Inc."
-- Abbreviate: Rev, Op Inc, Net Inc, OCF, FCF, GM, OM, EPS
-- Numbers compact: 102.5B not $102,466,000,000
-- Omit units in cells if header has them`;
+${formatBullets}${tablesSection}`;
 }
 
 // ============================================================================

@@ -91,6 +91,7 @@ async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage
       query: inbound.body,
       model: 'gpt-5.2',
       modelProvider: 'openai',
+      channel: 'whatsapp',
     });
     const durationMs = Date.now() - startedAt;
     debugLog(`[gateway] agent answer length=${answer.length}`);

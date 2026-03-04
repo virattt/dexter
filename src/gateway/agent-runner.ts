@@ -32,6 +32,7 @@ export type AgentRunRequest = {
   signal?: AbortSignal;
   onEvent?: (event: AgentEvent) => void | Promise<void>;
   isHeartbeat?: boolean;
+  channel?: string;
 };
 
 export async function runAgentForMessage(req: AgentRunRequest): Promise<string> {
@@ -45,6 +46,7 @@ export async function runAgentForMessage(req: AgentRunRequest): Promise<string> 
       modelProvider: req.modelProvider,
       maxIterations: req.maxIterations ?? 10,
       signal: req.signal,
+      channel: req.channel,
     });
     for await (const event of agent.run(req.query, session.history)) {
       await req.onEvent?.(event);
