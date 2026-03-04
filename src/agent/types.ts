@@ -125,13 +125,6 @@ export interface ContextClearedEvent {
 }
 
 /**
- * Final answer generation started
- */
-export interface AnswerStartEvent {
-  type: 'answer_start';
-}
-
-/**
  * Token usage statistics
  */
 export interface TokenUsage {
@@ -166,7 +159,6 @@ export type AgentEvent =
   | ToolDeniedEvent
   | ToolLimitEvent
   | ContextClearedEvent
-  | AnswerStartEvent
   | DoneEvent;
 
 /**

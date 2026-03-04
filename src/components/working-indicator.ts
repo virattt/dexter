@@ -80,10 +80,6 @@ export class WorkingIndicatorComponent extends Container {
       this.loader.setMessage('Waiting for approval... (esc to interrupt)');
       return;
     }
-    if (this.state.status === 'answering') {
-      this.loader.setMessage('Answering... (esc to interrupt)');
-      return;
-    }
     this.loader.setMessage(`${this.thinkingVerb}... (esc to interrupt)`);
   }
 }

@@ -1,7 +1,9 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { callApi } from './api.js';
+import { callApi, stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
+
+const REDUNDANT_INSIDER_FIELDS = ['issuer'] as const;
 
 const InsiderTradesInputSchema = z.object({
   ticker: z
@@ -9,8 +11,8 @@ const InsiderTradesInputSchema = z.object({
     .describe("The stock ticker symbol to fetch insider trades for. For example, 'AAPL' for Apple."),
   limit: z
     .number()
-    .default(100)
-    .describe('Maximum number of insider trades to return (default: 100, max: 1000).'),
+    .default(10)
+    .describe('Maximum number of insider trades to return (default: 10, max: 1000). Increase this for longer historical windows when needed.'),
   filing_date: z
     .string()
     .optional()
@@ -48,6 +50,9 @@ export const getInsiderTrades = new DynamicStructuredTool({
       filing_date_lt: input.filing_date_lt,
     };
     const { data, url } = await callApi('/insider-trades/', params);
-    return formatToolResult(data.insider_trades || [], [url]);
+    return formatToolResult(
+      stripFieldsDeep(data.insider_trades || [], REDUNDANT_INSIDER_FIELDS),
+      [url]
+    );
   },
 });

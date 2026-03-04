@@ -6,9 +6,9 @@ import { formatToolResult, parseSearchResults } from '../types.js';
 import { logger } from '@/utils';
 
 // Lazily initialized to avoid errors when API key is not set
-let exaTool: ExaSearchResults | null = null;
+let exaTool: { invoke: (query: string) => Promise<unknown> } | null = null;
 
-function getExaTool(): ExaSearchResults {
+function getExaTool(): { invoke: (query: string) => Promise<unknown> } {
   if (!exaTool) {
     const client = new Exa(process.env.EXASEARCH_API_KEY);
     // exa-js@2.x (root) vs exa-js@1.x (inside @langchain/exa) have
@@ -16,7 +16,7 @@ function getExaTool(): ExaSearchResults {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     exaTool = new ExaSearchResults({
       client: client as any,
-      searchArgs: { numResults: 5, text: true },
+      searchArgs: { numResults: 5, highlights: true },
     });
   }
   return exaTool!;

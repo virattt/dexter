@@ -1,7 +1,9 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { callApi } from './api.js';
+import { callApi, stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
+
+const REDUNDANT_FINANCIAL_FIELDS = ['accession_number', 'currency', 'period'] as const;
 
 const SegmentedRevenuesInputSchema = z.object({
   ticker: z
@@ -14,7 +16,7 @@ const SegmentedRevenuesInputSchema = z.object({
     .describe(
       "The reporting period for the segmented revenues. 'annual' for yearly, 'quarterly' for quarterly."
     ),
-  limit: z.number().default(10).describe('The number of past periods to retrieve.'),
+  limit: z.number().default(4).describe('The number of past periods to retrieve (default: 4). Increase when broader historical segment trends are required.'),
 });
 
 export const getSegmentedRevenues = new DynamicStructuredTool({
@@ -28,7 +30,10 @@ export const getSegmentedRevenues = new DynamicStructuredTool({
       limit: input.limit,
     };
     const { data, url } = await callApi('/financials/segmented-revenues/', params);
-    return formatToolResult(data.segmented_revenues || {}, [url]);
+    return formatToolResult(
+      stripFieldsDeep(data.segmented_revenues || {}, REDUNDANT_FINANCIAL_FIELDS),
+      [url]
+    );
   },
 });
 

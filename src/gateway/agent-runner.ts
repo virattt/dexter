@@ -38,7 +38,7 @@ export async function runAgentForMessage(req: AgentRunRequest): Promise<string> 
 
   const run = async () => {
     session.history.saveUserQuery(req.query);
-    const agent = Agent.create({
+    const agent = await Agent.create({
       model: req.model,
       modelProvider: req.modelProvider,
       maxIterations: req.maxIterations ?? 10,

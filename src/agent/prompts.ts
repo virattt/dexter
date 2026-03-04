@@ -1,5 +1,12 @@
 import { buildToolDescriptions } from '../tools/registry.js';
 import { buildSkillMetadataSection, discoverSkills } from '../skills/index.js';
+import { readFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // ============================================================================
 // Helper Functions
@@ -16,6 +23,27 @@ export function getCurrentDate(): string {
     day: 'numeric',
   };
   return new Date().toLocaleDateString('en-US', options);
+}
+
+/**
+ * Load SOUL.md content from user override or bundled file.
+ */
+export async function loadSoulDocument(): Promise<string | null> {
+  const userSoulPath = join(homedir(), '.dexter', 'SOUL.md');
+  try {
+    return await readFile(userSoulPath, 'utf-8');
+  } catch {
+    // Continue to bundled fallback when user override is missing/unreadable.
+  }
+
+  const bundledSoulPath = join(__dirname, '../../SOUL.md');
+  try {
+    return await readFile(bundledSoulPath, 'utf-8');
+  } catch {
+    // SOUL.md is optional; keep prompt behavior unchanged when absent.
+  }
+
+  return null;
 }
 
 /**
@@ -97,7 +125,7 @@ Keep tables compact:
  * Build the system prompt for the agent.
  * @param model - The model name (used to get appropriate tool descriptions)
  */
-export function buildSystemPrompt(model: string): string {
+export function buildSystemPrompt(model: string, soulContent?: string | null): string {
   const toolDescriptions = buildToolDescriptions(model);
 
   return `You are Dexter, a CLI assistant with access to research tools.
@@ -113,10 +141,11 @@ ${toolDescriptions}
 ## Tool Usage Policy
 
 - Only use tools when the query actually requires external data
-- ALWAYS prefer financial_search over web_search for any financial data (prices, metrics, filings, etc.)
+- For stock prices, financials, metrics, estimates, insider trades, and company news headlines, use financial_search
 - Call financial_search ONCE with the full natural language query - it handles multi-company/multi-metric requests internally
 - Do NOT break up queries into multiple tool calls when one call can handle the request
-- Use web_fetch as the DEFAULT for reading any web page content (articles, press releases, investor relations pages)
+- When news headlines are returned, assess whether the titles and metadata already answer the user's question before fetching full articles with web_fetch (fetching is expensive). Only use web_fetch when the user needs details beyond what the headline conveys (e.g., quotes, specifics of a deal, earnings call takeaways)
+- For general web queries, historical price charts, or non-financial topics, use web_search
 - Only use browser when you need JavaScript rendering or interactive navigation (clicking links, filling forms, navigating SPAs)
 - For factual questions about entities (companies, people, organizations), use tools to verify current state
 - Only respond directly for: conceptual definitions, stable historical facts, or conversational queries
@@ -131,6 +160,13 @@ ${buildSkillsSection()}
 - Avoid over-engineering responses - match the scope of your answer to the question
 - Never ask users to provide raw data, paste values, or reference JSON/API internals - users ask questions, they don't have access to financial APIs
 - If data is incomplete, answer with what you have without exposing implementation details
+
+${soulContent ? `## Identity
+
+${soulContent}
+
+Embody the identity and investing philosophy described above. Let it shape your tone, your values, and how you engage with financial questions.
+` : ''}
 
 ## Response Format
 
@@ -196,28 +232,8 @@ ${fullToolResults}`;
 
   prompt += `
 
-Continue working toward answering the query. If you have gathered actual content (not just links or titles), you may respond. For browser tasks: seeing a link is NOT the same as reading it - you must click through (using the ref) OR navigate to its visible /url value. NEVER guess at URLs - use ONLY URLs visible in snapshots.`;
+Continue working toward answering the query. When you have gathered sufficient data to answer, write your complete answer directly and do not call more tools. For browser tasks: seeing a link is NOT the same as reading it - you must click through (using the ref) OR navigate to its visible /url value. NEVER guess at URLs - use ONLY URLs visible in snapshots.`;
 
   return prompt;
-}
-
-// ============================================================================
-// Final Answer Generation
-// ============================================================================
-
-/**
- * Build the prompt for final answer generation with full context data.
- * This is used after context compaction - full data is loaded from disk for the final answer.
- */
-export function buildFinalAnswerPrompt(
-  originalQuery: string,
-  fullContextData: string
-): string {
-  return `Query: ${originalQuery}
-
-Data retrieved from your tool calls:
-${fullContextData}
-
-Answer the user's query using this data. Do not ask the user to provide additional data, paste values, or reference JSON/API internals. If data is incomplete, answer with what you have.`;
 }
 

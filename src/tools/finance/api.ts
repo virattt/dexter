@@ -8,6 +8,38 @@ export interface ApiResponse {
   url: string;
 }
 
+/**
+ * Remove redundant fields from API payloads before they are returned to the LLM.
+ * This reduces token usage while preserving the financial metrics needed for analysis.
+ */
+export function stripFieldsDeep(value: unknown, fields: readonly string[]): unknown {
+  const fieldsToStrip = new Set(fields);
+
+  function walk(node: unknown): unknown {
+    if (Array.isArray(node)) {
+      return node.map(walk);
+    }
+
+    if (!node || typeof node !== 'object') {
+      return node;
+    }
+
+    const record = node as Record<string, unknown>;
+    const cleaned: Record<string, unknown> = {};
+
+    for (const [key, child] of Object.entries(record)) {
+      if (fieldsToStrip.has(key)) {
+        continue;
+      }
+      cleaned[key] = walk(child);
+    }
+
+    return cleaned;
+  }
+
+  return walk(value);
+}
+
 export async function callApi(
   endpoint: string,
   params: Record<string, string | number | string[] | undefined>,

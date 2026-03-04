@@ -95,6 +95,7 @@ function renderHistory(chatLog: ChatLogComponent, history: AgentRunnerController
   chatLog.clearAll();
   for (const item of history) {
     chatLog.addQuery(item.query);
+    chatLog.resetToolGrouping();
 
     if (item.status === 'interrupted') {
       chatLog.addInterrupted();
@@ -144,8 +145,6 @@ function renderHistory(chatLog: ChatLogComponent, history: AgentRunnerController
       }
 
       if (event.type === 'tool_limit') {
-        const limit = chatLog.startTool(display.id, event.tool, {});
-        limit.setLimitWarning(event.warning);
         continue;
       }
 

@@ -1,26 +1,9 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { callApi } from './api.js';
+import { callApi, stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
 
-const KeyRatiosSnapshotInputSchema = z.object({
-  ticker: z
-    .string()
-    .describe(
-      "The stock ticker symbol to fetch key ratios snapshot for. For example, 'AAPL' for Apple."
-    ),
-});
-
-export const getKeyRatiosSnapshot = new DynamicStructuredTool({
-  name: 'get_key_ratios_snapshot',
-  description: `Fetches a snapshot of the most current key ratios for a company, including key indicators like market capitalization, P/E ratio, and dividend yield. Useful for a quick overview of a company's financial health.`,
-  schema: KeyRatiosSnapshotInputSchema,
-  func: async (input) => {
-    const params = { ticker: input.ticker };
-    const { data, url } = await callApi('/financial-metrics/snapshot/', params);
-    return formatToolResult(data.snapshot || {}, [url]);
-  },
-});
+const REDUNDANT_FINANCIAL_FIELDS = ['accession_number', 'currency', 'period'] as const;
 
 const KeyRatiosInputSchema = z.object({
   ticker: z
@@ -80,6 +63,9 @@ export const getKeyRatios = new DynamicStructuredTool({
       report_period_lte: input.report_period_lte,
     };
     const { data, url } = await callApi('/financial-metrics/', params);
-    return formatToolResult(data.financial_metrics || [], [url]);
+    return formatToolResult(
+      stripFieldsDeep(data.financial_metrics || [], REDUNDANT_FINANCIAL_FIELDS),
+      [url]
+    );
   },
 });

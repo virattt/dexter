@@ -3,6 +3,11 @@ import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { callLlm, DEFAULT_MODEL } from '../model/llm.js';
+import {
+  DEFAULT_HISTORY_LIMIT,
+  FULL_ANSWER_TURNS,
+  type HistoryEntry,
+} from './history-context.js';
 import { z } from 'zod';
 
 const DEXTER_DIR = '.dexter';
@@ -52,12 +57,14 @@ interface ContextFile {
 export class InMemoryChatHistory {
   private messages: Message[] = [];
   private model: string;
+  private readonly maxTurns: number;
   private relevantMessagesByQuery: Map<string, Message[]> = new Map();
   private filePath: string;
   private loaded = false;
 
-  constructor(model: string = DEFAULT_MODEL, baseDir: string = process.cwd()) {
+  constructor(model: string = DEFAULT_MODEL, maxTurns: number = DEFAULT_HISTORY_LIMIT, baseDir: string = process.cwd()) {
     this.model = model;
+    this.maxTurns = maxTurns;
     this.filePath = join(baseDir, DEXTER_DIR, CONTEXT_DIR, CONTEXT_FILE);
   }
 
@@ -269,6 +276,32 @@ Select which previous messages are relevant to understanding or answering the cu
    */
   getUserMessages(): string[] {
     return this.messages.map((message) => message.query);
+  }
+
+  /**
+   * Returns recent completed turns as alternating user/assistant entries.
+   * Uses full answers for the most recent turns and summaries for older ones.
+   */
+  getRecentTurns(limit: number = this.maxTurns): HistoryEntry[] {
+    const boundedLimit = Math.max(0, limit);
+    if (boundedLimit === 0) {
+      return [];
+    }
+
+    const completedMessages = this.messages.filter((message) => message.answer !== null);
+    const recentMessages = completedMessages.slice(-boundedLimit);
+
+    return recentMessages.flatMap((message, index) => {
+      const isRecentTurn = index >= recentMessages.length - FULL_ANSWER_TURNS;
+      const assistantContent = isRecentTurn
+        ? message.answer
+        : (message.summary ?? message.answer);
+
+      return [
+        { role: 'user', content: message.query },
+        { role: 'assistant', content: assistantContent ?? '' },
+      ];
+    });
   }
 
   /**

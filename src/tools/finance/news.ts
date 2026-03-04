@@ -3,33 +3,27 @@ import { z } from 'zod';
 import { callApi } from './api.js';
 import { formatToolResult } from '../types.js';
 
-const NewsInputSchema = z.object({
+const CompanyNewsInputSchema = z.object({
   ticker: z
     .string()
-    .describe("The stock ticker symbol to fetch news for. For example, 'AAPL' for Apple."),
-  start_date: z
-    .string()
-    .optional()
-    .describe('The start date to fetch news from (YYYY-MM-DD).'),
-  end_date: z.string().optional().describe('The end date to fetch news to (YYYY-MM-DD).'),
+    .describe("The stock ticker symbol to fetch company news for. For example, 'AAPL' for Apple."),
   limit: z
     .number()
-    .default(10)
-    .describe('The number of news articles to retrieve. Max is 100.'),
+    .default(5)
+    .describe('Maximum number of news articles to return (default: 5, max: 10).'),
 });
 
-export const getNews = new DynamicStructuredTool({
-  name: 'get_news',
-  description: `Retrieves recent news articles for a given company ticker, covering financial announcements, market trends, and other significant events. Useful for staying up-to-date with market-moving information and investor sentiment.`,
-  schema: NewsInputSchema,
+export const getCompanyNews = new DynamicStructuredTool({
+  name: 'get_company_news',
+  description:
+    'Retrieves recent company news headlines for a stock ticker, including title, source, publication date, and URL. Use for company catalysts, price move explanations, press releases, and recent announcements.',
+  schema: CompanyNewsInputSchema,
   func: async (input) => {
     const params: Record<string, string | number | undefined> = {
-      ticker: input.ticker,
-      limit: input.limit,
-      start_date: input.start_date,
-      end_date: input.end_date,
+      ticker: input.ticker.trim().toUpperCase(),
+      limit: Math.min(input.limit, 10),
     };
-    const { data, url } = await callApi('/news/', params);
-    return formatToolResult(data.news || [], [url]);
+    const { data, url } = await callApi('/news', params);
+    return formatToolResult((data.news as unknown[]) || [], [url]);
   },
 });

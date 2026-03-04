@@ -11,15 +11,6 @@ export interface ToolCallRecord {
   result: string;
 }
 
-/**
- * Full context data for final answer generation
- */
-export interface ToolContext {
-  toolName: string;
-  args: Record<string, unknown>;
-  result: string;
-}
-
 export interface ScratchpadEntry {
   type: 'init' | 'tool_result' | 'thinking';
   timestamp: string;
@@ -337,32 +328,6 @@ export class Scratchpad {
   }
 
   /**
-   * Get full tool results as ToolContext array (for final answer generation).
-   * Excludes cleared entries.
-   */
-  getActiveToolResults(): ToolContext[] {
-    const entries = this.readEntries();
-    let toolResultIndex = 0;
-    
-    const results: ToolContext[] = [];
-    for (const entry of entries) {
-      if (entry.type !== 'tool_result' || !entry.toolName) continue;
-      
-      // Skip cleared entries
-      if (!this.clearedToolIndices.has(toolResultIndex)) {
-        results.push({
-          toolName: entry.toolName,
-          args: entry.args!,
-          result: this.stringifyResult(entry.result),
-        });
-      }
-      toolResultIndex++;
-    }
-    
-    return results;
-  }
-
-  /**
    * Clear oldest tool results from context (in-memory only).
    * Anthropic-style: removes oldest tool results, keeping most recent N.
    * The JSONL file is NOT modified - this only affects what gets sent to the LLM.
@@ -432,20 +397,6 @@ export class Scratchpad {
   }
 
   /**
-   * Get full contexts for final answer generation.
-   * Returns all tool results (including cleared ones) for comprehensive final answer.
-   */
-  getFullContexts(): ToolContext[] {
-    return this.readEntries()
-      .filter(e => e.type === 'tool_result' && e.toolName && e.result)
-      .map(e => ({
-        toolName: e.toolName!,
-        args: e.args!,
-        result: this.stringifyResult(e.result),
-      }));
-  }
-
-  /**
    * Convert a result back to string for API compatibility.
    * If already a string, returns as-is. Otherwise JSON stringifies.
    */
@@ -497,7 +448,7 @@ export class Scratchpad {
   /**
    * Read all entries from the log.
    * Skips malformed or corrupt lines (partial writes, disk corruption) to avoid
-   * a single bad line crashing getToolSummaries, getFullContexts, etc.
+   * a single bad line crashing tool-context methods.
    */
   private readEntries(): ScratchpadEntry[] {
     if (!existsSync(this.filepath)) {

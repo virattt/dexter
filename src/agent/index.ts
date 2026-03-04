@@ -17,13 +17,11 @@ export type {
   ToolApprovalEvent,
   ToolDeniedEvent,
   ToolLimitEvent,
-  AnswerStartEvent,
   DoneEvent,
 } from './types.js';
 
 export type { 
   ToolCallRecord, 
-  ToolContext, 
   ScratchpadEntry,
   ToolLimitConfig,
   ToolUsageStatus,

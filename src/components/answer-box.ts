@@ -5,7 +5,6 @@ import { markdownTheme, theme } from '../theme.js';
 export class AnswerBoxComponent extends Container {
   private readonly body: Markdown;
   private value = '';
-  private streaming = false;
 
   constructor(initialText = '') {
     super();
@@ -20,12 +19,6 @@ export class AnswerBoxComponent extends Container {
     const rendered = formatResponse(text);
     // Prevent "⏺" from appearing on its own line when model output starts with newlines.
     const normalized = rendered.replace(/^\n+/, '');
-    const value = this.streaming ? `${normalized}▌` : normalized;
-    this.body.setText(`${theme.primary('⏺ ')}${value}`);
-  }
-
-  setStreaming(streaming: boolean) {
-    this.streaming = streaming;
-    this.setText(this.value);
+    this.body.setText(`${theme.primary('⏺ ')}${normalized}`);
   }
 }

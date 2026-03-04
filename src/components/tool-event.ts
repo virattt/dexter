@@ -52,7 +52,8 @@ function approvalLabel(decision: ApprovalDecision): string {
 
 export class ToolEventComponent extends Container {
   private readonly header: Text;
-  private detail: Text | null = null;
+  private completedDetails: Text[] = [];
+  private activeDetail: Text | null = null;
 
   constructor(_tui: unknown, tool: string, args: Record<string, unknown>) {
     super();
@@ -65,50 +66,58 @@ export class ToolEventComponent extends Container {
   setActive(progressMessage?: string) {
     this.clearDetail();
     const message = progressMessage || 'Searching...';
-    this.detail = new Text(`${theme.muted('⎿  ')}${message}`, 0, 0);
-    this.addChild(this.detail);
+    this.activeDetail = new Text(`${theme.muted('⎿  ')}${message}`, 0, 0);
+    this.addChild(this.activeDetail);
   }
 
   setComplete(summary: string, duration: number) {
     this.clearDetail();
-    this.detail = new Text(`${theme.muted('⎿  ')}${summary}${theme.muted(` in ${formatDuration(duration)}`)}`, 0, 0);
-    this.addChild(this.detail);
+    const detail = new Text(
+      `${theme.muted('⎿  ')}${summary}${theme.muted(` in ${formatDuration(duration)}`)}`,
+      0,
+      0
+    );
+    this.completedDetails.push(detail);
+    this.addChild(detail);
   }
 
   setError(error: string) {
     this.clearDetail();
-    this.detail = new Text(`${theme.muted('⎿  ')}${theme.error(`Error: ${truncateAtWord(error, 80)}`)}`, 0, 0);
-    this.addChild(this.detail);
+    const detail = new Text(`${theme.muted('⎿  ')}${theme.error(`Error: ${truncateAtWord(error, 80)}`)}`, 0, 0);
+    this.completedDetails.push(detail);
+    this.addChild(detail);
   }
 
   setLimitWarning(warning?: string) {
     this.clearDetail();
-    this.detail = new Text(
+    this.activeDetail = new Text(
       `${theme.muted('⎿  ')}${theme.warning(truncateAtWord(warning || 'Approaching suggested limit', 100))}`,
       0,
       0,
     );
-    this.addChild(this.detail);
+    this.addChild(this.activeDetail);
   }
 
   setDenied(path: string, tool: string) {
     this.clearDetail();
     const action = tool === 'write_file' ? 'write to' : tool === 'edit_file' ? 'edit of' : tool;
-    this.detail = new Text(`${theme.muted('⎿  ')}${theme.warning(`User denied ${action} ${path}`)}`, 0, 0);
-    this.addChild(this.detail);
+    const detail = new Text(`${theme.muted('⎿  ')}${theme.warning(`User denied ${action} ${path}`)}`, 0, 0);
+    this.completedDetails.push(detail);
+    this.addChild(detail);
   }
 
   setApproval(decision: ApprovalDecision) {
     this.clearDetail();
     const color = decision !== 'deny' ? theme.primary : theme.warning;
-    this.detail = new Text(`${theme.muted('⎿  ')}${color(approvalLabel(decision))}`, 0, 0);
-    this.addChild(this.detail);
+    const detail = new Text(`${theme.muted('⎿  ')}${color(approvalLabel(decision))}`, 0, 0);
+    this.completedDetails.push(detail);
+    this.addChild(detail);
   }
 
   private clearDetail() {
-    if (this.detail) {
-      this.removeChild(this.detail);
-      this.detail = null;
+    if (this.activeDetail) {
+      this.removeChild(this.activeDetail);
+      this.activeDetail = null;
     }
   }
 }

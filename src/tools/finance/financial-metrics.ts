@@ -6,6 +6,38 @@ import { callLlm } from '../../model/llm.js';
 import { formatToolResult } from '../types.js';
 import { getCurrentDate } from '../../agent/prompts.js';
 
+/**
+ * Rich description for the financial_metrics tool.
+ * Used in the system prompt to guide the LLM on when and how to use this tool.
+ */
+export const FINANCIAL_METRICS_DESCRIPTION = `
+Intelligent meta-tool for fundamental analysis and financial metrics. Takes a natural language query and routes to financial statements and key ratios tools.
+
+## When to Use
+
+- Income statement data (revenue, gross profit, operating income, net income, EPS)
+- Balance sheet data (assets, liabilities, equity, debt, cash)
+- Cash flow data (operating cash flow, investing cash flow, financing cash flow, free cash flow)
+- Financial metrics (P/E ratio, EV/EBITDA, ROE, ROA, margins, dividend yield)
+- Trend analysis across multiple periods
+- Multi-company fundamental comparisons
+
+## When NOT to Use
+
+- Stock prices (use web_search)
+- SEC filings content (use financial_search)
+- Company news (use financial_search)
+- Analyst estimates (use financial_search)
+- Non-financial data (use web_search)
+
+## Usage Notes
+
+- Call ONCE with full natural language query
+- Handles ticker resolution (Apple -> AAPL)
+- Handles date inference ("last 5 years", "Q3 2024")
+- For "current" metrics, uses snapshot tools; for "historical", uses time-series tools
+`.trim();
+
 /** Format snake_case tool name to Title Case for progress messages */
 function formatSubToolName(name: string): string {
   return name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -13,7 +45,7 @@ function formatSubToolName(name: string): string {
 
 // Import fundamental analysis tools directly (avoid circular deps with index.ts)
 import { getIncomeStatements, getBalanceSheets, getCashFlowStatements, getAllFinancialStatements } from './fundamentals.js';
-import { getKeyRatiosSnapshot, getKeyRatios } from './key-ratios.js';
+import { getKeyRatios } from './key-ratios.js';
 
 // Fundamental analysis tools available for routing
 const METRICS_TOOLS: StructuredToolInterface[] = [
@@ -23,7 +55,6 @@ const METRICS_TOOLS: StructuredToolInterface[] = [
   getCashFlowStatements,
   getAllFinancialStatements,
   // Key Ratios
-  getKeyRatiosSnapshot,
   getKeyRatios,
 ];
 
@@ -50,7 +81,6 @@ Given a user's natural language query about financial statements or metrics, cal
    - "YTD" → report_period_gte Jan 1 of current year
 
 3. **Tool Selection**:
-   - For "current" or "latest" metrics → get_key_ratios_snapshot
    - For historical metrics over time → get_key_ratios
    - For revenue, earnings, profitability → get_income_statements
    - For debt, assets, equity, cash position → get_balance_sheets
@@ -66,6 +96,11 @@ Given a user's natural language query about financial statements or metrics, cal
    - Prefer specific statement tools over get_all_financial_statements when possible
    - Use get_all_financial_statements when multiple statement types are needed
    - For comparisons between companies, call the same tool for each ticker
+   - Always use the smallest limit that can answer the question:
+     - Point-in-time/latest questions → limit 1
+     - Short trend (2-3 periods) → limit 3
+     - Medium trend (4-5 periods) → limit 5
+   - Increase limit beyond defaults only when the user explicitly asks for long history (e.g., 10-year trend)
 
 Call the appropriate tool(s) now.`;
 }

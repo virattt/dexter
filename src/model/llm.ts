@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { DEFAULT_SYSTEM_PROMPT } from '@/agent/prompts';
 import type { TokenUsage } from '@/agent/types';
 import { logger } from '@/utils';
+import { classifyError, isNonRetryableError } from '@/utils/errors';
 import { resolveProvider, getProviderById } from '@/providers';
 
 export const DEFAULT_PROVIDER = 'openai';
@@ -32,7 +33,12 @@ async function withRetry<T>(fn: () => Promise<T>, provider: string, maxAttempts 
       return await fn();
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      logger.error(`[${provider} API] error (attempt ${attempt + 1}/${maxAttempts}): ${message}`);
+      const errorType = classifyError(message);
+      logger.error(`[${provider} API] ${errorType} error (attempt ${attempt + 1}/${maxAttempts}): ${message}`);
+
+      if (isNonRetryableError(message)) {
+        throw new Error(`[${provider} API] ${message}`);
+      }
 
       if (attempt === maxAttempts - 1) {
         throw new Error(`[${provider} API] ${message}`);

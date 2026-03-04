@@ -136,6 +136,8 @@ export class ChatLogComponent extends Container {
   private readonly toolById = new Map<string, ToolDisplayComponent>();
   private currentBrowserSession: BrowserSessionComponent | null = null;
   private activeAnswer: AnswerBoxComponent | null = null;
+  private lastToolName: string | null = null;
+  private lastToolComponent: ToolDisplayComponent | null = null;
 
   constructor(tui: TUI) {
     super();
@@ -147,10 +149,17 @@ export class ChatLogComponent extends Container {
     this.toolById.clear();
     this.currentBrowserSession = null;
     this.activeAnswer = null;
+    this.lastToolName = null;
+    this.lastToolComponent = null;
   }
 
   addQuery(query: string) {
     this.addChild(new UserQueryComponent(query));
+  }
+
+  resetToolGrouping() {
+    this.lastToolName = null;
+    this.lastToolComponent = null;
   }
 
   addInterrupted() {
@@ -176,13 +185,23 @@ export class ChatLogComponent extends Container {
       this.currentBrowserSession.setStep(args);
       this.currentBrowserSession.setActive();
       this.toolById.set(toolCallId, this.currentBrowserSession);
+      this.lastToolName = null;
+      this.lastToolComponent = null;
       return this.currentBrowserSession;
+    }
+
+    if (this.lastToolName === toolName && this.lastToolComponent) {
+      this.lastToolComponent.setActive();
+      this.toolById.set(toolCallId, this.lastToolComponent);
+      return this.lastToolComponent;
     }
 
     const component = new ToolEventComponent(this.tui, toolName, args);
     component.setActive();
     this.toolById.set(toolCallId, component);
     this.addChild(component);
+    this.lastToolName = toolName;
+    this.lastToolComponent = component;
     return component;
   }
 
@@ -234,27 +253,11 @@ export class ChatLogComponent extends Container {
     existing.setDenied(path, tool);
   }
 
-  startAnswer() {
-    if (this.activeAnswer) {
-      return this.activeAnswer;
-    }
-    this.activeAnswer = new AnswerBoxComponent('');
-    this.activeAnswer.setStreaming(true);
-    this.addChild(this.activeAnswer);
-    return this.activeAnswer;
-  }
-
-  updateAnswer(text: string) {
-    const answer = this.startAnswer();
-    answer.setText(text);
-  }
-
   finalizeAnswer(text: string) {
     if (!this.activeAnswer) {
       this.addChild(new AnswerBoxComponent(text));
       return;
     }
-    this.activeAnswer.setStreaming(false);
     this.activeAnswer.setText(text);
     this.activeAnswer = null;
   }
@@ -272,7 +275,7 @@ export class ChatLogComponent extends Container {
   }
 
   addPerformanceStats(duration: number, tokenUsage?: TokenUsage, tokensPerSecond?: number) {
-    if (!tokenUsage || duration < 10_000) {
+    if (!tokenUsage) {
       return;
     }
     const parts = [formatDuration(duration), `${tokenUsage.totalTokens.toLocaleString()} tokens`];

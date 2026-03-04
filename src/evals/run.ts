@@ -141,7 +141,7 @@ function shuffleArray<T>(array: T[]): T[] {
 // ============================================================================
 
 async function target(inputs: { question: string }): Promise<{ answer: string }> {
-  const agent = Agent.create({ model: 'gpt-5.2', maxIterations: 10 });
+  const agent = await Agent.create({ model: 'gpt-5.2', maxIterations: 10 });
   let answer = '';
   
   for await (const event of agent.run(inputs.question)) {
