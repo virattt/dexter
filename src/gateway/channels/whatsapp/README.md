@@ -8,7 +8,7 @@ Chat with Dexter through WhatsApp by linking your phone to the gateway. Messages
 - [🔗 How to Link WhatsApp](#-how-to-link-whatsapp)
 - [🚀 How to Run](#-how-to-run)
 - [💬 How to Chat](#-how-to-chat)
-- [⚙️ Configuration](#️-configuration)
+- [⚙️ Configuration](#⚙️-configuration)
 - [🔄 How to Relink](#-how-to-relink)
 - [🐛 Troubleshooting](#-troubleshooting)
 - [🔧 Full Reset](#-full-reset)
