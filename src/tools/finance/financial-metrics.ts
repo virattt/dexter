@@ -146,7 +146,7 @@ export function createFinancialMetrics(model: string): DynamicStructuredTool {
       }
 
       // 3. Execute tool calls in parallel
-      const toolNames = toolCalls.map(tc => formatSubToolName(tc.name));
+      const toolNames = [...new Set(toolCalls.map(tc => formatSubToolName(tc.name)))];
       onProgress?.(`Fetching from ${toolNames.join(', ')}...`);
       const results = await Promise.all(
         toolCalls.map(async (tc) => {
