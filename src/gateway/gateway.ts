@@ -89,7 +89,7 @@ async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage
     const answer = await runAgentForMessage({
       sessionKey: route.sessionKey,
       query: inbound.body,
-      model: 'gpt-5.2',
+      model: 'gpt-5.4',
       modelProvider: 'openai',
       channel: 'whatsapp',
     });

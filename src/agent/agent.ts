@@ -13,7 +13,7 @@ import { createRunContext, type RunContext } from './run-context.js';
 import { AgentToolExecutor } from './tool-executor.js';
 
 
-const DEFAULT_MODEL = 'gpt-5.2';
+const DEFAULT_MODEL = 'gpt-5.4';
 const DEFAULT_MAX_ITERATIONS = 10;
 const MAX_OVERFLOW_RETRIES = 2;
 const OVERFLOW_KEEP_TOOL_USES = 3;

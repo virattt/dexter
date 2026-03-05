@@ -133,7 +133,7 @@ export function startHeartbeatRunner(params: { configPath?: string }): Heartbeat
 
       // Run agent
       debugLog(`[heartbeat] running agent for session=${session.sessionKey}`);
-      const model = heartbeatCfg.model ?? 'gpt-5.2';
+      const model = heartbeatCfg.model ?? 'gpt-5.4';
       const modelProvider = heartbeatCfg.modelProvider ?? 'openai';
       const answer = await runAgentForMessage({
         sessionKey: session.sessionKey,

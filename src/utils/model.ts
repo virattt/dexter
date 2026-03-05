@@ -13,7 +13,7 @@ interface Provider {
 
 const PROVIDER_MODELS: Record<string, Model[]> = {
   openai: [
-    { id: 'gpt-5.2', displayName: 'GPT 5.2' },
+    { id: 'gpt-5.4', displayName: 'GPT 5.4' },
     { id: 'gpt-4.1', displayName: 'GPT 4.1' },
   ],
   anthropic: [
