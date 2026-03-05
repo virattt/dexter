@@ -24,7 +24,7 @@ Intelligent meta-tool for fundamental analysis and financial metrics. Takes a na
 
 ## When NOT to Use
 
-- Stock prices (use web_search)
+- Stock prices (use financial_search)
 - SEC filings content (use financial_search)
 - Company news (use financial_search)
 - Analyst estimates (use financial_search)
@@ -45,7 +45,7 @@ function formatSubToolName(name: string): string {
 
 // Import fundamental analysis tools directly (avoid circular deps with index.ts)
 import { getIncomeStatements, getBalanceSheets, getCashFlowStatements, getAllFinancialStatements } from './fundamentals.js';
-import { getKeyRatios } from './key-ratios.js';
+import { getKeyRatios, getHistoricalKeyRatios } from './key-ratios.js';
 
 // Fundamental analysis tools available for routing
 const METRICS_TOOLS: StructuredToolInterface[] = [
@@ -54,8 +54,9 @@ const METRICS_TOOLS: StructuredToolInterface[] = [
   getBalanceSheets,
   getCashFlowStatements,
   getAllFinancialStatements,
-  // Key Ratios
+  // Key Ratios & Snapshots
   getKeyRatios,
+  getHistoricalKeyRatios,
 ];
 
 // Create a map for quick tool lookup by name
@@ -81,7 +82,8 @@ Given a user's natural language query about financial statements or metrics, cal
    - "YTD" → report_period_gte Jan 1 of current year
 
 3. **Tool Selection**:
-   - For historical metrics over time → get_key_ratios
+   - For current/latest metrics snapshot (P/E, market cap, EPS, dividend yield, enterprise value, margins) → get_key_ratios
+   - For historical metrics over time → get_historical_key_ratios
    - For revenue, earnings, profitability → get_income_statements
    - For debt, assets, equity, cash position → get_balance_sheets
    - For cash flow, free cash flow, operating cash → get_cash_flow_statements

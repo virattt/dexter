@@ -22,13 +22,13 @@ Intelligent meta-tool for financial data research. Takes a natural language quer
 - Company news and recent headlines
 - Insider trading activity
 - Current stock prices for equities
+- Historical stock prices over date ranges
 - Cryptocurrency prices
 - Revenue segment breakdowns
 - Multi-company comparisons (pass the full query, it handles routing internally)
 
 ## When NOT to Use
 
-- Historical stock prices (use web_search instead)
 - General web searches or non-financial topics (use web_search instead)
 - Questions that don't require external financial data (answer directly from knowledge)
 - Non-public company information
@@ -56,13 +56,16 @@ import { getAnalystEstimates } from './estimates.js';
 import { getSegmentedRevenues } from './segments.js';
 import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
 import { getInsiderTrades } from './insider_trades.js';
-import { getStockPrice } from './stock-price.js';
+import { getStockPrice, getStockPrices, getStockTickers } from './stock-price.js';
+import { getHistoricalKeyRatios } from './key-ratios.js';
 import { getCompanyNews } from './news.js';
 
 // All finance tools available for routing
 const FINANCE_TOOLS: StructuredToolInterface[] = [
   // Price Data
   getStockPrice,
+  getStockPrices,
+  getStockTickers,
   getCryptoPriceSnapshot,
   getCryptoPrices,
   getCryptoTickers,
@@ -71,8 +74,9 @@ const FINANCE_TOOLS: StructuredToolInterface[] = [
   getBalanceSheets,
   getCashFlowStatements,
   getAllFinancialStatements,
-  // Key Ratios & Estimates
+  // Key Ratios, Snapshots & Estimates
   getKeyRatios,
+  getHistoricalKeyRatios,
   getAnalystEstimates,
   // News
   getCompanyNews,
@@ -105,8 +109,10 @@ Given a user's natural language query about financial data, call the appropriate
 
 3. **Tool Selection**:
    - For a current stock quote/snapshot (price, market cap now) → get_stock_price
+   - For historical stock prices over a date range → get_stock_prices
    - For "historical" or "over time" data, use date-range tools
-   - For historical P/E ratio, historical market cap, valuation metrics over time → get_key_ratios
+   - For latest financial metrics snapshot (P/E, margins, ROE, EPS, growth rates) → get_key_ratios
+   - For historical P/E ratio, historical market cap, valuation metrics over time → get_historical_key_ratios
    - For revenue, earnings, profitability → get_income_statements
    - For debt, assets, equity → get_balance_sheets
    - For cash flow, free cash flow → get_cash_flow_statements
@@ -145,8 +151,8 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
 - Analyst estimates and price targets
 - Company news and recent headlines
 - Insider trading activity
-- Current stock prices
-- Cryptocurrency prices. For historical stock prices use web_search instead.`,
+- Current and historical stock prices
+- Cryptocurrency prices.`,
     schema: FinancialSearchInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
       const onProgress = config?.metadata?.onProgress as ((msg: string) => void) | undefined;
