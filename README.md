@@ -10,7 +10,9 @@ Dexter is an autonomous financial research agent that thinks, plans, and learns 
 - [✅ Prerequisites](#-prerequisites)
 - [💻 How to Install](#-how-to-install)
 - [🚀 How to Run](#-how-to-run)
+- [🧠 Customizing Dexter — SOUL.md & HEARTBEAT.md](#-customizing-dexter--soulmd--heartbeatmd)
 - [📊 How to Evaluate](#-how-to-evaluate)
+- [⚡ API Rate Limiting](#-api-rate-limiting)
 - [🐛 How to Debug](#-how-to-debug)
 - [📱 How to Use with WhatsApp](#-how-to-use-with-whatsapp)
 - [🤝 How to Contribute](#-how-to-contribute)
@@ -107,6 +109,103 @@ Or with watch mode for development:
 bun dev
 ```
 
+## 🧠 Customizing Dexter — SOUL.md & HEARTBEAT.md
+
+Out of the box, Dexter is a general-purpose financial research agent. But it becomes dramatically more useful when you give it a persistent investment thesis, a defined coverage universe, and a monitoring discipline. That's what `SOUL.md` and `HEARTBEAT.md` do.
+
+### Why customize?
+
+Standard financial APIs and LLM-based analysis work well for high-coverage names — everyone agrees Nvidia is a buy. But the edge in research lives in the positions that standard tools *can't* evaluate: equipment cycle dynamics, EDA complexity growth, power bottleneck economics, memory supply-demand gaps. These require domain-specific context that no generic agent carries.
+
+By embedding your thesis into Dexter's identity files, every query it runs is informed by your structural view of the market. It doesn't just answer "what is AMAT's P/E?" — it answers it in the context of where AMAT sits in the AI supply chain, what the H2 2026 equipment cycle inflection means, and whether the current valuation reflects the structural flywheel.
+
+### SOUL.md — The agent's identity and thesis
+
+`SOUL.md` lives in the repo root and is injected into Dexter's system prompt on every query. It defines:
+
+- **Coverage universe** — organized by supply chain layer (Chip Designers, Foundry, Equipment, EDA, Power, Memory, Networking)
+- **Structural thesis** — the "why" behind each position, not just the ticker
+- **Conviction tiering** — every name classified as Core Compounder, Cyclical Beneficiary, Speculative Optionality, or Avoid/Too Crowded, with bottleneck type, duration, and attackability
+- **Sizing rules** — regime determines size (not conviction), layer determines durability, catalyst determines timing
+- **Analytical edge** — where standard tools fail and what domain-specific analysis to prioritize
+
+Edit `SOUL.md` to reflect your own thesis. The structure matters more than the specific names — Dexter uses it to contextualize every answer.
+
+### HEARTBEAT.md — The monitoring checklist
+
+`~/.dexter/HEARTBEAT.md` is a user-managed file that defines what Dexter should monitor periodically. It includes:
+
+- **Per-ticker monitoring criteria** — what to check for each name (e.g., "AMAT price + order trends, H2 2026 equipment cycle signals")
+- **Conviction tier tags** — `[CC]`, `[CB]`, `[SO]`, `[AV]` on every entry so research effort scales with conviction
+- **Macro signals** — Fed rates, SOX index, hyperscaler capex, BTC/Gold ratio, Burry's danger signal
+- **Thematic sections** — equity tokenization/RWA, HIP-3 onchain perps, commodities, bear market accumulation zones
+- **Research priority guide** — Core Compounders get deep fundamental research; Speculative Optionality gets catalyst-only monitoring
+
+### Example queries to get the most out of this setup
+
+**Thesis-aware research:**
+```
+What's our thesis on Bloom Energy and where does it sit in the durability hierarchy?
+```
+```
+Compare the structural position of SNDK vs MU in the memory bottleneck thesis
+```
+```
+What did Aschenbrenner's Q4 2025 13F signal about pricing power migration?
+```
+
+**Financial data + thesis context:**
+```
+Pull current price and key ratios for our Layer 3 equipment names: AMAT, ASML, LRCX, KLAC, TEL, BESI
+```
+```
+Pull the latest income statement for TSM and analyze it through the foundry tollbooth lens
+```
+```
+What's KLAC's margin profile and how does process control complexity insurance play into the thesis?
+```
+
+**Stress-test the thesis:**
+```
+What's the bear case for holding Layer 1 chip designers right now?
+```
+```
+Where does this thesis break? What assumptions are most vulnerable?
+```
+```
+If AI demand is merely good but not euphoric, which positions survive and which don't?
+```
+
+**Cross-layer analysis:**
+```
+Which of our core compounders have the longest bottleneck duration and lowest attackability?
+```
+```
+Rank our cyclical beneficiaries by how exposed they are to a single capex cycle
+```
+
+**Macro + monitoring:**
+```
+Check the latest price and news on BE, CORZ, and SNDK
+```
+```
+What's the current BTC/Gold ratio telling us about risk appetite?
+```
+```
+Summarize the latest hyperscaler capex guidance from MSFT, GOOG, AMZN, META
+```
+
+**Deep dives (uses web_search + financial tools together):**
+```
+Read AMAT's latest 10-K risk factors and identify anything that changes the equipment cycle thesis
+```
+```
+Find the latest Fabricated Knowledge or SemiAnalysis coverage on H2 2026 wafer fab equipment outlook
+```
+```
+What are the latest NAND contract pricing trends from TrendForce?
+```
+
 ## 📊 How to Evaluate
 
 Dexter includes an evaluation suite that tests the agent against a dataset of financial questions. Evals use LangSmith for tracking and an LLM-as-judge approach for scoring correctness.
@@ -122,6 +221,16 @@ bun run src/evals/run.ts --sample 10
 ```
 
 The eval runner displays a real-time UI showing progress, current question, and running accuracy statistics. Results are logged to LangSmith for analysis.
+
+## ⚡ API Rate Limiting
+
+When querying many tickers at once (e.g., pulling data across an entire coverage universe), Dexter includes built-in protections against `429 Too Many Requests` errors from the Financial Datasets API:
+
+- **Concurrency semaphore** — limits parallel API requests to 5 at a time
+- **Exponential backoff with retry** — automatically retries failed requests up to 3 times with increasing delays, respecting `Retry-After` headers
+- **Batched execution** — tool calls within `financial_search` and `financial_metrics` are processed in batches of 8 rather than all at once
+
+For internationally listed stocks (e.g., BESI on Euronext Amsterdam), the Financial Datasets API may return no data. Dexter will automatically fall back to `web_search` for these names. You can note OTC ADR tickers (e.g., `BESIY`) in `SOUL.md` to improve lookup success.
 
 ## 🐛 How to Debug
 
