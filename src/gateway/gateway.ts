@@ -108,7 +108,6 @@ async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage
         body: cleanedAnswer,
         accountId: inbound.accountId,
       });
-      console.log(`Sent reply (${answer.length} chars, ${durationMs}ms)`);
       debugLog(`[gateway] reply sent`);
     } else {
       console.log(`Agent returned empty response (${durationMs}ms)`);

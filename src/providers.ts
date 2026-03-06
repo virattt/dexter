@@ -22,14 +22,14 @@ export const PROVIDERS: ProviderDef[] = [
     displayName: 'OpenAI',
     modelPrefix: '',
     apiKeyEnvVar: 'OPENAI_API_KEY',
-    fastModel: 'gpt-4.1',
+    fastModel: 'gpt-5.2', // Optional: We can use the same model, as OpenAI handles speed internally
   },
   {
     id: 'anthropic',
     displayName: 'Anthropic',
     modelPrefix: 'claude-',
     apiKeyEnvVar: 'ANTHROPIC_API_KEY',
-    fastModel: 'claude-haiku-4-5',
+    fastModel: 'claude-3-5-sonnet-latest',
   },
   {
     id: 'google',
@@ -37,39 +37,6 @@ export const PROVIDERS: ProviderDef[] = [
     modelPrefix: 'gemini-',
     apiKeyEnvVar: 'GOOGLE_API_KEY',
     fastModel: 'gemini-3-flash-preview',
-  },
-  {
-    id: 'xai',
-    displayName: 'xAI',
-    modelPrefix: 'grok-',
-    apiKeyEnvVar: 'XAI_API_KEY',
-    fastModel: 'grok-4-1-fast-reasoning',
-  },
-  {
-    id: 'moonshot',
-    displayName: 'Moonshot',
-    modelPrefix: 'kimi-',
-    apiKeyEnvVar: 'MOONSHOT_API_KEY',
-    fastModel: 'kimi-k2-5',
-  },
-  {
-    id: 'deepseek',
-    displayName: 'DeepSeek',
-    modelPrefix: 'deepseek-',
-    apiKeyEnvVar: 'DEEPSEEK_API_KEY',
-    fastModel: 'deepseek-chat',
-  },
-  {
-    id: 'openrouter',
-    displayName: 'OpenRouter',
-    modelPrefix: 'openrouter:',
-    apiKeyEnvVar: 'OPENROUTER_API_KEY',
-    fastModel: 'openrouter:openai/gpt-4o-mini',
-  },
-  {
-    id: 'ollama',
-    displayName: 'Ollama',
-    modelPrefix: 'ollama:',
   },
 ];
 

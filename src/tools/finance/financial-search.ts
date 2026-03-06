@@ -163,6 +163,11 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
         model,
         systemPrompt: buildRouterPrompt(),
         tools: FINANCE_TOOLS,
+        fallbackModels: [
+          'claude-3-5-sonnet-latest',
+          'gemini-3.1-pro-preview',
+          'gemini-3-flash-preview',
+        ].filter(m => m !== model),
       });
       const aiMessage = response as AIMessage;
 

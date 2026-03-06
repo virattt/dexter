@@ -58,53 +58,103 @@ export async function callApi(
   // Read API key lazily at call time (after dotenv has loaded)
   const FINANCIAL_DATASETS_API_KEY = process.env.FINANCIAL_DATASETS_API_KEY;
 
-  if (!FINANCIAL_DATASETS_API_KEY) {
-    logger.warn(`[Financial Datasets API] call without key: ${label}`);
-  }
+  const endpointStr = endpoint.toLowerCase();
+  const basePath = endpointStr.split('?')[0];
+  const ticker = String(params.ticker ?? '').toUpperCase();
+  let responseKey = 'data';
+  let consensusData: any = null;
 
-  const url = new URL(`${BASE_URL}${endpoint}`);
-
-  // Add params to URL, handling arrays
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null) {
-      if (Array.isArray(value)) {
-        value.forEach((v) => url.searchParams.append(key, v));
-      } else {
-        url.searchParams.append(key, String(value));
-      }
-    }
-  }
-
-  let response: Response;
   try {
-    response = await fetch(url.toString(), {
-      headers: {
-        'x-api-key': FINANCIAL_DATASETS_API_KEY || '',
-      },
-    });
+    const {
+      getYahooPrices,
+      getYahooIncomeStatements,
+      getYahooBalanceSheets,
+      getYahooCashFlowStatements,
+      getYahooQuote,
+    } = await import('./yahoo-finance.js');
+    
+    // Auto-discover the Finviz scraping utility
+    const { getFinvizSnapshot } = await import('./finviz-fundamental-search.js');
+
+    if (basePath === '/prices/snapshot' || basePath === '/prices/snapshot/') {
+      // Base quote logic: Fetch from Yahoo but gracefully mix Finviz if possible
+      const [yahooQuote, finvizData] = await Promise.allSettled([
+        getYahooQuote(ticker),
+        getFinvizSnapshot(ticker)
+      ]);
+      const yData = yahooQuote.status === 'fulfilled' ? yahooQuote.value[0] : {};
+      const fData = finvizData.status === 'fulfilled' ? finvizData.value : {};
+      
+      consensusData = { ...yData, finviz_metrics: fData };
+      responseKey = 'snapshot';
+    } else if (basePath === '/prices' || basePath === '/prices/') {
+      consensusData = await getYahooPrices(
+        ticker,
+        params.start_date as string | undefined,
+        params.end_date as string | undefined
+      );
+      responseKey = 'prices';
+    } else if (basePath.includes('/income-statements')) {
+      consensusData = await getYahooIncomeStatements(ticker, params.period as string | undefined);
+      responseKey = 'income_statements';
+    } else if (basePath.includes('/balance-sheets')) {
+      consensusData = await getYahooBalanceSheets(ticker, params.period as string | undefined);
+      responseKey = 'balance_sheets';
+    } else if (basePath.includes('/cash-flow-statements')) {
+      consensusData = await getYahooCashFlowStatements(ticker, params.period as string | undefined);
+      responseKey = 'cash_flow_statements';
+    } else if (basePath === '/financials' || basePath === '/financials/') {
+      const [inc, bal, cf] = await Promise.all([
+         getYahooIncomeStatements(ticker, params.period as string | undefined),
+         getYahooBalanceSheets(ticker, params.period as string | undefined),
+         getYahooCashFlowStatements(ticker, params.period as string | undefined)
+      ]);
+      // Returns a single object with the 3 statements array
+      consensusData = { income_statements: inc, balance_sheets: bal, cash_flow_statements: cf };
+      responseKey = 'financials';
+    } else if (basePath === '/financial-metrics/snapshot' || basePath === '/financial-metrics/snapshot/') {
+      // Core consensus feature requested by the user: Side-by-side Yahoo and Finviz
+      const [yahooMetrics, finvizMetrics] = await Promise.allSettled([
+        getYahooQuote(ticker),
+        getFinvizSnapshot(ticker)
+      ]);
+      
+      const yData = yahooMetrics.status === 'fulfilled' ? yahooMetrics.value[0] : null;
+      const fData = finvizMetrics.status === 'fulfilled' ? finvizMetrics.value : null;
+      
+      consensusData = {
+         yahoo_data: yData,
+         finviz_data: fData
+      };
+      // Flattening some core metrics back into the top level to avoid schema breakages in old tools
+      if (yData) Object.assign(consensusData, yData); 
+      
+      responseKey = 'snapshot';
+    } else if (basePath === '/financial-metrics' || basePath === '/financial-metrics/') {
+      const yahooData = await getYahooQuote(ticker);
+      consensusData = yahooData;
+      responseKey = 'financial_metrics';
+    }
+
+    if (consensusData) {
+      logger.info(`[US Consensus] Successfully built data for ${ticker} on ${basePath}`);
+
+      const fallbackResponse: ApiResponse = {
+        data: { [responseKey]: consensusData, status: 'success' },
+        url: endpointStr,
+      };
+      if (options?.cacheable) {
+        writeCache(endpoint, params, fallbackResponse.data, fallbackResponse.url);
+      }
+      return fallbackResponse;
+    }
+    
+    // If consensus failed entirely
+    throw new Error(`Consensus extraction failed for ${ticker} on ${basePath}`);
+    
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error(`[Financial Datasets API] network error: ${label} — ${message}`);
-    throw new Error(`[Financial Datasets API] request failed for ${label}: ${message}`);
+    logger.error(`[US Consensus API] fetch error: ${label} — ${message}`);
+    throw new Error(`[US Consensus API] request failed for ${label}: ${message}`);
   }
-
-  if (!response.ok) {
-    const detail = `${response.status} ${response.statusText}`;
-    logger.error(`[Financial Datasets API] error: ${label} — ${detail}`);
-    throw new Error(`[Financial Datasets API] request failed: ${detail}`);
-  }
-
-  const data = await response.json().catch(() => {
-    const detail = `invalid JSON (${response.status} ${response.statusText})`;
-    logger.error(`[Financial Datasets API] parse error: ${label} — ${detail}`);
-    throw new Error(`[Financial Datasets API] request failed: ${detail}`);
-  });
-
-  // Persist for future requests when the caller marked the response as cacheable
-  if (options?.cacheable) {
-    writeCache(endpoint, params, data, url.toString());
-  }
-
-  return { data, url: url.toString() };
 }
-

@@ -187,6 +187,11 @@ export class Agent {
       systemPrompt: this.systemPrompt,
       tools: useTools ? this.tools : undefined,
       signal: this.signal,
+      fallbackModels: [
+        'claude-3-5-sonnet-latest',
+        'gemini-3.1-pro-preview',
+        'gemini-3-flash-preview',
+      ].filter(m => m !== this.model), // Don't include the primary model in fallbacks
     });
     return { response: result.response, usage: result.usage };
   }

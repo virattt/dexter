@@ -36,7 +36,7 @@ async function withRetry<T>(fn: () => Promise<T>, provider: string, maxAttempts 
       const errorType = classifyError(message);
       logger.error(`[${provider} API] ${errorType} error (attempt ${attempt + 1}/${maxAttempts}): ${message}`);
 
-      if (isNonRetryableError(message)) {
+      if (isNonRetryableError(message) || errorType === 'rate_limit' || errorType === 'billing' || errorType === 'auth') {
         throw new Error(`[${provider} API] ${message}`);
       }
 
@@ -145,6 +145,7 @@ interface CallLlmOptions {
   outputSchema?: z.ZodType<unknown>;
   tools?: StructuredToolInterface[];
   signal?: AbortSignal;
+  fallbackModels?: string[];
 }
 
 export interface LlmResult {
@@ -201,43 +202,65 @@ function buildAnthropicMessages(systemPrompt: string, userPrompt: string) {
 }
 
 export async function callLlm(prompt: string, options: CallLlmOptions = {}): Promise<LlmResult> {
-  const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools, signal } = options;
+  const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools, signal, fallbackModels } = options;
   const finalSystemPrompt = systemPrompt || DEFAULT_SYSTEM_PROMPT;
-
-  const llm = getChatModel(model, false);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let runnable: Runnable<any, any> = llm;
-
-  if (outputSchema) {
-    runnable = llm.withStructuredOutput(outputSchema, { strict: false });
-  } else if (tools && tools.length > 0 && llm.bindTools) {
-    runnable = llm.bindTools(tools);
+  
+  // Build the list of models to try in order
+  const modelsToTry = [model];
+  if (fallbackModels && fallbackModels.length > 0) {
+    modelsToTry.push(...fallbackModels);
   }
 
-  const invokeOpts = signal ? { signal } : undefined;
-  const provider = resolveProvider(model);
-  let result;
+  let lastError: unknown;
 
-  if (provider.id === 'anthropic') {
-    // Anthropic: use explicit messages with cache_control for prompt caching (~90% savings)
-    const messages = buildAnthropicMessages(finalSystemPrompt, prompt);
-    result = await withRetry(() => runnable.invoke(messages, invokeOpts), provider.displayName);
-  } else {
-    // Other providers: use ChatPromptTemplate (OpenAI/Gemini have automatic caching)
-    const promptTemplate = ChatPromptTemplate.fromMessages([
-      ['system', finalSystemPrompt],
-      ['user', '{prompt}'],
-    ]);
-    const chain = promptTemplate.pipe(runnable);
-    result = await withRetry(() => chain.invoke({ prompt }, invokeOpts), provider.displayName);
-  }
-  const usage = extractUsage(result);
+  // Try each model in sequence
+  for (const currentModel of modelsToTry) {
+    try {
+      const llm = getChatModel(currentModel, false);
 
-  // If no outputSchema and no tools, extract content from AIMessage
-  // When tools are provided, return the full AIMessage to preserve tool_calls
-  if (!outputSchema && !tools && result && typeof result === 'object' && 'content' in result) {
-    return { response: (result as { content: string }).content, usage };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let runnable: Runnable<any, any> = llm;
+
+      if (outputSchema) {
+        runnable = llm.withStructuredOutput(outputSchema, { strict: false });
+      } else if (tools && tools.length > 0 && llm.bindTools) {
+        runnable = llm.bindTools(tools);
+      }
+
+      const invokeOpts = signal ? { signal } : undefined;
+      const provider = resolveProvider(currentModel);
+      let result;
+
+      if (provider.id === 'anthropic') {
+        // Anthropic: use explicit messages with cache_control for prompt caching (~90% savings)
+        const messages = buildAnthropicMessages(finalSystemPrompt, prompt);
+        result = await withRetry(() => runnable.invoke(messages, invokeOpts), provider.displayName);
+      } else {
+        // Other providers: use ChatPromptTemplate (OpenAI/Gemini have automatic caching)
+        const promptTemplate = ChatPromptTemplate.fromMessages([
+          ['system', finalSystemPrompt],
+          ['user', '{prompt}'],
+        ]);
+        const chain = promptTemplate.pipe(runnable);
+        result = await withRetry(() => chain.invoke({ prompt }, invokeOpts), provider.displayName);
+      }
+      const usage = extractUsage(result);
+
+      // If no outputSchema and no tools, extract content from AIMessage
+      // When tools are provided, return the full AIMessage to preserve tool_calls
+      if (!outputSchema && !tools && result && typeof result === 'object' && 'content' in result) {
+        return { response: (result as { content: string }).content, usage };
+      }
+      return { response: result as AIMessage, usage };
+      
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn(`[Fallback Mechanism] Model ${currentModel} failed with error: ${message}. Trying next model if available...`);
+      // Continue to the next model in the fallback array
+    }
   }
-  return { response: result as AIMessage, usage };
+
+  // If all models failed, throw the last error encountered
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }

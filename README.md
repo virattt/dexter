@@ -1,180 +1,143 @@
-# Dexter 🤖
+# Dexter-Br
 
-Dexter is an autonomous financial research agent that thinks, plans, and learns as it works. It performs analysis using task planning, self-reflection, and real-time market data. Think Claude Code, but built specifically for financial research.
+Dexter-Br é um fork do projeto **Dexter**, originalmente desenvolvido por Virat Singh, adaptado para análise do **mercado financeiro brasileiro**.
 
-<img width="1098" height="659" alt="Screenshot 2026-01-21 at 5 25 10 PM" src="https://github.com/user-attachments/assets/3bcc3a7f-b68a-4f5e-8735-9d22196ff76e" />
+O projeto mantém o conceito original de um agente de inteligência artificial para análise financeira, porém com integrações voltadas para ativos da **B3** e dados públicos do mercado brasileiro.
 
-## Table of Contents
+Este projeto foi desenvolvido com auxílio de **Google Antigravity, GPT, Sonnet 4.6 e Gemini 3.1**.
 
-- [👋 Overview](#-overview)
-- [✅ Prerequisites](#-prerequisites)
-- [💻 How to Install](#-how-to-install)
-- [🚀 How to Run](#-how-to-run)
-- [📊 How to Evaluate](#-how-to-evaluate)
-- [🐛 How to Debug](#-how-to-debug)
-- [📱 How to Use with WhatsApp](#-how-to-use-with-whatsapp)
-- [🤝 How to Contribute](#-how-to-contribute)
-- [📄 License](#-license)
+---
 
+## Repositório
 
-## 👋 Overview
+https://github.com/vpereira88/dexter-br
 
-Dexter takes complex financial questions and turns them into clear, step-by-step research plans. It runs those tasks using live market data, checks its own work, and refines the results until it has a confident, data-backed answer.  
+---
 
-**Key Capabilities:**
-- **Intelligent Task Planning**: Automatically decomposes complex queries into structured research steps
-- **Autonomous Execution**: Selects and executes the right tools to gather financial data
-- **Self-Validation**: Checks its own work and iterates until tasks are complete
-- **Real-Time Financial Data**: Access to income statements, balance sheets, and cash flow statements
-- **Safety Features**: Built-in loop detection and step limits to prevent runaway execution
+## Origem do Projeto
 
-[![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt) [![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=social&logo=discord)](https://discord.gg/jpGHv2XB6T)
+Este projeto é baseado no repositório original:
 
-<img width="1042" height="638" alt="Screenshot 2026-02-18 at 12 21 25 PM" src="https://github.com/user-attachments/assets/2a6334f9-863f-4bd2-a56f-923e42f4711e" />
+https://github.com/virattt/dexter
 
+O Dexter original é um agente de IA para análise de mercado que utiliza LLMs e ferramentas de coleta de dados para realizar análises financeiras automatizadas.
 
-## ✅ Prerequisites
+O **Dexter-Br** estende essa ideia para o contexto brasileiro.
 
-- [Bun](https://bun.com) runtime (v1.0 or higher)
-- OpenAI API key (get [here](https://platform.openai.com/api-keys))
-- Financial Datasets API key (get [here](https://financialdatasets.ai))
-- Exa API key (get [here](https://exa.ai)) - optional, for web search
+---
 
-#### Installing Bun
+## Objetivo
 
-If you don't have Bun installed, you can install it using curl:
+O objetivo do Dexter-Br é permitir análises automatizadas de ativos brasileiros utilizando **apenas dados públicos e gratuitos**.
 
-**macOS/Linux:**
+O projeto elimina a necessidade de APIs pagas utilizadas em algumas implementações do Dexter original.
+
+---
+
+## Fontes de Dados
+
+O projeto utiliza apenas fontes públicas disponíveis na internet, incluindo:
+
+* CVM (Comissão de Valores Mobiliários)
+* Fundamentus
+* StatusInvest
+* Outras bases públicas de dados financeiros
+
+A coleta das informações é realizada por meio de **web scraping controlado**, apenas para obtenção dos dados necessários às análises.
+
+---
+
+## Aviso sobre Dados
+
+Todos os dados utilizados pertencem às suas respectivas plataformas.
+
+O Dexter-Br apenas automatiza a coleta de informações públicas disponíveis na internet para fins educacionais, experimentais e de pesquisa.
+
+Caso alguma plataforma solicite ajustes ou remoção de integração, a solicitação será prontamente atendida.
+
+---
+
+## Funcionalidades
+
+* Agente de IA para análise financeira
+* Suporte a ativos da B3
+* Coleta automática de indicadores fundamentalistas
+* Integração com dados públicos da CVM
+* Análise automatizada de empresas brasileiras
+* Estrutura modular para inclusão de novas fontes de dados
+
+---
+
+## Instalação
+
+Clone o repositório:
+
 ```bash
-curl -fsSL https://bun.com/install | bash
+git clone https://github.com/vpereira88/dexter-br.git
 ```
 
-**Windows:**
+Entre na pasta do projeto:
+
 ```bash
-powershell -c "irm bun.sh/install.ps1|iex"
+cd dexter-br
 ```
 
-After installation, restart your terminal and verify Bun is installed:
-```bash
-bun --version
-```
+Instale as dependências:
 
-## 💻 How to Install
-
-1. Clone the repository:
-```bash
-git clone https://github.com/virattt/dexter.git
-cd dexter
-```
-
-2. Install dependencies with Bun:
 ```bash
 bun install
 ```
 
-3. Set up your environment variables:
+Crie o arquivo `.env`:
+
 ```bash
-# Copy the example environment file
 cp env.example .env
-
-# Edit .env and add your API keys (if using cloud providers)
-# OPENAI_API_KEY=your-openai-api-key
-# ANTHROPIC_API_KEY=your-anthropic-api-key (optional)
-# GOOGLE_API_KEY=your-google-api-key (optional)
-# XAI_API_KEY=your-xai-api-key (optional)
-# OPENROUTER_API_KEY=your-openrouter-api-key (optional)
-
-# Institutional-grade market data for agents; AAPL, NVDA, MSFT are free
-# FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
-
-# (Optional) If using Ollama locally
-# OLLAMA_BASE_URL=http://127.0.0.1:11434
-
-# Web Search (Exa preferred, Tavily fallback)
-# EXASEARCH_API_KEY=your-exa-api-key
-# TAVILY_API_KEY=your-tavily-api-key
 ```
 
-## 🚀 How to Run
+Adicione sua chave da OpenAI (ou demais provedores):
 
-Run Dexter in interactive mode:
+```bash
+OPENAI_API_KEY=your_key_here
+```
+
+Execute o projeto:
+
 ```bash
 bun start
 ```
 
-Or with watch mode for development:
-```bash
-bun dev
-```
+---
 
-## 📊 How to Evaluate
+## Licença
 
-Dexter includes an evaluation suite that tests the agent against a dataset of financial questions. Evals use LangSmith for tracking and an LLM-as-judge approach for scoring correctness.
+Este projeto é distribuído sob a **MIT License**.
 
-**Run on all questions:**
-```bash
-bun run src/evals/run.ts
-```
+O projeto original Dexter também utiliza a mesma licença.
 
-**Run on a random sample of data:**
-```bash
-bun run src/evals/run.ts --sample 10
-```
+Copyright (c) 2025 Virat Singh
+Modifications (c) 2026 Dexter-Br Contributors
 
-The eval runner displays a real-time UI showing progress, current question, and running accuracy statistics. Results are logged to LangSmith for analysis.
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files to deal in the Software without restriction.
 
-## 🐛 How to Debug
+Consulte o arquivo `LICENSE` para mais detalhes.
 
-Dexter logs all tool calls to a scratchpad file for debugging and history tracking. Each query creates a new JSONL file in `.dexter/scratchpad/`.
+---
 
-**Scratchpad location:**
-```
-.dexter/scratchpad/
-├── 2026-01-30-111400_9a8f10723f79.jsonl
-├── 2026-01-30-143022_a1b2c3d4e5f6.jsonl
-└── ...
-```
+## Créditos
 
-Each file contains newline-delimited JSON entries tracking:
-- **init**: The original query
-- **tool_result**: Each tool call with arguments, raw result, and LLM summary
-- **thinking**: Agent reasoning steps
+Projeto original:
 
-**Example scratchpad entry:**
-```json
-{"type":"tool_result","timestamp":"2026-01-30T11:14:05.123Z","toolName":"get_income_statements","args":{"ticker":"AAPL","period":"annual","limit":5},"result":{...},"llmSummary":"Retrieved 5 years of Apple annual income statements showing revenue growth from $274B to $394B"}
-```
+Dexter
+https://github.com/virattt/dexter
 
-This makes it easy to inspect exactly what data the agent gathered and how it interpreted results.
+Fork e adaptações para o mercado brasileiro:
 
-## 📱 How to Use with WhatsApp
+Dexter-Br
+https://github.com/vpereira88/dexter-br
 
-Chat with Dexter through WhatsApp by linking your phone to the gateway. Messages you send to yourself are processed by Dexter and responses are sent back to the same chat.
+Desenvolvido com auxílio de:
 
-**Quick start:**
-```bash
-# Link your WhatsApp account (scan QR code)
-bun run gateway:login
-
-# Start the gateway
-bun run gateway
-```
-
-Then open WhatsApp, go to your own chat (message yourself), and ask Dexter a question.
-
-For detailed setup instructions, configuration options, and troubleshooting, see the [WhatsApp Gateway README](src/gateway/channels/whatsapp/README.md).
-
-## 🤝 How to Contribute
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-**Important**: Please keep your pull requests small and focused.  This will make it easier to review and merge.
-
-
-## 📄 License
-
-This project is licensed under the MIT License.
+Google Antigravity
+GPT
+Sonnet 4.6
+Gemini 3.1

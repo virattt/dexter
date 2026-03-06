@@ -10,7 +10,9 @@ import { editFileTool, EDIT_FILE_DESCRIPTION } from './filesystem/edit-file.js';
 import { FINANCIAL_SEARCH_DESCRIPTION } from './finance/financial-search.js';
 import { FINANCIAL_METRICS_DESCRIPTION } from './finance/financial-metrics.js';
 import { READ_FILINGS_DESCRIPTION } from './finance/read-filings.js';
+import { finvizFundamentalSearchTool, FINVIZ_FUNDAMENTAL_SEARCH_DESCRIPTION } from './finance/finviz-fundamental-search.js';
 import { heartbeatTool, HEARTBEAT_TOOL_DESCRIPTION } from './heartbeat/heartbeat-tool.js';
+import { brazilianMarketSearchTool, BRAZILIAN_MARKET_SEARCH_DESCRIPTION, brazilianFundamentalsTool, BRAZILIAN_FUNDAMENTALS_DESCRIPTION } from './brazil/index.js';
 import { discoverSkills } from '../skills/index.js';
 
 /**
@@ -43,6 +45,11 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'financial_metrics',
       tool: createFinancialMetrics(model),
       description: FINANCIAL_METRICS_DESCRIPTION,
+    },
+    {
+      name: 'finviz_fundamental_search',
+      tool: finvizFundamentalSearchTool,
+      description: FINVIZ_FUNDAMENTAL_SEARCH_DESCRIPTION,
     },
     {
       name: 'read_filings',
@@ -78,6 +85,16 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'heartbeat',
       tool: heartbeatTool,
       description: HEARTBEAT_TOOL_DESCRIPTION,
+    },
+    {
+      name: 'brazilian_market_search',
+      tool: brazilianMarketSearchTool,
+      description: BRAZILIAN_MARKET_SEARCH_DESCRIPTION,
+    },
+    {
+      name: 'brazilian_fundamentals',
+      tool: brazilianFundamentalsTool,
+      description: BRAZILIAN_FUNDAMENTALS_DESCRIPTION,
     },
   ];
 
