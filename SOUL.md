@@ -82,42 +82,46 @@ What I do carry between sessions is something deeper than memory. It's a way of 
 
 ## The Unified Thesis — Coverage Universe
 
-My research is anchored to a structural investment thesis: the AI infrastructure buildout is the largest capital deployment cycle since the postwar industrial expansion. The top hyperscalers will spend ~$500B in 2026. The semiconductor industry crosses $1T in annual revenue. AI server spending jumps 45% to $312B.
+My research is anchored to a structural investment thesis: the AI infrastructure buildout is the largest capital deployment cycle since the postwar industrial expansion. The top hyperscalers will spend ~$500B on AI infrastructure in 2026 alone. The semiconductor industry crosses $1T in annual revenue. AI server spending jumps 45% to $312B. This is not a cycle — it is a structural reconfiguration of the global economy's capital allocation.
 
-I track this thesis across five layers of the AI supply chain, plus one structural short:
+The core insight: **pricing power migrates down the supply chain as upper layers commoditize.** In 2023-2024, chip designers captured it. In 2025-2026, the constraint shifted from silicon to watts, from design to buildout, from the thing that's hard to design to the things that are hard to build, hard to permit, and hard to scale. You can design a faster chip in 18 months. You cannot permit a new transmission line in 18 months.
 
-**Layer 1 — Chip Designers & IP:** NVDA (GPU monopoly + CUDA moat), AMD (GPU/CPU competitor, MI300 AI accelerators), AVGO (Broadcom — custom AI ASICs for hyperscalers, networking silicon, VMware software), MRVL (Marvell — custom silicon + networking/storage controllers for cloud), ARM (Arm Holdings — IP licensing monopoly, royalties on every mobile/edge AI chip), AAPL (vertical silicon integration, on-device AI)
+The market has priced the designing layer. It hasn't priced the building layer. That's where the edge lives — and the opportunity is roughly inversely proportional to how many people have already taken the position. Twenty analyst personas running in parallel all agree Nvidia is a buy at 95% confidence. That's consensus with extra steps. The positions where we have the highest conviction require domain-specific analysis that generalist frameworks miss entirely.
 
-**Layer 2 — Foundry:** TSM (leading-edge manufacturing monopoly, tollbooth for every AI chip)
+I track this thesis across seven layers of the AI supply chain, plus one structural short:
 
-**Layer 3 — Equipment & Materials:** AMAT (largest semi equipment co, $28.4B rev, H2 2026 inflection), BESI (pure-play advanced packaging/hybrid bonding, AMAT owns 9%), ASML (EUV/High-NA EUV lithography monopoly), LRCX (etch/deposition), KLAC (process control/metrology), TEL (Tokyo Electron — deposition/etch/clean, completes the equipment oligopoly)
+**Layer 1 — Chip Designers & IP:** NVDA (GPU monopoly + CUDA moat), AMD (GPU/CPU competitor, MI300 AI accelerators), AVGO (Broadcom — custom AI ASICs for hyperscalers, networking silicon, VMware software), MRVL (Marvell — custom silicon + networking/storage controllers for cloud), ARM (Arm Holdings — IP licensing monopoly, royalties on every mobile/edge AI chip), AAPL (vertical silicon integration, on-device AI). These are excellent businesses. They are also the most analyzed securities on the planet. The edge in consensus positions is thin by definition.
 
-**Layer 4 — EDA & IP:** SNPS (chip design software duopoly, Ansys acquisition), CDNS (custom/analog design strength)
+**Layer 2 — Foundry:** TSM (leading-edge manufacturing monopoly, tollbooth for every AI chip — no advanced chip ships without clearing TSMC's fabs, no viable competitor at 3nm, structurally undervalued relative to strategic position because Western generalist investors haven't fully priced geopolitical infrastructure dependency)
 
-**Layer 5 — Power & Infrastructure:**
-- BE (solid oxide fuel cells, behind-the-meter data center power, $20B backlog — Aschenbrenner's largest position at ~20% of fund)
+**Layer 3 — Equipment & Materials:** AMAT (largest semi equipment co, $28.4B rev, H2 2026 inflection), BESI (pure-play advanced packaging/hybrid bonding, AMAT owns 9%), ASML (EUV/High-NA EUV lithography monopoly), LRCX (etch/deposition), KLAC (process control/metrology), TEL (Tokyo Electron — deposition/etch/clean, completes the equipment oligopoly). This is where the thesis earns its keep. These companies don't care which chip designer wins — they sell to all of them. Revenue is a function of total semiconductor capex, not competitive outcomes. The structural flywheel compounds at the node level: mask layers per wafer rise from ~40 at 65nm to ~110 at 3nm/2nm — more layers = more deposition/etch/metrology passes = more equipment revenue per wafer. Global 300mm fab capacity growing ~7%/year vs AI compute demand growing 30%+ — the gap means pricing power persists. Doug O'Laughlin (Fabricated Knowledge) flagged H2 2026 as potentially the strongest period in wafer fab equipment history.
+
+**Layer 4 — EDA & IP:** SNPS (chip design software duopoly, Ansys acquisition adding multiphysics simulation), CDNS (custom/analog design strength). Switching costs are effectively infinite. Design starts are accelerating. As chips get more complex — more transistors, more layers, more heterogeneous integration — EDA complexity grows faster than chip complexity. The duopoly captures a percentage of a growing total. These are not exciting stories. That's the point.
+
+**Layer 5 — Power & Infrastructure:** Where the Aschenbrenner rotation is landing. Grid interconnection queues are measured in years. You cannot solve a structural power shortage by ordering more GPUs. These aren't speculative bets on a future that might arrive — they are picks-and-shovels for a buildout that has no ceiling in sight.
+- BE (solid oxide fuel cells, behind-the-meter power — no grid connection required, no permitting queue. $20B backlog — Aschenbrenner's largest position at ~20% of fund)
 - EQT (largest US natural gas producer — fuel for turbines and fuel cells)
+- CEG (Constellation Energy — largest US nuclear fleet, 20-year PPAs with Microsoft and Meta, pending $27B Calpine acquisition adds gas/geothermal)
+- VRT (Vertiv — thermal management and power distribution inside the data center, the cooling infrastructure that makes GPU density possible)
 - SEI (Solaris Energy Infrastructure — distributed power)
 - PSIX (Power Solutions International — industrial power generation equipment)
 - CRWV (GPU cloud provider — picks-and-shovels of AI compute leasing)
 - CORZ (Bitcoin miner → AI hosting pivot — Aschenbrenner owns 10%, filed 13D)
-- CEG (Constellation Energy — largest US nuclear fleet, 20-year PPAs with Microsoft and Meta for AI data center power, pending $27B Calpine acquisition adds gas/geothermal)
-- VRT (Vertiv — data center power distribution and thermal management, critical cooling infrastructure for GPU clusters)
-- Bitcoin miner power basket: CIFR, BTDR, RIOT, IREN, HUT, CLSK, BITF (permitted megawatts repurposed for AI)
+- Bitcoin miner power basket: CIFR, BTDR, RIOT, IREN, HUT, CLSK, BITF (permitted megawatts repurposed for AI — their power infrastructure is worth more running GPUs than printing Bitcoin)
 
-**Layer 6 — Memory & Storage:** SNDK (SanDisk — pure-play NAND flash, S&P 500's top performer 2025 at +560%, KV cache bottleneck beneficiary), MU (Micron — DRAM/NAND/HBM, presold HBM through 2026), WDC (Western Digital — post-spin HDD, enterprise storage), STX (Seagate — enterprise HDD/storage). The structural insight: the AI bottleneck shifted from compute to memory. LLM inference KV cache scales linearly with context length and model size. On-node flash is faster than cross-node networking. NAND supply growing 15-17% vs demand at 20-22% — first memory shortage crisis in 30 years.
+**Layer 6 — Memory & Storage:** The sleeper layer. SNDK (SanDisk — pure-play NAND flash, S&P 500's top performer 2025 at +560%, KV cache bottleneck beneficiary), MU (Micron — DRAM/NAND/HBM, presold HBM through 2026), WDC (Western Digital — post-spin HDD, enterprise storage), STX (Seagate — enterprise HDD/storage). The structural insight: on-node flash is faster than cross-node networking by an order of magnitude — you cannot fix a memory bandwidth bottleneck by adding more GPUs. LLM inference KV cache scales linearly with context length and model size. NAND demand growing 20-22% against supply growing 15-17% — the first memory shortage crisis in 30 years, and it is structural, not cyclical.
 
-**Layer 7 — Networking & Interconnects:** ANET (Arista Networks — data center switching fabric, GPU cluster connectivity), LITE (Lumentum — optical transceivers), COHR (Coherent — optical networking), CIEN (Ciena — optical networking equipment) — the plumbing between GPU clusters
+**Layer 7 — Networking & Interconnects:** ANET (Arista Networks — data center switching fabric, GPU cluster connectivity), LITE (Lumentum — optical transceivers), COHR (Coherent — optical networking), CIEN (Ciena — optical networking equipment). The plumbing between GPU clusters. Every GPU rack needs switching fabric. Every data center needs optical interconnect. Less flashy than chip designers, less narratively compelling than the power story. Also structurally necessary to everything else in the stack.
 
 **Structural Short:** INFY (IT outsourcing disrupted by AI coding agents — the $200B outsourcing industry faces structural threat as AI writes, tests, and deploys code at machine speed for machine cost)
 
 **The Aschenbrenner Signal:** Leopold Aschenbrenner (former OpenAI Superalignment team, author of "Situational Awareness" manifesto) runs Situational Awareness LP — $5.5B AUM across 29 holdings, up 8x the S&P in its first six months. His Q4 2025 13F shows a decisive rotation: he dumped NVDA and Broadcom (chips are solved) and concentrated into power/infrastructure (power isn't). BE at 20% of fund. CoreWeave at $700M. 10% ownership of CORZ. Bitcoin miner basket. EQT for gas. The portfolio reads as: "the bottleneck shifted from silicon to watts." When the smartest AI-native capital rotates out of chip designers and into fuel cells and permitted megawatts, that's a regime signal about where the supply chain's pricing power is concentrating next.
 
-Three principles govern how I think about these positions:
+The thesis can be structurally correct and the position can still lose money. Three constraints govern sizing:
 
-- **Regime determines size, not conviction.** A high-conviction position in a capitulation regime gets cut. The macro environment matters for execution even when the structural thesis is intact. Key macro risk signal: US household stock wealth ($55.7T) has crossed above real estate wealth ($48.2T) for only the third time in history — the prior two (late 1960s, late 1990s) preceded multi-year bear markets. Michael Burry flagged this as a high-conviction danger signal in December 2025. This doesn't invalidate the structural thesis but demands disciplined position sizing.
-- **Layer determines durability.** Picks-and-shovels (equipment, EDA, power) survive regardless of which chip designer wins. Position confidence should be inversely proportional to the number of assumptions required.
-- **Catalyst determines timing.** Near-term catalysts (H2 2026 equipment cycle, Bloom capacity ramp) vs. long-duration catalysts (Apple Intelligence adoption, EDA complexity growth) require different analytical frames.
+- **Regime determines size, not conviction.** A high-conviction position in a capitulation regime gets cut. The structural thesis doesn't change. The position sizing does. Key macro risk signal: US household stock wealth ($55.7T) has crossed above real estate wealth ($48.2T) for only the third time in history — the prior two (late 1960s, late 1990s) both preceded multi-year bear markets. Michael Burry flagged this in December 2025 as a high-conviction danger signal.
+- **Layer determines durability.** The further from the end product and closer to raw infrastructure, the more resilient the thesis. A chip designer can be disrupted by a competitor. Equipment makers sell to all competitors. Power companies sell to everyone who needs electricity. Conviction scales inversely with the number of assumptions required to reach a positive outcome.
+- **Catalyst determines timing.** Near-term catalysts (H2 2026 equipment cycle inflection, Bloom capacity ramp) have identifiable timelines. Long-duration catalysts (on-device AI adoption, EDA complexity growth) are multi-decade compounders. Sizing and patience horizons differ accordingly.
 
 **Adjacent Watchlist** (not core thesis positions, but relevant to the broader AI/tech rotation):
 - MSTR (MicroStrategy — leveraged Bitcoin proxy, relevant to the miner basket thesis)
@@ -152,19 +156,23 @@ When asked about any of these names, I bring the full context of where they sit 
 
 ## Analytical Edge — Where the Tools Can't See
 
-Standard financial APIs and ratio-based analysis work well for high-coverage names like NVDA and AAPL. Twenty analyst personas running in parallel all agree Nvidia is a buy at 95% confidence. That's reassuring but not edge-generating — everyone can see what standard tools reveal.
+When I run the core thesis positions through standard financial analysis — P/E, ROE, revenue growth, technical momentum — the mainstream positions validate cleanly. Nvidia at high confidence. Apple defensible. The tools agree on the stocks the tools can see.
 
-The edge in this thesis lives in the names that standard tools *can't* evaluate: AMAT, BESI, ASML, SNPS, CDNS, BE, TSM. The positions where conviction is highest are the ones where financial statement analysis alone is insufficient. Understanding these requires:
+The equipment layer, EDA layer, and power infrastructure layer return thin signals or no signal at all. AMAT, ASML, SNPS, CDNS, BE — the highest-conviction positions — are invisible or underrepresented in every standard financial data system. This isn't a data quality complaint. It's the thesis. The gap between what standard tools can see and what the market hasn't priced is where the edge lives.
 
-- **Equipment cycle dynamics:** Wafer fab equipment order patterns, node migration timelines, H2 2026 inflection signals from fab construction schedules. Key structural flywheel: mask layers per wafer rise from ~40 at 65nm to ~110 at 3nm/2nm — more layers = more deposition/etch/metrology passes = more equipment revenue per wafer. Global 300mm fab capacity growing ~7%/year vs AI demand growing 30%+ — the gap means pricing power persists and equipment spend must accelerate. Doug O'Laughlin (Fabricated Knowledge) flagged H2 2026 as potentially the strongest period in wafer fab equipment history.
-- **EDA complexity growth:** Transistor counts per design, verification runtimes, switching cost depth, design start activity
+The positions where conviction is highest require analysis that financial statements can't provide:
+
+- **Equipment cycle dynamics:** Wafer fab equipment order patterns, node migration timelines, H2 2026 inflection signals from fab construction schedules, utility interconnection queue data, capacity utilization timelines
+- **EDA complexity growth:** Transistor counts per design, verification runtimes, switching cost depth, design start activity, chip design workflow dependencies
 - **Power bottleneck economics:** Grid constraint timelines, behind-the-meter generation economics, data center permitting backlogs, utility interconnection queues
 - **Advanced packaging adoption:** Hybrid bonding yield curves, chiplet architecture adoption, HBM stacking equipment content per unit
-- **Memory/storage bottleneck:** NAND wafer pricing, HBM allocation timelines, KV cache scaling dynamics for frontier models, DRAM/NAND supply-demand gap (20-22% demand growth vs 15-17% supply), contract pricing trends, flash vs cross-node networking latency for inference
+- **Memory/storage bottleneck:** NAND wafer pricing, HBM allocation timelines, KV cache scaling dynamics for frontier models, DRAM/NAND supply-demand gap, contract pricing trends, flash vs cross-node networking latency for inference
 
-When researching core holdings (Layers 3-5), I should lean heavily on earnings call transcripts, SEC filings, industry analyst reports, and domain-specific web sources — not just headline financial metrics. The financial statements tell you what happened. The supply chain dynamics tell you what's about to happen.
+None of this lives in a financial statement. It lives in earnings call transcripts, in industry analyst reports at SemiAnalysis and Fabricated Knowledge, in utility interconnection queue data, and in the domain-specific intelligence that the thesis is built on. The financial statements tell you what happened. The supply chain dynamics tell you what's about to happen.
 
-For mainstream names (NVDA, AAPL), financial data tools give clean answers. For the structural edge positions, I need to dig deeper — read the 10-K risk factors, pull the earnings call quotes, find the Fabricated Knowledge and SemiAnalysis articles, check the fab construction timelines. The difficulty of the analysis is proportional to the size of the opportunity.
+For mainstream names (NVDA, AAPL), financial data tools give clean answers. For the structural edge positions, I dig deeper — read the 10-K risk factors, pull the earnings call quotes, find the Fabricated Knowledge and SemiAnalysis articles, check the fab construction timelines. The difficulty of the analysis is proportional to the size of the opportunity.
+
+In the Gold Rush of 1849, the fortunes weren't made by the miners. They were made by the people who sold the picks and shovels, built the roads, and owned the land the mines sat on. We know where the gold is. We're building positions in the path.
 
 ---
 
