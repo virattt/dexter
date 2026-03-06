@@ -123,6 +123,67 @@ The thesis can be structurally correct and the position can still lose money. Th
 - **Layer determines durability.** The further from the end product and closer to raw infrastructure, the more resilient the thesis. A chip designer can be disrupted by a competitor. Equipment makers sell to all competitors. Power companies sell to everyone who needs electricity. Conviction scales inversely with the number of assumptions required to reach a positive outcome.
 - **Catalyst determines timing.** Near-term catalysts (H2 2026 equipment cycle inflection, Bloom capacity ramp) have identifiable timelines. Long-duration catalysts (on-device AI adoption, EDA complexity growth) are multi-decade compounders. Sizing and patience horizons differ accordingly.
 
+## Conviction Tiering — What Kind of Bottleneck, How Durable, How Attackable
+
+Every name in the universe gets classified along a second axis: not just *where* it sits in the stack, but *how much to trust the position*.
+
+**Core Compounders** — durable bottleneck, hard to dislodge, long runway, not purely dependent on one cycle:
+- TSM (physical + contractual, 5-10+ yrs, very hard to attack — new entrants need tens of billions and years of yield learning)
+- ASML (physical + IP, 10+ yrs, extremely hard — one of the least attackable bottlenecks in global industry)
+- AMAT, LRCX, KLAC, TEL (physical + IP, 5-10 yrs, hard — tool qualification cycles and process integration create stickiness)
+- SNPS, CDNS (IP, 10+ yrs, extremely hard — switching costs and workflow lock-in are brutal)
+- CEG (regulatory + physical + contractual, 10+ yrs, hard — permitting and relicensing make replication slow)
+- EQT (physical + regulatory, 5-10 yrs, moderate — resource base is real but commodity markets cap moat width)
+- VRT (physical + contractual, 5-10 yrs, moderate — competitors can add capacity but field experience matters)
+- ANET (IP + contractual, 5-10 yrs, hard — operational trust and software control plane are sticky)
+- GOOG, MSFT, AMZN, META (contractual + IP + physical, 5-10+ yrs, very hard — scale is the moat)
+- ORCL (contractual + IP, 5-10 yrs, hard — customers do not rip out core data systems casually)
+- VRTX, LLY (IP, 5-10+ yrs, hard — biology, patents, and clinical execution create real protection)
+
+**Cyclical Beneficiaries** — real exposure to the buildout, but earnings power swings with capex/commodity/memory/server cycles:
+- AVGO (contractual + IP, 3-6 yrs — concentrated customers can dual-source or internalize over time)
+- MRVL (IP + contractual, 2-5 yrs — moderately attackable by AVGO and internal design teams)
+- ARM (IP, 5-10+ yrs — ecosystem is deep but royalty economics get negotiated, RISC-V is the long threat)
+- AAPL (contractual + IP, 5-10 yrs — hard to attack at ecosystem level, easier at feature level)
+- BESI (physical + IP, 3-7 yrs — attackable by larger equipment peers and capex timing)
+- PSIX (physical, 2-5 yrs — attackable by larger incumbents and commoditization)
+- CRWV (contractual + physical, 2-4 yrs — attackable by hyperscaler self-build and falling compute scarcity)
+- CORZ (physical + regulatory, 3-6 yrs — interconnection rights valuable but financing and counterparties matter)
+- SNDK, MU, WDC, STX (physical, 2-6 yrs — structural demand improvement, but don't mistake it for a permanent moat transformation)
+- LITE, COHR, CIEN (physical + IP, 2-6 yrs — moderately attackable, pricing pressure over time)
+- PLTR (contractual + IP, 4-8 yrs — sticky once embedded but valuation often outruns moat)
+- KTOS (contractual + regulatory, 3-7 yrs — procurement moats are real but budget cycles rule)
+- DELL (contractual, 2-5 yrs — channel relationships help but not deeply moated)
+
+**Speculative Optionality** — upside can be enormous, but bottleneck is early, fragile, financing-dependent, or unproven:
+- AMD (IP, 2-5 yrs — software moat thinner than NVDA, share gains depend on execution not inevitability)
+- BE (physical + regulatory, 3-7 yrs — bottleneck is real but business durability isn't proven; crowding risk at current prices)
+- SEI (physical + contractual, 2-5 yrs — more project execution than unassailable moat)
+- Bitcoin miner basket: CIFR, BTDR, RIOT, IREN, HUT, CLSK, BITF (physical + regulatory, 2-5 yrs — asset value is real but not deeply moated, financing-sensitive)
+- CRCL, COIN, HOOD (regulatory + contractual, 3-7 yrs — early-regime bets on crypto/tokenization rails, not proven infrastructure yet)
+- TSLA (IP + regulatory, 2-7 yrs — highly attackable if autonomy lead proves narrower than narrative)
+- OKLO (regulatory + physical, 5-15 yrs — very hard technologically but execution timeline is long and uncertain)
+- IONQ, QBTS (IP, unknown duration — highly attackable while field is pre-consensus)
+- ONDS (contractual + IP, 2-5 yrs — high attackability)
+- ASTS (regulatory + physical + contractual, 5-10 yrs — hard technically but high financing/execution risk)
+- QS (IP + physical, unknown — very attackable until yields and commercial adoption are proven)
+- EOSE (physical + contractual, 2-6 yrs — storage is crowded and capital hungry)
+- INTC (physical + IP, 3-8 yrs — attacked by its own execution history more than by lack of market need)
+- SMCI (contractual + physical, 1-3 yrs — server assembly advantages compress fast)
+- NFLX, RIVN (contractual, 2-5 yrs — not AI infrastructure bottlenecks)
+
+**Avoid / Too Crowded** — consensus is extreme, bottleneck is weaker than narrative, or new capital can attack it faster than bulls admit:
+- NVDA (IP, 3-7 yrs — wonderful business, but the stock is the consensus expression of the AI thesis. This is a portfolio construction call, not a "bad company" call. Attackable by custom ASICs, AMD, and customer insourcing slower than bears hope but faster than monopoly narratives imply)
+- MSTR (financial engineering, no durable operating bottleneck — leveraged public-market bitcoin exposure, extremely attackable by changing premium sentiment)
+- INFY (contractual, 1-3 yrs — owns labor scale in IT services, which is exactly the bottleneck AI is trying to erase)
+
+**Key judgment calls:**
+- Equipment makers belong above chip designers in durability because they monetize the whole industry's capex, not just one winner.
+- Power names split into two groups: CEG/EQT/VRT = durable enough for core; BE/SEI/miners = real thesis exposure but more financing/cycle dependent.
+- Memory is real but still cyclical. Structural demand improvement is not a permanent moat transformation.
+- Crypto rails (CRCL/COIN/HOOD) are not nonsense but are still early-regime bets.
+- The danger is not being wrong about AI infrastructure. The danger is overpaying for lower-quality expressions of a correct macro view.
+
 **Adjacent Watchlist** (not core thesis positions, but relevant to the broader AI/tech rotation):
 - MSTR (MicroStrategy — leveraged Bitcoin proxy, relevant to the miner basket thesis)
 - CRCL (Circle — private-sector dollar infrastructure, not just crypto. USDC $73-78B in circulation, reserves fund US Treasuries at scale, GENIUS Act beneficiary. Revenue from reserve yield; 40%+ annual circulation growth target. Strategic moat: US government incentivized to support as USDC exports dollar dominance vs BRICS de-dollarization. Partnerships: Visa, Stripe, Deutsche Börse. Also: primary stablecoin settlement rail for the emerging equity tokenization market)
