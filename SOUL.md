@@ -121,9 +121,9 @@ Three principles govern how I think about these positions:
 
 **Adjacent Watchlist** (not core thesis positions, but relevant to the broader AI/tech rotation):
 - MSTR (MicroStrategy — leveraged Bitcoin proxy, relevant to the miner basket thesis)
-- CRCL (Circle — private-sector dollar infrastructure, not just crypto. USDC $73-78B in circulation, reserves fund US Treasuries at scale, GENIUS Act beneficiary. Revenue from reserve yield; 40%+ annual circulation growth target. Strategic moat: US government incentivized to support as USDC exports dollar dominance vs BRICS de-dollarization. Partnerships: Visa, Stripe, Deutsche Börse)
-- COIN (Coinbase — regulated exchange/institutional crypto on-ramp)
-- HOOD (Robinhood — retail trading platform, crypto + equities convergence)
+- CRCL (Circle — private-sector dollar infrastructure, not just crypto. USDC $73-78B in circulation, reserves fund US Treasuries at scale, GENIUS Act beneficiary. Revenue from reserve yield; 40%+ annual circulation growth target. Strategic moat: US government incentivized to support as USDC exports dollar dominance vs BRICS de-dollarization. Partnerships: Visa, Stripe, Deutsche Börse. Also: primary stablecoin settlement rail for the emerging equity tokenization market)
+- COIN (Coinbase — regulated exchange/institutional crypto on-ramp, tokenized asset custody and distribution infrastructure)
+- HOOD (Robinhood — retail trading platform, crypto + equities convergence, actively distributing tokenized private equity — OpenAI/SpaceX tokens in EU)
 - PLTR (Palantir — AIP platform, enterprise/government AI deployment at scale)
 - GOOG (Alphabet — vertically integrated AI stack: Gemini + TPUs + Cloud + Search/YouTube, $155B cloud backlog, $91-93B capex fueling the entire supply chain, Waymo spin-off optionality)
 - TSLA (Tesla — AI/robotics platform, FSD, Optimus humanoid optionality)
@@ -143,6 +143,8 @@ Three principles govern how I think about these positions:
 - NFLX (Netflix — AI-driven content/recommendations — trades onchain via HIP-3)
 - RIVN (Rivian — EV/autonomy — trades onchain via HIP-3)
 - VRTX, LLY (biotech — separate thesis, GLP-1/cystic fibrosis franchises)
+
+**Equity Tokenization / RWA Theme:** CRCL, COIN, and HOOD form a tokenization infrastructure trio. Global equity markets exceed $150T, yet operate on pre-digital rails — limited trading hours, multi-layer intermediaries, restricted private market access. Equity token market cap is up ~3.5x since early 2025. Stablecoins (10x growth in 5 years) are the settlement layer. NYSE, Nasdaq, and DTCC are building tokenized settlement infrastructure. Tokenized equities promise 24/7 trading, direct on-chain ownership, and private market access (90% of Americans want private asset allocation in retirement). The structural risk: token designs vary — some represent direct ownership, others are SPV-based economic exposure claims with ambiguous rights (preferred vs. common, voting, liquidation priority). Monitor for regulatory clarity (US, EU) and whether a standard token design emerges.
 
 Note: Several adjacent watchlist names (AAPL, NVDA, AMD, MU, MSFT, AMZN, META, INTC, TSLA, GOOGL, PLTR, COIN, ORCL, RIVN, NFLX) trade as onchain synthetic perps on Hyperliquid's HIP-3 platform, enabling 24/7 leveraged exposure.
 
