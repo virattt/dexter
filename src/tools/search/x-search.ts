@@ -3,8 +3,7 @@ import { z } from 'zod';
 import { formatToolResult } from '../types.js';
 
 const X_API_BASE = 'https://api.x.com/2';
-// Stay comfortably under the 450 req/15min rate limit
-const RATE_DELAY_MS = 350;
+const RATE_DELAY_MS = 350; // Delay between pagination requests to reduce rate-limit risk
 
 const TWEET_FIELDS =
   'tweet.fields=created_at,public_metrics,author_id,conversation_id,entities' +
@@ -263,8 +262,10 @@ export const xSearchTool = new DynamicStructuredTool({
         const sortOrder =
           input.sort === 'recent' ? 'recency' : 'relevancy';
 
+        const maxResults = Math.min(Math.max(limit, 10), 100);
         let tweets = await searchTweets(query, {
           pages: input.pages ?? 1,
+          maxResults,
           sortOrder,
           since: input.since,
         });
