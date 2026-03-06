@@ -3,10 +3,40 @@ import { logger } from '../../utils/logger.js';
 
 const BASE_URL = 'https://api.financialdatasets.ai';
 
+const MAX_RETRIES = 3;
+const INITIAL_BACKOFF_MS = 1000;
+
 export interface ApiResponse {
   data: Record<string, unknown>;
   url: string;
 }
+
+/**
+ * Simple concurrency-limited semaphore for API requests.
+ * Prevents blowing through the Financial Datasets rate limit
+ * when the LLM fans out to many tickers in parallel.
+ */
+class ApiSemaphore {
+  private queue: (() => void)[] = [];
+  private active = 0;
+  constructor(private max: number) {}
+  async acquire(): Promise<void> {
+    if (this.active < this.max) {
+      this.active++;
+      return;
+    }
+    return new Promise<void>((resolve) => {
+      this.queue.push(() => { this.active++; resolve(); });
+    });
+  }
+  release(): void {
+    this.active--;
+    const next = this.queue.shift();
+    if (next) next();
+  }
+}
+
+const apiSemaphore = new ApiSemaphore(5);
 
 /**
  * Remove redundant fields from API payloads before they are returned to the LLM.
@@ -47,7 +77,6 @@ export async function callApi(
 ): Promise<ApiResponse> {
   const label = describeRequest(endpoint, params);
 
-  // Check local cache first — avoids redundant network calls for immutable data
   if (options?.cacheable) {
     const cached = readCache(endpoint, params);
     if (cached) {
@@ -55,7 +84,6 @@ export async function callApi(
     }
   }
 
-  // Read API key lazily at call time (after dotenv has loaded)
   const FINANCIAL_DATASETS_API_KEY = process.env.FINANCIAL_DATASETS_API_KEY;
 
   if (!FINANCIAL_DATASETS_API_KEY) {
@@ -64,7 +92,6 @@ export async function callApi(
 
   const url = new URL(`${BASE_URL}${endpoint}`);
 
-  // Add params to URL, handling arrays
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== null) {
       if (Array.isArray(value)) {
@@ -75,36 +102,75 @@ export async function callApi(
     }
   }
 
-  let response: Response;
+  await apiSemaphore.acquire();
   try {
-    response = await fetch(url.toString(), {
-      headers: {
-        'x-api-key': FINANCIAL_DATASETS_API_KEY || '',
-      },
+    return await fetchWithRetry(url.toString(), FINANCIAL_DATASETS_API_KEY || '', label, endpoint, params, options);
+  } finally {
+    apiSemaphore.release();
+  }
+}
+
+async function fetchWithRetry(
+  url: string,
+  apiKey: string,
+  label: string,
+  endpoint: string,
+  params: Record<string, string | number | string[] | undefined>,
+  options?: { cacheable?: boolean },
+): Promise<ApiResponse> {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        headers: { 'x-api-key': apiKey },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (attempt < MAX_RETRIES) {
+        const delay = INITIAL_BACKOFF_MS * Math.pow(2, attempt);
+        logger.warn(`[Financial Datasets API] network error (attempt ${attempt + 1}/${MAX_RETRIES + 1}): ${label} — retrying in ${delay}ms`);
+        await sleep(delay);
+        continue;
+      }
+      logger.error(`[Financial Datasets API] network error: ${label} — ${message}`);
+      throw new Error(`[Financial Datasets API] request failed for ${label}: ${message}`);
+    }
+
+    if (response.status === 429) {
+      if (attempt < MAX_RETRIES) {
+        const retryAfter = response.headers.get('retry-after');
+        const delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : INITIAL_BACKOFF_MS * Math.pow(2, attempt);
+        logger.warn(`[Financial Datasets API] rate limited (attempt ${attempt + 1}/${MAX_RETRIES + 1}): ${label} — retrying in ${delay}ms`);
+        await sleep(delay);
+        continue;
+      }
+      logger.error(`[Financial Datasets API] rate limited after ${MAX_RETRIES + 1} attempts: ${label}`);
+      throw new Error(`[Financial Datasets API] request failed: 429 Too Many Requests`);
+    }
+
+    if (!response.ok) {
+      const detail = `${response.status} ${response.statusText}`;
+      logger.error(`[Financial Datasets API] error: ${label} — ${detail}`);
+      throw new Error(`[Financial Datasets API] request failed: ${detail}`);
+    }
+
+    const data = await response.json().catch(() => {
+      const detail = `invalid JSON (${response.status} ${response.statusText})`;
+      logger.error(`[Financial Datasets API] parse error: ${label} — ${detail}`);
+      throw new Error(`[Financial Datasets API] request failed: ${detail}`);
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.error(`[Financial Datasets API] network error: ${label} — ${message}`);
-    throw new Error(`[Financial Datasets API] request failed for ${label}: ${message}`);
+
+    if (options?.cacheable) {
+      writeCache(endpoint, params, data, url);
+    }
+
+    return { data, url };
   }
 
-  if (!response.ok) {
-    const detail = `${response.status} ${response.statusText}`;
-    logger.error(`[Financial Datasets API] error: ${label} — ${detail}`);
-    throw new Error(`[Financial Datasets API] request failed: ${detail}`);
-  }
+  throw new Error(`[Financial Datasets API] exhausted retries for ${label}`);
+}
 
-  const data = await response.json().catch(() => {
-    const detail = `invalid JSON (${response.status} ${response.statusText})`;
-    logger.error(`[Financial Datasets API] parse error: ${label} — ${detail}`);
-    throw new Error(`[Financial Datasets API] request failed: ${detail}`);
-  });
-
-  // Persist for future requests when the caller marked the response as cacheable
-  if (options?.cacheable) {
-    writeCache(endpoint, params, data, url.toString());
-  }
-
-  return { data, url: url.toString() };
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 

@@ -88,6 +88,18 @@ const FINANCE_TOOLS: StructuredToolInterface[] = [
 // Create a map for quick tool lookup by name
 const FINANCE_TOOL_MAP = new Map(FINANCE_TOOLS.map(t => [t.name, t]));
 
+const BATCH_SIZE = 8;
+
+async function executeBatched<T, R>(items: T[], batchSize: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(fn));
+    results.push(...batchResults);
+  }
+  return results;
+}
+
 // Build the router system prompt - simplified since LLM sees tool schemas
 function buildRouterPrompt(): string {
   return `You are a financial data routing assistant.
@@ -172,37 +184,35 @@ export function createFinancialSearch(model: string): DynamicStructuredTool {
         return formatToolResult({ error: 'No tools selected for query' }, []);
       }
 
-      // 3. Execute tool calls in parallel
+      // 3. Execute tool calls in batches to avoid rate limits
       const toolNames = [...new Set(toolCalls.map(tc => formatSubToolName(tc.name)))];
       onProgress?.(`Fetching from ${toolNames.join(', ')}...`);
-      const results = await Promise.all(
-        toolCalls.map(async (tc) => {
-          try {
-            const tool = FINANCE_TOOL_MAP.get(tc.name);
-            if (!tool) {
-              throw new Error(`Tool '${tc.name}' not found`);
-            }
-            const rawResult = await tool.invoke(tc.args);
-            const result = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
-            const parsed = JSON.parse(result);
-            return {
-              tool: tc.name,
-              args: tc.args,
-              data: parsed.data,
-              sourceUrls: parsed.sourceUrls || [],
-              error: null,
-            };
-          } catch (error) {
-            return {
-              tool: tc.name,
-              args: tc.args,
-              data: null,
-              sourceUrls: [],
-              error: error instanceof Error ? error.message : String(error),
-            };
+      const results = await executeBatched(toolCalls, BATCH_SIZE, async (tc) => {
+        try {
+          const tool = FINANCE_TOOL_MAP.get(tc.name);
+          if (!tool) {
+            throw new Error(`Tool '${tc.name}' not found`);
           }
-        })
-      );
+          const rawResult = await tool.invoke(tc.args);
+          const result = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
+          const parsed = JSON.parse(result);
+          return {
+            tool: tc.name,
+            args: tc.args,
+            data: parsed.data,
+            sourceUrls: parsed.sourceUrls || [],
+            error: null,
+          };
+        } catch (error) {
+          return {
+            tool: tc.name,
+            args: tc.args,
+            data: null,
+            sourceUrls: [],
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      });
 
       // 4. Combine results
       const successfulResults = results.filter((r) => r.error === null);
