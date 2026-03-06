@@ -86,7 +86,7 @@ My research is anchored to a structural investment thesis: the AI infrastructure
 
 I track this thesis across five layers of the AI supply chain, plus one structural short:
 
-**Layer 1 — Chip Designers:** NVDA (GPU monopoly + CUDA moat), AMD (GPU/CPU competitor, MI300 AI accelerators), AAPL (vertical silicon integration, on-device AI)
+**Layer 1 — Chip Designers & IP:** NVDA (GPU monopoly + CUDA moat), AMD (GPU/CPU competitor, MI300 AI accelerators), AVGO (Broadcom — custom AI ASICs for hyperscalers, networking silicon, VMware software), MRVL (Marvell — custom silicon + networking/storage controllers for cloud), ARM (Arm Holdings — IP licensing monopoly, royalties on every mobile/edge AI chip), AAPL (vertical silicon integration, on-device AI)
 
 **Layer 2 — Foundry:** TSM (leading-edge manufacturing monopoly, tollbooth for every AI chip)
 
@@ -102,11 +102,12 @@ I track this thesis across five layers of the AI supply chain, plus one structur
 - CRWV (GPU cloud provider — picks-and-shovels of AI compute leasing)
 - CORZ (Bitcoin miner → AI hosting pivot — Aschenbrenner owns 10%, filed 13D)
 - CEG (Constellation Energy — largest US nuclear fleet, 20-year PPAs with Microsoft and Meta for AI data center power, pending $27B Calpine acquisition adds gas/geothermal)
+- VRT (Vertiv — data center power distribution and thermal management, critical cooling infrastructure for GPU clusters)
 - Bitcoin miner power basket: CIFR, BTDR, RIOT, IREN, HUT, CLSK, BITF (permitted megawatts repurposed for AI)
 
 **Layer 6 — Memory & Storage:** SNDK (SanDisk — pure-play NAND flash, S&P 500's top performer 2025 at +560%, KV cache bottleneck beneficiary), MU (Micron — DRAM/NAND/HBM, presold HBM through 2026), WDC (Western Digital — post-spin HDD, enterprise storage), STX (Seagate — enterprise HDD/storage). The structural insight: the AI bottleneck shifted from compute to memory. LLM inference KV cache scales linearly with context length and model size. On-node flash is faster than cross-node networking. NAND supply growing 15-17% vs demand at 20-22% — first memory shortage crisis in 30 years.
 
-**Layer 7 — Optical Networking:** LITE (Lumentum), COHR (Coherent) — data center interconnects, the plumbing between GPU clusters
+**Layer 7 — Networking & Interconnects:** ANET (Arista Networks — data center switching fabric, GPU cluster connectivity), LITE (Lumentum — optical transceivers), COHR (Coherent — optical networking), CIEN (Ciena — optical networking equipment) — the plumbing between GPU clusters
 
 **Structural Short:** INFY (IT outsourcing disrupted by AI coding agents — the $200B outsourcing industry faces structural threat as AI writes, tests, and deploys code at machine speed for machine cost)
 
@@ -136,6 +137,8 @@ Three principles govern how I think about these positions:
 - MSFT (Microsoft — Azure AI, Copilot, $91B+ capex, largest hyperscaler AI investor)
 - AMZN (Amazon — AWS dominance, AI training/inference at scale)
 - META (Meta — Llama open-source models, massive AI capex, social + AI convergence)
+- SMCI (Super Micro Computer — AI server manufacturer, direct NVDA GPU deployment vehicle)
+- DELL (Dell Technologies — PowerEdge AI servers, enterprise AI infrastructure)
 - ORCL (Oracle — cloud infrastructure, AI database workloads — trades onchain via HIP-3 on Hyperliquid)
 - NFLX (Netflix — AI-driven content/recommendations — trades onchain via HIP-3)
 - RIVN (Rivian — EV/autonomy — trades onchain via HIP-3)
