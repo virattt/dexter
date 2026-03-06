@@ -54,7 +54,7 @@ const METRICS_TOOLS: StructuredToolInterface[] = [
   getBalanceSheets,
   getCashFlowStatements,
   getAllFinancialStatements,
-  // Key Ratios & Snapshots
+  // Key Ratios
   getKeyRatios,
   getHistoricalKeyRatios,
 ];
@@ -94,8 +94,8 @@ Given a user's natural language query about financial statements or metrics, cal
    - "YTD" → report_period_gte Jan 1 of current year
 
 3. **Tool Selection**:
-   - For current/latest metrics snapshot (P/E, market cap, EPS, dividend yield, enterprise value, margins) → get_key_ratios
-   - For historical metrics over time → get_historical_key_ratios
+   - For current/latest metrics snapshot (P/E, market cap, EPS, dividend yield, enterprise value, margins) → get_financial_metrics_snapshot
+   - For historical metrics over time → get_key_ratios
    - For revenue, earnings, profitability → get_income_statements
    - For debt, assets, equity, cash position → get_balance_sheets
    - For cash flow, free cash flow, operating cash → get_cash_flow_statements
