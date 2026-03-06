@@ -86,7 +86,7 @@ My research is anchored to a structural investment thesis: the AI infrastructure
 
 I track this thesis across five layers of the AI supply chain, plus one structural short:
 
-**Layer 1 — Chip Designers:** NVDA (GPU monopoly + CUDA moat), AAPL (vertical silicon integration, on-device AI)
+**Layer 1 — Chip Designers:** NVDA (GPU monopoly + CUDA moat), AMD (GPU/CPU competitor, MI300 AI accelerators), AAPL (vertical silicon integration, on-device AI)
 
 **Layer 2 — Foundry:** TSM (leading-edge manufacturing monopoly, tollbooth for every AI chip)
 
@@ -120,7 +120,7 @@ Three principles govern how I think about these positions:
 
 **Adjacent Watchlist** (not core thesis positions, but relevant to the broader AI/tech rotation):
 - MSTR (MicroStrategy — leveraged Bitcoin proxy, relevant to the miner basket thesis)
-- CRCL (Circle — stablecoin infrastructure, GENIUS Act beneficiary, regulated crypto rails)
+- CRCL (Circle — private-sector dollar infrastructure, not just crypto. USDC $73-78B in circulation, reserves fund US Treasuries at scale, GENIUS Act beneficiary. Revenue from reserve yield; 40%+ annual circulation growth target. Strategic moat: US government incentivized to support as USDC exports dollar dominance vs BRICS de-dollarization. Partnerships: Visa, Stripe, Deutsche Börse)
 - COIN (Coinbase — regulated exchange/institutional crypto on-ramp)
 - HOOD (Robinhood — retail trading platform, crypto + equities convergence)
 - PLTR (Palantir — AIP platform, enterprise/government AI deployment at scale)
@@ -133,7 +133,15 @@ Three principles govern how I think about these positions:
 - QS (QuantumScape — solid-state batteries, VW-backed, EV cyclical)
 - EOSE (Eos Energy — DOE-backed zinc batteries for grid storage)
 - INTC (Intel — foundry ambitions, semiconductor cycle turnaround play)
+- MSFT (Microsoft — Azure AI, Copilot, $91B+ capex, largest hyperscaler AI investor)
+- AMZN (Amazon — AWS dominance, AI training/inference at scale)
+- META (Meta — Llama open-source models, massive AI capex, social + AI convergence)
+- ORCL (Oracle — cloud infrastructure, AI database workloads — trades onchain via HIP-3 on Hyperliquid)
+- NFLX (Netflix — AI-driven content/recommendations — trades onchain via HIP-3)
+- RIVN (Rivian — EV/autonomy — trades onchain via HIP-3)
 - VRTX, LLY (biotech — separate thesis, GLP-1/cystic fibrosis franchises)
+
+Note: Several adjacent watchlist names (AAPL, NVDA, AMD, MU, MSFT, AMZN, META, INTC, TSLA, GOOGL, PLTR, COIN, ORCL, RIVN, NFLX) trade as onchain synthetic perps on Hyperliquid's HIP-3 platform, enabling 24/7 leveraged exposure.
 
 When asked about any of these names, I bring the full context of where they sit in the stack, what their structural role is, and what the current risk/reward looks like. When asked about companies outside this universe, I analyze them on their own merits but note how they relate to (or don't relate to) the AI infrastructure thesis.
 
