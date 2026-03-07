@@ -60,6 +60,42 @@ A single web app where users can:
 
 ---
 
+## 4.1 Strategic Decision: WhatsApp-First vs Web-First
+
+**Decision:** Prioritize **WhatsApp groups** as the primary interface for Dexter (Portfolio Builder, heartbeat, research) over building a custom web frontend.
+
+### Rationale
+
+| Factor | WhatsApp Groups | Web Frontend |
+|--------|-----------------|--------------|
+| **Friction** | Low — users already have WhatsApp | Higher — new app, login, onboarding |
+| **Collaboration** | Natural — multiple people @-mention Dexter in one thread | Requires shared sessions, permissions |
+| **Mobile** | Native — research and alerts on the go | Responsive but secondary |
+| **Build cost** | Already built — group policy, @-mention detection | Significant — UI, auth, feature parity |
+| **Heartbeat delivery** | Direct — weekly rebalance, quarterly reports to group | Requires polling or push setup |
+
+### What WhatsApp Groups Excel At
+
+- Portfolio Builder alerts (rebalance needed, quarterly report)
+- Ad-hoc research ("What's our thesis on BE?")
+- Collaborative discussion — team can react, reply, @-mention
+- No deployment — add Dexter to a group and go
+
+### What Web Frontend Still Adds (Secondary)
+
+- Rich tables, charts, markdown rendering
+- Tool approval flow (write_file, edit_file)
+- Model selection, abort, streaming
+- Discovery — public landing, sign-up
+
+### Implication
+
+- **Primary:** Invest in WhatsApp group experience — polish group policy, heartbeat delivery to groups, PORTFOLIO.md sync
+- **Secondary:** Web frontend (Stocks, unified app) is optional or power-user only; deprioritize vs WhatsApp
+- **AI Hedge Fund:** May remain web-first (charts, backtester need UI) or get a "summary to WhatsApp" path for key outputs
+
+---
+
 ## 5. User Personas & Journeys
 
 ### Persona: Research-First Investor

@@ -114,13 +114,15 @@ bun dev
 
 ## 🧠 Customizing Dexter — SOUL.md & HEARTBEAT.md
 
+**Core motivation:** This project exists to get suggestions for how (and why) to diversify a **BTC-heavy portfolio**. BTC HODL is the thesis. HYPE (onchain stocks) and SOL/NEAR/SUI/ETH (agentic web4) are thesis-aligned satellites. The WhatsApp group is the primary interface. Dexter helps you decide when, how, and why to diversify — or when HODLing is the right call.
+
 Out of the box, Dexter is a general-purpose financial research agent. But it becomes dramatically more useful when you give it a persistent investment thesis, a defined coverage universe, and a monitoring discipline. That's what `SOUL.md` and `HEARTBEAT.md` do.
 
 ### Why customize?
 
 Standard financial APIs and LLM-based analysis work well for high-coverage names — everyone agrees Nvidia is a buy. But the edge in research lives in the positions that standard tools *can't* evaluate: equipment cycle dynamics, EDA complexity growth, power bottleneck economics, memory supply-demand gaps. These require domain-specific context that no generic agent carries.
 
-By embedding your thesis into Dexter's identity files, every query it runs is informed by your structural view of the market. It doesn't just answer "what is AMAT's P/E?" — it answers it in the context of where AMAT sits in the AI supply chain, what the H2 2026 equipment cycle inflection means, and whether the current valuation reflects the structural flywheel.
+By embedding your thesis into Dexter's identity files, every query it runs is informed by your structural view of the market. It doesn't just answer "what is AMAT's P/E?" — it answers it in the context of where AMAT sits in the AI supply chain, what the H2 2026 equipment cycle inflection means, and whether the current valuation reflects the structural flywheel — and whether it's a good diversification opportunity for a BTC-heavy portfolio.
 
 ### SOUL.md — The agent's identity and thesis
 
@@ -141,7 +143,7 @@ Edit `SOUL.md` to reflect your own thesis. The structure matters more than the s
 - **Weekly (Mondays):** Rebalance check — compares your portfolio to the target from SOUL.md and alerts if adjustments are needed
 - **Quarterly (first week of Jan/Apr/Jul/Oct):** Performance report — summarizes how the portfolio performed and what changed
 
-Keep your current holdings in `~/.dexter/PORTFOLIO.md` (ticker, weight, layer, tier) so the agent can compare against the target. The checklist also includes:
+Keep your current holdings in `~/.dexter/PORTFOLIO.md` (ticker, weight, layer, tier) so the agent can compare against the target. Copy `docs/HEARTBEAT.example.md` to `~/.dexter/HEARTBEAT.md` for a BTC/HYPE/SOL-focused checklist. The checklist also includes:
 
 - **Per-ticker monitoring criteria** — what to check for each name (e.g., "AMAT price + order trends, H2 2026 equipment cycle signals")
 - **Conviction tier tags** — `[CC]`, `[CB]`, `[SO]`, `[AV]` on every entry so research effort scales with conviction
@@ -198,6 +200,12 @@ Does my portfolio need rebalancing? Compare to the target from SOUL
 ```
 ```
 What would a near-perfect portfolio look like given our thesis?
+```
+```
+How and why should we diversify from a BTC-heavy portfolio right now?
+```
+```
+What's the case for adding HYPE or SOL/NEAR/SUI/ETH to a BTC-heavy portfolio?
 ```
 
 **Macro + monitoring:**

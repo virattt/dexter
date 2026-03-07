@@ -6,7 +6,11 @@ import { HEARTBEAT_OK_TOKEN } from './suppression.js';
 const HEARTBEAT_MD_PATH = join(homedir(), '.dexter', 'HEARTBEAT.md');
 const PORTFOLIO_MD_PATH = join(homedir(), '.dexter', 'PORTFOLIO.md');
 
-const DEFAULT_CHECKLIST = `- Major index moves (S&P 500, NASDAQ, Dow) — alert if any move more than 2% in a session
+const DEFAULT_CHECKLIST = `- BTC — price, dominance, any material move or news that affects HODL thesis
+- HYPE — onchain stocks narrative: HIP-3, equity tokenization, Hyperliquid updates
+- SOL, NEAR, SUI, ETH (Base) — agentic web4 narrative: Solana, NEAR, Sui, Base ecosystem; DePIN, agent infrastructure news
+- Diversification signals — anything that changes the how/why of diversifying from BTC-heavy (e.g. AI infra cycle inflection, macro regime shift)
+- Major index moves (S&P 500, NASDAQ, Dow) — alert if any move more than 2% in a session
 - Breaking financial news — major earnings surprises, Fed announcements, significant market events`;
 
 /**

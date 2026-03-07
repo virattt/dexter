@@ -10,6 +10,8 @@
 
 **North star:** Dexter exists to help users build and maintain a **near-perfect portfolio** — one that aligns with their investment thesis, conviction tiers, and sizing rules as defined in SOUL.md.
 
+**Core motivation:** BTC-heavy portfolio. HODL BTC. Get suggestions for how (and why) to diversify. HYPE (onchain stocks) and SOL/NEAR/SUI/ETH (agentic web4) are thesis-aligned satellites. The AI infrastructure universe is the diversification opportunity set. WhatsApp group is the primary interface.
+
 The agent is aware of what a near-perfect portfolio looks like. The heartbeat runs **weekly** to check if rebalancing is needed and **quarterly** to write a performance report.
 
 ---
