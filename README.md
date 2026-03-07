@@ -16,6 +16,7 @@ Dexter is an autonomous financial research agent that thinks, plans, and learns 
 - [🐛 How to Debug](#-how-to-debug)
 - [📱 How to Use with WhatsApp](#-how-to-use-with-whatsapp)
 - [🤝 How to Contribute](#-how-to-contribute)
+- [🔄 Syncing with Upstream (for forks)](#-syncing-with-upstream-for-forks)
 - [📄 License](#-license)
 
 
@@ -298,6 +299,35 @@ For detailed setup instructions, configuration options, and troubleshooting, see
 
 **Important**: Please keep your pull requests small and focused.  This will make it easier to review and merge.
 
+## 🔄 Syncing with Upstream (for forks)
+
+If you forked from [virattt/dexter](https://github.com/virattt/dexter) and want to pull in upstream updates without losing your commits:
+
+```bash
+# 1. Add upstream (once; skip if you already have it)
+git remote add upstream https://github.com/virattt/dexter.git
+
+# 2. Fetch upstream
+git fetch upstream
+
+# 3. Merge upstream/main into your main
+git merge upstream/main
+```
+
+If there are conflicts, resolve them in the listed files, then:
+
+```bash
+git add .
+git commit -m "Merge upstream main"
+```
+
+Then push:
+
+```bash
+git push origin main
+```
+
+**Do not** use GitHub's "Discard X commits" — that deletes your work. Merge locally instead.
 
 ## 📄 License
 
