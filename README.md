@@ -1,303 +1,331 @@
-# Dexter 🤖
+# Dexter
 
-Dexter is an autonomous financial research agent that thinks, plans, and learns as it works. It performs analysis using task planning, self-reflection, and real-time market data. Think Claude Code, but built specifically for financial research.
+Dexter is an autonomous financial research agent — think Claude Code, but built for deep financial analysis. It decomposes complex questions into research plans, executes them using live market data and SEC filings, checks its own work, and refines until it has a confident, data-backed answer.
 
-<img width="1098" height="659" alt="Screenshot 2026-01-21 at 5 25 10 PM" src="https://github.com/user-attachments/assets/3bcc3a7f-b68a-4f5e-8735-9d22196ff76e" />
+The north star is the **Portfolio Builder**: help build and maintain a near-perfect portfolio aligned with a specific investment thesis, outperforming the S&P 500, NASDAQ, BTC, and best hedge funds.
 
 ## Table of Contents
 
-- [👋 Overview](#-overview)
-- [🔧 How We've Customized Dexter](#-how-weve-customized-dexter)
-- [✅ Prerequisites](#-prerequisites)
-- [💻 How to Install](#-how-to-install)
-- [🚀 How to Run](#-how-to-run)
-- [🧠 Customizing Dexter — SOUL.md & HEARTBEAT.md](#-customizing-dexter--soulmd--heartbeatmd)
-- [📊 How to Evaluate](#-how-to-evaluate)
-- [⚡ API Rate Limiting](#-api-rate-limiting)
-- [🐛 How to Debug](#-how-to-debug)
-- [📱 How to Use with WhatsApp](#-how-to-use-with-whatsapp)
-- [🤝 How to Contribute](#-how-to-contribute)
-- [🔄 Syncing with Upstream (for forks)](#-syncing-with-upstream-for-forks)
-- [📚 Documentation](#-documentation)
-- [📄 License](#-license)
+- [Overview](#-overview)
+- [How We've Customized Dexter](#-how-weve-customized-dexter)
+- [Prerequisites](#-prerequisites)
+- [Installation](#-installation)
+- [Running Dexter](#-running-dexter)
+- [Project Structure](#-project-structure)
+- [Customizing: SOUL.md & HEARTBEAT.md](#-customizing-soulmd--heartbeatmd)
+- [Example Queries](#-example-queries)
+- [Evaluating](#-evaluating)
+- [API Rate Limiting](#-api-rate-limiting)
+- [Debugging](#-debugging)
+- [WhatsApp Interface](#-whatsapp-interface)
+- [Contributing](#-contributing)
+- [Syncing with Upstream](#-syncing-with-upstream)
+- [Documentation](#-documentation)
+- [License](#-license)
 
+---
 
 ## 👋 Overview
 
-Dexter's **north star** is the **Portfolio Builder** — helping you build and maintain a near-perfect portfolio aligned with your investment thesis. The agent knows what that portfolio looks like (from SOUL.md). Performance is essential: a portfolio must outperform best hedge funds, stock market indexes (S&P 500, NASDAQ), and BTC — otherwise it fails the bar. The heartbeat runs **weekly** to check if rebalancing is needed and **quarterly** to write a performance report vs these benchmarks.
+Dexter's **north star** is the **Portfolio Builder** — building and maintaining a near-perfect portfolio aligned with your investment thesis (defined in `SOUL.md`). Performance must beat best hedge funds, S&P 500, NASDAQ, and BTC — otherwise it fails the bar.
 
-Dexter takes complex financial questions and turns them into clear, step-by-step research plans. It runs those tasks using live market data, checks its own work, and refines the results until it has a confident, data-backed answer.  
+**What it does:**
 
-**Key Capabilities:**
-- **Intelligent Task Planning**: Automatically decomposes complex queries into structured research steps
-- **Autonomous Execution**: Selects and executes the right tools to gather financial data
-- **Self-Validation**: Checks its own work and iterates until tasks are complete
-- **Real-Time Financial Data**: Access to income statements, balance sheets, and cash flow statements
-- **Safety Features**: Built-in loop detection and step limits to prevent runaway execution
-- **Fund Operations**: AUM config, dollar rebalancing, YTD/since-inception performance tracking
-- **Newsletter-Ready Output**: Regime labels, weekly drafts, concentration alerts, investor letter templates
-- **Brand Voice**: VOICE.md injects ikigaistudio tone and style into every response
+- **Intelligent task planning** — decomposes complex queries into structured, multi-step research plans
+- **Autonomous execution** — selects and runs the right tools to gather financial data, filings, and news
+- **Self-validation** — checks its own work, iterates, and refines until tasks are complete
+- **Real-time market data** — income statements, balance sheets, cash flows, insider trades, SEC filings
+- **Thesis-aware analysis** — every answer is contextualized by your investment thesis from `SOUL.md`
+- **Scheduled monitoring** — weekly rebalance checks (Mondays) and quarterly benchmark reports
+- **Fund operations** — AUM config, dollar rebalancing, YTD and since-inception performance tracking
+- **Newsletter output** — regime labels, weekly drafts, concentration alerts, investor letter templates
+- **Brand voice** — `VOICE.md` injects ikigaistudio tone into every response
+- **Safety guards** — loop detection and step limits prevent runaway execution
 
-[![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt) [![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=social&logo=discord)](https://discord.gg/jpGHv2XB6T)
-
-<img width="1042" height="638" alt="Screenshot 2026-02-18 at 12 21 25 PM" src="https://github.com/user-attachments/assets/2a6334f9-863f-4bd2-a56f-923e42f4711e" />
-
+---
 
 ## 🔧 How We've Customized Dexter
 
-This fork extends [virattt/dexter](https://github.com/virattt/dexter) with a specific investment thesis, data stack, and startup path. Here's what we changed and why.
+This fork extends [virattt/dexter](https://github.com/virattt/dexter) with a specific investment thesis, data stack, and operational tooling.
 
 | Customization | What | Why |
-|---------------|------|-----|
-| **North star: Portfolio Builder** | Agent's primary purpose is building and maintaining a near-perfect portfolio aligned with SOUL.md. Performance must beat hedge funds, indexes, and BTC. | Generic research agents answer questions; we need one that *owns* the outcome — rebalancing, benchmarking, and reporting. |
-| **SOUL.md — thesis & coverage universe** | Full investment thesis: AI infrastructure supply chain (7 layers), conviction tiering (Core Compounders → Avoid), sizing rules, analytical edge. BTC-heavy core; HYPE and SOL/NEAR/SUI/ETH as satellites. | Standard tools can't evaluate equipment cycle dynamics, EDA complexity, or power bottlenecks. The edge lives where consensus hasn't priced. SOUL.md gives every query structural context. |
-| **HEARTBEAT — weekly rebalance + quarterly report** | Mondays: rebalance check vs target. First week of quarter: performance report vs S&P, NASDAQ, BTC. Regime label (risk-on/risk-off). Weekly newsletter draft when noteworthy. Concentration alerts. Dollar rebalancing when AUM set. | Passive monitoring isn't enough. We need scheduled action: detect drift, compare to benchmarks, deliver reports. |
-| **VOICE.md — brand & writing style** | ikigaistudio tone, phrases, structure. Injected into every system prompt. Copy to `~/.dexter/VOICE.md` to override. | Generic AI output sounds generic. Essays and investor letters need a consistent voice. |
-| **Fund config + performance history** | `~/.dexter/fund-config.json` (AUM, inception). `~/.dexter/performance-history.json` (quarters). Tools: `fund_config`, `performance_history`, `save_report`. | Dollar rebalancing and since-inception returns require AUM. Reports auto-save to `~/.dexter/`. |
-| **Financial Datasets as primary data API** | All finance subagents (prices, fundamentals, filings, insider trades, news) use Financial Datasets. | Built for AI agents: section-level SEC filings, structured JSON, real-time ingestion. Beats Finnhub for filings and fundamentals. See [DATA-API-FINANCIAL-DATASETS.md](docs/DATA-API-FINANCIAL-DATASETS.md). |
-| **Finnhub fallback (planned)** | PRD for Finnhub free tier as fallback when FD fails or is rate-limited. | Resilience and cost relief. Zero marginal cost for overflow on simple price/news queries. See [PRD-FINNHUB-SUBAGENTS.md](docs/PRD-FINNHUB-SUBAGENTS.md). |
-| **WhatsApp as primary interface** | Gateway for WhatsApp; group chat is the main way to interact. | Research and alerts in the same place we already communicate. CLI and HTTP API remain for power users. |
-| **Startup stack (doola, Coinbase, Fairmint, Base)** | PRD for moving from MVP to startup: Wyoming LLC, custody, tokenized equity, USDC on Base. | The Stack collapses entity formation, compliance, and settlement into something a solo founder can access. See [PRD-STARTUP-STACK.md](docs/PRD-STARTUP-STACK.md). |
-| **External research (Money for AI, CryptoTax Map, Every, OtoCo)** | Documented references for AI monetary preferences, crypto tax by jurisdiction, back-office tools, Web3 entity formation. | Informs thesis (BTC preference in AI agents), entity planning (tax efficiency), and startup infra (Every, OtoCo as alternatives). See [EXTERNAL-RESOURCES.md](docs/EXTERNAL-RESOURCES.md). |
+|---|---|---|
+| **Portfolio Builder** | Agent's primary purpose is building and maintaining a near-perfect portfolio aligned with `SOUL.md`. Must beat hedge funds, indexes, and BTC. | Generic research agents answer questions. We need one that *owns the outcome* — rebalancing, benchmarking, reporting. |
+| **SOUL.md** | Investment thesis: AI infrastructure supply chain (7 layers), conviction tiering, sizing rules, analytical edge. BTC-heavy core; HYPE and SOL/NEAR/SUI/ETH as satellites. | The edge lives where consensus hasn't priced. SOUL.md gives every query structural context — equipment cycle dynamics, EDA complexity, power bottlenecks. |
+| **HEARTBEAT** | Weekly rebalance check vs target. Quarterly performance report vs S&P, NASDAQ, BTC. Regime label. Newsletter draft when noteworthy. Dollar rebalancing when AUM is set. | Passive monitoring isn't enough. We need scheduled action: detect drift, compare to benchmarks, deliver reports. |
+| **VOICE.md** | ikigaistudio tone, phrases, structure. Injected into every system prompt. Override at `~/.dexter/VOICE.md`. | Generic AI output sounds generic. Essays and investor letters need a consistent, recognizable voice. |
+| **Fund config** | `~/.dexter/fund-config.json` (AUM, inception). `~/.dexter/performance-history.json` (quarterly history). Tools: `fund_config`, `performance_history`, `save_report`. | Dollar rebalancing and since-inception returns require AUM. Reports auto-save to `~/.dexter/`. |
+| **Financial Datasets API** | All finance subagents (prices, fundamentals, filings, insider trades, news) use Financial Datasets as primary data source. | Built for AI agents: section-level SEC filings, structured JSON, real-time ingestion. See [DATA-API-FINANCIAL-DATASETS.md](docs/DATA-API-FINANCIAL-DATASETS.md). |
+| **Finnhub fallback** | PRD for Finnhub free tier as fallback when FD fails or is rate-limited. | Resilience and cost reduction. Zero marginal cost for overflow on simple price/news queries. See [PRD-FINNHUB-SUBAGENTS.md](docs/PRD-FINNHUB-SUBAGENTS.md). |
+| **WhatsApp interface** | Gateway for WhatsApp; group chat is the primary interaction surface. | Research and alerts in the same place we already communicate. CLI and HTTP API remain for power users. |
+| **Startup stack** | PRD for moving from MVP to startup: Wyoming LLC, custody, tokenized equity, USDC on Base (doola, Coinbase, Fairmint). | Collapses entity formation, compliance, and settlement into something a solo founder can access. See [PRD-STARTUP-STACK.md](docs/PRD-STARTUP-STACK.md). |
+| **External research** | Documented references for AI monetary preferences, crypto tax by jurisdiction, back-office tools, Web3 entity formation. | Informs thesis (BTC preference in AI agents), entity planning (tax efficiency), and startup infra. See [EXTERNAL-RESOURCES.md](docs/EXTERNAL-RESOURCES.md). |
 
-**Core motivation:** This project exists to answer *how (and why) should we diversify a BTC-heavy portfolio?* BTC HODL is the thesis. Diversification satellites are HYPE (onchain stocks) and SOL/NEAR/SUI/ETH (agentic web4). The AI infrastructure universe is the opportunity set. Dexter helps decide when to diversify — and when HODLing is the right call. **We are NOT real estate bulls** — housing collapse thesis in SOUL.md; smart villas in southern Europe are a passion project only.
+**Core thesis:** BTC HODL is the foundation. Diversification satellites are HYPE (onchain stocks) and SOL/NEAR/SUI/ETH (agentic web4). The AI infrastructure universe is the opportunity set. Dexter helps decide *when to diversify — and when HODLing is the right call*. We are not real estate bulls — housing collapse thesis is in SOUL.md.
 
 ---
 
 ## ✅ Prerequisites
 
-- [Bun](https://bun.com) runtime (v1.0 or higher)
-- OpenAI API key (get [here](https://platform.openai.com/api-keys))
-- Financial Datasets API key (get [here](https://financialdatasets.ai))
-- Exa API key (get [here](https://exa.ai)) - optional, for web search
+| Requirement | Notes |
+|---|---|
+| [Bun](https://bun.com) v1.0+ | Primary runtime |
+| OpenAI API key | Required — [get one](https://platform.openai.com/api-keys) |
+| Financial Datasets API key | Required for market data — [get one](https://financialdatasets.ai) |
+| Exa API key | Optional — for web search |
 
-#### Installing Bun
+**Install Bun:**
 
-If you don't have Bun installed, you can install it using curl:
-
-**macOS/Linux:**
 ```bash
+# macOS/Linux
 curl -fsSL https://bun.com/install | bash
-```
 
-**Windows:**
-```bash
+# Windows
 powershell -c "irm bun.sh/install.ps1|iex"
 ```
 
-After installation, restart your terminal and verify Bun is installed:
-```bash
-bun --version
-```
+Restart your terminal, then verify: `bun --version`
 
-## 💻 How to Install
+---
 
-1. Clone the repository:
+## 💻 Installation
+
+**1. Clone the repository:**
+
 ```bash
 git clone https://github.com/virattt/dexter.git
 cd dexter
 ```
 
-2. Install dependencies with Bun:
+**2. Install dependencies:**
+
 ```bash
 bun install
 ```
 
-3. Set up your environment variables:
+**3. Configure environment variables:**
+
 ```bash
-# Copy the example environment file
 cp env.example .env
-
-# Edit .env and add your API keys (if using cloud providers)
-# OPENAI_API_KEY=your-openai-api-key
-# ANTHROPIC_API_KEY=your-anthropic-api-key (optional)
-# GOOGLE_API_KEY=your-google-api-key (optional)
-# XAI_API_KEY=your-xai-api-key (optional)
-# OPENROUTER_API_KEY=your-openrouter-api-key (optional)
-
-# Institutional-grade market data for agents; AAPL, NVDA, MSFT are free
-# FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
-
-# (Optional) If using Ollama locally
-# OLLAMA_BASE_URL=http://127.0.0.1:11434
-
-# Web Search (Exa preferred, Tavily fallback)
-# EXASEARCH_API_KEY=your-exa-api-key
-# TAVILY_API_KEY=your-tavily-api-key
 ```
 
-## 🚀 How to Run
+Edit `.env` and fill in your keys:
 
-Run Dexter in interactive mode:
 ```bash
+# LLM providers (at least one required)
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=        # Optional
+GOOGLE_API_KEY=           # Optional
+XAI_API_KEY=              # Optional
+OPENROUTER_API_KEY=       # Optional
+
+# Market data (AAPL, NVDA, MSFT are free without a key)
+FINANCIAL_DATASETS_API_KEY=
+
+# Web search (Exa preferred → Perplexity → Tavily as fallbacks)
+EXASEARCH_API_KEY=
+PERPLEXITY_API_KEY=       # Optional fallback
+TAVILY_API_KEY=           # Optional fallback
+
+# X/Twitter (enables x_search tool for public sentiment research)
+X_BEARER_TOKEN=           # Optional
+
+# Local LLM via Ollama (optional)
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+
+# Evaluation tracing (optional)
+LANGSMITH_API_KEY=
+LANGSMITH_ENDPOINT=https://api.smith.langchain.com
+LANGSMITH_PROJECT=dexter
+LANGSMITH_TRACING=false
+```
+
+---
+
+## 🚀 Running Dexter
+
+```bash
+# Interactive mode
 bun start
-```
 
-Or with watch mode for development:
-```bash
+# Watch mode (auto-reloads on file changes)
 bun dev
+
+# Type-check only
+bun run typecheck
+
+# Run tests
+bun test
 ```
 
-## 🧠 Customizing Dexter — SOUL.md & HEARTBEAT.md
+---
 
-**Core motivation:** This project exists to get suggestions for how (and why) to diversify a **BTC-heavy portfolio**. BTC HODL is the thesis. HYPE (onchain stocks) and SOL/NEAR/SUI/ETH (agentic web4) are thesis-aligned satellites. The WhatsApp group is the primary interface. Dexter helps you decide when, how, and why to diversify — or when HODLing is the right call.
+## 📁 Project Structure
 
-Out of the box, Dexter is a general-purpose financial research agent. But it becomes dramatically more useful when you give it a persistent investment thesis, a defined coverage universe, and a monitoring discipline. That's what `SOUL.md` and `HEARTBEAT.md` do.
+```
+dexter/
+├── src/
+│   ├── agent/          # Agent loop, prompts, scratchpad, token counting
+│   ├── cli.tsx         # Ink/React CLI interface
+│   ├── index.tsx       # Entry point
+│   ├── components/     # CLI UI components
+│   ├── controllers/    # Model selection and configuration
+│   ├── evals/          # LangSmith evaluation runner
+│   ├── gateway/        # WhatsApp and other channel gateways
+│   ├── hooks/          # React hooks (agent runner, model selection, history)
+│   ├── model/          # Multi-provider LLM abstraction
+│   ├── skills/         # SKILL.md-based extensible workflows (e.g. DCF)
+│   └── tools/          # All agent tools
+│       ├── finance/    # Prices, fundamentals, filings, insider trades
+│       ├── search/     # Exa / Perplexity / Tavily web search
+│       ├── browser/    # Playwright-based scraping
+│       ├── portfolio/  # Portfolio builder tool
+│       ├── heartbeat/  # Weekly/quarterly monitoring
+│       ├── fund-config/    # AUM and inception date
+│       └── performance-history/  # Quarterly performance tracking
+├── SOUL.md             # Investment thesis and coverage universe
+├── docs/
+│   ├── VOICE.md        # Brand and writing style
+│   ├── HEARTBEAT.example.md   # Monitoring checklist template
+│   └── ...             # PRDs, roadmaps, data API docs
+└── .dexter/            # User-managed runtime state (gitignored)
+    ├── HEARTBEAT.md    # Your monitoring checklist
+    ├── PORTFOLIO.md    # Your current holdings
+    ├── fund-config.json
+    └── performance-history.json
+```
+
+---
+
+## 🧠 Customizing: SOUL.md & HEARTBEAT.md
+
+Out of the box, Dexter is a general-purpose financial research agent. It becomes dramatically more useful when you give it a persistent investment thesis, a defined coverage universe, and a monitoring discipline. That's what `SOUL.md` and `HEARTBEAT.md` do.
 
 ### Why customize?
 
-Standard financial APIs and LLM-based analysis work well for high-coverage names — everyone agrees Nvidia is a buy. But the edge in research lives in the positions that standard tools *can't* evaluate: equipment cycle dynamics, EDA complexity growth, power bottleneck economics, memory supply-demand gaps. These require domain-specific context that no generic agent carries.
+Standard LLM-based analysis works well for high-coverage names — everyone agrees Nvidia is a buy. But the edge in research lives where standard tools *can't* evaluate: equipment cycle dynamics, EDA complexity growth, power bottleneck economics, memory supply-demand gaps. These require domain-specific context no generic agent carries.
 
-By embedding your thesis into Dexter's identity files, every query it runs is informed by your structural view of the market. It doesn't just answer "what is AMAT's P/E?" — it answers it in the context of where AMAT sits in the AI supply chain, what the H2 2026 equipment cycle inflection means, and whether the current valuation reflects the structural flywheel — and whether it's a good diversification opportunity for a BTC-heavy portfolio.
+By embedding your thesis into Dexter's identity files, every query is informed by your structural view of the market. Dexter doesn't just answer "what is AMAT's P/E?" — it answers in the context of where AMAT sits in the AI supply chain, what the H2 2026 equipment cycle inflection means, and whether current valuation reflects the structural flywheel.
 
-### SOUL.md — The agent's identity and thesis
+### SOUL.md — Agent identity and thesis
 
 `SOUL.md` lives in the repo root and is injected into Dexter's system prompt on every query. It defines:
 
 - **Coverage universe** — organized by supply chain layer (Chip Designers, Foundry, Equipment, EDA, Power, Memory, Networking)
-- **Structural thesis** — the "why" behind each position, not just the ticker
-- **Conviction tiering** — every name classified as Core Compounder, Cyclical Beneficiary, Speculative Optionality, or Avoid/Too Crowded, with bottleneck type, duration, and attackability
+- **Structural thesis** — the *why* behind each position, not just the ticker
+- **Conviction tiering** — Core Compounder, Cyclical Beneficiary, Speculative Optionality, Avoid/Too Crowded — with bottleneck type, duration, and attackability
 - **Sizing rules** — regime determines size (not conviction), layer determines durability, catalyst determines timing
 - **Analytical edge** — where standard tools fail and what domain-specific analysis to prioritize
 
-Edit `SOUL.md` to reflect your own thesis. The structure matters more than the specific names — Dexter uses it to contextualize every answer.
+Edit `SOUL.md` to reflect your own thesis. The structure matters more than the specific names.
 
 ### HEARTBEAT.md — The monitoring checklist
 
-`~/.dexter/HEARTBEAT.md` is a user-managed file that defines what Dexter should monitor periodically. In addition to the checklist, the heartbeat runs:
+`~/.dexter/HEARTBEAT.md` is user-managed and defines what Dexter should monitor periodically.
 
-- **Weekly (Mondays):** Rebalance check — compares your portfolio to the target from SOUL.md and alerts if adjustments are needed. Regime label (risk-on/risk-off/mixed). Concentration alerts for positions >5% above target. When noteworthy, saves a newsletter draft to `~/.dexter/WEEKLY-DRAFT-YYYY-MM-DD.md`. Dollar rebalancing actions when AUM is set in fund config.
+The heartbeat runs:
+- **Weekly (Mondays):** Rebalance check vs target from `SOUL.md`. Regime label (risk-on/risk-off/mixed). Concentration alerts for positions >5% above target. Newsletter draft saved to `~/.dexter/WEEKLY-DRAFT-YYYY-MM-DD.md`. Dollar rebalancing when AUM is set.
 - **Quarterly (first week of Jan/Apr/Jul/Oct):** Performance report — YTD and since-inception vs BTC, SPY, GLD. Records quarter via `performance_history` for cumulative tracking.
 
-Keep your current holdings in `~/.dexter/PORTFOLIO.md` (ticker, weight, layer, tier) so the agent can compare against the target. Copy `docs/HEARTBEAT.example.md` to `~/.dexter/HEARTBEAT.md` for a BTC/HYPE/SOL-focused checklist. The checklist also includes:
+Keep your current holdings in `~/.dexter/PORTFOLIO.md` (ticker, weight, layer, tier) so Dexter can compare against the target.
 
-- **Per-ticker monitoring criteria** — what to check for each name (e.g., "AMAT price + order trends, H2 2026 equipment cycle signals")
-- **Conviction tier tags** — `[CC]`, `[CB]`, `[SO]`, `[AV]` on every entry so research effort scales with conviction
-- **Macro signals** — Fed rates, SOX index, hyperscaler capex, BTC/Gold ratio, Burry's danger signal
-- **Thematic sections** — equity tokenization/RWA, HIP-3 onchain perps, commodities, bear market accumulation zones
+```bash
+# Set up your monitoring checklist from the template
+cp docs/HEARTBEAT.example.md ~/.dexter/HEARTBEAT.md
+```
+
+The checklist also supports:
+- **Per-ticker monitoring criteria** — what to check for each name
+- **Conviction tier tags** — `[CC]`, `[CB]`, `[SO]`, `[AV]` so research effort scales with conviction
+- **Macro signals** — Fed rates, SOX index, hyperscaler capex, BTC/Gold ratio
 - **Research priority guide** — Core Compounders get deep fundamental research; Speculative Optionality gets catalyst-only monitoring
 
-### Example queries to get the most out of this setup
+---
+
+## 💬 Example Queries
 
 **Thesis-aware research:**
 ```
 What's our thesis on Bloom Energy and where does it sit in the durability hierarchy?
-```
-```
 Compare the structural position of SNDK vs MU in the memory bottleneck thesis
-```
-```
-What did Aschenbrenner's Q4 2025 13F signal about pricing power migration?
 ```
 
 **Financial data + thesis context:**
 ```
 Pull current price and key ratios for our Layer 3 equipment names: AMAT, ASML, LRCX, KLAC, TEL, BESI
-```
-```
 Pull the latest income statement for TSM and analyze it through the foundry tollbooth lens
-```
-```
-What's KLAC's margin profile and how does process control complexity insurance play into the thesis?
 ```
 
 **Stress-test the thesis:**
 ```
 What's the bear case for holding Layer 1 chip designers right now?
-```
-```
-Where does this thesis break? What assumptions are most vulnerable?
-```
-```
 If AI demand is merely good but not euphoric, which positions survive and which don't?
-```
-
-**Cross-layer analysis:**
-```
-Which of our core compounders have the longest bottleneck duration and lowest attackability?
-```
-```
-Rank our cyclical beneficiaries by how exposed they are to a single capex cycle
 ```
 
 **Portfolio building:**
 ```
 Does my portfolio need rebalancing? Compare to the target from SOUL
-```
-```
 What would a near-perfect portfolio look like given our thesis?
-```
-```
 How and why should we diversify from a BTC-heavy portfolio right now?
 ```
-```
-What's the case for adding HYPE or SOL/NEAR/SUI/ETH to a BTC-heavy portfolio?
-```
 
-**Essay, newsletter, investor letter:**
-```
-Reflect on this quarter's report and suggest 3 essay angles for Substack
-```
+**Newsletter and investor letters:**
 ```
 Write a 2-paragraph newsletter snippet for this week's performance vs BTC, GLD, SPY
-```
-```
 Draft an investor letter: performance summary, key moves, outlook, risks
+Reflect on this quarter's report and suggest 3 essay angles for Substack
 ```
 
 **Macro + monitoring:**
 ```
-Check the latest price and news on BE, CORZ, and SNDK
-```
-```
 What's the current BTC/Gold ratio telling us about risk appetite?
-```
-```
 Summarize the latest hyperscaler capex guidance from MSFT, GOOG, AMZN, META
 ```
 
-**Deep dives (uses web_search + financial tools together):**
+**Deep dives:**
 ```
 Read AMAT's latest 10-K risk factors and identify anything that changes the equipment cycle thesis
-```
-```
 Find the latest Fabricated Knowledge or SemiAnalysis coverage on H2 2026 wafer fab equipment outlook
-```
-```
 What are the latest NAND contract pricing trends from TrendForce?
 ```
 
-## 📊 How to Evaluate
+See [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) for a full copy-paste query library.
 
-Dexter includes an evaluation suite that tests the agent against a dataset of financial questions. Evals use LangSmith for tracking and an LLM-as-judge approach for scoring correctness.
+---
 
-**Run on all questions:**
+## 📊 Evaluating
+
+Dexter includes an evaluation suite that tests the agent against a dataset of financial questions. Evals use LangSmith for tracking and an LLM-as-judge for scoring.
+
 ```bash
+# Run on all questions
 bun run src/evals/run.ts
-```
 
-**Run on a random sample of data:**
-```bash
+# Run on a random sample
 bun run src/evals/run.ts --sample 10
 ```
 
-The eval runner displays a real-time UI showing progress, current question, and running accuracy statistics. Results are logged to LangSmith for analysis.
+The eval runner displays a real-time UI showing progress, current question, and running accuracy. Results are logged to LangSmith for analysis.
+
+---
 
 ## ⚡ API Rate Limiting
 
-When querying many tickers at once (e.g., pulling data across an entire coverage universe), Dexter includes built-in protections against `429 Too Many Requests` errors from the Financial Datasets API:
+When querying many tickers at once, Dexter includes built-in protections against `429 Too Many Requests` errors:
 
 - **Concurrency semaphore** — limits parallel API requests to 5 at a time
-- **Exponential backoff with retry** — automatically retries failed requests up to 3 times with increasing delays, respecting `Retry-After` headers
-- **Batched execution** — tool calls within `financial_search` and `financial_metrics` are processed in batches of 8 rather than all at once
+- **Exponential backoff with retry** — retries failed requests up to 3 times with increasing delays, respecting `Retry-After` headers
+- **Batched execution** — tool calls within `financial_search` and `financial_metrics` are processed in batches of 8
 
-For internationally listed stocks (e.g., BESI on Euronext Amsterdam), the Financial Datasets API may return no data. Dexter will automatically fall back to `web_search` for these names. You can note OTC ADR tickers (e.g., `BESIY`) in `SOUL.md` to improve lookup success.
+For internationally listed stocks (e.g., BESI on Euronext Amsterdam), the Financial Datasets API may return no data. Dexter automatically falls back to `web_search` for these names. Note OTC ADR tickers (e.g., `BESIY`) in `SOUL.md` to improve lookup success.
 
-## 🐛 How to Debug
+---
 
-Dexter logs all tool calls to a scratchpad file for debugging and history tracking. Each query creates a new JSONL file in `.dexter/scratchpad/`.
+## 🐛 Debugging
 
-**Scratchpad location:**
+Dexter logs all tool calls to a scratchpad file for each query.
+
+**Location:**
 ```
 .dexter/scratchpad/
 ├── 2026-01-30-111400_9a8f10723f79.jsonl
@@ -305,25 +333,31 @@ Dexter logs all tool calls to a scratchpad file for debugging and history tracki
 └── ...
 ```
 
-Each file contains newline-delimited JSON entries tracking:
-- **init**: The original query
-- **tool_result**: Each tool call with arguments, raw result, and LLM summary
-- **thinking**: Agent reasoning steps
+Each JSONL file tracks:
+- `init` — the original query
+- `tool_result` — each tool call with arguments, raw result, and LLM summary
+- `thinking` — agent reasoning steps
 
-**Example scratchpad entry:**
+**Example entry:**
 ```json
-{"type":"tool_result","timestamp":"2026-01-30T11:14:05.123Z","toolName":"get_income_statements","args":{"ticker":"AAPL","period":"annual","limit":5},"result":{...},"llmSummary":"Retrieved 5 years of Apple annual income statements showing revenue growth from $274B to $394B"}
+{
+  "type": "tool_result",
+  "timestamp": "2026-01-30T11:14:05.123Z",
+  "toolName": "get_income_statements",
+  "args": { "ticker": "AAPL", "period": "annual", "limit": 5 },
+  "result": { "..." },
+  "llmSummary": "Retrieved 5 years of Apple annual income statements showing revenue growth from $274B to $394B"
+}
 ```
 
-This makes it easy to inspect exactly what data the agent gathered and how it interpreted results.
+---
 
-## 📱 How to Use with WhatsApp
+## 📱 WhatsApp Interface
 
-Chat with Dexter through WhatsApp by linking your phone to the gateway. Messages you send to yourself are processed by Dexter and responses are sent back to the same chat.
+Chat with Dexter through WhatsApp — messages you send to yourself are processed by Dexter and responses are returned to the same chat.
 
-**Quick start:**
 ```bash
-# Link your WhatsApp account (scan QR code)
+# Link your WhatsApp account (scan the QR code)
 bun run gateway:login
 
 # Start the gateway
@@ -332,47 +366,41 @@ bun run gateway
 
 Then open WhatsApp, go to your own chat (message yourself), and ask Dexter a question.
 
-For detailed setup instructions, configuration options, and troubleshooting, see the [WhatsApp Gateway README](src/gateway/channels/whatsapp/README.md).
+For detailed setup, configuration, and troubleshooting, see the [WhatsApp Gateway README](src/gateway/channels/whatsapp/README.md).
 
-## 🤝 How to Contribute
+---
+
+## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Commit your changes
 4. Push to the branch
-5. Create a Pull Request
+5. Open a Pull Request
 
-**Important**: Please keep your pull requests small and focused.  This will make it easier to review and merge.
+Keep pull requests small and focused — this makes review and merging much easier.
 
-## 🔄 Syncing with Upstream (for forks)
+---
 
-If you forked from [virattt/dexter](https://github.com/virattt/dexter) and want to pull in upstream updates without losing your commits:
+## 🔄 Syncing with Upstream
+
+If you forked from [virattt/dexter](https://github.com/virattt/dexter) and want to pull in upstream updates:
 
 ```bash
-# 1. Add upstream (once; skip if you already have it)
+# Add upstream remote (once)
 git remote add upstream https://github.com/virattt/dexter.git
 
-# 2. Fetch upstream
+# Fetch and merge
 git fetch upstream
-
-# 3. Merge upstream/main into your main
 git merge upstream/main
-```
 
-If there are conflicts, resolve them in the listed files, then:
-
-```bash
-git add .
-git commit -m "Merge upstream main"
-```
-
-Then push:
-
-```bash
+# Resolve any conflicts, then push
 git push origin main
 ```
 
-**Do not** use GitHub's "Discard X commits" — that deletes your work. Merge locally instead.
+> Do not use GitHub's "Discard X commits" button — that deletes your work. Merge locally instead.
+
+---
 
 ## 📚 Documentation
 
@@ -388,28 +416,30 @@ git push origin main
 
 | Doc | Description |
 |-----|-------------|
-| [DATA-API-FINANCIAL-DATASETS.md](docs/DATA-API-FINANCIAL-DATASETS.md) | Financial Datasets API — endpoints, auth, parameters used by Dexter |
-| [PRD-FINNHUB-SUBAGENTS.md](docs/PRD-FINNHUB-SUBAGENTS.md) | Finnhub free tier as fallback for finance subagents |
-| [EXTERNAL-RESOURCES.md](docs/EXTERNAL-RESOURCES.md) | Money for AI, CryptoTax Map, Every, OtoCo — research and startup stack references |
+| [DATA-API-FINANCIAL-DATASETS.md](docs/DATA-API-FINANCIAL-DATASETS.md) | Financial Datasets API — endpoints, auth, parameters |
+| [PRD-FINNHUB-SUBAGENTS.md](docs/PRD-FINNHUB-SUBAGENTS.md) | Finnhub free-tier fallback for finance subagents |
+| [EXTERNAL-RESOURCES.md](docs/EXTERNAL-RESOURCES.md) | Money for AI, CryptoTax Map, Every, OtoCo — research and startup references |
 
 ### Fund & Newsletter
 
 | Doc | Description |
 |-----|-------------|
 | [FUND-CONFIG.md](docs/FUND-CONFIG.md) | AUM and inception date for dollar rebalancing and since-inception returns |
-| [ROADMAP-FUND-NEWSLETTER.md](docs/ROADMAP-FUND-NEWSLETTER.md) | Roadmap: VOICE, heartbeat upgrades, AUM, performance history, investor letter (Phases 1–5 shipped) |
-| [ESSAY-WORKFLOW.md](docs/ESSAY-WORKFLOW.md) | Dexter → Claude → Substack: turn quarterly reports into essays, feed insights to SOUL |
+| [ROADMAP-FUND-NEWSLETTER.md](docs/ROADMAP-FUND-NEWSLETTER.md) | Roadmap: VOICE, heartbeat, AUM, performance history, investor letter |
+| [ESSAY-WORKFLOW.md](docs/ESSAY-WORKFLOW.md) | Dexter → Claude → Substack: turn quarterly reports into essays |
 | [docs/newsletter/](docs/newsletter/) | Newsletter archive — published essays and key takeaways |
 
 ### Research & Queries
 
 | Doc | Description |
 |-----|-------------|
-| [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) | Copy-paste queries: portfolio suggestion, weekly performance, essay reflection, investor letter |
+| [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) | Copy-paste query library: portfolio, weekly performance, essay, investor letter |
 | [CYCLE-STRUCTURE-MACRO-BIAS.md](docs/CYCLE-STRUCTURE-MACRO-BIAS.md) | Cycle structure framework for BTC timing and entry |
 | [COUNTER-THESIS-IREN.md](docs/COUNTER-THESIS-IREN.md) | IREN pushback: dilution, pivot, CIFR/NBIS alternatives |
-| [PRD-STARTUP-STACK.md](docs/PRD-STARTUP-STACK.md) | The Stack (doola, Coinbase, Fairmint, Base) — from MVP to startup |
+| [PRD-STARTUP-STACK.md](docs/PRD-STARTUP-STACK.md) | doola, Coinbase, Fairmint, Base — from MVP to startup |
+
+---
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+MIT
