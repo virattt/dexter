@@ -48,6 +48,40 @@ This document catalogs external resources referenced in Dexter's strategy, start
 
 Singapore, Switzerland, Luxembourg, Monaco, Liechtenstein, Hong Kong, UAE, Qatar, Germany (with conditions), etc.
 
+### Life Options
+
+A blunt founder/investor relocation filter, balancing tax, safety, lifestyle, sovereignty, and long-term livability:
+
+> Dubai, no tax, but drones/missiles  
+> HK, no CapGains, but China  
+> Singapore, no CapGains, but boring  
+> Europe, fuck you on tax, cold  
+> Monaco, no tax, but boring except F1/summer  
+> Italy, flat tax, magnificent country  
+> Japan, taxes, hard as foreigner, but magic  
+> Portugal, low tax, but boring  
+> USA, taxes, freedom, capital, crime  
+> Australia, taxes, but magnificent  
+> Brazil, maybe most fun, taxes & crime  
+> Random offshore locations
+
+### If You Ask Me
+
+- Singapore
+- Australia
+- Italy
+- USA, if you're American
+- Monaco once you made it
+
+### Practical Takeaway
+
+- **Tax is necessary but not sufficient** — optimize for quality of life, political stability, optionality, and access to talent/capital
+- **Singapore** is the cleanest all-around base for tax efficiency, safety, and Asian capital networks
+- **Australia** is higher tax, but a strong long-term life jurisdiction if lifestyle matters more than optimization
+- **Italy** stands out when flat-tax treatment and quality of life dominate the decision
+- **USA** remains unmatched for ambition, capital, and scale if you already have citizenship or deep local ties
+- **Monaco** is a late-game jurisdiction, best once wealth, mobility, and social positioning are already established
+
 ---
 
 ## 3. Every.io — Back Office for Founders
