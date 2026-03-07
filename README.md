@@ -55,7 +55,7 @@ This fork extends [virattt/dexter](https://github.com/virattt/dexter) with a spe
 | **Startup stack (doola, Coinbase, Fairmint, Base)** | PRD for moving from MVP to startup: Wyoming LLC, custody, tokenized equity, USDC on Base. | The Stack collapses entity formation, compliance, and settlement into something a solo founder can access. See [PRD-STARTUP-STACK.md](docs/PRD-STARTUP-STACK.md). |
 | **External research (Money for AI, CryptoTax Map, Every, OtoCo)** | Documented references for AI monetary preferences, crypto tax by jurisdiction, back-office tools, Web3 entity formation. | Informs thesis (BTC preference in AI agents), entity planning (tax efficiency), and startup infra (Every, OtoCo as alternatives). See [EXTERNAL-RESOURCES.md](docs/EXTERNAL-RESOURCES.md). |
 
-**Core motivation:** This project exists to answer *how (and why) should we diversify a BTC-heavy portfolio?* BTC HODL is the thesis. Diversification satellites are HYPE (onchain stocks) and SOL/NEAR/SUI/ETH (agentic web4). The AI infrastructure universe is the opportunity set. Dexter helps decide when to diversify — and when HODLing is the right call.
+**Core motivation:** This project exists to answer *how (and why) should we diversify a BTC-heavy portfolio?* BTC HODL is the thesis. Diversification satellites are HYPE (onchain stocks) and SOL/NEAR/SUI/ETH (agentic web4). The AI infrastructure universe is the opportunity set. Dexter helps decide when to diversify — and when HODLing is the right call. **We are NOT real estate bulls** — housing collapse thesis in SOUL.md; smart villas in southern Europe are a passion project only.
 
 ---
 
@@ -366,6 +366,8 @@ git push origin main
 | [EXTERNAL-RESOURCES.md](docs/EXTERNAL-RESOURCES.md) | Money for AI, CryptoTax Map, Every, OtoCo — research and startup stack references |
 | [PRD-STARTUP-STACK.md](docs/PRD-STARTUP-STACK.md) | The Stack (doola, Coinbase, Fairmint, Base) — from MVP to startup |
 | [PRD-FINNHUB-SUBAGENTS.md](docs/PRD-FINNHUB-SUBAGENTS.md) | Finnhub free tier as fallback for finance subagents |
+| [CYCLE-STRUCTURE-MACRO-BIAS.md](docs/CYCLE-STRUCTURE-MACRO-BIAS.md) | Cycle structure framework for BTC timing and entry (bias forming, not predicting) |
+| [COUNTER-THESIS-IREN.md](docs/COUNTER-THESIS-IREN.md) | IREN pushback: dilution, pivot, CIFR/NBIS as better alternatives |
 
 ## 📄 License
 

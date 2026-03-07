@@ -10,5 +10,6 @@ Copy this file to `~/.dexter/HEARTBEAT.md` to customize what Dexter monitors. Th
 - **HYPE** — onchain stocks narrative: HIP-3, equity tokenization, Hyperliquid updates
 - **SOL, NEAR, SUI, ETH (Base)** — agentic web4 narrative: Solana, NEAR, Sui, Base ecosystem; DePIN, agent infrastructure news
 - **Diversification signals** — anything that changes the how/why of diversifying from BTC-heavy (e.g. AI infra cycle inflection, macro regime shift, Burry danger signal)
+- **BTC/Gold ratio** — lead-lag; BTC parabolic often after Gold tops; watch for range-low reclaim as potential trigger (see CYCLE-STRUCTURE-MACRO-BIAS.md)
 - **Major index moves** (S&P 500, NASDAQ, Dow) — alert if any move more than 2% in a session
 - **Breaking financial news** — major earnings surprises, Fed announcements, significant market events
