@@ -17,6 +17,7 @@ Dexter is an autonomous financial research agent that thinks, plans, and learns 
 - [📱 How to Use with WhatsApp](#-how-to-use-with-whatsapp)
 - [🤝 How to Contribute](#-how-to-contribute)
 - [🔄 Syncing with Upstream (for forks)](#-syncing-with-upstream-for-forks)
+- [📚 Documentation](#-documentation)
 - [📄 License](#-license)
 
 
@@ -336,6 +337,14 @@ git push origin main
 ```
 
 **Do not** use GitHub's "Discard X commits" — that deletes your work. Merge locally instead.
+
+## 📚 Documentation
+
+| Doc | Description |
+|-----|-------------|
+| [DATA-API-FINANCIAL-DATASETS.md](docs/DATA-API-FINANCIAL-DATASETS.md) | Financial Datasets API — endpoints, auth, parameters used by Dexter |
+| [EXTERNAL-RESOURCES.md](docs/EXTERNAL-RESOURCES.md) | Money for AI, CryptoTax Map, Every, OtoCo — research and startup stack references |
+| [PRD-STARTUP-STACK.md](docs/PRD-STARTUP-STACK.md) | The Stack (doola, Coinbase, Fairmint, Base) — from MVP to startup |
 
 ## 📄 License
 
