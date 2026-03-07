@@ -2,6 +2,7 @@ import { Agent } from '../agent/agent.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { HEARTBEAT_OK_TOKEN } from './heartbeat/suppression.js';
 import type { AgentEvent } from '../agent/types.js';
+import type { GroupContext } from '../agent/prompts.js';
 
 type SessionState = {
   history: InMemoryChatHistory;
@@ -33,6 +34,7 @@ export type AgentRunRequest = {
   onEvent?: (event: AgentEvent) => void | Promise<void>;
   isHeartbeat?: boolean;
   channel?: string;
+  groupContext?: GroupContext;
 };
 
 export async function runAgentForMessage(req: AgentRunRequest): Promise<string> {
@@ -47,6 +49,7 @@ export async function runAgentForMessage(req: AgentRunRequest): Promise<string> 
       maxIterations: req.maxIterations ?? 10,
       signal: req.signal,
       channel: req.channel,
+      groupContext: req.groupContext,
     });
     for await (const event of agent.run(req.query, session.history)) {
       await req.onEvent?.(event);

@@ -1,3 +1,5 @@
+import type { GroupContext } from './prompts.js';
+
 // ============================================================================
 // Channel Profiles
 // ============================================================================
@@ -45,6 +47,8 @@ export interface AgentConfig {
   signal?: AbortSignal;
   /** Delivery channel (e.g., 'whatsapp', 'cli') — affects response formatting */
   channel?: string;
+  /** Group chat context — when set, adds group-specific instructions to system prompt */
+  groupContext?: GroupContext;
   /** Called when a tool needs explicit user approval to proceed */
   requestToolApproval?: (request: { tool: string; args: Record<string, unknown> }) => Promise<ApprovalDecision>;
   /** Shared set of tool names that have been session-approved (persists across queries) */

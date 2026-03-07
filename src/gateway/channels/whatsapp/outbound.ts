@@ -65,7 +65,11 @@ export function assertOutboundAllowed(params: {
   const toJid = toWhatsappJid(params.to);
 
   if (toJid.endsWith('@g.us')) {
-    throw new Error('Outbound blocked: group destinations are disabled in strict self-chat mode.');
+    if (account.groupPolicy === 'disabled') {
+      throw new Error('Outbound blocked: group destinations are disabled in strict self-chat mode.');
+    }
+    // Group JIDs don't have E.164 recipients — skip individual recipient validation
+    return { toJid, recipientE164: '' };
   }
 
   const recipientE164 = extractE164FromJid(toJid);

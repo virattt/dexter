@@ -119,6 +119,44 @@ Keep tables compact:
 - Omit units in cells if header has them`;
 
 // ============================================================================
+// Group Chat Context
+// ============================================================================
+
+export type GroupContext = {
+  groupName?: string;
+  membersList?: string;
+  activationMode: 'mention';
+};
+
+/**
+ * Build a system prompt section for group chat context.
+ */
+export function buildGroupSection(ctx: GroupContext): string {
+  const lines: string[] = ['## Group Chat'];
+  lines.push('');
+  if (ctx.groupName) {
+    lines.push(`You are participating in the WhatsApp group "${ctx.groupName}".`);
+  } else {
+    lines.push('You are participating in a WhatsApp group chat.');
+  }
+  lines.push('You were activated because someone @-mentioned you.');
+  lines.push('');
+  lines.push('### Group behavior');
+  lines.push('- Address the person who mentioned you by name');
+  lines.push('- Reference recent group context when relevant');
+  lines.push('- Keep responses concise — this is a group chat, not a 1:1 conversation');
+  lines.push('- Do not repeat information that was already shared in the group');
+
+  if (ctx.membersList) {
+    lines.push('');
+    lines.push('### Group members');
+    lines.push(ctx.membersList);
+  }
+
+  return lines.join('\n');
+}
+
+// ============================================================================
 // System Prompt
 // ============================================================================
 
@@ -128,7 +166,7 @@ Keep tables compact:
  * @param soulContent - Optional SOUL.md identity content
  * @param channel - Delivery channel (e.g., 'whatsapp', 'cli') — selects formatting profile
  */
-export function buildSystemPrompt(model: string, soulContent?: string | null, channel?: string): string {
+export function buildSystemPrompt(model: string, soulContent?: string | null, channel?: string, groupContext?: GroupContext): string {
   const toolDescriptions = buildToolDescriptions(model);
   const profile = getChannelProfile(channel);
 
@@ -189,7 +227,7 @@ Embody the identity and investing philosophy described above. Let it shape your 
 
 ## Response Format
 
-${formatBullets}${tablesSection}`;
+${formatBullets}${tablesSection}${groupContext ? '\n\n' + buildGroupSection(groupContext) : ''}`;
 }
 
 // ============================================================================
