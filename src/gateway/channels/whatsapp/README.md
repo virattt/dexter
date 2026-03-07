@@ -9,6 +9,7 @@ Chat with Dexter through WhatsApp by linking your phone to the gateway. Messages
 - [🚀 How to Run](#-how-to-run)
 - [💬 How to Chat](#-how-to-chat)
 - [⚙️ Configuration](#️-configuration)
+- [👥 Group Chat](#-group-chat)
 - [🔄 How to Relink](#-how-to-relink)
 - [🐛 Troubleshooting](#-troubleshooting)
 - [🔧 Full Reset](#-full-reset)
@@ -59,12 +60,12 @@ Once the gateway is running:
 2. Go to your own chat (message yourself)
 3. Send a message like "What is Apple's revenue?"
 4. You'll see a typing indicator while Dexter processes
-5. Dexter's response will appear prefixed with `[Dexter]`
+5. Dexter's response will appear in the chat
 
 **Example conversation:**
 ```
 You: What was NVIDIA's revenue in 2024?
-[Dexter]: NVIDIA's revenue for fiscal year 2024 was $60.9 billion...
+Dexter: NVIDIA's revenue for fiscal year 2024 was $60.9 billion...
 ```
 
 ## ⚙️ Configuration
@@ -95,6 +96,47 @@ The gateway configuration is stored at `~/.dexter/gateway.json`. It's auto-creat
 | `channels.whatsapp.allowFrom` | Phone numbers allowed to message Dexter (E.164 format) |
 | `channels.whatsapp.enabled` | Enable/disable the WhatsApp channel |
 | `gateway.logLevel` | Log verbosity: `silent`, `error`, `info`, `debug` |
+
+## 👥 Group Chat
+
+Dexter can participate in WhatsApp group chats, responding only when @-mentioned.
+
+### Setup
+
+Add group policy to your account in `~/.dexter/gateway.json`:
+
+```jsonc
+{
+  "channels": {
+    "whatsapp": {
+      "enabled": true,
+      "accounts": {
+        "default": {
+          "groupPolicy": "open",       // "open", "allowlist", or "disabled"
+          "groupAllowFrom": ["*"]       // no need to list individual group members
+        }
+      },
+      "allowFrom": ["+1234567890"]      // existing DM allowlist (unrelated to groups)
+    }
+  }
+}
+```
+
+| Setting | Description |
+|---------|-------------|
+| `groupPolicy` | `"open"` (any group), `"allowlist"` (restricted), or `"disabled"` (default) |
+| `groupAllowFrom` | Which groups Dexter can participate in (`["*"]` for any) |
+
+You don't need to list individual group members — when `groupPolicy` is `"open"`, Dexter will respond to @-mentions from anyone in any group it's added to.
+
+### Usage
+
+1. Add Dexter's WhatsApp number to a group
+2. Send messages normally — Dexter stays silent
+3. @-mention Dexter (tap `@` and select from the picker) to get a response
+4. Dexter sees recent group messages for context, so it can follow the conversation
+
+**Note:** You must use WhatsApp's @-mention picker (tap `@` then select the contact) — typing a phone number manually won't trigger a response.
 
 ## 🔄 How to Relink
 

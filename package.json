@@ -1,6 +1,6 @@
 {
   "name": "dexter-ts",
-  "version": "2026.2.26",
+  "version": "2026.3.5",
   "description": "Dexter - AI agent for deep financial research.",
   "type": "module",
   "main": "src/index.tsx",
@@ -36,7 +36,6 @@
     "linkedom": "^0.18.12",
     "playwright": "^1.52.0",
     "qrcode-terminal": "^0.12.0",
-    "yahoo-finance2": "^3.13.0",
     "zod": "^4.1.13"
   },
   "devDependencies": {

@@ -312,6 +312,17 @@ Select which previous messages are relevant to understanding or answering the cu
   }
 
   /**
+   * Removes the last message from history and clears the relevance cache.
+   * Used to prune HEARTBEAT_OK turns that add no conversational value.
+   */
+  pruneLastTurn(): void {
+    if (this.messages.length > 0) {
+      this.messages.pop();
+      this.relevantMessagesByQuery.clear();
+    }
+  }
+
+  /**
    * Clears all messages and cache, and removes persisted file
    */
   async clear(): Promise<void> {

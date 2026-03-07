@@ -1,3 +1,30 @@
+import type { GroupContext } from './prompts.js';
+
+// ============================================================================
+// Channel Profiles
+// ============================================================================
+
+/**
+ * Per-channel formatting profile that controls how the agent responds.
+ * Add new entries to CHANNEL_PROFILES in prompts.ts when adding channels.
+ */
+export interface ChannelProfile {
+  /** Human-readable label used in the system prompt preamble (e.g., "CLI", "WhatsApp") */
+  label: string;
+  /** One-liner describing the output surface, injected after the date line */
+  preamble: string;
+  /** Bullet points for the ## Behavior section */
+  behavior: string[];
+  /** Bullet points for the ## Response Format section */
+  responseFormat: string[];
+  /** Full tables instruction block, or null to omit the section entirely */
+  tables: string | null;
+}
+
+// ============================================================================
+// Approval
+// ============================================================================
+
 /**
  * User's response to a tool approval prompt.
  * - 'allow-once': approve this single invocation
@@ -10,7 +37,7 @@ export type ApprovalDecision = 'allow-once' | 'allow-session' | 'deny';
  * Agent configuration
  */
 export interface AgentConfig {
-  /** Model to use for LLM calls (e.g., 'gpt-5.2', 'claude-sonnet-4-20250514') */
+  /** Model to use for LLM calls (e.g., 'gpt-5.4', 'claude-sonnet-4-20250514') */
   model?: string;
   /** Model provider (e.g., 'openai', 'anthropic', 'google', 'ollama') */
   modelProvider?: string;
@@ -18,6 +45,10 @@ export interface AgentConfig {
   maxIterations?: number;
   /** AbortSignal for cancelling agent execution */
   signal?: AbortSignal;
+  /** Delivery channel (e.g., 'whatsapp', 'cli') — affects response formatting */
+  channel?: string;
+  /** Group chat context — when set, adds group-specific instructions to system prompt */
+  groupContext?: GroupContext;
   /** Called when a tool needs explicit user approval to proceed */
   requestToolApproval?: (request: { tool: string; args: Record<string, unknown> }) => Promise<ApprovalDecision>;
   /** Shared set of tool names that have been session-approved (persists across queries) */

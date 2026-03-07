@@ -8,8 +8,27 @@ const REDUNDANT_FINANCIAL_FIELDS = ['accession_number', 'currency', 'period'] as
 const KeyRatiosInputSchema = z.object({
   ticker: z
     .string()
+    .describe("The stock ticker symbol to fetch key ratios for. For example, 'AAPL' for Apple."),
+});
+
+export const getKeyRatios = new DynamicStructuredTool({
+  name: 'get_key_ratios',
+  description:
+    'Fetches the latest financial metrics snapshot for a company, including valuation ratios (P/E, P/B, P/S, EV/EBITDA, PEG), profitability (margins, ROE, ROA, ROIC), liquidity (current/quick/cash ratios), leverage (debt/equity, debt/assets), per-share metrics (EPS, book value, FCF), and growth rates (revenue, earnings, EPS, FCF, EBITDA).',
+  schema: KeyRatiosInputSchema,
+  func: async (input) => {
+    const ticker = input.ticker.trim().toUpperCase();
+    const params = { ticker };
+    const { data, url } = await callApi('/financial-metrics/snapshot/', params);
+    return formatToolResult(data.snapshot || {}, [url]);
+  },
+});
+
+const HistoricalKeyRatiosInputSchema = z.object({
+  ticker: z
+    .string()
     .describe(
-      "The stock ticker symbol to fetch key ratios for. For example, 'AAPL' for Apple."
+      "The stock ticker symbol to fetch historical key ratios for. For example, 'AAPL' for Apple."
     ),
   period: z
     .enum(['annual', 'quarterly', 'ttm'])
@@ -47,10 +66,10 @@ const KeyRatiosInputSchema = z.object({
     ),
 });
 
-export const getKeyRatios = new DynamicStructuredTool({
-  name: 'get_key_ratios',
+export const getHistoricalKeyRatios = new DynamicStructuredTool({
+  name: 'get_historical_key_ratios',
   description: `Retrieves historical key ratios for a company, such as P/E ratio, revenue per share, and enterprise value, over a specified period. Useful for trend analysis and historical performance evaluation.`,
-  schema: KeyRatiosInputSchema,
+  schema: HistoricalKeyRatiosInputSchema,
   func: async (input) => {
     const params: Record<string, string | number | undefined> = {
       ticker: input.ticker,

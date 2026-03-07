@@ -1,12 +1,10 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
-import YahooFinance from 'yahoo-finance2';
 import { z } from 'zod';
+import { callApi } from './api.js';
 import { formatToolResult } from '../types.js';
-import { exaSearch, perplexitySearch, tavilySearch } from '../search/index.js';
-import { logger } from '@/utils';
 
 export const STOCK_PRICE_DESCRIPTION = `
-Fetches current stock price snapshots for equities, including market cap and shares outstanding. Uses Yahoo Finance as the primary source and falls back to web search when Yahoo is unavailable.
+Fetches current stock price snapshots for equities, including open, high, low, close prices, volume, and market cap. Powered by Financial Datasets.
 `.trim();
 
 const StockPriceInputSchema = z.object({
@@ -15,96 +13,58 @@ const StockPriceInputSchema = z.object({
     .describe("The stock ticker symbol to fetch current price for. For example, 'AAPL' for Apple."),
 });
 
-const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
-
-interface ParsedToolResult {
-  data: unknown;
-  sourceUrls?: string[];
-}
-
-function parseToolResult(rawResult: string): ParsedToolResult {
-  try {
-    return JSON.parse(rawResult) as ParsedToolResult;
-  } catch {
-    return { data: rawResult };
-  }
-}
-
-async function fallbackViaWebSearch(ticker: string): Promise<{ data: unknown; sourceUrls: string[] }> {
-  const query = `${ticker} stock price today`;
-
-  if (process.env.EXASEARCH_API_KEY) {
-    const result = await exaSearch.invoke({ query });
-    const parsed = parseToolResult(typeof result === 'string' ? result : JSON.stringify(result));
-    return { data: parsed.data, sourceUrls: parsed.sourceUrls || [] };
-  }
-
-  if (process.env.PERPLEXITY_API_KEY) {
-    const result = await perplexitySearch.invoke({ query });
-    const parsed = parseToolResult(typeof result === 'string' ? result : JSON.stringify(result));
-    return { data: parsed.data, sourceUrls: parsed.sourceUrls || [] };
-  }
-
-  if (process.env.TAVILY_API_KEY) {
-    const result = await tavilySearch.invoke({ query });
-    const parsed = parseToolResult(typeof result === 'string' ? result : JSON.stringify(result));
-    return { data: parsed.data, sourceUrls: parsed.sourceUrls || [] };
-  }
-
-  throw new Error('No web search provider configured for fallback');
-}
-
 export const getStockPrice = new DynamicStructuredTool({
   name: 'get_stock_price',
   description:
-    'Fetches the current stock price snapshot for an equity ticker, including current price, change, percent change, market cap, shares outstanding, market status, volume, and currency.',
+    'Fetches the current stock price snapshot for an equity ticker, including open, high, low, close prices, volume, and market cap.',
   schema: StockPriceInputSchema,
   func: async (input) => {
     const ticker = input.ticker.trim().toUpperCase();
+    const params = { ticker };
+    const { data, url } = await callApi('/prices/snapshot/', params);
+    return formatToolResult(data.snapshot || {}, [url]);
+  },
+});
 
-    try {
-      const quote = await yahooFinance.quote(ticker);
-      const sourceUrl = `https://finance.yahoo.com/quote/${ticker}`;
+const StockPricesInputSchema = z.object({
+  ticker: z
+    .string()
+    .describe("The stock ticker symbol to fetch historical prices for. For example, 'AAPL' for Apple."),
+  interval: z
+    .enum(['day', 'week', 'month', 'year'])
+    .default('day')
+    .describe("The time interval for price data. Defaults to 'day'."),
+  start_date: z.string().describe('Start date in YYYY-MM-DD format. Required.'),
+  end_date: z.string().describe('End date in YYYY-MM-DD format. Required.'),
+});
 
-      return formatToolResult(
-        {
-          ticker,
-          provider: 'yahoo_finance',
-          regular_market_price: quote.regularMarketPrice ?? null,
-          regular_market_change: quote.regularMarketChange ?? null,
-          regular_market_change_percent: quote.regularMarketChangePercent ?? null,
-          market_cap: quote.marketCap ?? null,
-          shares_outstanding: quote.sharesOutstanding ?? null,
-          currency: quote.currency ?? null,
-          market_state: quote.marketState ?? null,
-          regular_market_time: quote.regularMarketTime ?? null,
-          regular_market_volume: quote.regularMarketVolume ?? null,
-        },
-        [sourceUrl]
-      );
-    } catch (error) {
-      const yahooMessage = error instanceof Error ? error.message : String(error);
-      logger.warn(`[Stock Price] Yahoo Finance failed for ${ticker}: ${yahooMessage}`);
+export const getStockPrices = new DynamicStructuredTool({
+  name: 'get_stock_prices',
+  description:
+    'Retrieves historical price data for a stock over a specified date range, including open, high, low, close prices and volume.',
+  schema: StockPricesInputSchema,
+  func: async (input) => {
+    const params = {
+      ticker: input.ticker.trim().toUpperCase(),
+      interval: input.interval,
+      start_date: input.start_date,
+      end_date: input.end_date,
+    };
+    // Cache when the date window is fully closed (OHLCV data is final)
+    const endDate = new Date(input.end_date + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const { data, url } = await callApi('/prices/', params, { cacheable: endDate < today });
+    return formatToolResult(data.prices || [], [url]);
+  },
+});
 
-      try {
-        const fallback = await fallbackViaWebSearch(ticker);
-        logger.info(`[Stock Price] using web search fallback for ${ticker}`);
-        return formatToolResult(
-          {
-            ticker,
-            provider: 'web_search_fallback',
-            query: `${ticker} stock price today`,
-            result: fallback.data,
-          },
-          fallback.sourceUrls
-        );
-      } catch (fallbackError) {
-        const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-        logger.error(`[Stock Price] fallback failed for ${ticker}: ${fallbackMessage}`);
-        throw new Error(
-          `Failed to fetch current stock price for ${ticker}. Yahoo Finance error: ${yahooMessage}. Fallback error: ${fallbackMessage}`
-        );
-      }
-    }
+export const getStockTickers = new DynamicStructuredTool({
+  name: 'get_available_stock_tickers',
+  description: 'Retrieves the list of available stock tickers that can be used with the stock price tools.',
+  schema: z.object({}),
+  func: async () => {
+    const { data, url } = await callApi('/prices/snapshot/tickers/', {});
+    return formatToolResult(data.tickers || [], [url]);
   },
 });

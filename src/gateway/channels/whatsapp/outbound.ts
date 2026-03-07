@@ -7,13 +7,13 @@ import { loadGatewayConfig, resolveWhatsAppAccount } from '../../config.js';
 import { normalizeE164, toWhatsappJid } from '../../utils.js';
 
 function debugLog(msg: string) {
-  const logDir = path.join(os.homedir(), '.dexter');
-  const logPath = path.join(logDir, 'gateway-debug.log');
   try {
-    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+    const logDir = path.join(os.homedir(), '.dexter', 'debug', 'logs');
+    const logPath = path.join(logDir, 'gateway-outbound.log');
+    fs.mkdirSync(logDir, { recursive: true });
     fs.appendFileSync(logPath, `${new Date().toISOString()} ${msg}\n`);
   } catch {
-    // Ignore logging errors in test/CI environments
+    // Avoid breaking outbound sends if log dir is unwritable
   }
 }
 
@@ -65,7 +65,11 @@ export function assertOutboundAllowed(params: {
   const toJid = toWhatsappJid(params.to);
 
   if (toJid.endsWith('@g.us')) {
-    throw new Error('Outbound blocked: group destinations are disabled in strict self-chat mode.');
+    if (account.groupPolicy === 'disabled') {
+      throw new Error('Outbound blocked: group destinations are disabled in strict self-chat mode.');
+    }
+    // Group JIDs don't have E.164 recipients — skip individual recipient validation
+    return { toJid, recipientE164: '' };
   }
 
   const recipientE164 = extractE164FromJid(toJid);

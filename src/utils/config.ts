@@ -5,14 +5,20 @@ const SETTINGS_FILE = '.dexter/settings.json';
 
 // Map legacy model IDs to provider IDs for migration
 const MODEL_TO_PROVIDER_MAP: Record<string, string> = {
+  'gpt-5.4': 'openai',
   'gpt-5.2': 'openai',
   'claude-sonnet-4-5': 'anthropic',
   'gemini-3': 'google',
 };
 
+// Deprecated model IDs to upgrade on load
+const DEPRECATED_MODEL_UPGRADES: Record<string, string> = {
+  'gpt-5.2': 'gpt-5.4',
+};
+
 interface Config {
   provider?: string;
-  modelId?: string;  // Selected model ID (e.g., "gpt-5.2", "ollama:llama3.1")
+  modelId?: string;  // Selected model ID (e.g., "gpt-5.4", "ollama:llama3.1")
   model?: string;    // Legacy key, kept for migration
   [key: string]: unknown;
 }
@@ -24,7 +30,15 @@ export function loadConfig(): Config {
 
   try {
     const content = readFileSync(SETTINGS_FILE, 'utf-8');
-    return JSON.parse(content);
+    let config = JSON.parse(content) as Config;
+
+    // Upgrade deprecated model IDs (e.g. gpt-5.2 -> gpt-5.4)
+    if (config.modelId && DEPRECATED_MODEL_UPGRADES[config.modelId]) {
+      config.modelId = DEPRECATED_MODEL_UPGRADES[config.modelId];
+      saveConfig(config);
+    }
+
+    return config;
   } catch {
     return {};
   }
