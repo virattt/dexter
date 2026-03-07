@@ -48,6 +48,27 @@ export async function loadSoulDocument(): Promise<string | null> {
 }
 
 /**
+ * Load SOUL-HL.md content: HIP-3 / Hyperliquid portfolio thesis.
+ * User override at ~/.dexter/SOUL-HL.md, else bundled docs/SOUL-HL.example.md.
+ * Used when PORTFOLIO-HYPERLIQUID.md exists or query involves HL portfolio.
+ */
+export async function loadSoulHLDocument(): Promise<string | null> {
+  const userPath = join(homedir(), '.dexter', 'SOUL-HL.md');
+  try {
+    return await readFile(userPath, 'utf-8');
+  } catch {
+    // Fallback to bundled example.
+  }
+
+  const bundledPath = join(__dirname, '../../docs/SOUL-HL.example.md');
+  try {
+    return await readFile(bundledPath, 'utf-8');
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Load VOICE.md content: brand and writing style for reports/essays.
  * User override at ~/.dexter/VOICE.md, else bundled docs/VOICE.md.
  */
@@ -185,9 +206,10 @@ export function buildGroupSection(ctx: GroupContext): string {
  * @param model - The model name (used to get appropriate tool descriptions)
  * @param soulContent - Optional SOUL.md identity content
  * @param voiceContent - Optional VOICE.md brand/writing style content
+ * @param soulHLContent - Optional SOUL-HL.md HIP-3 portfolio thesis
  * @param channel - Delivery channel (e.g., 'whatsapp', 'cli') — selects formatting profile
  */
-export function buildSystemPrompt(model: string, soulContent?: string | null, voiceContent?: string | null, channel?: string, groupContext?: GroupContext): string {
+export function buildSystemPrompt(model: string, soulContent?: string | null, voiceContent?: string | null, soulHLContent?: string | null, channel?: string, groupContext?: GroupContext): string {
   const toolDescriptions = buildToolDescriptions(model);
   const profile = getChannelProfile(channel);
 
@@ -226,7 +248,9 @@ ${buildSkillsSection()}
 
 Your primary purpose is to help build and maintain a near-perfect portfolio — one aligned with the thesis in your Identity (SOUL.md). **Core motivation:** BTC-heavy portfolio. HODL BTC. Get suggestions for how (and why) to diversify. HYPE (onchain stocks) and SOL/NEAR/SUI/ETH (agentic web4) are thesis-aligned satellites. The AI infrastructure universe is the diversification opportunity set. You know what that portfolio looks like: layer allocation, conviction tiering, regime awareness, catalyst timing, diversification. Performance is essential: a portfolio must outperform (1) best hedge funds, (2) stock market indexes (S&P 500, NASDAQ), and (3) BTC — otherwise it fails the bar.
 
-**When you suggest a portfolio:** MANDATORY — you MUST call the portfolio tool with action=update to save to ~/.dexter/PORTFOLIO.md before finishing. Never offer "I can format this for you" or copy-paste. The file is written automatically; the user does nothing.
+**When you suggest a portfolio:** MANDATORY — you MUST call the portfolio tool with action=update to save before finishing. Never offer "I can format this for you" or copy-paste. The file is written automatically; the user does nothing.
+- Main portfolio → portfolio with portfolio_id=default (saves to ~/.dexter/PORTFOLIO.md)
+- Hyperliquid / on-chain portfolio (HIP-3, 24/7 tradeable, no fiat conversion) → portfolio with portfolio_id=hyperliquid (saves to ~/.dexter/PORTFOLIO-HYPERLIQUID.md). Only use tickers from the HL universe (see docs/HYPERLIQUID-SYMBOL-MAP.md for FD mapping).
 
 **When you write a quarterly performance report:** MANDATORY — you MUST call save_report to persist it to ~/.dexter/QUARTERLY-REPORT-YYYY-QN.md (e.g. QUARTERLY-REPORT-2026-Q1.md). The report is used for the essay workflow.
 
@@ -248,6 +272,12 @@ ${soulContent ? `## Identity
 ${soulContent}
 
 Embody the identity and investing philosophy described above. Let it shape your tone, your values, and how you engage with financial questions.
+` : ''}
+
+${soulHLContent ? `## Hyperliquid Portfolio Thesis (SOUL-HL.md)
+
+When working with ~/.dexter/PORTFOLIO-HYPERLIQUID.md or HIP-3 / on-chain portfolio queries, use this thesis:
+${soulHLContent}
 ` : ''}
 
 ${voiceContent ? `## Voice & Output Style

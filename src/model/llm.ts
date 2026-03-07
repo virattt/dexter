@@ -225,8 +225,10 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
     result = await withRetry(() => runnable.invoke(messages, invokeOpts), provider.displayName);
   } else {
     // Other providers: use ChatPromptTemplate (OpenAI/Gemini have automatic caching)
+    // Escape curly braces in system prompt so LangChain doesn't treat them as template variables
+    const escapedSystemPrompt = finalSystemPrompt.replace(/\{/g, '{{').replace(/\}/g, '}}');
     const promptTemplate = ChatPromptTemplate.fromMessages([
-      ['system', finalSystemPrompt],
+      ['system', escapedSystemPrompt],
       ['user', '{prompt}'],
     ]);
     const chain = promptTemplate.pipe(runnable);

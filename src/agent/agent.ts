@@ -2,7 +2,7 @@ import { AIMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlm } from '../model/llm.js';
 import { getTools } from '../tools/registry.js';
-import { buildSystemPrompt, buildIterationPrompt, loadSoulDocument, loadVoiceDocument } from '../agent/prompts.js';
+import { buildSystemPrompt, buildIterationPrompt, loadSoulDocument, loadVoiceDocument, loadSoulHLDocument } from '../agent/prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { buildHistoryContext } from '../utils/history-context.js';
@@ -50,8 +50,12 @@ export class Agent {
   static async create(config: AgentConfig = {}): Promise<Agent> {
     const model = config.model ?? DEFAULT_MODEL;
     const tools = getTools(model);
-    const [soulContent, voiceContent] = await Promise.all([loadSoulDocument(), loadVoiceDocument()]);
-    const systemPrompt = buildSystemPrompt(model, soulContent, voiceContent, config.channel, config.groupContext);
+    const [soulContent, voiceContent, soulHLContent] = await Promise.all([
+      loadSoulDocument(),
+      loadVoiceDocument(),
+      loadSoulHLDocument(),
+    ]);
+    const systemPrompt = buildSystemPrompt(model, soulContent, voiceContent, soulHLContent, config.channel, config.groupContext);
     return new Agent(config, tools, systemPrompt);
   }
 

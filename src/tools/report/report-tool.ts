@@ -17,7 +17,7 @@ Save reports to ~/.dexter/ for persistence and essay workflow.
 
 ## Actions
 
-- save: Write content to ~/.dexter/{filename}. Creates ~/.dexter if needed.
+- save: Write content to ~/.dexter/ (filename provided as argument). Creates ~/.dexter if needed.
 
 ## Filename Convention
 

@@ -1,6 +1,8 @@
 #!/usr/bin/env tsx
+import { config } from 'dotenv';
 import { existsSync } from 'node:fs';
 import util from 'node:util';
+import { validateEnvOrExit } from '../utils/env-validation.js';
 import {
   resolveWhatsAppAccount,
   loadGatewayConfig,
@@ -28,9 +30,15 @@ console.log = (...args: unknown[]) => {
   originalLog.apply(console, args);
 };
 
+config({ quiet: true });
+
 async function run(): Promise<void> {
   const args = process.argv.slice(2);
   const command = args[0] ?? 'run';
+
+  if (command !== 'login') {
+    validateEnvOrExit();
+  }
 
   if (command === 'login') {
     const cfg = loadGatewayConfig();

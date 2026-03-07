@@ -16,3 +16,21 @@ Copy this file to `~/.dexter/HEARTBEAT.md` to customize what Dexter monitors. Th
 - **SPY-relative consistency** — when portfolio underperforms SPY in mixed regimes, flag the thesis-purity vs defensiveness trade-off.
 - **Major index moves** (S&P 500, NASDAQ, Dow) — alert if any move more than 2% in a session
 - **Breaking financial news** — major earnings surprises, Fed announcements, significant market events
+
+---
+
+## HIP-3 Target (for PORTFOLIO-HYPERLIQUID.md rebalancing)
+
+When you have a Hyperliquid portfolio, define your target allocation below. The heartbeat uses this for weekly rebalance checks and concentration alerts.
+
+| Category | Target | Notes |
+|----------|--------|-------|
+| BTC | 35–40% | Base layer |
+| HYPE | 10–15% | Onchain equities |
+| SOL | 8–12% | L1 agentic |
+| ETH | 6–10% | Base / settlement |
+| NEAR | 4–6% | Chain abstraction |
+| SUI | 4–6% | Agentic optionality |
+| ORCL/PLTR | 4–8% | AI infra software |
+| COIN/HOOD/CRCL | 4–8% | Tokenization rails |
+| Hyperscalers | 0–5% | AMZN, MSFT, GOOGL optional |

@@ -5,6 +5,14 @@ import { AnswerBoxComponent } from './answer-box.js';
 import { ToolEventComponent } from './tool-event.js';
 import { UserQueryComponent } from './user-query.js';
 
+/** Rough cost estimate (GPT-4o-class: ~$2.50/1M in, ~$10/1M out) */
+function estimateCost(inputTokens: number, outputTokens: number): number | null {
+  if (inputTokens <= 0 && outputTokens <= 0) return null;
+  const inputCost = (inputTokens / 1_000_000) * 2.5;
+  const outputCost = (outputTokens / 1_000_000) * 10;
+  return inputCost + outputCost;
+}
+
 function formatDuration(ms: number): string {
   if (ms < 1000) {
     return `${Math.round(ms)}ms`;
@@ -281,6 +289,10 @@ export class ChatLogComponent extends Container {
     const parts = [formatDuration(duration), `${tokenUsage.totalTokens.toLocaleString()} tokens`];
     if (tokensPerSecond !== undefined) {
       parts.push(`(${tokensPerSecond.toFixed(1)} tok/s)`);
+    }
+    const cost = estimateCost(tokenUsage.inputTokens, tokenUsage.outputTokens);
+    if (cost !== null) {
+      parts.push(`~$${cost.toFixed(3)}`);
     }
     this.addChild(new Spacer(1));
     this.addChild(new Text(`${theme.muted('✻ ')}${theme.muted(parts.join(' · '))}`, 0, 0));

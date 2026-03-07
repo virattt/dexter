@@ -52,7 +52,25 @@ export async function startHttpServer(config: HttpServerConfig = {}): Promise<{ 
       const url = new URL(req.url);
 
       if (req.method === 'GET' && (url.pathname === '/health' || url.pathname === '/api/health')) {
-        return Response.json({ status: 'ok', service: 'dexter' });
+        const checks: Record<string, boolean> = {
+          llm: !!(
+            process.env.OPENAI_API_KEY ||
+            process.env.ANTHROPIC_API_KEY ||
+            process.env.GOOGLE_API_KEY ||
+            process.env.XAI_API_KEY ||
+            process.env.OPENROUTER_API_KEY
+          ),
+          financialDatasets: !!(process.env.FINANCIAL_DATASETS_API_KEY?.trim?.()),
+          search: !!(
+            process.env.EXASEARCH_API_KEY ||
+            process.env.TAVILY_API_KEY ||
+            process.env.PERPLEXITY_API_KEY
+          ),
+        };
+        const allOk = checks.llm && checks.financialDatasets;
+        const status = allOk ? 'ok' : 'degraded';
+        const code = allOk ? 200 : 503;
+        return Response.json({ status, service: 'dexter', checks }, { status: code });
       }
 
       if (req.method === 'OPTIONS' && url.pathname === '/api/chat') {

@@ -69,12 +69,28 @@ Examples from [The Terminal That Thinks Like We Do](https://ikigaistudio.substac
 | File | Purpose |
 |------|---------|
 | `~/.dexter/PORTFOLIO.md` | Current holdings (auto-saved when agent suggests) |
-| `~/.dexter/QUARTERLY-REPORT-YYYY-QN.md` | Quarterly performance report (auto-saved by agent) |
+| `~/.dexter/PORTFOLIO-HYPERLIQUID.md` | On-chain portfolio (HIP-3 tickers) |
+| `~/.dexter/QUARTERLY-REPORT-YYYY-QN.md` | Main quarterly performance report |
+| `~/.dexter/QUARTERLY-REPORT-HL-YYYY-QN.md` | Hyperliquid quarterly report (when HL portfolio exists) |
 | `SOUL.md` | Thesis, layers, conviction tiers — update from essay insights |
+| `~/.dexter/SOUL-HL.md` | Optional: HIP-3-specific thesis (target allocation, narrative) |
+
+---
+
+## Hyperliquid Loop (HIP-3 Portfolio)
+
+When you maintain a Hyperliquid portfolio (`PORTFOLIO-HYPERLIQUID.md`):
+
+1. **Heartbeat** — In the first week of the quarter, the heartbeat writes both `QUARTERLY-REPORT-YYYY-QN.md` and `QUARTERLY-REPORT-HL-YYYY-QN.md` when both portfolios exist.
+2. **Query 10** — HL reflection essay: paste `QUARTERLY-REPORT-HL-*.md` or run Query 10 to generate a 600–800 word essay on the on-chain stocks thesis.
+3. **Query 11** — HL investor letter: same source, structured letter format for LPs.
+4. **Polish in Claude** — Same as main loop; refine voice and structure.
+5. **Publish** — Substack (or HIP-3-specific channel) for on-chain narrative.
+6. **Update HEARTBEAT** — Feed insights into the "## HIP-3 Target" section; adjust target weights if thesis evolved.
 
 ---
 
 ## References
 
-- [ULTIMATE-TEST-QUERIES.md](ULTIMATE-TEST-QUERIES.md) — All copy-paste queries
+- [ULTIMATE-TEST-QUERIES.md](ULTIMATE-TEST-QUERIES.md) — All copy-paste queries (Query 10, 11, 12 for HL)
 - [The Terminal That Thinks Like We Do](https://ikigaistudio.substack.com/p/the-terminal-that-thinks-like-we) — Example essay from this workflow

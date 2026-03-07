@@ -18,7 +18,7 @@ Used for dollar-amount rebalance recommendations.
 
 ## Schema
 
-{ "aum": number (optional), "inceptionDate": "YYYY-MM-DD" (optional) }
+aum (number, optional), inceptionDate (YYYY-MM-DD, optional)
 
 ## Actions
 

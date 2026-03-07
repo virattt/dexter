@@ -18,6 +18,8 @@ jobs:
             command: bun run typecheck
           - task: test
             command: bun test
+          - task: evals
+            command: bun run src/evals/run.ts --sample 3
     steps:
       - uses: actions/checkout@v4
 
@@ -29,4 +31,12 @@ jobs:
         run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Run ${{ matrix.task }}
-        run: ${{ matrix.command }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          FINANCIAL_DATASETS_API_KEY: ${{ secrets.FINANCIAL_DATASETS_API_KEY }}
+        run: |
+          if [[ "${{ matrix.task }}" == "evals" ]] && [[ -z "$OPENAI_API_KEY" ]]; then
+            echo "Skipping evals (OPENAI_API_KEY not set)"
+            exit 0
+          fi
+          ${{ matrix.command }}

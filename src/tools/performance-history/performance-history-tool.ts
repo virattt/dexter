@@ -12,6 +12,10 @@ interface QuarterRecord {
   btc: number;
   spy: number;
   gld: number;
+  /** Hyperliquid basket benchmark return (optional) */
+  hl_basket?: number;
+  /** Hyperliquid portfolio return (optional) */
+  portfolio_hl?: number;
 }
 
 export const PERFORMANCE_HISTORY_TOOL_DESCRIPTION = `
@@ -25,7 +29,7 @@ Manage performance history (~/.dexter/performance-history.json) for YTD and sinc
 ## Actions
 
 - view: Show all recorded quarters (for computing YTD, since-inception)
-- record_quarter: Append a quarter. period: "YYYY-QN" (e.g. 2026-Q1). Returns as decimals (e.g. -0.058 for -5.8%).
+- record_quarter: Append a quarter. period: "YYYY-QN" (e.g. 2026-Q1). Returns as decimals (e.g. -0.058 for -5.8%). Required: portfolio, btc, spy, gld. Optional: hl_basket (Hyperliquid basket benchmark), portfolio_hl (Hyperliquid portfolio return).
 `.trim();
 
 const performanceHistorySchema = z.object({
@@ -35,6 +39,8 @@ const performanceHistorySchema = z.object({
   btc: z.number().optional().describe('BTC return as decimal'),
   spy: z.number().optional().describe('SPY return as decimal'),
   gld: z.number().optional().describe('GLD return as decimal'),
+  hl_basket: z.number().optional().describe('Hyperliquid basket benchmark return as decimal (optional)'),
+  portfolio_hl: z.number().optional().describe('Hyperliquid portfolio return as decimal (optional)'),
 });
 
 export const performanceHistoryTool = new DynamicStructuredTool({
@@ -63,13 +69,16 @@ export const performanceHistoryTool = new DynamicStructuredTool({
       if (input.period == null || input.portfolio == null || input.btc == null || input.spy == null || input.gld == null) {
         return 'Error: period, portfolio, btc, spy, gld are all required for record_quarter.';
       }
-      quarters.push({
+      const record: QuarterRecord = {
         period: input.period,
         portfolio: input.portfolio,
         btc: input.btc,
         spy: input.spy,
         gld: input.gld,
-      });
+      };
+      if (input.hl_basket != null) record.hl_basket = input.hl_basket;
+      if (input.portfolio_hl != null) record.portfolio_hl = input.portfolio_hl;
+      quarters.push(record);
       quarters.sort((a, b) => a.period.localeCompare(b.period));
       writeFileSync(PERFORMANCE_HISTORY_PATH, JSON.stringify({ quarters }, null, 2), 'utf-8');
       return `Recorded ${input.period}. Total quarters: ${quarters.length}.`;

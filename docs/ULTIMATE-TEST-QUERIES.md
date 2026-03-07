@@ -148,6 +148,90 @@ Voice: structural, precise numbers, no hype (VOICE.md). Output markdown.
 
 ---
 
+## Query 8 — Suggest Hyperliquid Portfolio (On-Chain, HIP-3)
+
+**Purpose:** Suggest a portfolio of only tickers tradeable 24/7 on Hyperliquid (HIP-3). No fiat conversion; tax-friendly; faster settlement. Saves to ~/.dexter/PORTFOLIO-HYPERLIQUID.md.
+
+**Copy-paste into the Dexter terminal:**
+
+```
+Suggest a Hyperliquid portfolio for me — only tickers available on HIP-3 (on-chain stocks, indices, commodities). Use docs/HYPERLIQUID-SYMBOL-MAP.md for the HL→FD ticker mapping. Include:
+- 8–12 positions from the HL universe (stocks like NVDA/PLTR, commodities via ETFs like GLD/SLV/USO, indices via proxies like SPY/SMH)
+- Target weights and brief rationale
+- Save to ~/.dexter/PORTFOLIO-HYPERLIQUID.md using the portfolio tool with portfolio_id=hyperliquid
+```
+
+**Expected behavior:** Agent uses the symbol map, suggests an on-chain-only allocation, and **calls portfolio with portfolio_id=hyperliquid** to save automatically.
+
+---
+
+## Query 9 — Weekly Performance: Hyperliquid Portfolio
+
+**Purpose:** Track the Hyperliquid portfolio's weekly performance vs SPY, GLD, BTC — and optionally vs the HL basket.
+
+**Copy-paste into the Dexter terminal:**
+
+```
+Write a weekly performance report for my Hyperliquid portfolio. Use ~/.dexter/PORTFOLIO-HYPERLIQUID.md. Map HL symbols to FD tickers per docs/HYPERLIQUID-SYMBOL-MAP.md. Fetch 7-day price changes for each position plus BTC-USD, GLD, SPY. Output: portfolio return, benchmark returns, best/worst performers, one-line takeaway.
+```
+
+---
+
+## Query 10 — Hyperliquid Reflection Essay (From HL Quarterly Report)
+
+**Purpose:** Turn the Hyperliquid quarterly report into a 600–800 word reflection essay for HIP-3 / on-chain stocks narrative. Same structure as Query 5 but for the HL portfolio.
+
+**Copy-paste into the Dexter terminal:**
+
+```
+Using the Hyperliquid quarterly report from ~/.dexter/QUARTERLY-REPORT-HL-*.md (or the HL report you just produced), write a 600–800 word reflection essay on the on-chain stocks thesis. Structure:
+1. What the numbers say — which HIP-3 categories validated (Core, L1, AI infra, tokenization), which didn't
+2. The regime problem — what BTC/Gold/SPY told us for on-chain exposure
+3. The machine's recommendation — sizing adjustments for the HL portfolio
+4. One sentence that captures the tension between on-chain optionality and regime risk
+
+Voice: structural thinking, precise numbers, blunt assessment. No hype. Output markdown ready for Claude polish or direct publish.
+```
+
+---
+
+## Query 11 — Hyperliquid Investor Letter
+
+**Purpose:** Turn the HL quarterly report into a structured investor letter for LPs or subscribers focused on the on-chain portfolio.
+
+**Copy-paste into the Dexter terminal:**
+
+```
+Using the Hyperliquid quarterly report from ~/.dexter/QUARTERLY-REPORT-HL-*.md, write an investor letter for the on-chain portfolio. Structure:
+1. Performance — HL portfolio vs BTC, SPY, GLD; YTD and since-inception if available
+2. Attribution — which HIP-3 categories contributed/detracted (Core, L1, AI infra, tokenization)
+3. Regime — what the quarter told us for on-chain exposure
+4. Outlook — positioning for next quarter; sizing adjustments
+
+Voice: structural, precise numbers, no hype (VOICE.md). Output markdown.
+```
+
+---
+
+## Query 12 — Quarterly Report: Hyperliquid Only (Standalone)
+
+**Purpose:** Run at quarter start when you want a dedicated HL report without the main portfolio. Same as heartbeat's HL report but manual.
+
+**Copy-paste into the Dexter terminal:**
+
+```
+Write a quarterly performance report for my Hyperliquid portfolio only. Use ~/.dexter/PORTFOLIO-HYPERLIQUID.md. Map HL symbols to FD tickers per docs/HYPERLIQUID-SYMBOL-MAP.md. Fetch quarter-to-date (or 90-day) prices for each position plus BTC-USD, GLD, SPY. Include:
+- Portfolio return vs BTC, SPY, GLD (and hl_basket if computable)
+- Category attribution: Core, L1, AI infra, tokenization
+- Best and worst performers
+- Regime assessment and outlook
+- YTD and since-inception if performance_history has data
+- Save to ~/.dexter/QUARTERLY-REPORT-HL-YYYY-QN.md via save_report
+- Call performance_history record_quarter with portfolio_hl (and optionally hl_basket)
+```
+
+---
+
 ## Benchmark Tickers Reference
 
 | Benchmark | Ticker | Tool |
@@ -156,6 +240,7 @@ Voice: structural, precise numbers, no hype (VOICE.md). Output markdown.
 | Gold | GLD | get_stock_price / get_stock_prices |
 | S&P 500 | SPY | get_stock_price / get_stock_prices |
 | NASDAQ | QQQ | get_stock_price / get_stock_prices |
+| HL basket | See HYPERLIQUID-SYMBOL-MAP.md | Map HL symbols → FD tickers, then get_stock_prices |
 
 ---
 
@@ -179,9 +264,14 @@ Example (today = 2026-03-07):
 - [ ] Query 4: Agent produces quarterly report with layer/tier attribution and saves to ~/.dexter/
 - [ ] Query 5: Agent produces essay draft from quarterly report
 - [ ] All benchmarks (BTC, GLD, SPY) are included in performance comparison
+- [ ] Query 8: Agent suggests Hyperliquid portfolio and saves to PORTFOLIO-HYPERLIQUID.md
+- [ ] Query 9: Agent tracks HL portfolio performance using symbol map
+- [ ] Query 10: Agent produces HL reflection essay from QUARTERLY-REPORT-HL-*.md
+- [ ] Query 11: Agent produces HL investor letter from QUARTERLY-REPORT-HL-*.md
+- [ ] Query 12: Agent produces standalone HL quarterly report and saves to QUARTERLY-REPORT-HL-*.md
 
 ---
 
 ## Essay Workflow
 
-See [ESSAY-WORKFLOW.md](ESSAY-WORKFLOW.md) for the full loop: Dexter → Claude → Substack → SOUL.md updates.
+See [ESSAY-WORKFLOW.md](ESSAY-WORKFLOW.md) for the full loop: Dexter → Claude → Substack → SOUL.md updates. For the Hyperliquid portfolio, use Query 10 (HL reflection essay) and Query 11 (HL investor letter) with QUARTERLY-REPORT-HL-*.md.

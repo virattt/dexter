@@ -205,6 +205,57 @@ export async function runCli() {
     errorText.setText(message ? theme.error(`Error: ${message}`) : '');
   };
 
+  const QUERY_SHORTCUTS: Record<string, string> = {
+    '/suggest': `Suggest a near-perfect portfolio for me based on your Identity (SOUL.md). Include:
+- 8–12 positions across the AI infrastructure supply chain (layers 1–7)
+- Layer allocation (chip designers, foundry, equipment, EDA, power, memory, networking)
+- Conviction tiering (Core Compounders dominate; Cyclical Beneficiaries add exposure; Speculative Optionality sized small)
+- Target weights and rationale for each position
+- Regime awareness: any sizing adjustments given current macro (Burry danger signal, etc.)
+- Save it to ~/.dexter/PORTFOLIO.md using the portfolio tool`,
+    '/weekly': `Write a weekly performance report for my portfolio. Use ~/.dexter/PORTFOLIO.md for my holdings (or the portfolio you suggested last time). For each position, fetch the price change over the past 7 days (start_date and end_date). Also fetch the 7-day performance for:
+- BTC-USD (Bitcoin)
+- GLD (Gold ETF)
+- SPY (S&P 500 ETF)
+
+Output:
+1. Portfolio return (weighted) for the week
+2. Benchmark returns: BTC, GLD, SPY
+3. Outperformance/underperformance vs each benchmark
+4. Best and worst performers in the portfolio
+5. One-line takeaway: did the portfolio beat BTC, Gold, and the S&P 500 this week?`,
+    '/quarterly': `Write a quarterly performance report for my portfolio. Use ~/.dexter/PORTFOLIO.md. Fetch price data for the past 90 days (or quarter-to-date) for all holdings plus BTC-USD, GLD, and SPY. Include:
+- Portfolio return (weighted) for the quarter
+- Benchmark returns: BTC, Gold (GLD), S&P 500 (SPY)
+- Outperformance/underperformance vs each
+- Layer-level attribution: which layers (chip, equipment, power, etc.) contributed or detracted
+- Conviction-tier performance: Core Compounders vs Cyclical vs Speculative
+- Regime assessment: any sizing adjustments needed?
+- Outlook for next quarter
+- YTD and since-inception (if performance_history has data): compute and include vs BTC, SPY, GLD
+- Save the report to ~/.dexter/QUARTERLY-REPORT-YYYY-QN.md using the save_report tool (e.g. QUARTERLY-REPORT-2026-Q1.md)
+- Call performance_history record_quarter to append this quarter's returns (period, portfolio, btc, spy, gld as decimals)`,
+    '/suggest-hl': `Suggest a Hyperliquid portfolio for me — only tickers available on HIP-3 (on-chain stocks, indices, commodities). Use docs/HYPERLIQUID-SYMBOL-MAP.md for the HL→FD ticker mapping. Include:
+- 8–12 positions from the HL universe (stocks like NVDA/PLTR, commodities via ETFs like GLD/SLV/USO, indices via proxies like SPY/SMH)
+- Target weights and brief rationale
+- Save to ~/.dexter/PORTFOLIO-HYPERLIQUID.md using the portfolio tool with portfolio_id=hyperliquid`,
+    '/hl-report': `Write a quarterly performance report for my Hyperliquid portfolio only. Use ~/.dexter/PORTFOLIO-HYPERLIQUID.md. Map HL symbols to FD tickers per docs/HYPERLIQUID-SYMBOL-MAP.md. Fetch quarter-to-date (or 90-day) prices for each position plus BTC-USD, GLD, SPY. Include:
+- Portfolio return vs BTC, SPY, GLD (and hl_basket if computable)
+- Category attribution: Core, L1, AI infra, tokenization
+- Best and worst performers
+- Regime assessment and outlook
+- YTD and since-inception if performance_history has data
+- Save to ~/.dexter/QUARTERLY-REPORT-HL-YYYY-QN.md via save_report
+- Call performance_history record_quarter with portfolio_hl (and optionally hl_basket)`,
+    '/hl-essay': `Using the Hyperliquid quarterly report from ~/.dexter/QUARTERLY-REPORT-HL-*.md (or the HL report you just produced), write a 600–800 word reflection essay on the on-chain stocks thesis. Structure:
+1. What the numbers say — which HIP-3 categories validated (Core, L1, AI infra, tokenization), which didn't
+2. The regime problem — what BTC/Gold/SPY told us for on-chain exposure
+3. The machine's recommendation — sizing adjustments for the HL portfolio
+4. One sentence that captures the tension between on-chain optionality and regime risk
+
+Voice: structural thinking, precise numbers, blunt assessment. No hype. Output markdown ready for Claude polish or direct publish.`,
+  };
+
   const handleSubmit = async (query: string) => {
     if (query.toLowerCase() === 'exit' || query.toLowerCase() === 'quit') {
       tui.stop();
@@ -217,13 +268,15 @@ export async function runCli() {
       return;
     }
 
+    const expandedQuery = QUERY_SHORTCUTS[query] ?? query;
+
     if (modelSelection.isInSelectionFlow() || agentRunner.pendingApproval || agentRunner.isProcessing) {
       return;
     }
 
-    await inputHistory.saveMessage(query);
+    await inputHistory.saveMessage(expandedQuery);
     inputHistory.resetNavigation();
-    const result = await agentRunner.runQuery(query);
+    const result = await agentRunner.runQuery(expandedQuery);
     if (result?.answer) {
       await inputHistory.updateAgentResponse(result.answer);
     }

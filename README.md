@@ -156,7 +156,36 @@ bun run typecheck
 
 # Run tests
 bun test
+
+# Run heartbeat (single cycle, no gateway)
+bun run heartbeat
+bun run heartbeat -- --dry-run   # Print query only
+
+# Backup ~/.dexter
+bun run backup
+
+# Validate portfolio structure
+bun run validate-portfolio
 ```
+
+### Quick validation (5 min)
+
+1. `bun run start` → paste Query 1 from [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md)
+2. Verify `~/.dexter/PORTFOLIO.md` was created
+3. Run `bun test` and `bun run src/evals/run.ts --sample 3` (evals need `OPENAI_API_KEY`)
+
+### Query shortcuts
+
+In the CLI, type a shortcut to expand to the full query:
+
+| Shortcut | Expands to |
+|----------|------------|
+| `/suggest` | Suggest portfolio (Query 1) |
+| `/weekly` | Weekly performance report (Query 2) |
+| `/quarterly` | Quarterly report (Query 4) |
+| `/suggest-hl` | Suggest Hyperliquid portfolio (Query 8) |
+| `/hl-report` | HL quarterly report (Query 12) |
+| `/hl-essay` | HL reflection essay (Query 10) |
 
 ---
 
@@ -269,6 +298,13 @@ What would a near-perfect portfolio look like given our thesis?
 How and why should we diversify from a BTC-heavy portfolio right now?
 ```
 
+**Hyperliquid portfolio (on-chain, HIP-3 — 24/7 tradeable, no fiat conversion):**
+```
+Suggest a Hyperliquid portfolio — only tickers available on HIP-3. Save to PORTFOLIO-HYPERLIQUID.md
+What's the weekly performance of my on-chain portfolio vs SPY, GLD, BTC?
+Compare my Hyperliquid portfolio to the HL basket
+```
+
 **Newsletter and investor letters:**
 ```
 Write a 2-paragraph newsletter snippet for this week's performance vs BTC, GLD, SPY
@@ -306,6 +342,8 @@ bun run src/evals/run.ts --sample 10
 ```
 
 The eval runner displays a real-time UI showing progress, current question, and running accuracy. Results are logged to LangSmith for analysis.
+
+**Tracing:** Set `LANGSMITH_API_KEY` and `LANGSMITH_TRACING=true` to trace tool calls and debug failures in [LangSmith](https://smith.langchain.com).
 
 ---
 
@@ -433,7 +471,10 @@ git push origin main
 
 | Doc | Description |
 |-----|-------------|
-| [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) | Copy-paste query library: portfolio, weekly performance, essay, investor letter |
+| [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) | Copy-paste query library: portfolio, weekly performance, essay, investor letter, Hyperliquid |
+| [PRD-HYPERLIQUID-PORTFOLIO.md](docs/PRD-HYPERLIQUID-PORTFOLIO.md) | Third portfolio: on-chain (HIP-3), data feasibility, symbol mapping |
+| [PRD-HYPERLIQUID-PORTFOLIO-PARITY.md](docs/PRD-HYPERLIQUID-PORTFOLIO-PARITY.md) | HL portfolio parity: essay, quarterly tracking, weekly rebalancing |
+| [HYPERLIQUID-SYMBOL-MAP.md](docs/HYPERLIQUID-SYMBOL-MAP.md) | HL → FD ticker mapping for price data |
 | [CYCLE-STRUCTURE-MACRO-BIAS.md](docs/CYCLE-STRUCTURE-MACRO-BIAS.md) | Cycle structure framework for BTC timing and entry |
 | [COUNTER-THESIS-IREN.md](docs/COUNTER-THESIS-IREN.md) | IREN pushback: dilution, pivot, CIFR/NBIS alternatives |
 | [PRD-STARTUP-STACK.md](docs/PRD-STARTUP-STACK.md) | doola, Coinbase, Fairmint, Base — from MVP to startup |
