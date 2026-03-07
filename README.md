@@ -345,6 +345,7 @@ git push origin main
 | [DATA-API-FINANCIAL-DATASETS.md](docs/DATA-API-FINANCIAL-DATASETS.md) | Financial Datasets API — endpoints, auth, parameters used by Dexter |
 | [EXTERNAL-RESOURCES.md](docs/EXTERNAL-RESOURCES.md) | Money for AI, CryptoTax Map, Every, OtoCo — research and startup stack references |
 | [PRD-STARTUP-STACK.md](docs/PRD-STARTUP-STACK.md) | The Stack (doola, Coinbase, Fairmint, Base) — from MVP to startup |
+| [PRD-FINNHUB-SUBAGENTS.md](docs/PRD-FINNHUB-SUBAGENTS.md) | Finnhub free tier as fallback for finance subagents |
 
 ## 📄 License
 
