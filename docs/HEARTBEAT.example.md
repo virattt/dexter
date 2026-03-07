@@ -11,5 +11,8 @@ Copy this file to `~/.dexter/HEARTBEAT.md` to customize what Dexter monitors. Th
 - **SOL, NEAR, SUI, ETH (Base)** — agentic web4 narrative: Solana, NEAR, Sui, Base ecosystem; DePIN, agent infrastructure news
 - **Diversification signals** — anything that changes the how/why of diversifying from BTC-heavy (e.g. AI infra cycle inflection, macro regime shift, Burry danger signal)
 - **BTC/Gold ratio** — lead-lag; BTC parabolic often after Gold tops; watch for range-low reclaim as potential trigger (see CYCLE-STRUCTURE-MACRO-BIAS.md)
+- **Gold surge when BTC falls** — regime signal (markets paying for safety). When gold surges +20%+ in a quarter, flag that absence of gold exposure cost the portfolio. Gold strength is a warning, not a footnote.
+- **Regime overlay** — "Reduce in capitulation, add on pullbacks." When equipment/power names sell off sharply (e.g. geopolitical event), flag: thesis may be right, entry timing may be wrong.
+- **SPY-relative consistency** — when portfolio underperforms SPY in mixed regimes, flag the thesis-purity vs defensiveness trade-off.
 - **Major index moves** (S&P 500, NASDAQ, Dow) — alert if any move more than 2% in a session
 - **Breaking financial news** — major earnings surprises, Fed announcements, significant market events
