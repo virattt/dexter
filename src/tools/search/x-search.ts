@@ -314,12 +314,12 @@ Uses the official X API v2 (read-only, last 7 days).
 
 ## When to Use
 
-- Gauging public/market sentiment on a stock, sector, or macro event
-- Finding what analysts, investors, or industry experts are saying on X
-- Researching breaking news or recent developments not yet indexed by web search
-- Checking what a specific account (@CEO, analyst, etc.) has posted recently
-- Following a conversation thread for context
-- Queries like "what are people saying about X", "X sentiment", "check twitter for Y"
+- Gauging public/market sentiment on a stock, sector, or macro event from X/Twitter specifically
+- Finding what analysts, investors, or industry experts are saying on X/Twitter specifically
+- Researching breaking news or recent developments on X/Twitter specifically
+- Checking what a specific account (@CEO, analyst, etc.) has posted recently on X/Twitter specifically
+- Following a conversation thread for context on X/Twitter specifically
+- Queries like "what are people saying about X", "X sentiment", "check twitter for Y" on X/Twitter specifically
 
 ## When NOT to Use
 
