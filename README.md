@@ -368,6 +368,7 @@ git push origin main
 | [PRD-FINNHUB-SUBAGENTS.md](docs/PRD-FINNHUB-SUBAGENTS.md) | Finnhub free tier as fallback for finance subagents |
 | [CYCLE-STRUCTURE-MACRO-BIAS.md](docs/CYCLE-STRUCTURE-MACRO-BIAS.md) | Cycle structure framework for BTC timing and entry (bias forming, not predicting) |
 | [COUNTER-THESIS-IREN.md](docs/COUNTER-THESIS-IREN.md) | IREN pushback: dilution, pivot, CIFR/NBIS as better alternatives |
+| [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) | Copy-paste queries: suggest portfolio + track weekly performance vs BTC, GLD, SPY |
 
 ## 📄 License
 
