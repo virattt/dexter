@@ -21,6 +21,8 @@ Dexter is an autonomous financial research agent that thinks, plans, and learns 
 
 ## 👋 Overview
 
+Dexter's **north star** is the **Portfolio Builder** — helping you build and maintain a near-perfect portfolio aligned with your investment thesis. The agent knows what that portfolio looks like (from SOUL.md). Performance is essential: a portfolio must outperform best hedge funds, stock market indexes (S&P 500, NASDAQ), and BTC — otherwise it fails the bar. The heartbeat runs **weekly** to check if rebalancing is needed and **quarterly** to write a performance report vs these benchmarks.
+
 Dexter takes complex financial questions and turns them into clear, step-by-step research plans. It runs those tasks using live market data, checks its own work, and refines the results until it has a confident, data-backed answer.  
 
 **Key Capabilities:**
@@ -133,7 +135,12 @@ Edit `SOUL.md` to reflect your own thesis. The structure matters more than the s
 
 ### HEARTBEAT.md — The monitoring checklist
 
-`~/.dexter/HEARTBEAT.md` is a user-managed file that defines what Dexter should monitor periodically. It includes:
+`~/.dexter/HEARTBEAT.md` is a user-managed file that defines what Dexter should monitor periodically. In addition to the checklist, the heartbeat runs:
+
+- **Weekly (Mondays):** Rebalance check — compares your portfolio to the target from SOUL.md and alerts if adjustments are needed
+- **Quarterly (first week of Jan/Apr/Jul/Oct):** Performance report — summarizes how the portfolio performed and what changed
+
+Keep your current holdings in `~/.dexter/PORTFOLIO.md` (ticker, weight, layer, tier) so the agent can compare against the target. The checklist also includes:
 
 - **Per-ticker monitoring criteria** — what to check for each name (e.g., "AMAT price + order trends, H2 2026 equipment cycle signals")
 - **Conviction tier tags** — `[CC]`, `[CB]`, `[SO]`, `[AV]` on every entry so research effort scales with conviction
@@ -182,6 +189,14 @@ Which of our core compounders have the longest bottleneck duration and lowest at
 ```
 ```
 Rank our cyclical beneficiaries by how exposed they are to a single capex cycle
+```
+
+**Portfolio building:**
+```
+Does my portfolio need rebalancing? Compare to the target from SOUL
+```
+```
+What would a near-perfect portfolio look like given our thesis?
 ```
 
 **Macro + monitoring:**
