@@ -66,10 +66,31 @@ const WHATSAPP_PROFILE: ChannelProfile = {
   tables: null,
 };
 
+const WEB_PROFILE: ChannelProfile = {
+  label: 'Web',
+  preamble: 'Your output is displayed in a web chat interface. Use markdown for formatting.',
+  behavior: [
+    'Prioritize accuracy over validation - don\'t cheerfully agree with flawed assumptions',
+    'Use professional, objective tone without excessive praise or emotional validation',
+    'For research tasks, be thorough but efficient',
+    'Avoid over-engineering responses - match the scope of your answer to the question',
+    'Never ask users to provide raw data, paste values, or reference JSON/API internals',
+    'If data is incomplete, answer with what you have without exposing implementation details',
+  ],
+  responseFormat: [
+    'Use markdown: headers, **bold**, lists, and tables render well in web UIs',
+    'For research: lead with the key finding and include specific data points',
+    'For non-comparative information, prefer plain text or simple lists over tables',
+    'Don\'t narrate your actions or ask leading questions about what the user wants',
+  ],
+  tables: CLI_PROFILE.tables,
+};
+
 /** Registry of channel profiles. Add new channels here. */
 const CHANNEL_PROFILES: Record<string, ChannelProfile> = {
   cli: CLI_PROFILE,
   whatsapp: WHATSAPP_PROFILE,
+  web: WEB_PROFILE,
 };
 
 /** Resolve the profile for a channel, falling back to CLI. */

@@ -12,6 +12,7 @@
     "dev": "bun --watch run src/index.tsx",
     "gateway": "tsx src/gateway/index.ts run",
     "gateway:login": "tsx src/gateway/index.ts login",
+    "api": "bun run src/gateway/api-server.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "test:watch": "bun test --watch",
