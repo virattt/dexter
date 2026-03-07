@@ -12,25 +12,14 @@ The ultimate test for Dexter: (1) suggest a portfolio aligned with SOUL.md, and 
 ## Prerequisites
 
 1. **Run Dexter:** `bun run start` (or `bun run src/index.tsx`)
-2. **PORTFOLIO.md (optional):** If you have holdings, create `~/.dexter/PORTFOLIO.md` so the agent can compare. Format:
-
-```markdown
-# Current Portfolio
-
-| Ticker | Weight | Layer | Tier |
-|--------|--------|-------|------|
-| TSM    | 12%    | 2     | CC   |
-| AMAT   | 10%    | 3     | CC   |
-| BE     | 8%     | 5     | SO   |
-```
-
+2. **PORTFOLIO.md:** Created automatically when you run Query 1 (suggest portfolio). The agent uses the `portfolio` tool to save to `~/.dexter/PORTFOLIO.md`. For Query 2 and 4 (performance tracking), the agent reads this file. If you have existing holdings, you can create it manually or ask the agent to update it.
 3. **API keys:** `FINANCIAL_DATASETS_API_KEY` (required for prices). The agent uses `financial_search` → `get_stock_price`, `get_stock_prices`, `get_crypto_price_snapshot`, `get_crypto_prices`.
 
 ---
 
 ## Query 1 — Suggest a Portfolio
 
-**Purpose:** One-time. Agent uses SOUL.md (thesis, layers, conviction tiers) to propose a near-perfect portfolio.
+**Purpose:** One-time. Agent uses SOUL.md (thesis, layers, conviction tiers) to propose a near-perfect portfolio and **saves it automatically** to ~/.dexter/PORTFOLIO.md.
 
 **Copy-paste into the Dexter terminal:**
 
@@ -41,10 +30,10 @@ Suggest a near-perfect portfolio for me based on your Identity (SOUL.md). Includ
 - Conviction tiering (Core Compounders dominate; Cyclical Beneficiaries add exposure; Speculative Optionality sized small)
 - Target weights and rationale for each position
 - Regime awareness: any sizing adjustments given current macro (Burry danger signal, etc.)
-- Output in a table format I can copy into ~/.dexter/PORTFOLIO.md
+- Save it to ~/.dexter/PORTFOLIO.md using the portfolio tool
 ```
 
-**Expected behavior:** Agent reads SOUL.md, uses financial_search for current prices/context, and outputs a structured portfolio table with tickers, weights, layers, tiers.
+**Expected behavior:** Agent reads SOUL.md, uses financial_search for current prices/context, outputs a structured portfolio table, and **calls the portfolio tool to save it automatically** (no copy-paste required).
 
 ---
 
