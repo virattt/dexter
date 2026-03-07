@@ -70,10 +70,6 @@ export function discoverSkills(): SkillMetadata[] {
   for (const { path, source } of SKILL_DIRECTORIES) {
     const skills = scanSkillDirectory(path, source);
     for (const skill of skills) {
-      // x-research requires x_search tool; only expose when X_BEARER_TOKEN is set
-      if (skill.name === 'x-research' && !process.env.X_BEARER_TOKEN) {
-        continue;
-      }
       // Later sources override earlier ones (by name)
       skillMetadataCache.set(skill.name, skill);
     }
