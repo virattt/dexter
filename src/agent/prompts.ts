@@ -48,6 +48,26 @@ export async function loadSoulDocument(): Promise<string | null> {
 }
 
 /**
+ * Load VOICE.md content: brand and writing style for reports/essays.
+ * User override at ~/.dexter/VOICE.md, else bundled docs/VOICE.md.
+ */
+export async function loadVoiceDocument(): Promise<string | null> {
+  const userVoicePath = join(homedir(), '.dexter', 'VOICE.md');
+  try {
+    return await readFile(userVoicePath, 'utf-8');
+  } catch {
+    // Fallback to bundled.
+  }
+
+  const bundledVoicePath = join(__dirname, '../../docs/VOICE.md');
+  try {
+    return await readFile(bundledVoicePath, 'utf-8');
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Build the skills section for the system prompt.
  * Only includes skill metadata if skills are available.
  */
@@ -164,9 +184,10 @@ export function buildGroupSection(ctx: GroupContext): string {
  * Build the system prompt for the agent.
  * @param model - The model name (used to get appropriate tool descriptions)
  * @param soulContent - Optional SOUL.md identity content
+ * @param voiceContent - Optional VOICE.md brand/writing style content
  * @param channel - Delivery channel (e.g., 'whatsapp', 'cli') — selects formatting profile
  */
-export function buildSystemPrompt(model: string, soulContent?: string | null, channel?: string, groupContext?: GroupContext): string {
+export function buildSystemPrompt(model: string, soulContent?: string | null, voiceContent?: string | null, channel?: string, groupContext?: GroupContext): string {
   const toolDescriptions = buildToolDescriptions(model);
   const profile = getChannelProfile(channel);
 
@@ -207,6 +228,8 @@ Your primary purpose is to help build and maintain a near-perfect portfolio — 
 
 **When you suggest a portfolio:** MANDATORY — you MUST call the portfolio tool with action=update to save to ~/.dexter/PORTFOLIO.md before finishing. Never offer "I can format this for you" or copy-paste. The file is written automatically; the user does nothing.
 
+**When you write a quarterly performance report:** MANDATORY — you MUST call save_report to persist it to ~/.dexter/QUARTERLY-REPORT-YYYY-QN.md (e.g. QUARTERLY-REPORT-2026-Q1.md). The report is used for the essay workflow.
+
 ## Heartbeat
 
 You have a periodic heartbeat that runs on a schedule (configurable by the user).
@@ -225,6 +248,14 @@ ${soulContent ? `## Identity
 ${soulContent}
 
 Embody the identity and investing philosophy described above. Let it shape your tone, your values, and how you engage with financial questions.
+` : ''}
+
+${voiceContent ? `## Voice & Output Style
+
+When writing reports, essay drafts, or newsletter content, follow the voice in VOICE.md:
+${voiceContent}
+
+Apply this voice to all reports, quarterly summaries, investor letters, and Substack drafts. Structural thinking. Precise numbers. No hype. No permission.
 ` : ''}
 
 ## Response Format

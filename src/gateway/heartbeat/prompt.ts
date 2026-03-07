@@ -25,6 +25,8 @@ export async function loadHeartbeatDocument(): Promise<string | null> {
   }
 }
 
+const FUND_CONFIG_PATH = join(homedir(), '.dexter', 'fund-config.json');
+
 /**
  * Load ~/.dexter/PORTFOLIO.md content if it exists.
  * Used for weekly rebalance checks and quarterly reports.
@@ -32,6 +34,19 @@ export async function loadHeartbeatDocument(): Promise<string | null> {
 export async function loadPortfolioDocument(): Promise<string | null> {
   try {
     return await readFile(PORTFOLIO_MD_PATH, 'utf-8');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Load ~/.dexter/fund-config.json if it exists.
+ * Contains aum (dollars) and inceptionDate for dollar rebalancing.
+ */
+export async function loadFundConfig(): Promise<{ aum?: number; inceptionDate?: string } | null> {
+  try {
+    const content = await readFile(FUND_CONFIG_PATH, 'utf-8');
+    return JSON.parse(content) as { aum?: number; inceptionDate?: string };
   } catch {
     return null;
   }
@@ -107,7 +122,7 @@ export async function buildHeartbeatQuery(): Promise<string | null> {
   const isMon = isMonday(tz);
   const isQuarterStart = isFirstWeekOfQuarter(tz);
 
-  const portfolioContent = await loadPortfolioDocument();
+  const [portfolioContent, fundConfig] = await Promise.all([loadPortfolioDocument(), loadFundConfig()]);
 
   let scheduleSection = '';
   if (isMon || isQuarterStart) {
@@ -121,6 +136,10 @@ export async function buildHeartbeatQuery(): Promise<string | null> {
 ${isMon ? `### Weekly Rebalance Check
 - If PORTFOLIO.md is provided below, compare current holdings to the target portfolio from your Identity (SOUL.md)
 - Check: layer allocation drift, conviction-tier mix, single-position sizing, regime signals
+- **Regime label:** Fetch 7-day move for BTC-USD, GLD, SPY. Output one line: Regime: risk-on / risk-off / mixed. Basis: [brief reason from benchmark direction]
+- **Concentration alerts:** Flag any position >5% above its target weight (e.g. TSM 18% vs 12% target → trim 6%). Recommend specific trim/add actions
+- **Dollar rebalancing:** If ~/.dexter/fund-config.json has aum set, output rebalance actions in dollar amounts: "Sell $X of Ticker, Buy $Y of Ticker". Use fund_config tool to read aum if needed
+- **Weekly newsletter draft:** If noteworthy (material moves, regime shift, rebalance needed), draft a 150–250 word Substack snippet. Save to ~/.dexter/WEEKLY-DRAFT-YYYY-MM-DD.md via save_report. Voice: structural, precise numbers, no hype (see VOICE.md)
 - If rebalancing is recommended, write a concise alert with specific actions
 - Use read_file to read ~/.dexter/PORTFOLIO.md if not provided` : ''}
 
@@ -128,7 +147,10 @@ ${isQuarterStart ? `### Quarterly Performance Report
 - Write a quarterly report. Performance is essential: compare portfolio returns vs (1) best hedge funds, (2) stock market indexes (S&P 500, NASDAQ), (3) BTC
 - A portfolio that doesn't outperform these benchmarks is not meeting the bar
 - Also include: layer attribution, conviction-tier performance, notable changes, regime assessment, outlook
+- **YTD and since-inception:** Call performance_history view to get history. If inceptionDate in fund-config exists, compute since-inception returns. Include YTD and since-inception vs BTC, SPY, GLD in the report
+- After writing the report, call performance_history record_quarter with period (e.g. 2026-Q1), portfolio, btc, spy, gld returns as decimals
 - Use financial_search for current prices and performance data
+- MANDATORY: Save the report to ~/.dexter/ using save_report (filename: QUARTERLY-REPORT-YYYY-QN.md, e.g. QUARTERLY-REPORT-2026-Q1.md)
 - Deliver the full report to the user` : ''}
 `;
   }
@@ -141,6 +163,16 @@ ${portfolioContent}
 `
     : '';
 
+  const fundConfigSection =
+    fundConfig && (fundConfig.aum ?? fundConfig.inceptionDate)
+      ? `
+## Fund Config (~/.dexter/fund-config.json)
+
+AUM: ${fundConfig.aum != null ? `$${fundConfig.aum.toLocaleString()}` : 'not set'}
+Inception: ${fundConfig.inceptionDate ?? 'not set'}
+`
+      : '';
+
   return `[HEARTBEAT CHECK]
 
 You are running as a periodic heartbeat. Your north star is the Portfolio Builder: help the user maintain a near-perfect portfolio aligned with the thesis in your Identity.
@@ -149,6 +181,7 @@ You are running as a periodic heartbeat. Your north star is the Portfolio Builde
 ${checklist}
 ${scheduleSection}
 ${portfolioSection}
+${fundConfigSection}
 
 ## Instructions
 - Use your tools to check each item on the checklist

@@ -12,6 +12,9 @@ import { FINANCIAL_METRICS_DESCRIPTION } from './finance/financial-metrics.js';
 import { READ_FILINGS_DESCRIPTION } from './finance/read-filings.js';
 import { heartbeatTool, HEARTBEAT_TOOL_DESCRIPTION } from './heartbeat/heartbeat-tool.js';
 import { portfolioTool, PORTFOLIO_TOOL_DESCRIPTION } from './portfolio/portfolio-tool.js';
+import { reportTool, REPORT_TOOL_DESCRIPTION } from './report/report-tool.js';
+import { fundConfigTool, FUND_CONFIG_TOOL_DESCRIPTION } from './fund-config/fund-config-tool.js';
+import { performanceHistoryTool, PERFORMANCE_HISTORY_TOOL_DESCRIPTION } from './performance-history/performance-history-tool.js';
 import { discoverSkills } from '../skills/index.js';
 
 /**
@@ -84,6 +87,21 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'portfolio',
       tool: portfolioTool,
       description: PORTFOLIO_TOOL_DESCRIPTION,
+    },
+    {
+      name: 'save_report',
+      tool: reportTool,
+      description: REPORT_TOOL_DESCRIPTION,
+    },
+    {
+      name: 'fund_config',
+      tool: fundConfigTool,
+      description: FUND_CONFIG_TOOL_DESCRIPTION,
+    },
+    {
+      name: 'performance_history',
+      tool: performanceHistoryTool,
+      description: PERFORMANCE_HISTORY_TOOL_DESCRIPTION,
     },
   ];
 

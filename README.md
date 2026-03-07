@@ -369,6 +369,11 @@ git push origin main
 | [CYCLE-STRUCTURE-MACRO-BIAS.md](docs/CYCLE-STRUCTURE-MACRO-BIAS.md) | Cycle structure framework for BTC timing and entry (bias forming, not predicting) |
 | [COUNTER-THESIS-IREN.md](docs/COUNTER-THESIS-IREN.md) | IREN pushback: dilution, pivot, CIFR/NBIS as better alternatives |
 | [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) | Copy-paste queries: suggest portfolio + track weekly performance vs BTC, GLD, SPY |
+| [ESSAY-WORKFLOW.md](docs/ESSAY-WORKFLOW.md) | Dexter → Claude → Substack: turn quarterly reports into essays, feed insights to SOUL |
+| [ROADMAP-FUND-NEWSLETTER.md](docs/ROADMAP-FUND-NEWSLETTER.md) | Plan: VOICE/brand, heartbeat upgrades, AUM, cumulative performance, investor letter |
+| [VOICE.md](docs/VOICE.md) | Brand and writing style for ikigaistudio — tone, phrases, examples |
+| [docs/newsletter/](docs/newsletter/) | Newsletter archive — published essays and key takeaways |
+| [FUND-CONFIG.md](docs/FUND-CONFIG.md) | AUM and inception date for dollar rebalancing and since-inception returns |
 
 ## 📄 License
 

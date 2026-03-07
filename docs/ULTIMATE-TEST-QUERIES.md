@@ -89,6 +89,61 @@ Write a quarterly performance report for my portfolio. Use ~/.dexter/PORTFOLIO.m
 - Conviction-tier performance: Core Compounders vs Cyclical vs Speculative
 - Regime assessment: any sizing adjustments needed?
 - Outlook for next quarter
+- YTD and since-inception (if performance_history has data): compute and include vs BTC, SPY, GLD
+- Save the report to ~/.dexter/QUARTERLY-REPORT-YYYY-QN.md using the save_report tool (e.g. QUARTERLY-REPORT-2026-Q1.md)
+- Call performance_history record_quarter to append this quarter's returns (period, portfolio, btc, spy, gld as decimals)
+```
+
+**Expected behavior:** Agent fetches 90-day prices, computes attribution, writes the report, and **saves it to ~/.dexter/** via the save_report tool for the essay workflow.
+
+---
+
+## Query 5 — Reflection Essay Draft (After Quarterly Report)
+
+**Purpose:** Run after Query 4. Turns the quarterly report into a 600–800 word essay draft ready for Substack. Paste the quarterly report output (or load from ~/.dexter/QUARTERLY-REPORT-*.md) and ask for the reflection.
+
+**Copy-paste into the Dexter terminal:**
+
+```
+Using the quarterly performance report (from ~/.dexter/QUARTERLY-REPORT-*.md or the report you just produced), write a 600–800 word reflection essay. Structure:
+1. What the numbers say about our thesis — which layers validated, which didn't
+2. The regime problem — what BTC/Gold/SPY told us
+3. The machine's recommendation — sizing adjustments and why
+4. One sentence that captures the tension between thesis and regime
+
+Voice: structural thinking, precise numbers, blunt assessment. Example: "The equipment thesis worked. AMAT contributed +1.69 points. ASML contributed +1.24 points. The 'sell picks and shovels' framing validated better than the chip designer sleeve." No hype. No permission. Output markdown ready for editing in Claude or direct publish.
+```
+
+**Expected behavior:** Agent reads the saved report (or uses context from a prior Query 4 run), produces an essay draft. Copy to Claude for polish, then publish. See [ESSAY-WORKFLOW.md](ESSAY-WORKFLOW.md).
+
+---
+
+## Query 6 — Weekly Newsletter Snippet (Standalone)
+
+**Purpose:** Manual run when you want a Substack draft without waiting for the heartbeat. Uses same logic as heartbeat's weekly draft.
+
+**Copy-paste into the Dexter terminal:**
+
+```
+Write a 150–250 word weekly newsletter snippet for my portfolio. Use ~/.dexter/PORTFOLIO.md. Fetch 7-day performance for holdings plus BTC-USD, GLD, SPY. Include: regime (risk-on/risk-off/mixed), portfolio vs benchmarks, best/worst performers, one takeaway. Voice: structural, precise numbers, no hype (VOICE.md). Save to ~/.dexter/WEEKLY-DRAFT-YYYY-MM-DD.md via save_report.
+```
+
+---
+
+## Query 7 — Investor Letter (From Quarterly Report)
+
+**Purpose:** Turn the quarterly report into a structured investor letter format for LPs or subscribers.
+
+**Copy-paste into the Dexter terminal:**
+
+```
+Using the quarterly performance report from ~/.dexter/QUARTERLY-REPORT-*.md (or the report you just produced), write an investor letter. Structure:
+1. Performance — portfolio vs BTC, SPY, GLD; YTD and since-inception if available
+2. Attribution — which layers contributed/detracted; conviction-tier performance
+3. Regime — what the quarter told us; risk-on vs risk-off
+4. Outlook — positioning for next quarter; sizing adjustments
+
+Voice: structural, precise numbers, no hype (VOICE.md). Output markdown.
 ```
 
 ---
@@ -121,5 +176,12 @@ Example (today = 2026-03-07):
 - [ ] Query 1: Agent suggests a coherent portfolio aligned with SOUL.md
 - [ ] Query 2: Agent fetches prices, computes weighted return, compares to BTC/GLD/SPY
 - [ ] Query 3: Agent suggests + backtests in one run
-- [ ] Query 4: Agent produces quarterly report with layer/tier attribution
+- [ ] Query 4: Agent produces quarterly report with layer/tier attribution and saves to ~/.dexter/
+- [ ] Query 5: Agent produces essay draft from quarterly report
 - [ ] All benchmarks (BTC, GLD, SPY) are included in performance comparison
+
+---
+
+## Essay Workflow
+
+See [ESSAY-WORKFLOW.md](ESSAY-WORKFLOW.md) for the full loop: Dexter → Claude → Substack → SOUL.md updates.
