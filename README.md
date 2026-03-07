@@ -34,6 +34,9 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 - **Self-Validation**: Checks its own work and iterates until tasks are complete
 - **Real-Time Financial Data**: Access to income statements, balance sheets, and cash flow statements
 - **Safety Features**: Built-in loop detection and step limits to prevent runaway execution
+- **Fund Operations**: AUM config, dollar rebalancing, YTD/since-inception performance tracking
+- **Newsletter-Ready Output**: Regime labels, weekly drafts, concentration alerts, investor letter templates
+- **Brand Voice**: VOICE.md injects ikigaistudio tone and style into every response
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt) [![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=social&logo=discord)](https://discord.gg/jpGHv2XB6T)
 
@@ -48,7 +51,9 @@ This fork extends [virattt/dexter](https://github.com/virattt/dexter) with a spe
 |---------------|------|-----|
 | **North star: Portfolio Builder** | Agent's primary purpose is building and maintaining a near-perfect portfolio aligned with SOUL.md. Performance must beat hedge funds, indexes, and BTC. | Generic research agents answer questions; we need one that *owns* the outcome — rebalancing, benchmarking, and reporting. |
 | **SOUL.md — thesis & coverage universe** | Full investment thesis: AI infrastructure supply chain (7 layers), conviction tiering (Core Compounders → Avoid), sizing rules, analytical edge. BTC-heavy core; HYPE and SOL/NEAR/SUI/ETH as satellites. | Standard tools can't evaluate equipment cycle dynamics, EDA complexity, or power bottlenecks. The edge lives where consensus hasn't priced. SOUL.md gives every query structural context. |
-| **HEARTBEAT — weekly rebalance + quarterly report** | Mondays: rebalance check vs target. First week of quarter: performance report vs S&P, NASDAQ, BTC. | Passive monitoring isn't enough. We need scheduled action: detect drift, compare to benchmarks, deliver reports. |
+| **HEARTBEAT — weekly rebalance + quarterly report** | Mondays: rebalance check vs target. First week of quarter: performance report vs S&P, NASDAQ, BTC. Regime label (risk-on/risk-off). Weekly newsletter draft when noteworthy. Concentration alerts. Dollar rebalancing when AUM set. | Passive monitoring isn't enough. We need scheduled action: detect drift, compare to benchmarks, deliver reports. |
+| **VOICE.md — brand & writing style** | ikigaistudio tone, phrases, structure. Injected into every system prompt. Copy to `~/.dexter/VOICE.md` to override. | Generic AI output sounds generic. Essays and investor letters need a consistent voice. |
+| **Fund config + performance history** | `~/.dexter/fund-config.json` (AUM, inception). `~/.dexter/performance-history.json` (quarters). Tools: `fund_config`, `performance_history`, `save_report`. | Dollar rebalancing and since-inception returns require AUM. Reports auto-save to `~/.dexter/`. |
 | **Financial Datasets as primary data API** | All finance subagents (prices, fundamentals, filings, insider trades, news) use Financial Datasets. | Built for AI agents: section-level SEC filings, structured JSON, real-time ingestion. Beats Finnhub for filings and fundamentals. See [DATA-API-FINANCIAL-DATASETS.md](docs/DATA-API-FINANCIAL-DATASETS.md). |
 | **Finnhub fallback (planned)** | PRD for Finnhub free tier as fallback when FD fails or is rate-limited. | Resilience and cost relief. Zero marginal cost for overflow on simple price/news queries. See [PRD-FINNHUB-SUBAGENTS.md](docs/PRD-FINNHUB-SUBAGENTS.md). |
 | **WhatsApp as primary interface** | Gateway for WhatsApp; group chat is the main way to interact. | Research and alerts in the same place we already communicate. CLI and HTTP API remain for power users. |
@@ -161,8 +166,8 @@ Edit `SOUL.md` to reflect your own thesis. The structure matters more than the s
 
 `~/.dexter/HEARTBEAT.md` is a user-managed file that defines what Dexter should monitor periodically. In addition to the checklist, the heartbeat runs:
 
-- **Weekly (Mondays):** Rebalance check — compares your portfolio to the target from SOUL.md and alerts if adjustments are needed
-- **Quarterly (first week of Jan/Apr/Jul/Oct):** Performance report — summarizes how the portfolio performed and what changed
+- **Weekly (Mondays):** Rebalance check — compares your portfolio to the target from SOUL.md and alerts if adjustments are needed. Regime label (risk-on/risk-off/mixed). Concentration alerts for positions >5% above target. When noteworthy, saves a newsletter draft to `~/.dexter/WEEKLY-DRAFT-YYYY-MM-DD.md`. Dollar rebalancing actions when AUM is set in fund config.
+- **Quarterly (first week of Jan/Apr/Jul/Oct):** Performance report — YTD and since-inception vs BTC, SPY, GLD. Records quarter via `performance_history` for cumulative tracking.
 
 Keep your current holdings in `~/.dexter/PORTFOLIO.md` (ticker, weight, layer, tier) so the agent can compare against the target. Copy `docs/HEARTBEAT.example.md` to `~/.dexter/HEARTBEAT.md` for a BTC/HYPE/SOL-focused checklist. The checklist also includes:
 
@@ -227,6 +232,17 @@ How and why should we diversify from a BTC-heavy portfolio right now?
 ```
 ```
 What's the case for adding HYPE or SOL/NEAR/SUI/ETH to a BTC-heavy portfolio?
+```
+
+**Essay, newsletter, investor letter:**
+```
+Reflect on this quarter's report and suggest 3 essay angles for Substack
+```
+```
+Write a 2-paragraph newsletter snippet for this week's performance vs BTC, GLD, SPY
+```
+```
+Draft an investor letter: performance summary, key moves, outlook, risks
 ```
 
 **Macro + monitoring:**
@@ -360,20 +376,39 @@ git push origin main
 
 ## 📚 Documentation
 
+### Core
+
+| Doc | Description |
+|-----|-------------|
+| [SOUL.md](SOUL.md) | Investment thesis, coverage universe, conviction tiers, sizing rules |
+| [VOICE.md](docs/VOICE.md) | Brand and writing style for ikigaistudio — tone, phrases, examples |
+| [HEARTBEAT.example.md](docs/HEARTBEAT.example.md) | Monitoring checklist template — copy to `~/.dexter/HEARTBEAT.md` |
+
+### Data & APIs
+
 | Doc | Description |
 |-----|-------------|
 | [DATA-API-FINANCIAL-DATASETS.md](docs/DATA-API-FINANCIAL-DATASETS.md) | Financial Datasets API — endpoints, auth, parameters used by Dexter |
-| [EXTERNAL-RESOURCES.md](docs/EXTERNAL-RESOURCES.md) | Money for AI, CryptoTax Map, Every, OtoCo — research and startup stack references |
-| [PRD-STARTUP-STACK.md](docs/PRD-STARTUP-STACK.md) | The Stack (doola, Coinbase, Fairmint, Base) — from MVP to startup |
 | [PRD-FINNHUB-SUBAGENTS.md](docs/PRD-FINNHUB-SUBAGENTS.md) | Finnhub free tier as fallback for finance subagents |
-| [CYCLE-STRUCTURE-MACRO-BIAS.md](docs/CYCLE-STRUCTURE-MACRO-BIAS.md) | Cycle structure framework for BTC timing and entry (bias forming, not predicting) |
-| [COUNTER-THESIS-IREN.md](docs/COUNTER-THESIS-IREN.md) | IREN pushback: dilution, pivot, CIFR/NBIS as better alternatives |
-| [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) | Copy-paste queries: suggest portfolio + track weekly performance vs BTC, GLD, SPY |
-| [ESSAY-WORKFLOW.md](docs/ESSAY-WORKFLOW.md) | Dexter → Claude → Substack: turn quarterly reports into essays, feed insights to SOUL |
-| [ROADMAP-FUND-NEWSLETTER.md](docs/ROADMAP-FUND-NEWSLETTER.md) | Plan: VOICE/brand, heartbeat upgrades, AUM, cumulative performance, investor letter |
-| [VOICE.md](docs/VOICE.md) | Brand and writing style for ikigaistudio — tone, phrases, examples |
-| [docs/newsletter/](docs/newsletter/) | Newsletter archive — published essays and key takeaways |
+| [EXTERNAL-RESOURCES.md](docs/EXTERNAL-RESOURCES.md) | Money for AI, CryptoTax Map, Every, OtoCo — research and startup stack references |
+
+### Fund & Newsletter
+
+| Doc | Description |
+|-----|-------------|
 | [FUND-CONFIG.md](docs/FUND-CONFIG.md) | AUM and inception date for dollar rebalancing and since-inception returns |
+| [ROADMAP-FUND-NEWSLETTER.md](docs/ROADMAP-FUND-NEWSLETTER.md) | Roadmap: VOICE, heartbeat upgrades, AUM, performance history, investor letter (Phases 1–5 shipped) |
+| [ESSAY-WORKFLOW.md](docs/ESSAY-WORKFLOW.md) | Dexter → Claude → Substack: turn quarterly reports into essays, feed insights to SOUL |
+| [docs/newsletter/](docs/newsletter/) | Newsletter archive — published essays and key takeaways |
+
+### Research & Queries
+
+| Doc | Description |
+|-----|-------------|
+| [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) | Copy-paste queries: portfolio suggestion, weekly performance, essay reflection, investor letter |
+| [CYCLE-STRUCTURE-MACRO-BIAS.md](docs/CYCLE-STRUCTURE-MACRO-BIAS.md) | Cycle structure framework for BTC timing and entry |
+| [COUNTER-THESIS-IREN.md](docs/COUNTER-THESIS-IREN.md) | IREN pushback: dilution, pivot, CIFR/NBIS alternatives |
+| [PRD-STARTUP-STACK.md](docs/PRD-STARTUP-STACK.md) | The Stack (doola, Coinbase, Fairmint, Base) — from MVP to startup |
 
 ## 📄 License
 
