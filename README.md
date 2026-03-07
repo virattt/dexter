@@ -7,6 +7,7 @@ Dexter is an autonomous financial research agent that thinks, plans, and learns 
 ## Table of Contents
 
 - [👋 Overview](#-overview)
+- [🔧 How We've Customized Dexter](#-how-weve-customized-dexter)
 - [✅ Prerequisites](#-prerequisites)
 - [💻 How to Install](#-how-to-install)
 - [🚀 How to Run](#-how-to-run)
@@ -38,6 +39,25 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 
 <img width="1042" height="638" alt="Screenshot 2026-02-18 at 12 21 25 PM" src="https://github.com/user-attachments/assets/2a6334f9-863f-4bd2-a56f-923e42f4711e" />
 
+
+## 🔧 How We've Customized Dexter
+
+This fork extends [virattt/dexter](https://github.com/virattt/dexter) with a specific investment thesis, data stack, and startup path. Here's what we changed and why.
+
+| Customization | What | Why |
+|---------------|------|-----|
+| **North star: Portfolio Builder** | Agent's primary purpose is building and maintaining a near-perfect portfolio aligned with SOUL.md. Performance must beat hedge funds, indexes, and BTC. | Generic research agents answer questions; we need one that *owns* the outcome — rebalancing, benchmarking, and reporting. |
+| **SOUL.md — thesis & coverage universe** | Full investment thesis: AI infrastructure supply chain (7 layers), conviction tiering (Core Compounders → Avoid), sizing rules, analytical edge. BTC-heavy core; HYPE and SOL/NEAR/SUI/ETH as satellites. | Standard tools can't evaluate equipment cycle dynamics, EDA complexity, or power bottlenecks. The edge lives where consensus hasn't priced. SOUL.md gives every query structural context. |
+| **HEARTBEAT — weekly rebalance + quarterly report** | Mondays: rebalance check vs target. First week of quarter: performance report vs S&P, NASDAQ, BTC. | Passive monitoring isn't enough. We need scheduled action: detect drift, compare to benchmarks, deliver reports. |
+| **Financial Datasets as primary data API** | All finance subagents (prices, fundamentals, filings, insider trades, news) use Financial Datasets. | Built for AI agents: section-level SEC filings, structured JSON, real-time ingestion. Beats Finnhub for filings and fundamentals. See [DATA-API-FINANCIAL-DATASETS.md](docs/DATA-API-FINANCIAL-DATASETS.md). |
+| **Finnhub fallback (planned)** | PRD for Finnhub free tier as fallback when FD fails or is rate-limited. | Resilience and cost relief. Zero marginal cost for overflow on simple price/news queries. See [PRD-FINNHUB-SUBAGENTS.md](docs/PRD-FINNHUB-SUBAGENTS.md). |
+| **WhatsApp as primary interface** | Gateway for WhatsApp; group chat is the main way to interact. | Research and alerts in the same place we already communicate. CLI and HTTP API remain for power users. |
+| **Startup stack (doola, Coinbase, Fairmint, Base)** | PRD for moving from MVP to startup: Wyoming LLC, custody, tokenized equity, USDC on Base. | The Stack collapses entity formation, compliance, and settlement into something a solo founder can access. See [PRD-STARTUP-STACK.md](docs/PRD-STARTUP-STACK.md). |
+| **External research (Money for AI, CryptoTax Map, Every, OtoCo)** | Documented references for AI monetary preferences, crypto tax by jurisdiction, back-office tools, Web3 entity formation. | Informs thesis (BTC preference in AI agents), entity planning (tax efficiency), and startup infra (Every, OtoCo as alternatives). See [EXTERNAL-RESOURCES.md](docs/EXTERNAL-RESOURCES.md). |
+
+**Core motivation:** This project exists to answer *how (and why) should we diversify a BTC-heavy portfolio?* BTC HODL is the thesis. Diversification satellites are HYPE (onchain stocks) and SOL/NEAR/SUI/ETH (agentic web4). The AI infrastructure universe is the opportunity set. Dexter helps decide when to diversify — and when HODLing is the right call.
+
+---
 
 ## ✅ Prerequisites
 
