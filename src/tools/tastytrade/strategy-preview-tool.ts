@@ -1,0 +1,129 @@
+import { DynamicStructuredTool } from '@langchain/core/tools';
+import { z } from 'zod';
+import { orderDryRun } from './api.js';
+import { summarizeOrder } from './theta-helpers.js';
+import { parseOptionSymbol } from './utils.js';
+
+export const tastytradeStrategyPreviewTool = new DynamicStructuredTool({
+  name: 'tastytrade_strategy_preview',
+  description:
+    'Build a trade memo for a candidate or manual order, and optionally run tastytrade dry-run when order flow is enabled.',
+  schema: z.object({
+    account_number: z.string().describe('Tastytrade account number.'),
+    order_json: z
+      .string()
+      .describe('Order as JSON (typically from tastytrade_theta_scan).'),
+    thesis: z
+      .string()
+      .optional()
+      .describe('Optional plain-English thesis or context to include in the trade memo.'),
+    exit_plan: z
+      .string()
+      .optional()
+      .describe('Optional exit plan. If omitted, uses a conservative default for short premium trades.'),
+  }),
+  func: async (input) => {
+    let order: Record<string, unknown>;
+    try {
+      order = JSON.parse(input.order_json) as Record<string, unknown>;
+    } catch {
+      return JSON.stringify({ error: 'order_json must be valid JSON.' });
+    }
+
+    const summary = summarizeOrder(order);
+    if (summary.legs.length === 0) {
+      return JSON.stringify({ error: 'order_json must include at least one valid leg.' });
+    }
+
+    const legs = summary.legs.map((leg) => {
+      const parsed = parseOptionSymbol(leg.symbol);
+      return {
+        ...leg,
+        underlying: parsed.underlying,
+        option_type: parsed.optionType,
+        strike: parsed.strike,
+        expiration_date: parsed.expirationDate,
+        dte: parsed.dte,
+      };
+    });
+
+    const underlyings = [...new Set(legs.map((leg) => leg.underlying))];
+    const strikes = legs.map((leg) => leg.strike).filter((strike): strike is number => typeof strike === 'number');
+    const price = Number(summary.price.toFixed(2));
+    const creditOrDebit = price >= 0 ? 'credit' : 'debit';
+    const width = strikes.length >= 2 ? Math.max(...strikes) - Math.min(...strikes) : null;
+    const estimatedMaxLoss =
+      creditOrDebit === 'credit' && width != null ? Number((width * 100 - Math.abs(price) * 100).toFixed(2)) : null;
+    const breakevens = estimateBreakevens(legs, price);
+    const inferredStrategy = inferStrategy(legs);
+
+    let dryRunResult: unknown = null;
+    let dryRunAttempted = false;
+    if (process.env.TASTYTRADE_ORDER_ENABLED === 'true') {
+      dryRunAttempted = true;
+      try {
+        const res = await orderDryRun(input.account_number, order);
+        dryRunResult = res.data;
+      } catch (error) {
+        dryRunResult = { error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+
+    return JSON.stringify({
+      account_number: input.account_number,
+      strategy_type: inferredStrategy,
+      thesis: input.thesis ?? 'Short premium should remain subordinate to the Portfolio Builder target and THETA-POLICY.',
+      trade_memo: {
+        underlyings,
+        legs,
+        premium_type: creditOrDebit,
+        price,
+        estimated_max_loss: estimatedMaxLoss,
+        estimated_breakevens: breakevens,
+        exit_plan:
+          input.exit_plan ??
+          'Default: take profits around 50% max credit on short premium trades, and reassess or roll if the short strike becomes challenged or if DTE falls below the management window.',
+        invalidation:
+          'Invalidate if the position violates THETA-POLICY, if macro/event conditions change materially, or if a threatened short strike requires a defensive roll.',
+        roll_plan:
+          'If challenged, compare close-now cost versus rolling out in time for equal or better credit while keeping size within policy caps.',
+      },
+      order_json: order,
+      dry_run_attempted: dryRunAttempted,
+      dry_run_result: dryRunResult,
+      note: 'Use tastytrade_submit_order only after the user explicitly confirms this preview.',
+    });
+  },
+});
+
+function inferStrategy(
+  legs: Array<{ symbol: string; quantity: number; action: string; instrument_type: string }>
+): string {
+  if (legs.length === 1) {
+    return legs[0]?.action === 'Sell to Open' ? 'single_short_option' : 'single_leg';
+  }
+  if (legs.length === 2) return 'vertical_spread';
+  if (legs.length === 4) return 'iron_condor';
+  return 'multi_leg';
+}
+
+function estimateBreakevens(
+  legs: Array<{
+    symbol: string;
+    quantity: number;
+    action: string;
+    instrument_type: string;
+    strike?: number | null;
+    option_type?: 'C' | 'P' | null;
+  }>,
+  price: number
+): { lower: number | null; upper: number | null } {
+  const shortPuts = legs.filter((leg) => leg.action === 'Sell to Open' && leg.option_type === 'P');
+  const shortCalls = legs.filter((leg) => leg.action === 'Sell to Open' && leg.option_type === 'C');
+  const putStrike = shortPuts[0]?.strike ?? null;
+  const callStrike = shortCalls[0]?.strike ?? null;
+  return {
+    lower: putStrike != null ? Number((putStrike - Math.abs(price)).toFixed(2)) : null,
+    upper: callStrike != null ? Number((callStrike + Math.abs(price)).toFixed(2)) : null,
+  };
+}

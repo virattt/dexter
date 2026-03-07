@@ -15,6 +15,40 @@ import { portfolioTool, PORTFOLIO_TOOL_DESCRIPTION } from './portfolio/portfolio
 import { reportTool, REPORT_TOOL_DESCRIPTION } from './report/report-tool.js';
 import { fundConfigTool, FUND_CONFIG_TOOL_DESCRIPTION } from './fund-config/fund-config-tool.js';
 import { performanceHistoryTool, PERFORMANCE_HISTORY_TOOL_DESCRIPTION } from './performance-history/performance-history-tool.js';
+import {
+  tastytradeAccountsTool,
+  tastytradeBalancesTool,
+  tastytradePositionsTool,
+  tastytradeOptionChainTool,
+  tastytradeQuoteTool,
+  tastytradeSymbolSearchTool,
+  tastytradeSyncPortfolioTool,
+  tastytradePositionRiskTool,
+  tastytradeThetaScanTool,
+  tastytradeStrategyPreviewTool,
+  tastytradeRollShortOptionTool,
+  tastytradeRepairPositionTool,
+  tastytradeLiveOrdersTool,
+  tastytradeOrderDryRunTool,
+  tastytradeSubmitOrderTool,
+  tastytradeCancelOrderTool,
+  TASTYTRADE_ACCOUNTS_DESCRIPTION,
+  TASTYTRADE_BALANCES_DESCRIPTION,
+  TASTYTRADE_POSITIONS_DESCRIPTION,
+  TASTYTRADE_OPTION_CHAIN_DESCRIPTION,
+  TASTYTRADE_QUOTE_DESCRIPTION,
+  TASTYTRADE_SYMBOL_SEARCH_DESCRIPTION,
+  TASTYTRADE_SYNC_PORTFOLIO_DESCRIPTION,
+  TASTYTRADE_POSITION_RISK_DESCRIPTION,
+  TASTYTRADE_THETA_SCAN_DESCRIPTION,
+  TASTYTRADE_STRATEGY_PREVIEW_DESCRIPTION,
+  TASTYTRADE_ROLL_SHORT_OPTION_DESCRIPTION,
+  TASTYTRADE_REPAIR_POSITION_DESCRIPTION,
+  TASTYTRADE_LIVE_ORDERS_DESCRIPTION,
+  TASTYTRADE_ORDER_DRY_RUN_DESCRIPTION,
+  TASTYTRADE_SUBMIT_ORDER_DESCRIPTION,
+  TASTYTRADE_CANCEL_ORDER_DESCRIPTION,
+} from './tastytrade/index.js';
 import { discoverSkills } from '../skills/index.js';
 
 /**
@@ -133,6 +167,33 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: xSearchTool,
       description: X_SEARCH_DESCRIPTION,
     });
+  }
+
+  // Include tastytrade tools when OAuth client is configured (refresh token in ~/.dexter/tastytrade-credentials.json)
+  if (process.env.TASTYTRADE_CLIENT_ID) {
+    tools.push(
+      { name: 'tastytrade_accounts', tool: tastytradeAccountsTool, description: TASTYTRADE_ACCOUNTS_DESCRIPTION },
+      { name: 'tastytrade_balances', tool: tastytradeBalancesTool, description: TASTYTRADE_BALANCES_DESCRIPTION },
+      { name: 'tastytrade_positions', tool: tastytradePositionsTool, description: TASTYTRADE_POSITIONS_DESCRIPTION },
+      { name: 'tastytrade_option_chain', tool: tastytradeOptionChainTool, description: TASTYTRADE_OPTION_CHAIN_DESCRIPTION },
+      { name: 'tastytrade_quote', tool: tastytradeQuoteTool, description: TASTYTRADE_QUOTE_DESCRIPTION },
+      { name: 'tastytrade_symbol_search', tool: tastytradeSymbolSearchTool, description: TASTYTRADE_SYMBOL_SEARCH_DESCRIPTION },
+      { name: 'tastytrade_sync_portfolio', tool: tastytradeSyncPortfolioTool, description: TASTYTRADE_SYNC_PORTFOLIO_DESCRIPTION },
+      { name: 'tastytrade_position_risk', tool: tastytradePositionRiskTool, description: TASTYTRADE_POSITION_RISK_DESCRIPTION },
+      { name: 'tastytrade_theta_scan', tool: tastytradeThetaScanTool, description: TASTYTRADE_THETA_SCAN_DESCRIPTION },
+      { name: 'tastytrade_strategy_preview', tool: tastytradeStrategyPreviewTool, description: TASTYTRADE_STRATEGY_PREVIEW_DESCRIPTION },
+      { name: 'tastytrade_roll_short_option', tool: tastytradeRollShortOptionTool, description: TASTYTRADE_ROLL_SHORT_OPTION_DESCRIPTION },
+      { name: 'tastytrade_repair_position', tool: tastytradeRepairPositionTool, description: TASTYTRADE_REPAIR_POSITION_DESCRIPTION }
+    );
+    // Phase 3 order flow: only when explicitly enabled (high risk)
+    if (process.env.TASTYTRADE_ORDER_ENABLED === 'true') {
+      tools.push(
+        { name: 'tastytrade_live_orders', tool: tastytradeLiveOrdersTool, description: TASTYTRADE_LIVE_ORDERS_DESCRIPTION },
+        { name: 'tastytrade_order_dry_run', tool: tastytradeOrderDryRunTool, description: TASTYTRADE_ORDER_DRY_RUN_DESCRIPTION },
+        { name: 'tastytrade_submit_order', tool: tastytradeSubmitOrderTool, description: TASTYTRADE_SUBMIT_ORDER_DESCRIPTION },
+        { name: 'tastytrade_cancel_order', tool: tastytradeCancelOrderTool, description: TASTYTRADE_CANCEL_ORDER_DESCRIPTION }
+      );
+    }
   }
 
   // Include skill tool if any skills are available

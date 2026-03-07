@@ -198,6 +198,16 @@ Inception: ${fundConfig.inceptionDate ?? 'not set'}
 `
       : '';
 
+  const tastytradeHeartbeatEnabled =
+    process.env.TASTYTRADE_HEARTBEAT_ENABLED === 'true' && process.env.TASTYTRADE_CLIENT_ID;
+  const tastytradeSection = tastytradeHeartbeatEnabled
+    ? `
+## Tastytrade drift check (optional)
+
+If tastytrade is connected, call tastytrade_positions and tastytrade_balances to get live broker positions. Compare to the target from Identity (SOUL.md) and PORTFOLIO.md. Flag any position more than ~5% above its target weight (e.g. "tastytrade shows 8% NVDA vs 5% target — consider trimming"). You may use tastytrade_sync_portfolio to build a current table first, then compare to target.
+`
+    : '';
+
   return `[HEARTBEAT CHECK]
 
 You are running as a periodic heartbeat. Your north star is the Portfolio Builder: help the user maintain a near-perfect portfolio aligned with the thesis in your Identity.
@@ -208,6 +218,7 @@ ${scheduleSection}
 ${portfolioSection}
 ${portfolioHLSection}
 ${fundConfigSection}
+${tastytradeSection}
 
 ## Instructions
 - Use your tools to check each item on the checklist

@@ -55,6 +55,15 @@ export class IntroComponent extends Container {
     this.addChild(new Text('Your AI assistant for deep financial research.', 0, 0));
     this.modelText = new Text('', 0, 0);
     this.addChild(this.modelText);
+    this.addChild(
+      new Text(
+        `${theme.muted('Try: ')}${theme.primary('/theta-policy')}${theme.muted(', ')}${theme.primary(
+          '/theta-help',
+        )}${theme.muted(', or ')}${theme.primary('/theta-scan')}`,
+        0,
+        0,
+      ),
+    );
     this.setModel(model);
   }
 

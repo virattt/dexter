@@ -1,4 +1,7 @@
 import { Container, ProcessTerminal, Spacer, Text, TUI } from '@mariozechner/pi-tui';
+import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import type {
   AgentEvent,
   ApprovalDecision,
@@ -29,6 +32,7 @@ import {
   createProviderSelector,
 } from './components/index.js';
 import { editorTheme, theme } from './theme.js';
+import { getCredentialsPath, hasValidToken } from './tools/tastytrade/auth.js';
 
 function truncateAtWord(str: string, maxLength: number): string {
   if (str.length <= maxLength) {
@@ -67,6 +71,39 @@ function summarizeToolResult(tool: string, args: Record<string, unknown>, result
     return truncateAtWord(result, 50);
   }
   return 'Received data';
+}
+
+const THETA_POLICY_PATH = join(homedir(), '.dexter', 'THETA-POLICY.md');
+
+function buildThetaHelpQuery(): string {
+  const hasThetaPolicy = existsSync(THETA_POLICY_PATH);
+  const tastytradeEnvConfigured = Boolean(
+    process.env.TASTYTRADE_CLIENT_ID && process.env.TASTYTRADE_CLIENT_SECRET,
+  );
+  const hasTastytradeToken = hasValidToken();
+  const credentialsPath = getCredentialsPath();
+
+  return `Give me the Phase 5 tastytrade operating loop for theta workflows.
+
+Environment status:
+- THETA-POLICY.md: ${hasThetaPolicy ? `present at ${THETA_POLICY_PATH}` : `missing (${THETA_POLICY_PATH})`}
+- tastytrade env vars (client id + secret): ${tastytradeEnvConfigured ? 'configured' : 'missing or incomplete'}
+- tastytrade credentials/token: ${hasTastytradeToken ? `looks usable (${credentialsPath})` : `missing or invalid (${credentialsPath})`}
+
+Explain:
+1. when to use /theta-policy
+2. when to use /theta-risk
+3. when to use /theta-scan
+4. when to use /theta-preview
+5. when to use /theta-repair
+6. when to use /theta-roll
+
+Then tell me:
+- the safest order to run them in for a normal trading day
+- the safest order to run them in for a challenged short option
+- what I should do first given the environment status above
+
+Reference ~/.dexter/THETA-POLICY.md if it exists, and explicitly call out any missing setup before suggesting live broker workflows.`;
 }
 
 function createScreen(
@@ -254,6 +291,43 @@ Output:
 4. One sentence that captures the tension between on-chain optionality and regime risk
 
 Voice: structural thinking, precise numbers, blunt assessment. No hype. Output markdown ready for Claude polish or direct publish.`,
+    '/theta-risk': `Analyze my live tastytrade options book. Use tastytrade_position_risk and tell me:
+- my portfolio theta and delta
+- which short options are challenged
+- concentration by underlying
+- whether any short position looks like assignment risk this week`,
+    '/theta-scan': `Scan for the safest theta trade in my tastytrade account today. Use tastytrade_theta_scan with my THETA-POLICY defaults. Focus on SPX, SPY, and QQQ. Return the top 3 candidates with:
+- strategy type
+- strikes and expiration
+- estimated credit
+- max loss
+- policy notes
+- which one best fits my current book`,
+    '/theta-preview': `Run a theta scan for a credit spread, pick the best candidate, then preview it before any submission. Use tastytrade_theta_scan followed by tastytrade_strategy_preview. Show me:
+- the chosen candidate
+- the full trade memo
+- the dry-run result
+- your recommendation on whether I should place it
+Do not submit anything.`,
+    '/theta-repair': `Check whether any of my short options need repair. Use tastytrade_position_risk first, then tastytrade_repair_position on the most challenged short option. Tell me whether I should:
+- hold
+- roll
+- close now
+- or take assignment
+Do not submit anything.`,
+    '/theta-roll': `Find my most challenged short put and build a later-dated roll candidate. Use tastytrade_roll_short_option and show:
+- current position
+- target expiration and strike
+- net credit or debit
+- dry-run result
+- your recommendation
+Do not submit anything until I explicitly confirm.`,
+    '/theta-policy': `Help me bootstrap ~/.dexter/THETA-POLICY.md. Read docs/THETA-POLICY.example.md and docs/THETA-POLICY.md, then:
+1. show me the exact starter template
+2. explain what each field controls
+3. tell me what I should edit first for a conservative default policy
+4. remind me which Phase 5 shortcuts to run after I create it
+Do not place any trades.`,
   };
 
   const handleSubmit = async (query: string) => {
@@ -268,7 +342,8 @@ Voice: structural thinking, precise numbers, blunt assessment. No hype. Output m
       return;
     }
 
-    const expandedQuery = QUERY_SHORTCUTS[query] ?? query;
+    const expandedQuery =
+      query === '/theta-help' ? buildThetaHelpQuery() : QUERY_SHORTCUTS[query] ?? query;
 
     if (modelSelection.isInSelectionFlow() || agentRunner.pendingApproval || agentRunner.isProcessing) {
       return;
