@@ -193,6 +193,8 @@ HIP-3 stack: prices, liquidity ranking, period returns, portfolio ops (rebalance
 | [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) | Copy-paste query library |
 | [FUND-CONFIG.md](docs/FUND-CONFIG.md), [EXTERNAL-RESOURCES.md](docs/EXTERNAL-RESOURCES.md) | AUM, inception, research refs |
 
+**Related:** [AI Hedge Fund](https://github.com/eliza420ai-beep/ai-hedge-fund) — same org; multi-agent equity analysis (18 analyst agents + risk/portfolio manager), Hyperliquid integration (planned), Tastytrade daily options (experimental). Shares thesis context via **SOUL.md** (and optional `~/.ai-hedge-fund/` config). Use it for signals and portfolio construction experiments; use Dexter for research, live broker data, theta workflows, and execution. Details: [EXTERNAL-RESOURCES.md §9](docs/EXTERNAL-RESOURCES.md#9-ai-hedge-fund--multi-agent-portfolio-construction).
+
 ---
 
 ## Contributing

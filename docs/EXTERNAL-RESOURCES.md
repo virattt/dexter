@@ -1,7 +1,7 @@
 # External Resources — Dexter / IkigaiLabs
 
 **Version:** 1.0  
-**Last Updated:** 2026-03-07
+**Last Updated:** 2026-03-08
 
 This document catalogs external resources referenced in Dexter's strategy, startup stack, and research context.
 
@@ -266,7 +266,39 @@ A blunt founder/investor relocation filter, balancing tax, safety, lifestyle, so
 
 ---
 
-## 9. Cross-Reference with PRD-STARTUP-STACK
+## 9. AI Hedge Fund — Multi-Agent Portfolio Construction
+
+**URL:** [https://github.com/eliza420ai-beep/ai-hedge-fund](https://github.com/eliza420ai-beep/ai-hedge-fund)
+
+**Summary:** An AI-powered portfolio construction and analysis system (same org as this Dexter fork). Combines multi-agent intelligence with systematic risk management to translate macro investment theses into regime-aware portfolios across equities, crypto perpetuals, and short-dated options. **Educational and research only** — no live trade execution.
+
+### Three layers
+
+| Layer | What | Status |
+|-------|------|--------|
+| **Layer 1 — Equity** | 18 AI analyst agents (modeled after investing legends + quantitative disciplines) analyze tickers; risk manager and portfolio manager synthesize into BUY/SELL/SHORT/COVER/HOLD with position sizing and confidence. | Core, works today. |
+| **Layer 2 — Hyperliquid** | Crypto perpetuals for hedging, funding-rate capture, and thesis expression. Regime-conditional sizing; same regime overlay as equities. | Integration in progress. |
+| **Layer 3 — Tastytrade daily options** | Experimental: 0DTE and short-dated options informed by agent consensus (premium selling, defined-risk hedges, spread construction). | Experimental, not production-ready. |
+
+### Shared context with Dexter
+
+- **SOUL.md** — Both repos can use a shared thesis. AI Hedge Fund loads SOUL from (in order): CLI `--thesis`, repo root `./SOUL.md`, or **`~/.ai-hedge-fund/SOUL.md`**. Dexter uses repo root `SOUL.md` and optionally `~/.dexter/` for HEARTBEAT, PORTFOLIO, THETA-POLICY. Using the same SOUL in both (e.g. copy or symlink into `~/.ai-hedge-fund/SOUL.md` and repo `SOUL.md` for Dexter) keeps thesis consistent across research (Dexter) and multi-agent portfolio construction (AI Hedge Fund).
+- **PORTFOLIO.md / VOICE.md** — AI Hedge Fund documents future use of PORTFOLIO.md and VOICE.md in `~/.ai-hedge-fund/`; Dexter uses `~/.dexter/PORTFOLIO.md` and `docs/VOICE.md` (override at `~/.dexter/VOICE.md`).
+
+### How it fits with Dexter
+
+| Use case | Dexter | AI Hedge Fund |
+|----------|--------|----------------|
+| Research and data | Financial search, filings, metrics, heartbeat, portfolio builder | — |
+| Thesis and voice | SOUL.md, VOICE.md, HEARTBEAT | SOUL.md (same thesis), 18 analyst agents |
+| Broker execution | tastytrade (theta scan, preview, roll, repair, dry-run, opt-in submit); Hyperliquid (preview, opt-in execution) | No live execution; experimental Tastytrade layer for signal generation |
+| Portfolio construction | Suggest, rebalance, sync from broker, validate target | Multi-agent signals → position-level decisions with confidence and reasoning |
+
+**Practical takeaway:** Use AI Hedge Fund for multi-agent equity (and eventually HL/options) *signals* and portfolio construction experiments. Use Dexter for research, live broker data, theta workflows, and execution (when enabled). Share SOUL.md so both systems reason against the same thesis.
+
+---
+
+## 10. Cross-Reference with PRD-STARTUP-STACK
 
 | Need | Primary (PRD) | Alternatives / Complements |
 |------|----------------|----------------------------|
@@ -278,10 +310,11 @@ A blunt founder/investor relocation filter, balancing tax, safety, lifestyle, so
 | Single-name / AI infra equity research | — | IREN (Birk Substack) |
 | Decision frameworks / sizing / process (trading) | — | Druckenmiller frameworks (user-provided) |
 | Web agents / browser automation / skill reuse | — | Browser Use |
+| Multi-agent portfolio construction (equity + HL + options signals) | — | [AI Hedge Fund](https://github.com/eliza420ai-beep/ai-hedge-fund); share SOUL.md with Dexter |
 
 ---
 
-## 10. References
+## 11. References
 
 - [Money for AI](https://www.moneyforai.org/) — Bitcoin Policy Institute
 - [CryptoTax Map](https://www.cryptotaxmap.io/) — Alessandro Palombo
@@ -291,3 +324,4 @@ A blunt founder/investor relocation filter, balancing tax, safety, lifestyle, so
 - [IREN: The 4.5GW AI Powerhouse](https://barebirk.substack.com/p/iren-the-45gw-ai-powerhouse) — Birk, Substack, Mar 2026 (Iren Limited / AI infra equity research)
 - Stanley Druckenmiller decision frameworks — user-provided summary (no URL); Duquesne Capital frameworks re fundamentals + charts, sizing, edge decay, trigger pulling
 - [Browser Use](https://browser-use.com/) — self-improving web agents; every run creates skill.md for reuse (faster, cheaper, reliable); stealth browsers, Skill APIs
+- [AI Hedge Fund](https://github.com/eliza420ai-beep/ai-hedge-fund) — multi-agent equity analysis (18 analysts + risk/portfolio manager), Hyperliquid integration (planned), Tastytrade daily options (experimental); shared SOUL.md thesis; educational/research only, no live execution
