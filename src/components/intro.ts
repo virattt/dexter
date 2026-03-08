@@ -67,8 +67,8 @@ export class IntroComponent extends Container {
     this.addChild(
       new Text(
         `${theme.muted('Or: ')}${theme.primary('/weekly')}${theme.muted(' (rebalance) · ')}${theme.primary(
-          '/hypersurface',
-        )}${theme.muted(' (Hypersurface strike) · ')}${theme.primary('/theta-policy')}${theme.muted(' · ')}${theme.primary('/theta-help')}`,
+          '/theta-scan',
+        )}${theme.muted(' (theta) · ')}${theme.primary('/theta-policy')}${theme.muted(' · ')}${theme.primary('/theta-help')}`,
         0,
         0,
       ),
