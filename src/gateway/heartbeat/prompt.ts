@@ -152,7 +152,7 @@ export async function buildHeartbeatQuery(): Promise<string | null> {
 
 ${isMon ? `### Weekly Rebalance Check
 - **Main portfolio:** If PORTFOLIO.md is provided below, compare current holdings to the target from your Identity (SOUL.md). Check layer allocation drift, conviction-tier mix, single-position sizing.
-- **Hyperliquid portfolio:** If PORTFOLIO-HYPERLIQUID.md is provided below, run a rebalance check for the on-chain portfolio. Use the "## HIP-3 Target" section from the Checklist above (if present) as the target allocation. Compare current weights to target; flag positions >5% above target; recommend trim/add (e.g. "Trim HYPE 2%, add to SOL").
+- **Hyperliquid portfolio:** If PORTFOLIO-HYPERLIQUID.md is provided below, run a rebalance check for the on-chain portfolio. Use the "## HIP-3 Target" section from the Checklist above (if present) as the target allocation. Compare current weights to target; flag positions >5% above target; recommend trim/add (e.g. "Trim HYPE 2%, add to SOL"). When suggesting new HL positions, prefer high-volume underlyings (see docs/PRD-HYPERLIQUID-PORTFOLIO.md §2.1).
 - **Regime label:** Fetch 7-day move for BTC-USD, GLD, SPY. Output one line: Regime: risk-on / risk-off / mixed. Basis: [brief reason from benchmark direction]
 - **Concentration alerts:** For both portfolios, flag any position >5% above its target weight. Recommend specific trim/add actions.
 - **Dollar rebalancing:** If ~/.dexter/fund-config.json has aum set, output rebalance actions in dollar amounts for the main portfolio. Use fund_config tool to read aum if needed.
@@ -165,7 +165,7 @@ ${isQuarterStart ? `### Quarterly Performance Report
 - **Hyperliquid portfolio:** If PORTFOLIO-HYPERLIQUID.md exists, write a SEPARATE quarterly report for it. Include: portfolio return vs BTC, SPY, GLD (and hl_basket if computable via HYPERLIQUID-SYMBOL-MAP.md), category attribution (Core, L1, AI infra, tokenization), best/worst performers, regime, outlook. MANDATORY: Save to ~/.dexter/QUARTERLY-REPORT-HL-YYYY-QN.md via save_report.
 - **YTD and since-inception:** Call performance_history view. If inceptionDate in fund-config exists, compute since-inception. Include in both reports.
 - **Performance history:** Call performance_history record_quarter with period (e.g. 2026-Q1), portfolio, btc, spy, gld as decimals. If PORTFOLIO-HYPERLIQUID.md exists, compute portfolio_hl and include it; optionally compute hl_basket if feasible.
-- Use financial_search for prices. Map HL symbols to FD tickers per docs/HYPERLIQUID-SYMBOL-MAP.md for HL positions.
+- Use financial_search for prices; for HL portfolio use hyperliquid_prices for HL symbols (including pre-IPO) or map HL→FD per docs/HYPERLIQUID-SYMBOL-MAP.md.
 - Deliver the full report(s) to the user` : ''}
 `;
   }

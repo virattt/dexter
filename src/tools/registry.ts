@@ -16,6 +16,12 @@ import { reportTool, REPORT_TOOL_DESCRIPTION } from './report/report-tool.js';
 import { fundConfigTool, FUND_CONFIG_TOOL_DESCRIPTION } from './fund-config/fund-config-tool.js';
 import { performanceHistoryTool, PERFORMANCE_HISTORY_TOOL_DESCRIPTION } from './performance-history/performance-history-tool.js';
 import {
+  hyperliquidPricesTool,
+  hyperliquidLiquidityTool,
+  HYPERLIQUID_PRICES_DESCRIPTION,
+  HYPERLIQUID_LIQUIDITY_DESCRIPTION,
+} from './hyperliquid/index.js';
+import {
   tastytradeAccountsTool,
   tastytradeBalancesTool,
   tastytradePositionsTool,
@@ -136,6 +142,16 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'performance_history',
       tool: performanceHistoryTool,
       description: PERFORMANCE_HISTORY_TOOL_DESCRIPTION,
+    },
+    {
+      name: 'hyperliquid_prices',
+      tool: hyperliquidPricesTool,
+      description: HYPERLIQUID_PRICES_DESCRIPTION,
+    },
+    {
+      name: 'hyperliquid_liquidity',
+      tool: hyperliquidLiquidityTool,
+      description: HYPERLIQUID_LIQUIDITY_DESCRIPTION,
     },
   ];
 

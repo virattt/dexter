@@ -62,11 +62,17 @@ Stocks use 1:1 mapping — Hyperliquid symbol = FD ticker.
 
 | Hyperliquid | Notes |
 |-------------|-------|
-| OPENAI | Pre-IPO token; use web_search or future HL API |
+| OPENAI | Pre-IPO token; use hyperliquid_prices tool or web_search |
 | SPACEX | Pre-IPO token |
 | ANTHROPIC | Pre-IPO token |
 
-For performance calculation, exclude these or use a separate Hyperliquid price source.
+For performance calculation, use the `hyperliquid_prices` tool (HL-native prices) or exclude these from FD-based reports.
+
+---
+
+## Liquidity (Volume)
+
+When suggesting or rebalancing the Hyperliquid portfolio, prefer **high-volume underlyings** for larger weights (better execution, tighter spreads). Top volume names include: NVDA, MU, SNDNK, HOOD, CRCL, TSLA, INTC, ORCL, EWY, GOOGL, COIN, MSTR, META, AMZN, MSFT. Full ranked list and usage: **docs/PRD-HYPERLIQUID-PORTFOLIO.md §2.1**.
 
 ---
 

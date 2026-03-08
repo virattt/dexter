@@ -60,6 +60,32 @@ The VINCE terminal tracks these Hyperliquid assets. We want Dexter to:
 
 ---
 
+### 2.1 Top Volume Tickers (Prioritize for Liquidity)
+
+When suggesting or rebalancing the Hyperliquid portfolio, prefer underlyings with the highest 24h volume for better execution and tighter spreads. Below are the top HL markets by 24h volume (symbol–collateral and leverage vary; underlying is what matters for portfolio weights).
+
+| Rank | Underlying | Example Market(s) | 24H Volume (approx) | Note |
+|------|------------|-------------------|--------------------|------|
+| 1 | NVDA | NVDA-USDC 20x, NVDA-USDT 20x, NVDA-USDH 12x | ~$70M+ combined | Dominant; use for core tech weight |
+| 2 | MU | MU-USDC 10x | ~$26M | High liquidity |
+| 3 | SNDNK | SNDNK-USDC 10x | ~$15M | |
+| 4 | HOOD | HOOD-USDT 20x, HOOD-USDC 10x | ~$15M combined | |
+| 5 | CRCL | CRCL-USDC 10x | ~$12M | |
+| 6 | TSLA | TSLA-USDC 10x, TSLA-USDT 20x | ~$18M combined | |
+| 7 | INTC | INTC-USDT 20x | ~$7M | |
+| 8 | ORCL | ORCL-USDC 10x | ~$5M | |
+| 9 | EWY | EWY-USDC 20x | ~$4M | Korea ETF |
+| 10 | GOOGL | GOOGL-USDC 10x, GOOGL-USDT 20x | ~$6M combined | |
+| 11 | COIN | COIN-USDC 10x | ~$3M | |
+| 12 | MSTR | MSTR-USDC 10x | ~$3M | |
+| 13 | META | META-USDT 20x | ~$2M | |
+| 14 | AMZN | AMZN-USDT 20x, AMZN-USDC 10x | ~$4M combined | |
+| 15 | MSFT | MSFT-USDT 20x | ~$1.6M | |
+
+**Usage:** When building or suggesting PORTFOLIO-HYPERLIQUID.md, prefer underlyings from this list for larger weights; lower-volume names (e.g. PLTR, RIVN, niche variants) can be smaller weights or omitted to keep the basket liquid. **For live data,** use the `hyperliquid_liquidity` tool (get_ranked_by_volume); this table is a fallback when the tool is unavailable.
+
+---
+
 ## 3. Financial Datasets Coverage
 
 From [DATA-API-FINANCIAL-DATASETS.md](DATA-API-FINANCIAL-DATASETS.md) and [FD Market Coverage](https://docs.financialdatasets.ai/market-coverage.md):
@@ -161,7 +187,7 @@ Add `hl_basket` (or `hl_index`) to quarterly records:
 
 ### Agent System Prompt
 - Add: "You can suggest a **Hyperliquid portfolio** — tickers tradeable 24/7 on HIP-3, no fiat conversion. Save to ~/.dexter/PORTFOLIO-HYPERLIQUID.md via portfolio tool with portfolio_id=hyperliquid."
-- Add: "When suggesting a Hyperliquid portfolio, only use tickers from the HL universe (see HYPERLIQUID-UNIVERSE.md or tool description)."
+- Add: "When suggesting a Hyperliquid portfolio, only use tickers from the HL universe (see HYPERLIQUID-UNIVERSE.md or tool description). Prefer high-volume underlyings (e.g. NVDA, MU, TSLA, HOOD, CRCL, SNDNK) for larger weights — see PRD §2.1."
 
 ### Heartbeat
 - Weekly: If PORTFOLIO-HYPERLIQUID.md exists, include it in rebalance check
@@ -183,7 +209,8 @@ Add `hl_basket` (or `hl_index`) to quarterly records:
 | 3 | Extend performance_history (hl_basket, portfolio_hl) | Small |
 | 4 | Prompt updates, heartbeat integration | Small |
 | 5 | HL basket benchmark computation (map HL symbols → FD, fetch prices, compute return) | Medium |
-| 6 | (Future) Hyperliquid API for OPENAI/SPACEX/ANTHROPIC | Medium |
+| 6a | Hyperliquid price API (all HIP-3 assets including pre-IPO; hyperliquid_prices tool) | Medium |
+| 6b | Hyperliquid volume/OI API (hyperliquid_liquidity tool for live volume ranking) | Small–Medium |
 
 ---
 
