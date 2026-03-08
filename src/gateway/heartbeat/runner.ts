@@ -7,6 +7,7 @@ import { cleanMarkdownForWhatsApp } from '../utils.js';
 import { buildHeartbeatQuery } from './prompt.js';
 import { evaluateSuppression, type SuppressionState } from './suppression.js';
 import { dexterPath } from '../../utils/paths.js';
+import { getSetting } from '../../utils/config.js';
 
 const LOG_PATH = dexterPath('gateway-debug.log');
 
@@ -132,8 +133,8 @@ export function startHeartbeatRunner(params: { configPath?: string }): Heartbeat
 
       // Run agent
       debugLog(`[heartbeat] running agent for session=${session.sessionKey}`);
-      const model = heartbeatCfg.model ?? 'gpt-5.4';
-      const modelProvider = heartbeatCfg.modelProvider ?? 'openai';
+      const model = heartbeatCfg.model ?? getSetting('modelId', 'gpt-5.4') as string;
+      const modelProvider = heartbeatCfg.modelProvider ?? getSetting('provider', 'openai') as string;
       const answer = await runAgentForMessage({
         sessionKey: session.sessionKey,
         query,

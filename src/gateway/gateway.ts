@@ -23,6 +23,7 @@ import {
 import type { GroupContext } from '../agent/prompts.js';
 import { appendFileSync } from 'node:fs';
 import { dexterPath } from '../utils/paths.js';
+import { getSetting } from '../utils/config.js';
 
 const LOG_PATH = dexterPath('gateway-debug.log');
 function debugLog(msg: string) {
@@ -157,11 +158,13 @@ async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage
     console.log(`Processing message with agent...`);
     debugLog(`[gateway] running agent for session=${route.sessionKey}`);
     const startedAt = Date.now();
+    const model = getSetting('modelId', 'gpt-5.4') as string;
+    const modelProvider = getSetting('provider', 'openai') as string;
     const answer = await runAgentForMessage({
       sessionKey: route.sessionKey,
       query,
-      model: 'gpt-5.4',
-      modelProvider: 'openai',
+      model,
+      modelProvider,
       channel: 'whatsapp',
       groupContext,
     });
