@@ -1,11 +1,11 @@
 import { buildToolDescriptions } from '../tools/registry.js';
 import { buildSkillMetadataSection, discoverSkills } from '../skills/index.js';
 import { readFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getChannelProfile } from './channels.js';
 import { MemoryManager } from '../memory/index.js';
+import { dexterPath } from '../utils/paths.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -31,7 +31,7 @@ export function getCurrentDate(): string {
  * Load SOUL.md content from user override or bundled file.
  */
 export async function loadSoulDocument(): Promise<string | null> {
-  const userSoulPath = join(homedir(), '.dexter', 'SOUL.md');
+  const userSoulPath = dexterPath('SOUL.md');
   try {
     return await readFile(userSoulPath, 'utf-8');
   } catch {
@@ -83,7 +83,7 @@ ${memoryContext.trim()}`
 
   return `## Memory
 
-You have persistent memory stored as Markdown files in ~/.dexter/memory/.
+You have persistent memory stored as Markdown files in .dexter/memory/.
 
 ### Recalling memories
 Before answering questions about prior work, decisions, dates, people, preferences, or
@@ -251,7 +251,7 @@ ${buildMemorySection(memoryContext ?? undefined)}
 ## Heartbeat
 
 You have a periodic heartbeat that runs on a schedule (configurable by the user).
-The heartbeat reads ~/.dexter/HEARTBEAT.md to know what to check.
+The heartbeat reads .dexter/HEARTBEAT.md to know what to check.
 Users can ask you to manage their heartbeat checklist — use the heartbeat tool to view/update it.
 Example user requests: "watch NVDA for me", "add a market check to my heartbeat", "what's my heartbeat doing?"
 

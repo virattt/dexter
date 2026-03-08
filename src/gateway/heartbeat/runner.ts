@@ -1,6 +1,4 @@
 import { appendFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { homedir } from 'node:os';
 import { loadGatewayConfig } from '../config.js';
 import { runAgentForMessage } from '../agent-runner.js';
 import { assertOutboundAllowed, sendMessageWhatsApp } from '../channels/whatsapp/index.js';
@@ -8,8 +6,9 @@ import { resolveSessionStorePath, loadSessionStore, type SessionEntry } from '..
 import { cleanMarkdownForWhatsApp } from '../utils.js';
 import { buildHeartbeatQuery } from './prompt.js';
 import { evaluateSuppression, type SuppressionState } from './suppression.js';
+import { dexterPath } from '../../utils/paths.js';
 
-const LOG_PATH = join(homedir(), '.dexter', 'gateway-debug.log');
+const LOG_PATH = dexterPath('gateway-debug.log');
 
 function debugLog(msg: string) {
   appendFileSync(LOG_PATH, `${new Date().toISOString()} ${msg}\n`);

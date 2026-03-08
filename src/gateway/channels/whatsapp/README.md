@@ -34,7 +34,7 @@ This will:
 3. Go to **Settings > Linked Devices > Link a Device**
 4. Scan the QR code
 
-Once linked, your phone number is automatically added to the allowed senders list and credentials are saved to `~/.dexter/credentials/whatsapp/default/`.
+Once linked, your phone number is automatically added to the allowed senders list and credentials are saved to `.dexter/credentials/whatsapp/default/`.
 
 ## 🚀 How to Run
 
@@ -70,7 +70,7 @@ Dexter: NVIDIA's revenue for fiscal year 2024 was $60.9 billion...
 
 ## ⚙️ Configuration
 
-The gateway configuration is stored at `~/.dexter/gateway.json`. It's auto-created when you run `gateway:login`.
+The gateway configuration is stored at `.dexter/gateway.json`. It's auto-created when you run `gateway:login`.
 
 **Default configuration:**
 ```json
@@ -103,7 +103,7 @@ Dexter can participate in WhatsApp group chats, responding only when @-mentioned
 
 ### Setup
 
-Add group policy to your account in `~/.dexter/gateway.json`:
+Add group policy to your account in `.dexter/gateway.json`:
 
 ```jsonc
 {
@@ -145,7 +145,7 @@ If you need to relink your WhatsApp (e.g., after logging out or switching phones
 1. Stop the gateway (Ctrl+C)
 2. Delete the credentials:
    ```bash
-   rm -rf ~/.dexter/credentials/whatsapp/default
+   rm -rf .dexter/credentials/whatsapp/default
    ```
 3. Run login again:
    ```bash
@@ -160,11 +160,11 @@ If you need to relink your WhatsApp (e.g., after logging out or switching phones
 - Try relinking (see above)
 
 **Messages not being received:**
-- Verify your phone number is in `allowFrom` in `~/.dexter/gateway.json`
+- Verify your phone number is in `allowFrom` in `.dexter/gateway.json`
 - Make sure you're messaging yourself (self-chat mode)
 
 **Debug logs:**
-- Check `~/.dexter/gateway-debug.log` for detailed logs
+- Check `.dexter/gateway-debug.log` for detailed logs
 
 ## 🔧 Full Reset
 
@@ -179,9 +179,9 @@ If you're experiencing persistent issues (connection problems, encryption errors
 
 3. **Clear all local data:**
    ```bash
-   rm -rf ~/.dexter/credentials/whatsapp/default
-   rm -rf ~/.dexter/gateway.json
-   rm -rf ~/.dexter/gateway-debug.log
+   rm -rf .dexter/credentials/whatsapp/default
+   rm -rf .dexter/gateway.json
+   rm -rf .dexter/gateway-debug.log
    ```
 
 4. **Relink and start fresh:**

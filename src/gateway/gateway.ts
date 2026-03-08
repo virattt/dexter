@@ -22,10 +22,9 @@ import {
 } from './group/index.js';
 import type { GroupContext } from '../agent/prompts.js';
 import { appendFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dexterPath } from '../utils/paths.js';
 
-const LOG_PATH = join(homedir(), '.dexter', 'gateway-debug.log');
+const LOG_PATH = dexterPath('gateway-debug.log');
 function debugLog(msg: string) {
   appendFileSync(LOG_PATH, `${new Date().toISOString()} ${msg}\n`);
 }

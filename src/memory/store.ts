@@ -1,10 +1,9 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { dirname, join, normalize, relative } from 'node:path';
 import type { MemoryReadOptions, MemoryReadResult, MemorySessionContext } from './types.js';
 import { estimateTokens } from '../utils/tokens.js';
+import { getDexterDir } from '../utils/paths.js';
 
-const MEMORY_ROOT_DIRNAME = '.dexter';
 const MEMORY_DIRNAME = 'memory';
 const LONG_TERM_FILE = 'MEMORY.md';
 const DAILY_FILE_RE = /^\d{4}-\d{2}-\d{2}\.md$/;
@@ -18,7 +17,7 @@ export function formatDailyFileName(date: Date = new Date()): string {
 }
 
 export class MemoryStore {
-  constructor(private readonly baseDir: string = join(homedir(), MEMORY_ROOT_DIRNAME)) {}
+  constructor(private readonly baseDir: string = getDexterDir()) {}
 
   getMemoryDir(): string {
     return join(this.baseDir, MEMORY_DIRNAME);
