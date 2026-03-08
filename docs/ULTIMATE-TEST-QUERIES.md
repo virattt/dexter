@@ -25,12 +25,13 @@ The ultimate test for Dexter: (1) suggest a portfolio aligned with SOUL.md, and 
 
 ```
 Suggest a near-perfect portfolio for me based on your Identity (SOUL.md). Include:
-- 8–12 positions across the AI infrastructure supply chain (layers 1–7)
+- 10–20 positions across the AI infrastructure supply chain (layers 1–7)
 - Layer allocation (chip designers, foundry, equipment, EDA, power, memory, networking)
 - Conviction tiering (Core Compounders dominate; Cyclical Beneficiaries add exposure; Speculative Optionality sized small)
 - Target weights and rationale for each position
 - Regime awareness: any sizing adjustments given current macro (Burry danger signal, etc.)
 - Save it to ~/.dexter/PORTFOLIO.md using the portfolio tool
+- **"Not in the portfolio — and why"**: list thesis-universe names that were considered but excluded, with a one-line reason for each
 ```
 
 **Expected behavior:** Agent reads SOUL.md, uses financial_search for current prices/context, outputs a structured portfolio table, and **calls the portfolio tool to save it automatically** (no copy-paste required).
@@ -68,7 +69,7 @@ Output:
 **Copy-paste into the Dexter terminal:**
 
 ```
-1. Suggest a near-perfect portfolio (8–12 positions) based on SOUL.md. Output the table.
+1. Suggest a near-perfect portfolio (10–20 positions) based on SOUL.md. Output the table, plus a "Not in the portfolio — and why" section.
 2. Using that suggested portfolio, compute hypothetical weekly performance: fetch 7-day price changes for each ticker plus BTC-USD, GLD, and SPY. Show weighted portfolio return vs each benchmark. This is a backtest of your suggestion — did it beat BTC, Gold, and the S&P 500 over the past week?
 ```
 
@@ -156,12 +157,13 @@ Voice: structural, precise numbers, no hype (VOICE.md). Output markdown.
 
 ```
 Suggest a Hyperliquid portfolio for me — only tickers available on HIP-3 (on-chain stocks, indices, commodities). Use docs/HYPERLIQUID-SYMBOL-MAP.md for the HL→FD ticker mapping. Include:
-- 8–12 positions from the HL universe (stocks like NVDA/PLTR, commodities via ETFs like GLD/SLV/USO, indices via proxies like SPY/SMH)
+- 10–20 positions from the HL universe (stocks like NVDA/PLTR, commodities via ETFs like GLD/SLV/USO, indices via proxies like SPY/SMH)
 - Size by thesis conviction, not by volume (volume matters for execution quality, not allocation weights)
 - Table format: Ticker | Weight | Category | Notes (so the file is valid for rebalance and performance tracking)
 - Exclude pre-IPO (OPENAI, SPACEX, ANTHROPIC) — no FD price data for benchmarking
 - Target weights and brief rationale
 - Save to ~/.dexter/PORTFOLIO-HYPERLIQUID.md using the portfolio tool with portfolio_id=hyperliquid
+- **"Not in the portfolio — and why"**: list HIP-3-eligible names from the thesis universe that were considered but excluded, with a one-line reason for each
 ```
 
 **Expected behavior:** Agent uses the symbol map, sizes by thesis conviction (not volume), suggests an on-chain-only allocation in the required table format (no pre-IPO), and **calls portfolio with portfolio_id=hyperliquid** to save automatically.
