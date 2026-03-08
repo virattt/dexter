@@ -16,8 +16,10 @@ import {
 import {
   availableBuyingPowerFromBalances,
   computePortfolioFit,
+  filterOutHyperliquidTickers,
   getFirstAccountNumber,
   hasEarningsInWindow,
+  isTickerTradableOnHyperliquid,
   loadSoulPortfolioContext,
   loadThetaPolicy,
   normalizePositions,
@@ -144,6 +146,9 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
         ?.split(',')
         .map((item) => item.trim().toUpperCase())
         .filter(Boolean) ?? policy.allowedUnderlyings;
+
+    const excludedByHlOverlap = underlyings.filter((u) => isTickerTradableOnHyperliquid(u));
+    underlyings = filterOutHyperliquidTickers(underlyings);
 
     const excludeEarnings =
       input.exclude_earnings ?? (policy.excludeEarningsDays > 0);
@@ -306,7 +311,12 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
         };
       });
 
-      const excludedByPolicy: Array<{ underlying: string; strategy_type: string; reason_bucket: string; reason_detail: string }> = [];
+      const excludedByPolicy: Array<{ underlying: string; strategy_type: string; reason_bucket: string; reason_detail: string }> = excludedByHlOverlap.map((u) => ({
+        underlying: u,
+        strategy_type: input.strategy_type,
+        reason_bucket: 'hl_overlap',
+        reason_detail: 'Ticker is tradable on Hyperliquid; tastytrade sleeve has zero overlap with HL.',
+      }));
       const compliant = withFit.filter((c) => {
         const policyViolation = !c.policy_ok;
         const fitBlock = c.portfolio_fit?.result === 'block';
@@ -347,18 +357,22 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
           no_candidates: true,
           setup_required: false,
           policy,
-          excluded_by_earnings: excludedByEarnings,
-          excluded_by_policy: excludedByPolicy,
-          total_scanned: allCandidates.length,
+        excluded_by_earnings: excludedByEarnings,
+        excluded_by_policy: excludedByPolicy.length > 0 ? excludedByPolicy : undefined,
+        excluded_by_hl_overlap: excludedByHlOverlap.length > 0 ? excludedByHlOverlap : undefined,
+        total_scanned: allCandidates.length,
           total_equity: totalEquity,
           buying_power: buyingPower,
           candidates: [],
           next_steps: [
+            excludedByHlOverlap.length > 0
+              ? `${excludedByHlOverlap.length} underlying(s) were excluded (tradable on Hyperliquid; tastytrade has zero overlap with HL). Use only non-HL underlyings.`
+              : null,
             excludedByPolicy.length > 0
               ? `All candidates were excluded by policy or portfolio-fit (${excludedByPolicy.length} total). Relax THETA-POLICY (DTE/delta/risk caps) or PORTFOLIO.md targets, or choose different underlyings.`
               : 'No candidates matched filters. Try widening DTE/delta range or min_credit in the scan.',
             'Run /theta-policy to review or adjust THETA-POLICY.md defaults.',
-          ],
+          ].filter(Boolean),
           notes: [
             'Policy mode is hard_block: only policy-compliant candidates with portfolio_fit pass are returned.',
             earningsExclusionDegraded
@@ -379,11 +393,15 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
         soul_portfolio_checked: soulPortfolio.soulCoreOrAvoidTickers.length > 0 || soulPortfolio.portfolioTargetWeightByTicker.size > 0,
         excluded_by_earnings: excludedByEarnings,
         excluded_by_policy: excludedByPolicy.length > 0 ? excludedByPolicy : undefined,
+        excluded_by_hl_overlap: excludedByHlOverlap.length > 0 ? excludedByHlOverlap : undefined,
         earnings_exclusion_degraded: earningsExclusionDegraded ? true : undefined,
         total_equity: totalEquity,
         buying_power: buyingPower,
         candidates: finalCandidates,
         notes: [
+          excludedByHlOverlap.length > 0
+            ? `Zero-overlap with Hyperliquid: ${excludedByHlOverlap.length} underlying(s) excluded (${excludedByHlOverlap.join(', ')}). Tastytrade sleeve is for non-HL assets only.`
+            : null,
           hasThetaPolicyFile
             ? 'THETA-POLICY.md is present and its defaults were applied unless you overrode them in the tool input.'
             : 'THETA-POLICY.md is missing, so conservative defaults were used. Run /theta-policy to create one.',

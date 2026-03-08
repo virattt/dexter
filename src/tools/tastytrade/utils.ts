@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import { tastytradeRequest } from './api.js';
 import { getPositions, getBalances } from './api.js';
 import { writePortfolioContent } from '../portfolio/portfolio-tool.js';
+import { isKnownHLSymbol } from '../hyperliquid/hl-fd-mapping.js';
 
 const DEXTER_DIR = join(homedir(), '.dexter');
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -119,6 +120,9 @@ export function validateOrderAgainstPolicy(params: {
   for (const u of underlyings) {
     if (u === '—') continue;
     const up = u.toUpperCase();
+    if (isTickerTradableOnHyperliquid(u)) {
+      violations.push(`${u} is tradable on Hyperliquid; tastytrade sleeve must have zero overlap with HL.`);
+    }
     if (!allowedSet.has(up)) {
       violations.push(`Underlying ${u} is not in THETA-POLICY allowed underlyings.`);
     }
@@ -214,6 +218,38 @@ export function normalizeUnderlyingTicker(symbol: string): string {
   const spaced = s.split(/\s+/)[0];
   if (spaced) return spaced.toUpperCase();
   return s.toUpperCase();
+}
+
+/** Policy violation reason when an underlying is tradable on Hyperliquid (zero-overlap rule). */
+export const HL_OVERLAP_VIOLATION_REASON = 'hl_overlap_universe' as const;
+
+/**
+ * True if the ticker (normalized) is tradable on Hyperliquid.
+ * Used to enforce zero overlap: tastytrade sleeve must not contain HL-tradable assets.
+ */
+export function isTickerTradableOnHyperliquid(ticker: string): boolean {
+  const normalized = normalizeUnderlyingTicker(ticker);
+  if (normalized === '—') return false;
+  return isKnownHLSymbol(normalized);
+}
+
+/**
+ * Check whether a ticker violates the zero-overlap rule (tastytrade vs Hyperliquid).
+ * Returns { overlap: true, reason: 'hl_overlap_universe' } when the ticker is tradable on HL.
+ */
+export function checkHyperliquidOverlap(ticker: string): { overlap: boolean; reason?: string } {
+  if (isTickerTradableOnHyperliquid(ticker)) {
+    return { overlap: true, reason: HL_OVERLAP_VIOLATION_REASON };
+  }
+  return { overlap: false };
+}
+
+/**
+ * Filter a list of underlyings to only those not tradable on Hyperliquid.
+ * Used for theta policy defaults and scan universe.
+ */
+export function filterOutHyperliquidTickers(tickers: string[]): string[] {
+  return tickers.filter((t) => !isTickerTradableOnHyperliquid(t));
 }
 
 export function parseOptionSymbol(symbol: string): NormalizedOptionSymbol {
@@ -339,41 +375,17 @@ export function availableBuyingPowerFromBalances(data: unknown): number {
 
 export function loadThetaPolicy(): ThetaPolicy {
   // Fallback defaults when no ~/.dexter/THETA-POLICY.md is present.
-  // Underlyings are drawn from SOUL.md thesis names with liquid US equity options on tastytrade:
-  //   Layer 1 (Chip): AAPL, AMD, AVGO
-  //   Layer 2 (Foundry): TSM
-  //   Layer 3 (Equipment): AMAT, ASML, LRCX, KLAC
-  //   Layer 5 (Power/Infra): VRT, CEG
-  //   Layer 6 (Memory): MU
-  //   Layer 7 (Networking): ANET
-  //   Cyclical/Adjacent (liquid options): PLTR, MSFT, AMZN, META, COIN
-  // NOT included: SPX/SPY/QQQ/IWM (indices — user can add via THETA-POLICY.md if wanted)
-  // NOT included: HYPE/SOL/NEAR/SUI/ETH (crypto only on tastytrade)
-  // NOT included: BESI/BESIY, TEL/TOELY (ADRs with thin option markets)
-  // NOT included: NVDA/MSTR (SOUL "Avoid/Too Crowded" tier — high consensus, thin edge)
-  //
-  // No-call list: SOUL Core Compounders — durable bottleneck names we hold long-term;
-  //   covered calls are blocked to avoid having them called away.
-  //   Puts and spreads are still allowed.
+  // Underlyings are SOUL thesis names with liquid US equity options on tastytrade,
+  // excluding any symbol tradable on Hyperliquid (zero-overlap rule).
+  // HL-tradable names (AAPL, AMD, MU, PLTR, MSFT, AMZN, META, COIN, etc.) are excluded.
+  const allowedCandidates = [
+    'AAPL', 'AMD', 'AVGO', 'TSM', 'AMAT', 'ASML', 'LRCX', 'KLAC',
+    'VRT', 'CEG', 'MU', 'ANET', 'PLTR', 'MSFT', 'AMZN', 'META', 'COIN',
+  ];
   const defaults: ThetaPolicy = {
     source: 'default',
     path: THETA_POLICY_PATH,
-    allowedUnderlyings: [
-      // Layer 1 — Chip Designers (liquid options, SOUL thesis)
-      'AAPL', 'AMD', 'AVGO',
-      // Layer 2 — Foundry
-      'TSM',
-      // Layer 3 — Equipment & Materials
-      'AMAT', 'ASML', 'LRCX', 'KLAC',
-      // Layer 5 — Power & Infrastructure
-      'VRT', 'CEG',
-      // Layer 6 — Memory
-      'MU',
-      // Layer 7 — Networking
-      'ANET',
-      // Cyclical / Adjacent watchlist (liquid options, thesis-adjacent)
-      'PLTR', 'MSFT', 'AMZN', 'META', 'COIN',
-    ],
+    allowedUnderlyings: filterOutHyperliquidTickers(allowedCandidates),
     // Core Compounders from SOUL.md: block covered calls so they can't be called away.
     // Puts and spreads remain valid for entering/sizing positions.
     noCallList: ['TSM', 'ASML', 'AMAT', 'LRCX', 'KLAC', 'SNPS', 'CDNS', 'ANET', 'CEG'],

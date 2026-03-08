@@ -259,13 +259,13 @@ export async function runCli() {
   };
 
   const QUERY_SHORTCUTS: Record<string, string> = {
-    '/suggest': `Suggest a near-perfect portfolio for me based on your Identity (SOUL.md). Include:
-- 8–12 positions across the AI infrastructure supply chain (layers 1–7)
-- Layer allocation (chip designers, foundry, equipment, EDA, power, memory, networking)
-- Conviction tiering (Core Compounders dominate; Cyclical Beneficiaries add exposure; Speculative Optionality sized small)
-- Target weights and rationale for each position
-- Regime awareness: any sizing adjustments given current macro (Burry danger signal, etc.)
-- Save it to ~/.dexter/PORTFOLIO.md using the portfolio tool`,
+    '/suggest': `Suggest and save TWO portfolios based on your Identity (SOUL.md). Use two portfolios — zero overlap.
+
+1. **Tastytrade sleeve** (portfolio_id=default): Only tickers NOT on Hyperliquid — e.g. TSM, AMAT, ASML, LRCX, KLAC, VRT, CEG, MU, ANET (SOUL layers 1–7). 6–10 positions, target weights, layer/tier. Save to ~/.dexter/PORTFOLIO.md with portfolio tool, action=update, portfolio_id=default.
+
+2. **Hyperliquid sleeve** (portfolio_id=hyperliquid): Only tickers on HIP-3 — BTC, SOL, SUI, NEAR, ETH, HYPE, on-chain stocks (e.g. NVDA, PLTR, AAPL, MSFT). 6–10 positions, target weights. Save to ~/.dexter/PORTFOLIO-HYPERLIQUID.md with portfolio tool, action=update, portfolio_id=hyperliquid.
+
+Include conviction tiering, regime awareness, and rationale. Call the portfolio tool twice to save both files.`,
     '/weekly': `Write a weekly performance report for my portfolio. Use ~/.dexter/PORTFOLIO.md for my holdings (or the portfolio you suggested last time). For each position, fetch the price change over the past 7 days (start_date and end_date). Also fetch the 7-day performance for:
 - BTC-USD (Bitcoin)
 - GLD (Gold ETF)

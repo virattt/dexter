@@ -13,7 +13,7 @@ Dexter is integrated with the **tastytrade API** for real-time portfolio sync, a
 
 **What's shipped:**
 - **Read live positions and balances** — Compare actual tastytrade holdings to target portfolio (SOUL.md thesis)
-- **Sync portfolio** — Update `~/.dexter/PORTFOLIO.md` from broker positions with Target/Actual/Gap columns
+- **Sync portfolio** — Update `~/.dexter/PORTFOLIO.md` from broker positions with Target/Actual/Gap columns. **Zero overlap with Hyperliquid:** The tastytrade sleeve manages only assets not tradable on HL; HL-tradable symbols are excluded from sync and hard-blocked in scan/preview/submit (see [TASTYTRADE.md §1.5](TASTYTRADE.md#15-venue-split-zero-overlap-with-hyperliquid)).
 - **Option chain and market data** — Supplement Financial Datasets with tastytrade-specific data (options, quotes)
 - **Order flow** — Dry-run, submit, cancel orders (Phase 3, user-controlled, `TASTYTRADE_ORDER_ENABLED=true`)
 - **Portfolio-aware theta engine** — Position risk enrichment, SOUL-aligned theta scan, strategy preview, roll/repair (Phase 5)

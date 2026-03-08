@@ -3,7 +3,15 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { getFirstAccountNumber, normalizePositions, totalEquityFromBalances, getCachedPositions, getCachedBalances, ensureSessionSync } from './utils.js';
+import {
+  getFirstAccountNumber,
+  normalizePositions,
+  totalEquityFromBalances,
+  getCachedPositions,
+  getCachedBalances,
+  ensureSessionSync,
+  isTickerTradableOnHyperliquid,
+} from './utils.js';
 import { getPortfolioPath, writePortfolioContent } from '../portfolio/portfolio-tool.js';
 
 const PORTFOLIO_MD_PATH = join(homedir(), '.dexter', 'PORTFOLIO.md');
@@ -73,8 +81,13 @@ export const tastytradeSyncPortfolioTool = new DynamicStructuredTool({
     }
 
     const existing = readExistingTargetsAndMeta();
+    const excludedByHlOverlap: string[] = [];
     const rows: { ticker: string; actual: number; target: number; gap: number; layer: string; tier: string; quantity: number; value: number }[] = [];
     for (const [ticker, { quantity, value }] of byTicker.entries()) {
+      if (isTickerTradableOnHyperliquid(ticker)) {
+        excludedByHlOverlap.push(ticker);
+        continue;
+      }
       const actual = totalEquity > 0 ? (value / totalEquity) * 100 : 0;
       const meta = existing.get(ticker) ?? { target: 0, layer: '—', tier: '—' };
       const target = meta.target;
@@ -110,6 +123,7 @@ export const tastytradeSyncPortfolioTool = new DynamicStructuredTool({
       total_equity: totalEquity,
       position_count: positions.length,
       ticker_count: rows.length,
+      excluded_by_hl_overlap: excludedByHlOverlap.length > 0 ? excludedByHlOverlap : undefined,
       markdown,
       written_to_file: input.write_to_portfolio ? getPortfolioPath('default') : null,
     });

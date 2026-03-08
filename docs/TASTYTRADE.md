@@ -63,6 +63,17 @@ With this set, the heartbeat will call `tastytrade_positions` and `tastytrade_ba
 
 The heartbeat does **not** place or cancel orders; it only produces alerts so you can act in the app or in a later chat.
 
+### 1.5 Venue split (zero overlap with Hyperliquid)
+
+The tastytrade sleeve has **zero overlap** with the Hyperliquid tradable universe. Any symbol that is tradable on Hyperliquid (e.g. AAPL, MSFT, AMZN, META, COIN, BTC, SOL, SUI, NEAR) is **hard-blocked** from:
+
+- `tastytrade_theta_scan` (excluded from candidates; listed in `excluded_by_hl_overlap`)
+- `tastytrade_strategy_preview`, `tastytrade_roll_short_option`, `tastytrade_repair_position` (policy violation; no preview/submit)
+- `tastytrade_submit_order` (re-check before submit; order rejected if underlying is HL-tradable)
+- `tastytrade_sync_portfolio` (HL-tradable positions are excluded from the written PORTFOLIO.md; reported in `excluded_by_hl_overlap`)
+
+PORTFOLIO.md (default portfolio) must not contain HL-tradable tickers; use PORTFOLIO-HYPERLIQUID.md for those. The portfolio tool and `validate-portfolio` enforce this. See [THETA-POLICY.md](THETA-POLICY.md#venue-split-zero-overlap-with-hyperliquid) and [PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md](PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md).
+
 ---
 
 ## 2. Tools Reference
@@ -159,10 +170,12 @@ Max buying power usage: 50%
 Exclude earnings days: 2
 ```
 
-**Why not NVDA, MSTR, SPX/SPY/QQQ?**
+**Why not NVDA, MSTR, SPX/SPY/QQQ?**  
+**Why not AAPL, MSFT, AMZN, META, COIN, etc.?**
 
 | Excluded | Reason |
 |----------|--------|
+| AAPL, AMD, AVGO, PLTR, MSFT, AMZN, META, COIN, BTC, SOL, SUI, NEAR, … | **Hyperliquid-tradable** — zero-overlap policy; tastytrade sleeve is for non-HL assets only. Use PORTFOLIO-HYPERLIQUID.md and HL tools for these. |
 | NVDA | SOUL "Avoid/Too Crowded" — thin edge for new positions |
 | MSTR | SOUL "Avoid" — financial engineering, no durable bottleneck |
 | SPX, SPY, QQQ, IWM | Generic indices — not in the thesis; add manually if you want index theta |

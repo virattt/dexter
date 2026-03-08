@@ -16,7 +16,7 @@ tastytrade (formerly tastyworks) is a retail broker API for options, stocks, fut
 | `read_only` | accounts, positions, balances, option_chain, quote, symbol_search, sync_portfolio, position_risk, theta_scan, strategy_preview, order_dry_run, roll_short_option, repair_position, transactions, earnings_calendar, watchlist, risk_metrics |
 | `trading_enabled` | All above + live_orders, submit_order, cancel_order (requires `TASTYTRADE_ORDER_ENABLED=true` + explicit user confirmation) |
 
-Dry-run and preview are available in read-only. Submit/cancel require explicit enablement and user approval.
+Dry-run and preview are available in read-only. Submit/cancel require explicit enablement and user approval. **Venue split:** Tastytrade is the non-Hyperliquid sleeve; symbols tradable on HL are hard-blocked (scan/preview/submit/sync). See [TASTYTRADE.md §1.5](TASTYTRADE.md#15-venue-split-zero-overlap-with-hyperliquid).
 
 ### Design
 

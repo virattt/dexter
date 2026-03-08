@@ -10,6 +10,12 @@ Dexter reads this file when scanning or previewing theta trades so options remai
 
 ---
 
+## Venue split (zero overlap with Hyperliquid)
+
+The tastytrade sleeve manages **only** assets that are **not** tradable on Hyperliquid. If a symbol is tradable on Hyperliquid (e.g. AAPL, MSFT, AMZN, META, COIN, BTC, SOL, SUI, NEAR), it is **hard-blocked** from tastytrade theta scan, preview, roll, repair, and order submission. Those names belong in the on-chain portfolio (PORTFOLIO-HYPERLIQUID.md) and HL tools. Dexter filters allowed underlyings so that HL-tradable names never appear in theta scan results or in the tastytrade-managed PORTFOLIO.md. See [TASTYTRADE.md](TASTYTRADE.md#venue-split-zero-overlap-with-hyperliquid) for details.
+
+---
+
 ## Suggested format
 
 Underlyings must be **SOUL.md thesis names with liquid US equity options on tastytrade** — not generic indices. The scan focuses on the AI infrastructure supply chain: equipment, foundry, chip designers, power/infra, memory, networking, and thesis-adjacent cyclicals. Add indices (SPX, SPY, QQQ) only if you specifically want index premium.

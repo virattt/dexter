@@ -1,6 +1,9 @@
 # THETA POLICY
 
 # Allowed underlyings — SOUL.md thesis names with liquid US equity options on tastytrade.
+# IMPORTANT: Tastytrade is the non-Hyperliquid sleeve. Do NOT list symbols that are tradable on
+# Hyperliquid (e.g. AAPL, MSFT, AMZN, META, COIN, BTC, SOL) — they are blocked by policy.
+# Use only names that are NOT in the HL universe (e.g. TSM, AMAT, ASML, LRCX, KLAC, VRT, CEG, MU, ANET).
 # Do NOT add SPX/SPY/QQQ/IWM unless you specifically want index premium; the thesis focus is
 # the AI infrastructure supply chain. Add or remove names to match what you actually hold
 # or are willing to own via put assignment.
@@ -13,7 +16,8 @@
 # Layer 7 — Networking:          ANET
 # Cyclical/Adjacent (liquid):    PLTR, MSFT, AMZN, META, COIN
 # Speculative (add only if you hold these):  CRWV, IREN, SMCI, DELL, INTC
-Allowed underlyings: AAPL, AMD, AVGO, TSM, AMAT, ASML, LRCX, KLAC, VRT, CEG, MU, ANET, PLTR, MSFT, AMZN, META, COIN
+# (HL-tradable names like AAPL, AMD, PLTR, MSFT, AMZN, META, COIN are auto-excluded by Dexter.)
+Allowed underlyings: TSM, AMAT, ASML, LRCX, KLAC, VRT, CEG, MU, ANET
 
 # No-call list — SOUL Core Compounders you want to hold long-term.
 # Covered-call suggestions are hard-blocked on these (no getting called away).
@@ -41,6 +45,7 @@ Exclude earnings days: 2
 
 | Ticker | Reason excluded from defaults |
 |--------|-------------------------------|
+| AAPL, AMD, AVGO, PLTR, MSFT, AMZN, META, COIN, BTC, SOL, etc. | **Hyperliquid-tradable** — tastytrade sleeve has zero overlap with HL; these are hard-blocked in scan/preview/submit and belong in PORTFOLIO-HYPERLIQUID.md |
 | SPX, SPY, QQQ, IWM | Index indices — not in the SOUL thesis; add manually if wanted |
 | NVDA | SOUL "Avoid/Too Crowded" — consensus expression of AI thesis, thin edge for new positions |
 | MSTR | SOUL "Avoid" — financial engineering, no durable bottleneck |

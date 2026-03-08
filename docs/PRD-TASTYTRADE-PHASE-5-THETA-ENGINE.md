@@ -19,6 +19,7 @@ Phase 5 is the **decision engine** layer for options on top of tastytrade connec
 - **Strategy preview** — Generate a full trade memo (thesis, legs, risk, exit plan) and dry-run before any submission.
 - **Roll/repair workflows** — Support "repair a challenged short option" and "roll or take assignment" decisions.
 - **SOUL-aligned policy layer** — Every recommendation checked against THETA-POLICY.md (SOUL.md thesis underlyings, Core Compounder no-call list, concentration caps) so options stay subordinate to the Portfolio Builder north star.
+- **Zero overlap with Hyperliquid** — The tastytrade sleeve is for non-HL assets only. Any symbol tradable on Hyperliquid (e.g. AAPL, MSFT, AMZN, META, COIN, BTC, SOL) is hard-blocked in theta scan, preview, roll, repair, and submit; such names appear in `excluded_by_hl_overlap` / policy violations and belong in PORTFOLIO-HYPERLIQUID.md. See [THETA-POLICY.md § Venue split](THETA-POLICY.md#venue-split-zero-overlap-with-hyperliquid) and [TASTYTRADE.md §1.5](TASTYTRADE.md#15-venue-split-zero-overlap-with-hyperliquid).
 
 ---
 

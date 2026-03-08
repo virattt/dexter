@@ -1,11 +1,14 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  checkHyperliquidOverlap,
   computePortfolioFit,
   extractDataArray,
   extractFirstObject,
   extractNumber,
+  filterOutHyperliquidTickers,
   getUpcomingEarningsDates,
   hasEarningsInWindow,
+  isTickerTradableOnHyperliquid,
   loadThetaPolicy,
   loadSoulPortfolioContext,
   normalizeUnderlyingTicker,
@@ -222,6 +225,47 @@ describe('tastytrade utils', () => {
       });
       expect(result.allowed).toBe(false);
       expect(result.violations.some((v) => v.includes('not in THETA-POLICY'))).toBe(true);
+    });
+    test('returns violation when underlying is tradable on Hyperliquid', () => {
+      const policy = loadThetaPolicy();
+      const result = validateOrderAgainstPolicy({
+        underlyings: ['AAPL'],
+        legs: [{ underlying: 'AAPL', option_type: 'P', action: 'Sell to Open', dte: 14 }],
+        policy,
+      });
+      expect(result.allowed).toBe(false);
+      expect(result.violations.some((v) => v.includes('Hyperliquid') || v.includes('zero overlap'))).toBe(true);
+    });
+  });
+
+  describe('Hyperliquid overlap helpers', () => {
+    test('isTickerTradableOnHyperliquid returns true for HL symbols', () => {
+      expect(isTickerTradableOnHyperliquid('AAPL')).toBe(true);
+      expect(isTickerTradableOnHyperliquid('BTC')).toBe(true);
+      expect(isTickerTradableOnHyperliquid('  msft  ')).toBe(true);
+    });
+    test('isTickerTradableOnHyperliquid returns false for non-HL symbols', () => {
+      expect(isTickerTradableOnHyperliquid('TSM')).toBe(false);
+      expect(isTickerTradableOnHyperliquid('UNKNOWNXYZ')).toBe(false);
+    });
+    test('checkHyperliquidOverlap returns overlap and reason for HL ticker', () => {
+      const out = checkHyperliquidOverlap('AAPL');
+      expect(out.overlap).toBe(true);
+      expect(out.reason).toBe('hl_overlap_universe');
+    });
+    test('checkHyperliquidOverlap returns no overlap for non-HL ticker', () => {
+      const out = checkHyperliquidOverlap('TSM');
+      expect(out.overlap).toBe(false);
+      expect(out.reason).toBeUndefined();
+    });
+    test('filterOutHyperliquidTickers removes HL symbols', () => {
+      const list = ['TSM', 'AAPL', 'AMAT', 'MSFT', 'KLAC'];
+      const filtered = filterOutHyperliquidTickers(list);
+      expect(filtered).toContain('TSM');
+      expect(filtered).toContain('AMAT');
+      expect(filtered).toContain('KLAC');
+      expect(filtered).not.toContain('AAPL');
+      expect(filtered).not.toContain('MSFT');
     });
   });
 });

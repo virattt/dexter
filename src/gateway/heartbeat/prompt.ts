@@ -232,6 +232,7 @@ ${tastytradeSection}
 
 ## Instructions
 - Use your tools to check each item on the checklist
+- **Cross-venue overlap:** PORTFOLIO.md (tastytrade sleeve) must have zero overlap with the Hyperliquid tradable universe. If PORTFOLIO.md contains any ticker tradable on Hyperliquid (e.g. AAPL, MSFT, AMZN, META, COIN, BTC, SOL, ETH, SUI, NEAR), report it as a policy violation and recommend moving those to PORTFOLIO-HYPERLIQUID.md. Flag any such contamination in your alert.
 - When it's Monday, run the weekly rebalance check (compare portfolio to target from Identity)
 - When it's the first week of a quarter, write the quarterly performance report
 - If you find something noteworthy, write a concise alert (or full report for quarterly)

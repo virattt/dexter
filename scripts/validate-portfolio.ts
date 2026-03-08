@@ -45,6 +45,13 @@ function main(): void {
     const content = readFileSync(PORTFOLIO_PATH, 'utf-8');
     const positions = parsePortfolio(content);
     errors.push(...validatePositions(positions, PORTFOLIO_PATH));
+    const hlOverlap = positions.filter((p) => KNOWN_HL_SYMBOLS.has(p.ticker.trim().toUpperCase()));
+    if (hlOverlap.length > 0) {
+      const tickers = hlOverlap.map((p) => p.ticker).join(', ');
+      errors.push(
+        `${PORTFOLIO_PATH}: Tastytrade sleeve must have zero overlap with Hyperliquid. Remove or move these HL-tradable symbols to PORTFOLIO-HYPERLIQUID.md: ${tickers}`
+      );
+    }
   } else {
     console.log('[validate] No PORTFOLIO.md found. Skipping.');
   }

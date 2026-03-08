@@ -57,9 +57,18 @@ export class IntroComponent extends Container {
     this.addChild(this.modelText);
     this.addChild(
       new Text(
-        `${theme.muted('Try: ')}${theme.primary('/theta-policy')}${theme.muted(', ')}${theme.primary(
-          '/theta-help',
-        )}${theme.muted(', or ')}${theme.primary('/theta-scan')}`,
+        `${theme.muted('Try: ')}${theme.primary('/suggest')}${theme.muted(' (portfolio) · ')}${theme.primary(
+          '/suggest-hl',
+        )}${theme.muted(' (on-chain) · ')}${theme.primary('/theta-scan')}${theme.muted(' (theta)')}`,
+        0,
+        0,
+      ),
+    );
+    this.addChild(
+      new Text(
+        `${theme.muted('Or: ')}${theme.primary('/weekly')}${theme.muted(' (rebalance) · ')}${theme.primary(
+          '/theta-policy',
+        )}${theme.muted(' · ')}${theme.primary('/theta-help')}`,
         0,
         0,
       ),
