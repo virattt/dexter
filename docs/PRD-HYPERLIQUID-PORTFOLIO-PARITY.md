@@ -77,6 +77,10 @@ Define the **target** allocation for the Hyperliquid portfolio. Without this, th
 
 **Recommendation:** Start with a section in `HEARTBEAT.example.md` and `~/.dexter/HEARTBEAT.md`. Copy-paste template for "HIP-3 target allocation". Agent reads it when PORTFOLIO-HYPERLIQUID.md exists.
 
+**Live sync (Phase 9):** When `HYPERLIQUID_ACCOUNT_ADDRESS` is set, the agent should prefer calling `hyperliquid_sync_portfolio` with `write_to_file=true` before rebalance_check or quarterly_summary so operations use current on-chain holdings; otherwise the agent uses the existing PORTFOLIO-HYPERLIQUID.md file (markdown fallback).
+
+**Canonical code-parsed format (Phase 8):** For deterministic rebalance, use a table with columns `Ticker | TargetMin | TargetMax | Category | Notes` (one row per ticker; percentages as numbers). See `docs/HEARTBEAT.example.md` and `docs/SOUL-HL.example.md`. The `hyperliquid_portfolio_ops` tool parses this section to compute drift and concentration alerts.
+
 ---
 
 ## 4. Weekly Rebalancing (HL)

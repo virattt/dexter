@@ -42,6 +42,7 @@ Dexter's **north star** is the **Portfolio Builder** — building and maintainin
 - **Brand voice** — `VOICE.md` injects ikigaistudio tone into every response
 - **Safety guards** — loop detection and step limits prevent runaway execution
 - **tastytrade integration** — read live positions and balances; option chains and quotes; sync portfolio from broker to PORTFOLIO.md; optional heartbeat drift check (compare broker to target); opt-in order flow (dry-run, submit, cancel); Phase 5 theta engine (position risk, theta scan, strategy preview, roll/repair).
+- **Hyperliquid (Phases 6–10)** — full on-chain HIP-3 stack: HL-native prices and liquidity ranking; period returns (hl_basket + portfolio_hl); deterministic rebalance/report ops; live account sync (positions → PORTFOLIO-HYPERLIQUID.md); execution planning (order preview, market resolver, policy); opt-in signed execution (submit, cancel, live orders) with approval and reconciliation.
 
 ---
 
@@ -62,6 +63,7 @@ This fork extends [virattt/dexter](https://github.com/virattt/dexter) with a spe
 | **Startup stack** | PRD for moving from MVP to startup: Wyoming LLC, custody, tokenized equity, USDC on Base (doola, Coinbase, Fairmint). | Collapses entity formation, compliance, and settlement into something a solo founder can access. See [PRD-STARTUP-STACK.md](docs/PRD-STARTUP-STACK.md). |
 | **External research** | Documented references for AI monetary preferences, crypto tax by jurisdiction, back-office tools, Web3 entity formation. | Informs thesis (BTC preference in AI agents), entity planning (tax efficiency), and startup infra. See [EXTERNAL-RESOURCES.md](docs/EXTERNAL-RESOURCES.md). |
 | **tastytrade** | OAuth2 tools: accounts, balances, positions; option chains, quotes, symbol search; `tastytrade_sync_portfolio`; `tastytrade_position_risk`; `tastytrade_theta_scan`; `tastytrade_strategy_preview`; `tastytrade_roll_short_option`; `tastytrade_repair_position`; optional heartbeat drift; opt-in order flow. Credentials in `~/.dexter/tastytrade-credentials.json`. | **Why:** Manual PORTFOLIO.md is static. Live broker data lets Dexter compare actual holdings to thesis, sync portfolio from tastytrade, and power theta/options workflows. **Unlocks:** 0DTE scanners, iron condors, weekly theta income, IV crush plays, challenged-position repair, and roll workflows — agent sees your real positions and cash, then can scan, preview, and only then submit trades. See [PRD-TASTYTRADE-INTEGRATION.md](docs/PRD-TASTYTRADE-INTEGRATION.md), [PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md](docs/PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md), [DATA-API-TASTYTRADE.md](docs/DATA-API-TASTYTRADE.md), [TASTYTRADE-SYMBOLOGY.md](docs/TASTYTRADE-SYMBOLOGY.md), [THETA-POLICY.md](docs/THETA-POLICY.md). |
+| **Hyperliquid (Phases 6–10)** | **Phase 6:** HL API client; `hyperliquid_prices` (HIP-3 + pre-IPO); `hyperliquid_liquidity` (24h volume ranking). **Phase 7:** `hyperliquid_performance` (hl_basket + portfolio_hl for period → performance_history). **Phase 8:** `hyperliquid_portfolio_ops` (rebalance_check, quarterly_summary, validate_target); parse HIP-3 Target from HEARTBEAT.md; drift, alerts, trim/add. **Phase 9:** Read-only account client; `hyperliquid_positions`; `hyperliquid_sync_portfolio` (live → PORTFOLIO-HYPERLIQUID.md); `aum_hl` in fund-config; live-first heartbeat. **Phase 9b:** Execution intent model; market resolver; `hyperliquid_order_preview`; HL execution policy (~/.dexter/hl-execution-policy.json); preview-first UX (heartbeat never submits). **Phase 10:** Authenticated execution client; `hyperliquid_live_orders`, `hyperliquid_submit_order`, `hyperliquid_cancel_order` (gated by HYPERLIQUID_ORDER_ENABLED + private key); runtime approval for submit/cancel; idempotent cloid; post-trade reconciliation. | **Why:** Third portfolio: 24/7 tradeable on-chain (HIP-3), no fiat conversion, tax-friendly. **Unlocks:** Suggest/save HL portfolio; weekly/quarterly HL reports; live sync from wallet; deterministic rebalance vs target; preview-only then opt-in execution with approval and reconciliation. See [PRD-HYPERLIQUID-PORTFOLIO.md](docs/PRD-HYPERLIQUID-PORTFOLIO.md), [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) (Queries 8, 8b–8e). |
 
 **Core thesis:** BTC HODL is the foundation. Diversification satellites are HYPE (onchain stocks) and SOL/NEAR/SUI/ETH (agentic web4). The AI infrastructure universe is the opportunity set. Dexter helps decide *when to diversify — and when HODLing is the right call*. We are not real estate bulls — housing collapse thesis is in SOUL.md.
 
@@ -228,6 +230,7 @@ dexter/
 │       ├── browser/    # Playwright-based scraping
 │       ├── portfolio/  # Portfolio builder tool
 │       ├── tastytrade/ # tastytrade API — accounts, balances, positions, option chains, quotes, sync portfolio, theta scan/preview/repair, optional order flow
+│       ├── hyperliquid/ # Hyperliquid (HIP-3) — prices, liquidity, performance, portfolio_ops, positions, sync, order preview, optional live execution
 │       ├── heartbeat/  # Weekly/quarterly monitoring
 │       ├── fund-config/    # AUM and inception date
 │       └── performance-history/  # Quarterly performance tracking
@@ -345,11 +348,31 @@ Use this order for a stressed or challenged position:
 
 If you want the CLI to explain this interactively, type `\/theta-help`. If you have not created `~/.dexter/THETA-POLICY.md` yet, start with `\/theta-policy`.
 
-**Hyperliquid portfolio (on-chain, HIP-3 — 24/7 tradeable, no fiat conversion):**
+### Hyperliquid: On-Chain Portfolio & Execution (Phases 6–10)
+
+Dexter ships a full Hyperliquid (HIP-3) stack — from HL-native data and deterministic ops to live account sync and optional signed execution.
+
+| Phase | What shipped |
+|-------|----------------|
+| **6a** | HL API client; `hyperliquid_prices` — HL mid/mark prices for HIP-3 symbols and pre-IPO (OPENAI, SPACEX, ANTHROPIC). |
+| **6b** | `hyperliquid_liquidity` — underlyings ranked by 24h notional volume; use when suggesting or rebalancing PORTFOLIO-HYPERLIQUID. |
+| **7** | `hyperliquid_performance` — hl_basket and portfolio_hl for a period (e.g. 2026-Q1, 7d); feed into `performance_history record_quarter`. |
+| **8** | `hyperliquid_portfolio_ops` — rebalance_check (drift, concentration alerts, trim/add); quarterly_summary; validate_target. HIP-3 Target from HEARTBEAT.md; code-backed drift and actions. |
+| **9** | Live account sync: `hyperliquid_positions`, `hyperliquid_sync_portfolio` (live holdings → PORTFOLIO-HYPERLIQUID.md). Set `HYPERLIQUID_ACCOUNT_ADDRESS`; heartbeat and ops prefer synced state. `aum_hl` in fund-config for dollar rebalance. |
+| **9b** | Execution planning: canonical intent model; market resolver (underlying → most liquid market); `hyperliquid_order_preview` (rebalance → order intents); `~/.dexter/hl-execution-policy.json`; preview-first UX — heartbeat never submits. |
+| **10** | Opt-in execution: `hyperliquid_live_orders`, `hyperliquid_submit_order`, `hyperliquid_cancel_order` (gated by `HYPERLIQUID_ORDER_ENABLED` + `HYPERLIQUID_PRIVATE_KEY`); runtime approval for submit/cancel; idempotent client order IDs; post-trade reconciliation. |
+
+**Flow:** Sync live (if configured) → `hyperliquid_portfolio_ops` rebalance_check → `hyperliquid_order_preview` → present and stop; only after explicit user confirmation (and with order execution enabled) → submit/cancel → reconcile → optional sync.
+
+**Env:** `HYPERLIQUID_ACCOUNT_ADDRESS` (live sync); optional `HYPERLIQUID_ORDER_ENABLED` and `HYPERLIQUID_PRIVATE_KEY` for execution. See [env.example](env.example) and [PRD-HYPERLIQUID-PORTFOLIO.md](docs/PRD-HYPERLIQUID-PORTFOLIO.md); [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) (Queries 8, 8b–8e); [HYPERLIQUID-SYMBOL-MAP.md](docs/HYPERLIQUID-SYMBOL-MAP.md).
+
+**Hyperliquid example queries:**
 ```
 Suggest a Hyperliquid portfolio — only tickers available on HIP-3. Save to PORTFOLIO-HYPERLIQUID.md
 What's the weekly performance of my on-chain portfolio vs SPY, GLD, BTC?
-Compare my Hyperliquid portfolio to the HL basket
+Run a rebalance check for my Hyperliquid portfolio (hyperliquid_portfolio_ops rebalance_check)
+Show my live HL positions; sync my live HL portfolio to PORTFOLIO-HYPERLIQUID.md
+Run order preview after rebalance (hyperliquid_order_preview); do not submit until I confirm
 ```
 
 **Newsletter and investor letters:**

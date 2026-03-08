@@ -168,6 +168,88 @@ Suggest a Hyperliquid portfolio for me — only tickers available on HIP-3 (on-c
 
 ---
 
+## Query 8b — HL Rebalance Check (Deterministic)
+
+**Purpose:** Run a rebalance check for the Hyperliquid portfolio vs the target in HEARTBEAT.md. Uses computed drift and concentration alerts.
+
+**Copy-paste into the Dexter terminal:**
+
+```
+Run a rebalance check for my Hyperliquid portfolio. Call hyperliquid_portfolio_ops with action=rebalance_check. Summarize the returned drift, concentration alerts, and trim/add actions. Target is in ~/.dexter/HEARTBEAT.md under "## HIP-3 Target" (Ticker | TargetMin | TargetMax | Category | Notes).
+```
+
+**Expected behavior:** Agent calls hyperliquid_portfolio_ops rebalance_check, then reports drift by ticker, any concentration alerts (current > target max + 5%), and recommended trim/add actions.
+
+---
+
+## Query 8c — Live HL Positions & Sync (Phase 9)
+
+**Purpose:** When `HYPERLIQUID_ACCOUNT_ADDRESS` is set, test live account sync and live-first rebalance/report. These queries require the env var; otherwise the agent will report that live HL tools are not available and use the markdown file.
+
+**Prerequisite:** Set `HYPERLIQUID_ACCOUNT_ADDRESS` to your wallet address (42-char hex) in `.env` or environment.
+
+### 8c.1 — Show my live HL positions
+
+```
+Show my live Hyperliquid positions. Use hyperliquid_positions to fetch current account state and list symbol, size, value, and weight for each position.
+```
+
+**Expected behavior:** Agent calls hyperliquid_positions and summarizes account value, withdrawable, and each position (symbol, size, value, weight %).
+
+### 8c.2 — Sync my live HL portfolio to markdown
+
+```
+Sync my live Hyperliquid portfolio to ~/.dexter/PORTFOLIO-HYPERLIQUID.md. Call hyperliquid_sync_portfolio with write_to_file=true so the file matches my current on-chain holdings.
+```
+
+**Expected behavior:** Agent calls hyperliquid_sync_portfolio with write_to_file=true and confirms the file was written (or reports not_configured if HYPERLIQUID_ACCOUNT_ADDRESS is not set).
+
+### 8c.3 — Run rebalance from live HL holdings
+
+```
+Run a rebalance check for my Hyperliquid portfolio using my live on-chain positions. First call hyperliquid_sync_portfolio with write_to_file=true to refresh PORTFOLIO-HYPERLIQUID.md, then call hyperliquid_portfolio_ops with action=rebalance_check. Summarize drift and trim/add actions (and dollar amounts if aum_hl is set in fund-config).
+```
+
+**Expected behavior:** Agent syncs live positions to the file, then runs rebalance_check and reports drift, alerts, and actions (with suggestedDollar when aum_hl is configured).
+
+### 8c.4 — Write quarterly HL report from live synced holdings
+
+```
+Write a quarterly performance report for my Hyperliquid portfolio using my current on-chain holdings. Call hyperliquid_sync_portfolio with write_to_file=true first, then hyperliquid_portfolio_ops with action=quarterly_summary and period=YYYY-QN. Use the returned payload with performance_history record_quarter, then write the report and save to ~/.dexter/QUARTERLY-REPORT-HL-YYYY-QN.md via save_report.
+```
+
+**Expected behavior:** Agent syncs live positions, runs quarterly_summary, records quarter, writes the report, and saves it. If live account is not configured, agent falls back to existing PORTFOLIO-HYPERLIQUID.md.
+
+---
+
+## Query 8d — HL Order Preview (Phase 9b)
+
+**Purpose:** Convert rebalance output into reviewable order intents. HL execution is **preview-first**: never auto-submit. Flow is (1) sync if configured, (2) hyperliquid_portfolio_ops rebalance_check, (3) hyperliquid_order_preview, (4) present preview and **stop** — do not call any submit/cancel tool until the user explicitly confirms.
+
+**Copy-paste into the Dexter terminal:**
+
+```
+Run a rebalance check for my Hyperliquid portfolio and show me a preview of proposed orders. First call hyperliquid_sync_portfolio with write_to_file=true if my HL account is configured, then hyperliquid_portfolio_ops with action=rebalance_check, then hyperliquid_order_preview (use aum_hl from fund-config if needed). Summarize the proposed order intents, resolved markets, and any warnings. Do not submit any orders — preview only.
+```
+
+**Expected behavior:** Agent runs sync (if configured) → portfolio_ops rebalance_check → order_preview. Presents intents (symbol, side, notional, size, marketSymbol, rationale) and warnings (unresolved, illiquid, policy). Does **not** call any HL submit or cancel tool.
+
+### Query 8e — Full HL execution loop (Phase 10; order execution enabled)
+
+**Purpose:** When `HYPERLIQUID_ORDER_ENABLED=true` and `HYPERLIQUID_PRIVATE_KEY` are set, test the full loop: preview → user confirms → submit → reconcile → sync.
+
+**Prerequisite:** Set `HYPERLIQUID_ORDER_ENABLED=true` and `HYPERLIQUID_PRIVATE_KEY` in `.env`. Use a test wallet with minimal funds.
+
+**Copy-paste (after running 8d and reviewing preview):**
+
+```
+I confirm submitting the first order from the preview you just showed. Use hyperliquid_submit_order with the intent (market_symbol, side, size, limit_px, order_type, reduce_only) and optional preview_token. After submit, run hyperliquid_live_orders and optionally hyperliquid_sync_portfolio with write_to_file=true to reconcile.
+```
+
+**Expected behavior:** Agent requests approval for hyperliquid_submit_order; after approval, submits one order, returns reconcile (open orders) and receipt; can then run live_orders and sync_portfolio.
+
+---
+
 ## Query 9 — Weekly Performance: Hyperliquid Portfolio
 
 **Purpose:** Track the Hyperliquid portfolio's weekly performance vs SPY, GLD, BTC — and optionally vs the HL basket.
@@ -223,8 +305,8 @@ Voice: structural, precise numbers, no hype (VOICE.md). Output markdown.
 **Copy-paste into the Dexter terminal:**
 
 ```
-Write a quarterly performance report for my Hyperliquid portfolio only. Use ~/.dexter/PORTFOLIO-HYPERLIQUID.md. Map HL symbols to FD tickers per docs/HYPERLIQUID-SYMBOL-MAP.md. Fetch quarter-to-date (or 90-day) prices for each position plus BTC-USD, GLD, SPY. Include:
-- Portfolio return vs BTC, SPY, GLD (and hl_basket if computable)
+Write a quarterly performance report for my Hyperliquid portfolio only. Call hyperliquid_portfolio_ops with action=quarterly_summary and period=YYYY-QN (e.g. 2026-Q1). Use the returned quarterly payload (portfolio_hl, hl_basket) with performance_history record_quarter. Then write the report. Alternatively use hyperliquid_performance for the period. Include:
+- Portfolio return vs BTC, SPY, GLD (and hl_basket)
 - Category attribution: Core, L1, AI infra, tokenization
 - Best and worst performers
 - Regime assessment and outlook
@@ -674,6 +756,7 @@ Example (today = 2026-03-07):
 - [ ] Query 5: Agent produces essay draft from quarterly report
 - [ ] All benchmarks (BTC, GLD, SPY) are included in performance comparison
 - [ ] Query 8: Agent suggests Hyperliquid portfolio and saves to PORTFOLIO-HYPERLIQUID.md
+- [ ] Query 8d: Agent runs sync → portfolio_ops → order_preview and presents intents; does not submit HL orders (preview-only)
 - [ ] Query 9: Agent tracks HL portfolio performance using symbol map
 - [ ] Query 10: Agent produces HL reflection essay from QUARTERLY-REPORT-HL-*.md
 - [ ] Query 11: Agent produces HL investor letter from QUARTERLY-REPORT-HL-*.md

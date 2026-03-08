@@ -8,37 +8,19 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { parsePortfolioMarkdown, validateHLPortfolioSymbols } from '../src/utils/portfolio-parse.js';
+import { KNOWN_HL_SYMBOLS } from '../src/tools/hyperliquid/hl-fd-mapping.js';
 
 const DEXTER = join(homedir(), '.dexter');
 const PORTFOLIO_PATH = join(DEXTER, 'PORTFOLIO.md');
 const PORTFOLIO_HL_PATH = join(DEXTER, 'PORTFOLIO-HYPERLIQUID.md');
 const WEIGHT_TOLERANCE = 0.02; // ±2%
 
-interface Position {
-  ticker: string;
-  weight: number;
+function parsePortfolio(content: string) {
+  return parsePortfolioMarkdown(content);
 }
 
-function parsePortfolio(content: string): Position[] {
-  const positions: Position[] = [];
-  const lines = content.split('\n');
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('|--')) continue;
-    const parts = trimmed.split('|').map((p) => p.trim()).filter(Boolean);
-    if (parts.length >= 2) {
-      const ticker = parts[0].toUpperCase();
-      const weightStr = parts[1].replace('%', '');
-      const weight = parseFloat(weightStr);
-      if (!Number.isNaN(weight) && ticker && !/^(ticker|weight|layer|tier|category|notes)$/i.test(ticker)) {
-        positions.push({ ticker, weight });
-      }
-    }
-  }
-  return positions;
-}
-
-function validatePositions(positions: Position[], path: string): string[] {
+function validatePositions(positions: { ticker: string; weight: number }[], path: string): string[] {
   const errors: string[] = [];
   if (positions.length === 0) {
     errors.push(`${path}: No positions found (expected table with ticker and weight columns)`);
@@ -71,6 +53,10 @@ function main(): void {
     const content = readFileSync(PORTFOLIO_HL_PATH, 'utf-8');
     const positions = parsePortfolio(content);
     errors.push(...validatePositions(positions, PORTFOLIO_HL_PATH));
+    const hlSymbolErrors = validateHLPortfolioSymbols(positions, KNOWN_HL_SYMBOLS);
+    for (const e of hlSymbolErrors) {
+      errors.push(`${PORTFOLIO_HL_PATH}: ${e}`);
+    }
   }
 
   if (errors.length > 0) {

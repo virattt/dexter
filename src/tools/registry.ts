@@ -18,8 +18,26 @@ import { performanceHistoryTool, PERFORMANCE_HISTORY_TOOL_DESCRIPTION } from './
 import {
   hyperliquidPricesTool,
   hyperliquidLiquidityTool,
+  hyperliquidPerformanceTool,
+  hyperliquidPortfolioOpsTool,
+  hyperliquidOrderPreviewTool,
+  hyperliquidLiveOrdersTool,
+  hyperliquidSubmitOrderTool,
+  hyperliquidCancelOrderTool,
+  hyperliquidPositionsTool,
+  hyperliquidSyncPortfolioTool,
   HYPERLIQUID_PRICES_DESCRIPTION,
   HYPERLIQUID_LIQUIDITY_DESCRIPTION,
+  HYPERLIQUID_PERFORMANCE_DESCRIPTION,
+  HYPERLIQUID_PORTFOLIO_OPS_DESCRIPTION,
+  HYPERLIQUID_ORDER_PREVIEW_DESCRIPTION,
+  HYPERLIQUID_LIVE_ORDERS_DESCRIPTION,
+  HYPERLIQUID_SUBMIT_ORDER_DESCRIPTION,
+  HYPERLIQUID_CANCEL_ORDER_DESCRIPTION,
+  HYPERLIQUID_POSITIONS_DESCRIPTION,
+  HYPERLIQUID_SYNC_PORTFOLIO_DESCRIPTION,
+  isHLAccountConfigured,
+  isHLOrderExecutionConfigured,
 } from './hyperliquid/index.js';
 import {
   tastytradeAccountsTool,
@@ -153,7 +171,36 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: hyperliquidLiquidityTool,
       description: HYPERLIQUID_LIQUIDITY_DESCRIPTION,
     },
+    {
+      name: 'hyperliquid_performance',
+      tool: hyperliquidPerformanceTool,
+      description: HYPERLIQUID_PERFORMANCE_DESCRIPTION,
+    },
+    {
+      name: 'hyperliquid_portfolio_ops',
+      tool: hyperliquidPortfolioOpsTool,
+      description: HYPERLIQUID_PORTFOLIO_OPS_DESCRIPTION,
+    },
+    {
+      name: 'hyperliquid_order_preview',
+      tool: hyperliquidOrderPreviewTool,
+      description: HYPERLIQUID_ORDER_PREVIEW_DESCRIPTION,
+    },
   ];
+
+  if (isHLAccountConfigured()) {
+    tools.push(
+      { name: 'hyperliquid_positions', tool: hyperliquidPositionsTool, description: HYPERLIQUID_POSITIONS_DESCRIPTION },
+      { name: 'hyperliquid_sync_portfolio', tool: hyperliquidSyncPortfolioTool, description: HYPERLIQUID_SYNC_PORTFOLIO_DESCRIPTION }
+    );
+  }
+  if (isHLOrderExecutionConfigured()) {
+    tools.push(
+      { name: 'hyperliquid_live_orders', tool: hyperliquidLiveOrdersTool, description: HYPERLIQUID_LIVE_ORDERS_DESCRIPTION },
+      { name: 'hyperliquid_submit_order', tool: hyperliquidSubmitOrderTool, description: HYPERLIQUID_SUBMIT_ORDER_DESCRIPTION },
+      { name: 'hyperliquid_cancel_order', tool: hyperliquidCancelOrderTool, description: HYPERLIQUID_CANCEL_ORDER_DESCRIPTION }
+    );
+  }
 
   // Include web_search if Exa, Perplexity, or Tavily API key is configured (Exa → Perplexity → Tavily)
   if (process.env.EXASEARCH_API_KEY) {

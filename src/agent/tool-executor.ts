@@ -22,7 +22,12 @@ type ToolExecutionEvent =
   | ToolDeniedEvent
   | ToolLimitEvent;
 
-const TOOLS_REQUIRING_APPROVAL = ['write_file', 'edit_file'] as const;
+const TOOLS_REQUIRING_APPROVAL = [
+  'write_file',
+  'edit_file',
+  'hyperliquid_submit_order',
+  'hyperliquid_cancel_order',
+] as const;
 
 /**
  * Executes tool calls and emits streaming tool lifecycle events.

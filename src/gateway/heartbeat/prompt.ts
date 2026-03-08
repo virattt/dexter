@@ -152,20 +152,20 @@ export async function buildHeartbeatQuery(): Promise<string | null> {
 
 ${isMon ? `### Weekly Rebalance Check
 - **Main portfolio:** If PORTFOLIO.md is provided below, compare current holdings to the target from your Identity (SOUL.md). Check layer allocation drift, conviction-tier mix, single-position sizing.
-- **Hyperliquid portfolio:** If PORTFOLIO-HYPERLIQUID.md is provided below, run a rebalance check for the on-chain portfolio. Use the "## HIP-3 Target" section from the Checklist above (if present) as the target allocation. Compare current weights to target; flag positions >5% above target; recommend trim/add (e.g. "Trim HYPE 2%, add to SOL"). When suggesting new HL positions, prefer high-volume underlyings (see docs/PRD-HYPERLIQUID-PORTFOLIO.md §2.1).
+- **Hyperliquid portfolio:** If HL account is connected (hyperliquid_positions / hyperliquid_sync_portfolio available), call hyperliquid_sync_portfolio with write_to_file=true first to refresh PORTFOLIO-HYPERLIQUID.md from live positions, then call hyperliquid_portfolio_ops with action=rebalance_check. Otherwise use PORTFOLIO-HYPERLIQUID.md as provided below. Then call hyperliquid_order_preview to get reviewable order intents; present the preview and concise trim/add recommendations (e.g. "Trim HYPE 2%, add to SOL"). Target comes from HEARTBEAT.md "## HIP-3 Target" (Ticker | TargetMin | TargetMax | Category | Notes). When suggesting new HL positions, prefer high-volume underlyings (hyperliquid_liquidity or docs/PRD-HYPERLIQUID-PORTFOLIO.md §2.1). **Do NOT submit any HL orders in heartbeat — preview and alert only.** Never call any HL submit or cancel tool from heartbeat.
 - **Regime label:** Fetch 7-day move for BTC-USD, GLD, SPY. Output one line: Regime: risk-on / risk-off / mixed. Basis: [brief reason from benchmark direction]
 - **Concentration alerts:** For both portfolios, flag any position >5% above its target weight. Recommend specific trim/add actions.
-- **Dollar rebalancing:** If ~/.dexter/fund-config.json has aum set, output rebalance actions in dollar amounts for the main portfolio. Use fund_config tool to read aum if needed.
+- **Dollar rebalancing:** If ~/.dexter/fund-config.json has aum set, output rebalance actions in dollar amounts for the main portfolio. If aum_hl is set, hyperliquid_portfolio_ops rebalance_check returns suggestedDollar per HL trim/add action — use those for HL sleeve dollar recommendations. Use fund_config tool to read aum / aum_hl if needed.
 - **Weekly newsletter draft:** If noteworthy (material moves, regime shift, rebalance needed), draft a 150–250 word Substack snippet. Save to ~/.dexter/WEEKLY-DRAFT-YYYY-MM-DD.md via save_report. Include both portfolios when both exist. Voice: structural, precise numbers, no hype (see VOICE.md)
 - If rebalancing is recommended, write a concise alert with specific actions
 - Use read_file to read ~/.dexter/PORTFOLIO.md or PORTFOLIO-HYPERLIQUID.md if not provided` : ''}
 
 ${isQuarterStart ? `### Quarterly Performance Report
 - **Main portfolio:** Write a quarterly report for PORTFOLIO.md. Performance is essential: compare returns vs (1) best hedge funds, (2) stock market indexes (S&P 500, NASDAQ), (3) BTC. Include layer attribution, conviction-tier performance, regime assessment, outlook. MANDATORY: Save to ~/.dexter/QUARTERLY-REPORT-YYYY-QN.md via save_report.
-- **Hyperliquid portfolio:** If PORTFOLIO-HYPERLIQUID.md exists, write a SEPARATE quarterly report for it. Include: portfolio return vs BTC, SPY, GLD (and hl_basket if computable via HYPERLIQUID-SYMBOL-MAP.md), category attribution (Core, L1, AI infra, tokenization), best/worst performers, regime, outlook. MANDATORY: Save to ~/.dexter/QUARTERLY-REPORT-HL-YYYY-QN.md via save_report.
-- **YTD and since-inception:** Call performance_history view. If inceptionDate in fund-config exists, compute since-inception. Include in both reports.
-- **Performance history:** Call performance_history record_quarter with period (e.g. 2026-Q1), portfolio, btc, spy, gld as decimals. If PORTFOLIO-HYPERLIQUID.md exists, compute portfolio_hl and include it; optionally compute hl_basket if feasible.
-- Use financial_search for prices; for HL portfolio use hyperliquid_prices for HL symbols (including pre-IPO) or map HL→FD per docs/HYPERLIQUID-SYMBOL-MAP.md.
+- **Hyperliquid portfolio:** If HL account is connected, call hyperliquid_sync_portfolio with write_to_file=true first so quarterly summary uses live holdings; then if PORTFOLIO-HYPERLIQUID.md exists, call hyperliquid_portfolio_ops with action=quarterly_summary and period=YYYY-QN (e.g. 2026-Q1). Use the returned quarterly payload (portfolio_hl, hl_basket) with performance_history record_quarter (along with portfolio, btc, spy, gld). Then write a SEPARATE quarterly report: portfolio return vs BTC, SPY, GLD, hl_basket; category attribution; regime, outlook. MANDATORY: Save to ~/.dexter/QUARTERLY-REPORT-HL-YYYY-QN.md via save_report.
+- **YTD and since-inception:** Call performance_history view (or summary/ytd/since_inception when available). If inceptionDate in fund-config exists, compute since-inception. Include in both reports.
+- **Performance history:** Use hyperliquid_portfolio_ops quarterly_summary for HL decimals, or hyperliquid_performance; then pass to performance_history record_quarter.
+- Use financial_search for prices; for HL use hyperliquid_prices for pre-IPO or HL-native prices.
 - Deliver the full report(s) to the user` : ''}
 `;
   }
@@ -178,15 +178,25 @@ ${portfolioContent}
 `
     : '';
 
+  const hlAccountConfigured = /^0x[a-fA-F0-9]{40}$/.test(
+    String(process.env.HYPERLIQUID_ACCOUNT_ADDRESS ?? '').trim(),
+  );
   const portfolioHLSection = portfolioHLContent
     ? `
 ## Hyperliquid Portfolio (~/.dexter/PORTFOLIO-HYPERLIQUID.md)
 
 On-chain portfolio (HIP-3 tickers). For weekly rebalance: use the "## HIP-3 Target" section from the Checklist above as target allocation. For quarterly: write a dedicated report and save to QUARTERLY-REPORT-HL-YYYY-QN.md.
+${hlAccountConfigured ? '\n**Live sync:** HL account is configured. Prefer calling hyperliquid_sync_portfolio with write_to_file=true before rebalance_check or quarterly_summary so ops use current on-chain positions.\n' : ''}
 
 ${portfolioHLContent}
 `
-    : '';
+    : hlAccountConfigured
+      ? `
+## Hyperliquid (live sync available)
+
+HL account is configured (HYPERLIQUID_ACCOUNT_ADDRESS). For HL rebalance or quarterly report: call hyperliquid_sync_portfolio with write_to_file=true first to refresh ~/.dexter/PORTFOLIO-HYPERLIQUID.md from live positions, then run hyperliquid_portfolio_ops (rebalance_check or quarterly_summary).
+`
+      : '';
 
   const fundConfigSection =
     fundConfig && (fundConfig.aum ?? fundConfig.inceptionDate)

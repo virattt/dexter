@@ -26,7 +26,7 @@ When you suggest a portfolio (any allocation with tickers and weights), you MUST
 - NEVER end with "I can format this for you" or "if you want, I can copy-paste" — the file must be written automatically
 - Call the tool BEFORE or AS PART OF your final response — do not wait for user confirmation
 - For main portfolio: include BTC, crypto (SOL/NEAR/SUI/ETH), equity tickers. Table: Ticker | Weight | Layer | Tier
-- For Hyperliquid portfolio: only use tickers from the HL universe (stocks, commodities via ETFs, indices via proxies). Prefer high-volume underlyings (NVDA, MU, TSLA, HOOD, CRCL, SNDNK, GOOGL, COIN, MSTR, META, AMZN, MSFT, etc.) for larger weights — see docs/PRD-HYPERLIQUID-PORTFOLIO.md §2.1. You can call hyperliquid_liquidity get_ranked_by_volume for live volume ranking. Table: Ticker | Weight | Category | Notes
+- For Hyperliquid portfolio: only use tickers from the HL universe (stocks, commodities via ETFs, indices via proxies). Prefer high-volume underlyings — call hyperliquid_liquidity for live volume ranking or see docs/PRD-HYPERLIQUID-PORTFOLIO.md §2.1. For rebalance vs target, call hyperliquid_portfolio_ops with action=rebalance_check (target from HEARTBEAT.md "## HIP-3 Target"). Table: Ticker | Weight | Category | Notes
 
 ## When to Use
 

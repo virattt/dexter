@@ -211,6 +211,44 @@ Add `hl_basket` (or `hl_index`) to quarterly records:
 | 5 | HL basket benchmark computation (map HL symbols → FD, fetch prices, compute return) | Medium |
 | 6a | Hyperliquid price API (all HIP-3 assets including pre-IPO; hyperliquid_prices tool) | Medium |
 | 6b | Hyperliquid volume/OI API (hyperliquid_liquidity tool for live volume ranking) | Small–Medium |
+| 7 | HL performance tool (hl_basket + portfolio_hl for period); completes Phase 5 | Small |
+| 8 | Deterministic HL portfolio ops (rebalance_check, quarterly_summary, validate_target); HIP-3 target parsing; performance_history summary/ytd/since_inception | Medium |
+| 9 | **Live account sync** — HYPERLIQUID_ACCOUNT_ADDRESS, hyperliquid_positions, hyperliquid_sync_portfolio; heartbeat/ops prefer live synced holdings when configured, markdown fallback | Medium |
+
+---
+
+## 10. Phase 9: Live Account Sync (Shipped)
+
+When `HYPERLIQUID_ACCOUNT_ADDRESS` is set (42-char hex wallet address), Dexter can:
+
+1. **hyperliquid_positions** — Fetch live clearinghouse state (account value, withdrawable, positions with symbol, size, value, weight). Read-only; no private key required.
+2. **hyperliquid_sync_portfolio** — Convert live positions to the same markdown format as PORTFOLIO-HYPERLIQUID.md; optionally write to `~/.dexter/PORTFOLIO-HYPERLIQUID.md`.
+3. **Live-first rebalance/report** — Heartbeat and agent prompts instruct: when HL account is configured, call `hyperliquid_sync_portfolio` with `write_to_file=true` first, then `hyperliquid_portfolio_ops` (rebalance_check or quarterly_summary). Otherwise use the existing markdown file as-is.
+
+**Scope:** Phase 9 is position sync and live-aware ops only. Order submission (dry run, submit) is explicitly out of scope and deferred to a later phase.
+
+**Fund config:** Optional `aum_hl` in `~/.dexter/fund-config.json` enables dollar-denominated trim/add recommendations for the HL sleeve; `hyperliquid_portfolio_ops` rebalance_check returns `suggestedDollar` per action when `aum_hl` is set.
+
+---
+
+## 11. Phase 9b / Phase 10: Execution Layer
+
+### Phase 9b (preview-only)
+
+- **Execution intent model** — Normalized order payload (symbol, marketSymbol, side, notionalUsd, size, orderType, limitPx, timeInForce, reduceOnly, source, reason). Data handoff between rebalance/preview and submit.
+- **Market resolver** — Maps underlying (e.g. NVDA) to the most liquid tradable market (e.g. xyz:NVDA) using 24h volume. See `hyperliquid-market-resolver.ts`.
+- **hyperliquid_order_preview** — Converts rebalance_check output into reviewable order intents; resolves markets; validates against `~/.dexter/hl-execution-policy.json` when present. Requires `aum_hl` (fund-config or param).
+- **Preview-first UX** — Prompts and heartbeat instruct: sync → portfolio_ops → order_preview → present and **stop**. Never auto-submit. Heartbeat must never call submit/cancel.
+
+### Phase 10 (live execution, opt-in)
+
+- **Env:** `HYPERLIQUID_ORDER_ENABLED=true` and `HYPERLIQUID_PRIVATE_KEY` (hex) to enable submit/cancel/live_orders tools.
+- **Tools:** `hyperliquid_live_orders`, `hyperliquid_submit_order`, `hyperliquid_cancel_order`. Registry-gated; only registered when execution is configured.
+- **Approval:** `hyperliquid_submit_order` and `hyperliquid_cancel_order` require runtime user approval (same as write_file/edit_file).
+- **Idempotency:** Optional `preview_token` (client order ID) on submit to avoid duplicate orders.
+- **Post-trade:** After submit/cancel, tools return reconciled open orders and a receipt; run `hyperliquid_sync_portfolio` with `write_to_file=true` to refresh PORTFOLIO-HYPERLIQUID.md.
+
+**Execution flow:** sync → portfolio_ops rebalance_check → order_preview → user confirms → submit_order (or cancel_order) → reconcile → optional sync_portfolio.
 
 ---
 
