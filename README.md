@@ -17,6 +17,7 @@ The bar is the **Portfolio Builder**: build and maintain a portfolio aligned wit
 - [SOUL and HEARTBEAT](#soul-and-heartbeat)
 - [Example queries](#example-queries)
 - [tastytrade](#tastytrade)
+  - [Theta logic (Phase 5)](#theta-logic-phase-5)
 - [Hyperliquid](#hyperliquid)
 - [Evaluating, rate limits, debugging](#evaluating-rate-limits-debugging)
 - [Documentation](#documentation)
@@ -162,7 +163,24 @@ More: [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md).
 
 Three states: **not connected** → **read-only** → **trading enabled**. In read-only you get accounts, positions, balances, option chain, theta scan, strategy preview, and **order dry-run** — no live orders. When you set `TASTYTRADE_ORDER_ENABLED=true`, live_orders, submit, and cancel appear; submit and cancel still require explicit approval in the CLI. Use `/tastytrade-status` to see your state.
 
-**Theta (Phase 5):** Position risk, scan, strategy preview, roll, repair. Scan defaults to **SOUL.md thesis names** (equipment, foundry, chip, power, memory, networking, cyclical adjacents) — not SPX/SPY/QQQ. THETA-POLICY is enforced as a **hard block**: only compliant candidates are returned. The **no-call list** (TSM, ASML, AMAT, LRCX, KLAC, ANET, CEG…) blocks covered calls on Core Compounders so they can't be called away; puts and spreads are still valid. Roll and repair validate the proposed order against policy — if it violates, you get `policy_blocked` and violations, not a recommendation. Earnings exclusion in scan when THETA-POLICY and Financial Datasets allow; `earnings_exclusion_degraded` notice when the key is missing.
+### Theta logic (Phase 5)
+
+**What it is:** Theta = options premium selling (credit spreads, covered calls, cash-secured puts, iron condors). You sell time decay; Dexter helps find setups that fit your thesis and risk rules. The whole flow is **SOUL-first**: underlyings, sizing, and guardrails come from your identity and from **~/.dexter/THETA-POLICY.md**, not from generic index defaults.
+
+**Why these trades:** Options income here is **thesis-serving**, not a separate strategy. (1) **Get paid to wait:** Sell cash-secured puts on names you’d buy anyway — you collect premium and may get assigned at a lower price. (2) **Earn on what you hold:** Sell covered calls only on names you’re willing to sell at the strike (never on Core Compounders; they’re on the no-call list so you don’t get called away). (3) **Defined-risk premium:** Credit spreads and iron condors cap max loss while harvesting time decay on thesis underlyings. (4) **Discipline:** Every underlying is a SOUL name with a reason to be there; sizing and risk caps in THETA-POLICY keep one bad trade from blowing up the book. The goal isn’t “trade options” — it’s **improve portfolio outcome** (lower cost basis, extra income, better entries) while staying within the thesis.
+
+**Flow:** (1) **THETA-POLICY** defines allowed underlyings, no-call list, delta/DTE/risk caps, and earnings exclusion. (2) **Scan** runs over those underlyings (and your live positions/balances), filters by policy, and returns ranked candidates. (3) **Preview** turns a chosen candidate into an order payload; **roll** and **repair** suggest adjustments for existing positions. (4) **Dry-run** shows what would be sent; **submit**/ **cancel** only after you approve in the CLI. No auto-submit.
+
+**Key rules:**
+
+- **Hard block:** Only policy-compliant candidates are returned. If a trade would violate delta range, max risk, buying power cap, or no-call list, the tool returns `policy_blocked` and the violations — it never suggests a non-compliant order.
+- **No-call list:** Names on this list (e.g. TSM, ASML, AMAT, LRCX, KLAC, ANET, CEG) must not get covered calls, so Core Compounders can’t be called away. Puts and spreads on those names are still allowed (e.g. cash-secured puts to add size).
+- **Venue split:** Theta scan and tastytrade orders use **only** symbols that are *not* tradable on Hyperliquid. HL-tradable tickers (TSM, AAPL, COIN, etc.) are stripped from the scan universe and from the tastytrade sleeve; they live in PORTFOLIO-HYPERLIQUID.md and HL tools.
+- **Earnings:** When THETA-POLICY sets `exclude_earnings_days` and Financial Datasets is configured, underlyings with earnings inside that window are dropped from the scan. If the key is missing, you get `earnings_exclusion_degraded` and no filtering.
+
+**CLI shortcuts:** `/theta-policy` (show policy), `/theta-help` (workflow), `/theta-risk` (position risk), `/theta-scan` (run scan), `/theta-preview`, `/theta-roll`, `/theta-repair`. Recommended loop: policy → risk → scan → preview → dry-run → approve → submit when you’re ready.
+
+**Theta (Phase 5) tools (summary):** Position risk, scan, strategy preview, roll, repair. Scan defaults to **SOUL.md thesis names** (equipment, foundry, chip, power, memory, networking, cyclical adjacents) — not SPX/SPY/QQQ. THETA-POLICY is enforced as a **hard block**; no-call list protects Core Compounders; venue split keeps HL names out of tastytrade theta.
 
 **Portfolio sync (Phase 4):** Sync from tastytrade to a PORTFOLIO.md-style table with **Target/Actual/Gap** columns. Optional write to `~/.dexter/PORTFOLIO.md`. Session cache (5-min TTL) avoids redundant API calls. With `TASTYTRADE_HEARTBEAT_ENABLED=true`, heartbeat compares live positions to SOUL.md target and flags drift. **Venue split:** The tastytrade sleeve has zero overlap with Hyperliquid — symbols tradable on HL (e.g. TSM, AAPL, MSFT, BTC, SOL, COIN) are hard-blocked from theta scan, preview, submit, and from the default PORTFOLIO.md; use PORTFOLIO-HYPERLIQUID.md for those.
 
@@ -207,6 +225,7 @@ HIP-3 stack: prices, liquidity ranking, period returns, portfolio ops (rebalance
 | [THETA-PROMPTS-12.md](docs/THETA-PROMPTS-12.md) | 12 canonical theta prompts (v1.1, SOUL-aligned) |
 | [PRD-TASTYTRADE-INTEGRATION.md](docs/PRD-TASTYTRADE-INTEGRATION.md) | tastytrade integration PRD — all 6 phases |
 | [PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md](docs/PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md) | Phase 5 theta engine: tools, SOUL policy, guardrails |
+| [PRD-TASTYTRADE-OPTIONS-EXPLORATION.md](docs/PRD-TASTYTRADE-OPTIONS-EXPLORATION.md) | Explore tastytrade options alongside Hypersurface (venue comparison, gaps, readiness) |
 | [PRD-HYPERLIQUID-PORTFOLIO.md](docs/PRD-HYPERLIQUID-PORTFOLIO.md) | Hyperliquid portfolio and execution |
 | [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) | Copy-paste query library |
 | [FUND-CONFIG.md](docs/FUND-CONFIG.md), [EXTERNAL-RESOURCES.md](docs/EXTERNAL-RESOURCES.md) | AUM, inception date, research references |
