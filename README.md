@@ -221,12 +221,16 @@ Fork, branch, commit, push, open a PR. Keep PRs small and focused.
 
 **Syncing with upstream** (if you forked from virattt/dexter):
 
+We're often many commits ahead (thesis, tastytrade, Hyperliquid, portfolio builder). To pull in upstream changes without losing our work:
+
 ```bash
 git remote add upstream https://github.com/virattt/dexter.git   # once
-git fetch upstream && git merge upstream/main
+git fetch upstream
+git merge upstream/main
 ```
 
-Do not use GitHub "Discard commits" — merge locally.
+- If Git reports conflicts, resolve them in the listed files (keep our fork behavior and add upstream’s new behavior where it makes sense), then `git add` the resolved files and `git commit`.
+- **Do not use GitHub’s “Discard commits” or “Sync fork” in a way that drops our commits** — always merge upstream into your branch locally so your 40+ commits stay intact.
 
 ---
 
