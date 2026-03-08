@@ -2,7 +2,13 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { orderDryRun } from './api.js';
 import { summarizeOrder } from './theta-helpers.js';
-import { computePortfolioFit, loadSoulPortfolioContext, parseOptionSymbol } from './utils.js';
+import {
+  computePortfolioFit,
+  loadThetaPolicy,
+  loadSoulPortfolioContext,
+  parseOptionSymbol,
+  validateOrderAgainstPolicy,
+} from './utils.js';
 
 export const tastytradeStrategyPreviewTool = new DynamicStructuredTool({
   name: 'tastytrade_strategy_preview',
@@ -48,6 +54,35 @@ export const tastytradeStrategyPreviewTool = new DynamicStructuredTool({
     });
 
     const underlyings = [...new Set(legs.map((leg) => leg.underlying))];
+    const policy = loadThetaPolicy();
+    const policyValidation = validateOrderAgainstPolicy({
+      underlyings,
+      legs: legs.map((l) => ({
+        underlying: l.underlying,
+        option_type: l.option_type ?? null,
+        action: l.action,
+        dte: l.dte ?? null,
+      })),
+      policy,
+    });
+    if (!policyValidation.allowed) {
+      let dryRunResult: unknown = null;
+      try {
+        const res = await orderDryRun(input.account_number, order);
+        dryRunResult = res.data;
+      } catch (error) {
+        dryRunResult = { error: error instanceof Error ? error.message : String(error) };
+      }
+      return JSON.stringify({
+        account_number: input.account_number,
+        policy_blocked: true,
+        violations: policyValidation.violations,
+        order_json: order,
+        dry_run_attempted: true,
+        dry_run_result: dryRunResult,
+        note: 'Do not submit; order violates THETA-POLICY. Adjust underlyings, no-call list, or DTE range and re-run preview.',
+      });
+    }
     const strikes = legs.map((leg) => leg.strike).filter((strike): strike is number => typeof strike === 'number');
     const price = Number(summary.price.toFixed(2));
     const creditOrDebit = price >= 0 ? 'credit' : 'debit';
@@ -95,6 +130,7 @@ export const tastytradeStrategyPreviewTool = new DynamicStructuredTool({
 
     return JSON.stringify({
       account_number: input.account_number,
+      policy_blocked: false,
       strategy_type: inferredStrategy,
       thesis: input.thesis ?? 'Short premium should remain subordinate to the Portfolio Builder target and THETA-POLICY.',
       trade_memo: {

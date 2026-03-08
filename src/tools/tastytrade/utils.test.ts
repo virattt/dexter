@@ -12,6 +12,7 @@ import {
   parseOptionSymbol,
   totalEquityFromBalances,
   availableBuyingPowerFromBalances,
+  validateOrderAgainstPolicy,
 } from './utils.js';
 
 describe('tastytrade utils', () => {
@@ -162,6 +163,15 @@ describe('tastytrade utils', () => {
       expect(fit.result).toBe('block');
       expect(fit.reason).toContain('SOUL');
     });
+    test('returns block when underlying normalized matches SOUL (case-insensitive)', () => {
+      const fit = computePortfolioFit({
+        underlying: 'nvda',
+        soulCoreOrAvoidTickers: ['NVDA'],
+        portfolioTargetWeightByTicker: new Map(),
+        isShortCall: true,
+      });
+      expect(fit.result).toBe('block');
+    });
     test('returns warn for short put on SOUL ticker', () => {
       const fit = computePortfolioFit({
         underlying: 'NVDA',
@@ -178,6 +188,40 @@ describe('tastytrade utils', () => {
         portfolioTargetWeightByTicker: new Map(),
       });
       expect(fit.result).toBe('pass');
+    });
+    test('deterministic pass when exposure estimate missing (no false block)', () => {
+      const fit = computePortfolioFit({
+        underlying: 'SPY',
+        soulCoreOrAvoidTickers: [],
+        portfolioTargetWeightByTicker: new Map([['SPY', 10]]),
+        targetWeightPct: 10,
+        currentWeightPct: undefined,
+        tradeExposurePct: undefined,
+      });
+      expect(fit.result).toBe('pass');
+    });
+  });
+
+  describe('validateOrderAgainstPolicy', () => {
+    test('returns allowed when underlying in policy and DTE in range', () => {
+      const policy = loadThetaPolicy();
+      const result = validateOrderAgainstPolicy({
+        underlyings: ['SPY'],
+        legs: [{ underlying: 'SPY', option_type: 'C', action: 'Sell to Open', dte: 7 }],
+        policy,
+      });
+      expect(result.allowed).toBe(true);
+      expect(result.violations).toEqual([]);
+    });
+    test('returns violations when underlying not in allowed list', () => {
+      const policy = loadThetaPolicy();
+      const result = validateOrderAgainstPolicy({
+        underlyings: ['XYZ'],
+        legs: [{ underlying: 'XYZ', option_type: 'P', action: 'Sell to Open', dte: 14 }],
+        policy,
+      });
+      expect(result.allowed).toBe(false);
+      expect(result.violations.some((v) => v.includes('not in THETA-POLICY'))).toBe(true);
     });
   });
 });

@@ -1,12 +1,16 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { getBalances, getPositions, getQuotes } from './api.js';
+import { summarizeOrder } from './theta-helpers.js';
 import { buildRollCandidate, findShortOptionPosition } from './roll-helpers.js';
 import { detectUnderlyingInstrumentType, extractQuoteMap } from './theta-helpers.js';
 import {
   availableBuyingPowerFromBalances,
   getFirstAccountNumber,
+  loadThetaPolicy,
   normalizePositions,
+  parseOptionSymbol,
+  validateOrderAgainstPolicy,
 } from './utils.js';
 
 export const tastytradeRepairPositionTool = new DynamicStructuredTool({
@@ -42,6 +46,26 @@ export const tastytradeRepairPositionTool = new DynamicStructuredTool({
     const closeNowCost = Math.abs(position.mark * position.quantity * 100);
     const challenged = isChallenged(position.optionType, position.strike, underlyingPrice);
     const roll = challenged ? await buildRollCandidate(position, input.target_days_out ?? 7) : null;
+
+    let rollPolicyBlocked: boolean | null = null;
+    let rollPolicyViolations: string[] = [];
+    if (roll?.order_json) {
+      const summary = summarizeOrder(roll.order_json as Record<string, unknown>);
+      const legs = summary.legs.map((leg) => {
+        const parsed = parseOptionSymbol(leg.symbol);
+        return {
+          underlying: parsed.underlying,
+          option_type: parsed.optionType,
+          action: leg.action,
+          dte: parsed.dte ?? null,
+        };
+      });
+      const underlyings = [...new Set(legs.map((l) => l.underlying))];
+      const policy = loadThetaPolicy();
+      const policyValidation = validateOrderAgainstPolicy({ underlyings, legs, policy });
+      rollPolicyBlocked = !policyValidation.allowed;
+      rollPolicyViolations = policyValidation.violations;
+    }
 
     const assignmentCost =
       position.optionType === 'P' && position.strike != null
@@ -87,6 +111,14 @@ export const tastytradeRepairPositionTool = new DynamicStructuredTool({
                 target_strike: roll.target_contract.strike,
                 net_credit: roll.net_credit,
                 order_json: roll.order_json,
+                policy_blocked: rollPolicyBlocked ?? false,
+                policy_violations: rollPolicyViolations.length > 0 ? rollPolicyViolations : undefined,
+                policy_note:
+                  rollPolicyBlocked === true
+                    ? 'Roll candidate violates THETA-POLICY; consider close_now or adjust policy before rolling.'
+                    : rollPolicyBlocked === false
+                      ? 'Roll candidate is within THETA-POLICY.'
+                      : undefined,
               }
             : null,
         take_assignment:

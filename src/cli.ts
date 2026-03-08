@@ -313,14 +313,14 @@ Voice: structural thinking, precise numbers, blunt assessment. No hype. Output m
 - which short options are challenged
 - concentration by underlying
 - whether any short position looks like assignment risk this week`,
-    '/theta-scan': `Scan for the safest theta trade in my tastytrade account today. Use tastytrade_theta_scan with my THETA-POLICY defaults. Focus on SPX, SPY, and QQQ. Return the top 3 candidates with:
+    '/theta-scan': `Scan for the safest theta trade in my tastytrade account today. Use tastytrade_theta_scan with my THETA-POLICY defaults (policy is enforced as a hard block; only compliant candidates are returned). Focus on SPX, SPY, and QQQ. Return the top 3 candidates with:
 - strategy type
 - strikes and expiration
 - estimated credit
 - max loss
 - policy notes
 - which one best fits my current book`,
-    '/theta-preview': `Run a theta scan for a credit spread, pick the best candidate, then preview it before any submission. Use tastytrade_theta_scan followed by tastytrade_strategy_preview. Show me:
+    '/theta-preview': `Run a theta scan for a credit spread, pick the best candidate, then preview it before any submission. Use tastytrade_theta_scan followed by tastytrade_strategy_preview. If preview returns policy_blocked: true, do not recommend the trade. Show me:
 - the chosen candidate
 - the full trade memo
 - the dry-run result

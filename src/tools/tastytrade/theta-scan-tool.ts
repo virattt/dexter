@@ -143,13 +143,19 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
 
     const excludeEarnings =
       input.exclude_earnings ?? (policy.excludeEarningsDays > 0);
+    const earningsDataAvailable = Boolean(process.env.FINANCIAL_DATASETS_API_KEY?.trim());
     let excludedByEarnings: string[] = [];
+    let earningsExclusionDegraded = false;
     if (excludeEarnings && policy.excludeEarningsDays > 0) {
-      const inWindow = await Promise.all(
-        underlyings.map((u) => hasEarningsInWindow(u, policy.excludeEarningsDays))
-      );
-      excludedByEarnings = underlyings.filter((_, i) => inWindow[i]);
-      underlyings = underlyings.filter((_, i) => !inWindow[i]);
+      if (!earningsDataAvailable) {
+        earningsExclusionDegraded = true;
+      } else {
+        const inWindow = await Promise.all(
+          underlyings.map((u) => hasEarningsInWindow(u, policy.excludeEarningsDays))
+        );
+        excludedByEarnings = underlyings.filter((_, i) => inWindow[i]);
+        underlyings = underlyings.filter((_, i) => !inWindow[i]);
+      }
     }
 
     const minDte = input.min_dte ?? policy.minDte;
@@ -261,46 +267,110 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
         currentWeightByTicker[u] = (currentWeightByTicker[u]! / totalEquityNum) * 100;
       }
 
-      const finalCandidates = allCandidates
-        .map((candidate) => applyPolicy(candidate, {
+      const withPolicy = allCandidates.map((candidate) =>
+        applyPolicy(candidate, {
           totalEquity,
           maxRiskPerTradePct: policy.maxRiskPerTradePct,
           maxBuyingPowerUsagePct: policy.maxBuyingPowerUsagePct,
-        }))
-        .map((c) => {
-          const notes = [...c.policy_notes];
-          const tradeExposurePct =
-            (c.buying_power_estimate > 0 ? c.buying_power_estimate : (c.max_loss ?? 0)) / totalEquityNum * 100;
-          const fit = computePortfolioFit({
-            underlying: c.underlying,
-            soulCoreOrAvoidTickers: soulPortfolio.soulCoreOrAvoidTickers,
-            portfolioTargetWeightByTicker: soulPortfolio.portfolioTargetWeightByTicker,
-            currentWeightPct: currentWeightByTicker[c.underlying],
-            tradeExposurePct,
-            targetWeightPct: soulPortfolio.portfolioTargetWeightByTicker.get(c.underlying),
-            isShortCall: c.legs.some(
-              (leg) => leg.action === 'Sell to Open' && (leg.symbol?.includes('C') ?? false)
-            ),
-          });
-          notes.push(`Portfolio fit: ${fit.result} — ${fit.reason}`);
-          const scoreDelta = fit.result === 'block' ? -100 : fit.result === 'warn' ? -25 : 0;
-          return {
-            ...c,
-            policy_notes: notes,
-            portfolio_fit: { result: fit.result, reason: fit.reason },
-            score: c.score + scoreDelta,
-          };
         })
+      );
+
+      const withFit = withPolicy.map((c) => {
+        const tradeExposurePct =
+          (c.buying_power_estimate > 0 ? c.buying_power_estimate : (c.max_loss ?? 0)) / totalEquityNum * 100;
+        const fit = computePortfolioFit({
+          underlying: c.underlying,
+          soulCoreOrAvoidTickers: soulPortfolio.soulCoreOrAvoidTickers,
+          portfolioTargetWeightByTicker: soulPortfolio.portfolioTargetWeightByTicker,
+          currentWeightPct: currentWeightByTicker[c.underlying],
+          tradeExposurePct,
+          targetWeightPct: soulPortfolio.portfolioTargetWeightByTicker.get(c.underlying),
+          isShortCall: c.legs.some(
+            (leg) => leg.action === 'Sell to Open' && (leg.symbol?.includes('C') ?? false)
+          ),
+        });
+        const notes = [...c.policy_notes, `Portfolio fit: ${fit.result} — ${fit.reason}`];
+        const scoreDelta = fit.result === 'warn' ? -25 : 0;
+        return {
+          ...c,
+          policy_notes: notes,
+          portfolio_fit: { result: fit.result, reason: fit.reason },
+          score: c.score + scoreDelta,
+        };
+      });
+
+      const excludedByPolicy: Array<{ underlying: string; strategy_type: string; reason_bucket: string; reason_detail: string }> = [];
+      const compliant = withFit.filter((c) => {
+        const policyViolation = !c.policy_ok;
+        const fitBlock = c.portfolio_fit?.result === 'block';
+        if (policyViolation) {
+          const reasonDetail = c.policy_notes.filter((n) => !n.startsWith('Portfolio fit:')).join('; ') || 'Policy violation';
+          let bucket = 'policy';
+          if (reasonDetail.includes('no-call list') || reasonDetail.includes('no-call')) bucket = 'no_call';
+          else if (reasonDetail.includes('Max loss')) bucket = 'max_risk_per_trade';
+          else if (reasonDetail.includes('Buying power')) bucket = 'max_buying_power_usage';
+          excludedByPolicy.push({
+            underlying: c.underlying,
+            strategy_type: c.strategy_type,
+            reason_bucket: bucket,
+            reason_detail: reasonDetail,
+          });
+        }
+        if (fitBlock) {
+          excludedByPolicy.push({
+            underlying: c.underlying,
+            strategy_type: c.strategy_type,
+            reason_bucket: 'portfolio_fit',
+            reason_detail: c.portfolio_fit?.reason ?? 'SOUL/PORTFOLIO block',
+          });
+        }
+        return !policyViolation && !fitBlock;
+      });
+
+      const finalCandidates = compliant
         .sort((a, b) => b.score - a.score)
         .slice(0, maxResults);
+
+      const noCandidates = finalCandidates.length === 0 && (withFit.length > 0 || excludedByEarnings.length > 0);
+      if (noCandidates) {
+        return JSON.stringify({
+          account_number: accountNumber,
+          strategy_type: input.strategy_type,
+          policy_mode: 'hard_block',
+          no_candidates: true,
+          setup_required: false,
+          excluded_by_earnings: excludedByEarnings,
+          excluded_by_policy: excludedByPolicy,
+          total_equity: totalEquity,
+          buying_power: buyingPower,
+          candidates: [],
+          next_steps: [
+            excludedByPolicy.length > 0
+              ? `All candidates were excluded by policy or portfolio-fit (${excludedByPolicy.length} total). Relax THETA-POLICY (DTE/delta/risk caps) or PORTFOLIO.md targets, or choose different underlyings.`
+              : 'No candidates matched filters. Try widening DTE/delta range or min_credit in the scan.',
+            'Run /theta-policy to review or adjust THETA-POLICY.md defaults.',
+          ],
+          notes: [
+            'Policy mode is hard_block: only policy-compliant candidates with portfolio_fit pass are returned.',
+            earningsExclusionDegraded
+              ? 'Earnings exclusion was requested but FINANCIAL_DATASETS_API_KEY is not set; exclusion not applied.'
+              : excludedByEarnings.length > 0
+                ? `Earnings exclusion removed ${excludedByEarnings.length} underlyings from the scan.`
+                : null,
+          ].filter(Boolean),
+        });
+      }
 
       return JSON.stringify({
         account_number: accountNumber,
         strategy_type: input.strategy_type,
+        policy_mode: 'hard_block',
         policy,
         theta_policy_present: hasThetaPolicyFile,
         soul_portfolio_checked: soulPortfolio.soulCoreOrAvoidTickers.length > 0 || soulPortfolio.portfolioTargetWeightByTicker.size > 0,
         excluded_by_earnings: excludedByEarnings,
+        excluded_by_policy: excludedByPolicy.length > 0 ? excludedByPolicy : undefined,
+        earnings_exclusion_degraded: earningsExclusionDegraded ? true : undefined,
         total_equity: totalEquity,
         buying_power: buyingPower,
         candidates: finalCandidates,
@@ -309,11 +379,13 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
             ? 'THETA-POLICY.md is present and its defaults were applied unless you overrode them in the tool input.'
             : 'THETA-POLICY.md is missing, so conservative defaults were used. Run /theta-policy to create one.',
           'Greeks and IV are best-effort from tastytrade quote data when available.',
-          excludedByEarnings.length > 0
-            ? `Earnings exclusion applied in-tool: ${excludedByEarnings.join(', ')} excluded (earnings within ${policy.excludeEarningsDays} days).`
-            : policy.excludeEarningsDays > 0
-              ? 'Earnings exclusion was applied when exclude_earnings=true; no underlyings were in the earnings window.'
-              : 'Earnings/event filtering can be enabled via THETA-POLICY exclude earnings days and exclude_earnings=true.',
+          earningsExclusionDegraded
+            ? 'Earnings exclusion was requested but FINANCIAL_DATASETS_API_KEY is not set; exclusion not applied. Set the key to enable earnings-window filtering.'
+            : excludedByEarnings.length > 0
+              ? `Earnings exclusion applied in-tool: ${excludedByEarnings.join(', ')} excluded (earnings within ${policy.excludeEarningsDays} days).`
+              : policy.excludeEarningsDays > 0 && excludeEarnings
+                ? 'Earnings exclusion was applied when exclude_earnings=true; no underlyings were in the earnings window.'
+                : 'Earnings/event filtering can be enabled via THETA-POLICY exclude earnings days and exclude_earnings=true.',
           minDte <= 1
             ? 'For 0DTE or very short DTE, check Fed/CPI/macro calendar before trading; event days may warrant wider strikes or sitting out.'
             : null,

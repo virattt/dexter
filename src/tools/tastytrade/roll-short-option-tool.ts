@@ -1,11 +1,15 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { getBalances, getPositions, orderDryRun } from './api.js';
+import { summarizeOrder } from './theta-helpers.js';
 import { buildRollCandidate, findShortOptionPosition } from './roll-helpers.js';
 import {
   availableBuyingPowerFromBalances,
   getFirstAccountNumber,
+  loadThetaPolicy,
   normalizePositions,
+  parseOptionSymbol,
+  validateOrderAgainstPolicy,
 } from './utils.js';
 
 export const tastytradeRollShortOptionTool = new DynamicStructuredTool({
@@ -42,6 +46,20 @@ export const tastytradeRollShortOptionTool = new DynamicStructuredTool({
       });
     }
 
+    const summary = summarizeOrder(roll.order_json as Record<string, unknown>);
+    const legs = summary.legs.map((leg) => {
+      const parsed = parseOptionSymbol(leg.symbol);
+      return {
+        underlying: parsed.underlying,
+        option_type: parsed.optionType,
+        action: leg.action,
+        dte: parsed.dte ?? null,
+      };
+    });
+    const underlyings = [...new Set(legs.map((l) => l.underlying))];
+    const policy = loadThetaPolicy();
+    const policyValidation = validateOrderAgainstPolicy({ underlyings, legs, policy });
+
     let dryRunResult: unknown = null;
     try {
       const res = await orderDryRun(accountNumber, roll.order_json);
@@ -50,8 +68,38 @@ export const tastytradeRollShortOptionTool = new DynamicStructuredTool({
       dryRunResult = { error: error instanceof Error ? error.message : String(error) };
     }
 
+    if (!policyValidation.allowed) {
+      return JSON.stringify({
+        account_number: accountNumber,
+        policy_blocked: true,
+        violations: policyValidation.violations,
+        buying_power: availableBuyingPowerFromBalances(balancesRes.data),
+        current_position: {
+          symbol: position.symbol,
+          underlying: position.underlying,
+          option_type: position.optionType,
+          strike: position.strike,
+          expiration_date: position.expirationDate,
+          dte: position.dte,
+          mark: roll.current_mark,
+        },
+        roll_candidate: {
+          symbol: roll.target_contract.symbol,
+          strike: roll.target_contract.strike,
+          expiration_date: roll.target_contract.expirationDate,
+          dte: roll.target_contract.dte,
+          mark: roll.target_mark,
+          net_credit: roll.net_credit,
+        },
+        order_json: roll.order_json,
+        dry_run_result: dryRunResult,
+        note: 'Do not submit; roll violates THETA-POLICY. Adjust target DTE, underlying allowlist, or no-call list and re-run.',
+      });
+    }
+
     return JSON.stringify({
       account_number: accountNumber,
+      policy_blocked: false,
       buying_power: availableBuyingPowerFromBalances(balancesRes.data),
       current_position: {
         symbol: position.symbol,

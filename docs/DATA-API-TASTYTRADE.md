@@ -102,8 +102,8 @@ No new API endpoints; reuses Phase 1 positions and account-balances.
 | Feature | Description |
 |--------|--------------|
 | **tastytrade_position_risk** | Enriches live positions into a risk view: DTE, option type, concentration by underlying, buying power usage, and challenged short options. |
-| **tastytrade_theta_scan** | Scans covered calls, cash-secured puts, credit spreads, and iron condors using tastytrade positions, balances, option chains, quotes, and THETA-POLICY defaults. Returns ranked candidates with `order_json`. |
-| **tastytrade_strategy_preview** | Builds a trade memo for a candidate or manual order and runs tastytrade dry-run when order flow is enabled. |
+| **tastytrade_theta_scan** | Scans covered calls, cash-secured puts, credit spreads, and iron condors using tastytrade positions, balances, option chains, quotes, and THETA-POLICY. Policy is enforced as a **hard block**: only compliant candidates with portfolio_fit pass are returned. Output includes `policy_mode: "hard_block"`, `excluded_by_policy` (reason buckets), `excluded_by_earnings`, and when earnings data is unavailable, `earnings_exclusion_degraded`. When no candidates pass, returns `no_candidates: true` and `next_steps`. |
+| **tastytrade_strategy_preview** | Validates the order against THETA-POLICY before dry-run. If the order violates policy (e.g. disallowed underlying, no-call list, DTE), returns `policy_blocked: true` and a `violations` list; do not recommend. If compliant, returns `policy_blocked: false`, trade memo, portfolio_fit, and dry-run result when order flow is enabled. |
 | **tastytrade_roll_short_option** | Builds a later-dated roll candidate for a short option and optionally dry-runs it. |
 | **tastytrade_repair_position** | Analyzes a challenged short option and recommends hold, roll, close now, or possible assignment. |
 
@@ -134,8 +134,8 @@ Phase 5 reuses Phase 1/2 endpoints and Phase 3 dry-run when enabled. It also int
 
 **Phase 5**
 - **tastytrade_position_risk** — Optional `account_number`. Returns enriched live positions with DTE, option type, concentration, portfolio theta/delta when available, and challenged short options.
-- **tastytrade_theta_scan** — Optional `account_number`, optional `underlyings_csv`, `strategy_type`, DTE and delta bounds, `spread_width`, `min_credit`. Returns ranked theta candidates and `order_json` for preview/dry-run.
-- **tastytrade_strategy_preview** — `account_number`, `order_json`, optional `thesis`, optional `exit_plan`. Returns a trade memo and dry-run result if order flow is enabled.
+- **tastytrade_theta_scan** — Optional `account_number`, optional `underlyings_csv`, `strategy_type`, DTE and delta bounds, `spread_width`, `min_credit`, optional `exclude_earnings`. Returns only policy-compliant candidates (hard block) with `policy_mode: "hard_block"`, `excluded_by_policy`, `excluded_by_earnings`, optional `earnings_exclusion_degraded`, and when none pass `no_candidates` and `next_steps`. Ranked candidates include `order_json` for preview/dry-run.
+- **tastytrade_strategy_preview** — `account_number`, `order_json`, optional `thesis`, optional `exit_plan`. Validates against THETA-POLICY first; if violated returns `policy_blocked: true` and `violations`. If compliant returns `policy_blocked: false`, trade memo (including portfolio_fit), and dry-run result if order flow is enabled.
 - **tastytrade_roll_short_option** — Optional `account_number`; identify a short option by `position_symbol` or underlying/type/strike. Returns a later-dated roll candidate, order_json, and dry-run result if enabled.
 - **tastytrade_repair_position** — Optional `account_number`; identify a short option by `position_symbol` or underlying/type/strike. Returns alternatives (hold, close, roll, assignment) and a recommendation.
 

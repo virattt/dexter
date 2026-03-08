@@ -27,6 +27,43 @@ export type ThetaPolicy = {
   excludeEarningsDays: number;
 };
 
+/**
+ * Validate an order (or roll) against THETA-POLICY: allowed underlyings, no-call list, DTE range.
+ * Used by strategy_preview, roll_short_option, and repair_position.
+ */
+export function validateOrderAgainstPolicy(params: {
+  underlyings: string[];
+  legs: Array<{ underlying: string; option_type: 'C' | 'P' | null; action: string; dte: number | null }>;
+  policy: ThetaPolicy;
+}): { allowed: boolean; violations: string[] } {
+  const { underlyings, legs, policy } = params;
+  const violations: string[] = [];
+  const allowedSet = new Set(policy.allowedUnderlyings.map((u) => u.toUpperCase()));
+  const noCallSet = new Set(policy.noCallList.map((u) => u.toUpperCase()));
+  for (const u of underlyings) {
+    if (u === '—') continue;
+    const up = u.toUpperCase();
+    if (!allowedSet.has(up)) {
+      violations.push(`Underlying ${u} is not in THETA-POLICY allowed underlyings.`);
+    }
+    const hasShortCall = legs.some(
+      (leg) => leg.underlying.toUpperCase() === up && leg.option_type === 'C' && leg.action === 'Sell to Open'
+    );
+    if (hasShortCall && noCallSet.has(up)) {
+      violations.push(`${u} is on the no-call list; selling calls is not allowed.`);
+    }
+  }
+  for (const leg of legs) {
+    if (leg.dte != null) {
+      if (leg.dte < policy.minDte)
+        violations.push(`Leg ${leg.underlying} DTE ${leg.dte} is below policy min DTE ${policy.minDte}.`);
+      if (leg.dte > policy.maxDte)
+        violations.push(`Leg ${leg.underlying} DTE ${leg.dte} exceeds policy max DTE ${policy.maxDte}.`);
+    }
+  }
+  return { allowed: violations.length === 0, violations };
+}
+
 export type NormalizedOptionSymbol = {
   rawSymbol: string;
   underlying: string;
@@ -350,8 +387,9 @@ export function computePortfolioFit(params: {
   targetWeightPct?: number;
   isShortCall?: boolean;
 }): { result: PortfolioFitResult; reason: string } {
-  const { underlying, soulCoreOrAvoidTickers, portfolioTargetWeightByTicker } = params;
-  const inSoul = soulCoreOrAvoidTickers.includes(underlying);
+  const underlying = normalizeUnderlyingTicker(params.underlying);
+  const { soulCoreOrAvoidTickers, portfolioTargetWeightByTicker } = params;
+  const inSoul = soulCoreOrAvoidTickers.some((t) => normalizeUnderlyingTicker(t) === underlying);
   const target = params.targetWeightPct ?? portfolioTargetWeightByTicker.get(underlying);
 
   if (inSoul && params.isShortCall) {
@@ -360,6 +398,7 @@ export function computePortfolioFit(params: {
   if (inSoul) {
     return { result: 'warn', reason: `${underlying} is in SOUL.md Core/Avoid; confirm before selling premium.` };
   }
+  // When exposure estimate is missing/zero we skip the projected check (deterministic: no false block).
   if (target != null && params.currentWeightPct != null && params.tradeExposurePct != null) {
     const projected = params.currentWeightPct + params.tradeExposurePct;
     if (projected > target * 1.05) {
