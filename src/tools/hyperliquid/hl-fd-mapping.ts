@@ -38,6 +38,7 @@ export const HL_TO_FD: Record<string, string> = {
   CRCL: 'CRCL',
   MU: 'MU',
   INTC: 'INTC',
+  TSM: 'TSM',
   SNDNK: 'SNDK', // SNDK if listed on FD; otherwise may need to skip or use HL only
   EWY: 'EWY',
 };

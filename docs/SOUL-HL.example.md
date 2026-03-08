@@ -4,25 +4,26 @@ Copy to `~/.dexter/SOUL-HL.md` to customize. Used when working with PORTFOLIO-HY
 
 ## Target Allocation
 
-| Ticker | TargetMin | TargetMax | Category | Notes |
-|--------|-----------|-----------|----------|-------|
-| BTC | 35 | 40 | Core | Base layer |
-| HYPE | 10 | 15 | Core | Onchain equities |
-| SOL | 8 | 12 | L1 | Agentic |
-| ETH | 6 | 10 | L1 | Base / settlement |
-| NEAR | 4 | 6 | L1 | Chain abstraction |
-| SUI | 4 | 6 | L1 | Agentic optionality |
-| ORCL | 2 | 4 | AI infra | |
-| PLTR | 2 | 4 | AI infra | |
-| COIN | 2 | 3 | Tokenization | |
-| HOOD | 2 | 3 | Tokenization | |
-| CRCL | 2 | 3 | Tokenization | |
-| AMZN | 0 | 2 | Hyperscalers | Optional |
-| MSFT | 0 | 2 | Hyperscalers | Optional |
-| GOOGL | 0 | 2 | Hyperscalers | Optional |
+HIP-3 sleeve focuses on onchain equities (tokenized stocks, commodities, indices). Crypto (BTC, SOL, HYPE, ETH, SUI, NEAR) is held in the core portfolio, not here.
+
+| Ticker | TargetMin | TargetMax | Category     | Notes                                    |
+|--------|-----------|-----------|--------------|------------------------------------------|
+| TSM    | 15        | 20        | Foundry      | Foundry monopoly, tollbooth for AI chips |
+| NVDA   | 10        | 15        | AI infra     | GPU monopoly, high volume                |
+| ORCL   | 6         | 10        | AI infra     | Cloud/DB infra                           |
+| PLTR   | 6         | 10        | AI infra     | Enterprise AI                            |
+| COIN   | 5         | 8         | Tokenization | Regulated exchange                       |
+| HOOD   | 5         | 8         | Tokenization | Retail crypto/equities                   |
+| CRCL   | 5         | 8         | Tokenization | Stablecoin infra                         |
+| TSLA   | 4         | 7         | AI/Auto      | FSD + Optimus                            |
+| MU     | 4         | 7         | Memory       | HBM/NAND                                 |
+| META   | 3         | 5         | Hyperscaler  | Open-source AI                           |
+| MSFT   | 2         | 4         | Hyperscaler  | Azure AI                                 |
+| AMZN   | 2         | 4         | Hyperscaler  | AWS                                      |
+| GOOGL  | 2         | 4         | Hyperscaler  | Gemini + TPUs                            |
 
 ## Sizing Rules
 
 - Regime determines size; conviction determines inclusion
-- No single position >15% except BTC
+- No single position >20%
 - Concentration alert threshold: >5% above target (TargetMax + 5%)

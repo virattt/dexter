@@ -243,9 +243,9 @@ describe('tastytrade utils', () => {
       expect(isTickerTradableOnHyperliquid('AAPL')).toBe(true);
       expect(isTickerTradableOnHyperliquid('BTC')).toBe(true);
       expect(isTickerTradableOnHyperliquid('  msft  ')).toBe(true);
+      expect(isTickerTradableOnHyperliquid('TSM')).toBe(true);
     });
     test('isTickerTradableOnHyperliquid returns false for non-HL symbols', () => {
-      expect(isTickerTradableOnHyperliquid('TSM')).toBe(false);
       expect(isTickerTradableOnHyperliquid('UNKNOWNXYZ')).toBe(false);
     });
     test('checkHyperliquidOverlap returns overlap and reason for HL ticker', () => {
@@ -254,16 +254,16 @@ describe('tastytrade utils', () => {
       expect(out.reason).toBe('hl_overlap_universe');
     });
     test('checkHyperliquidOverlap returns no overlap for non-HL ticker', () => {
-      const out = checkHyperliquidOverlap('TSM');
+      const out = checkHyperliquidOverlap('UNKNOWNXYZ');
       expect(out.overlap).toBe(false);
       expect(out.reason).toBeUndefined();
     });
     test('filterOutHyperliquidTickers removes HL symbols', () => {
       const list = ['TSM', 'AAPL', 'AMAT', 'MSFT', 'KLAC'];
       const filtered = filterOutHyperliquidTickers(list);
-      expect(filtered).toContain('TSM');
       expect(filtered).toContain('AMAT');
       expect(filtered).toContain('KLAC');
+      expect(filtered).not.toContain('TSM');
       expect(filtered).not.toContain('AAPL');
       expect(filtered).not.toContain('MSFT');
     });

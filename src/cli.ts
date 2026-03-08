@@ -261,9 +261,9 @@ export async function runCli() {
   const QUERY_SHORTCUTS: Record<string, string> = {
     '/suggest': `Suggest and save TWO portfolios based on your Identity (SOUL.md). Use two portfolios — zero overlap.
 
-1. **Tastytrade sleeve** (portfolio_id=default): Only tickers NOT on Hyperliquid — e.g. TSM, AMAT, ASML, LRCX, KLAC, VRT, CEG, MU, ANET (SOUL layers 1–7). 6–10 positions, target weights, layer/tier. Save to ~/.dexter/PORTFOLIO.md with portfolio tool, action=update, portfolio_id=default.
+1. **Tastytrade sleeve** (portfolio_id=default): Only tickers NOT on Hyperliquid — e.g. AMAT, ASML, LRCX, KLAC, VRT, CEG, ANET (SOUL layers 1–7). Do NOT include TSM or any ticker tradable on HIP-3. 6–10 positions, target weights, layer/tier. Save to ~/.dexter/PORTFOLIO.md with portfolio tool, action=update, portfolio_id=default.
 
-2. **Hyperliquid sleeve** (portfolio_id=hyperliquid): Only tickers on HIP-3 — BTC, SOL, SUI, NEAR, ETH, HYPE, on-chain stocks (e.g. NVDA, PLTR, AAPL, MSFT). 6–10 positions, target weights. Save to ~/.dexter/PORTFOLIO-HYPERLIQUID.md with portfolio tool, action=update, portfolio_id=hyperliquid.
+2. **Hyperliquid sleeve** (portfolio_id=hyperliquid): Only HIP-3 onchain equities — stocks (TSM, NVDA, PLTR, ORCL, COIN, HOOD, CRCL, TSLA, META), commodities (GLD, SLV), indices (SPY, SMH). Do NOT include BTC, SOL, HYPE, ETH, SUI, NEAR (those are in the core crypto portfolio). 6–10 positions, target weights. Save to ~/.dexter/PORTFOLIO-HYPERLIQUID.md with portfolio tool, action=update, portfolio_id=hyperliquid.
 
 Include conviction tiering, regime awareness, and rationale. Call the portfolio tool twice to save both files.`,
     '/weekly': `Write a weekly performance report for my portfolio. Use ~/.dexter/PORTFOLIO.md for my holdings (or the portfolio you suggested last time). For each position, fetch the price change over the past 7 days (start_date and end_date). Also fetch the 7-day performance for:
@@ -288,8 +288,9 @@ Output:
 - YTD and since-inception (if performance_history has data): compute and include vs BTC, SPY, GLD
 - Save the report to ~/.dexter/QUARTERLY-REPORT-YYYY-QN.md using the save_report tool (e.g. QUARTERLY-REPORT-2026-Q1.md)
 - Call performance_history record_quarter to append this quarter's returns (period, portfolio, btc, spy, gld as decimals)`,
-    '/suggest-hl': `Suggest a Hyperliquid portfolio for me — only tickers available on HIP-3 (on-chain stocks, indices, commodities). Use docs/HYPERLIQUID-SYMBOL-MAP.md for the HL→FD ticker mapping. Include:
-- 8–12 positions from the HL universe (stocks like NVDA/PLTR, commodities via ETFs like GLD/SLV/USO, indices via proxies like SPY/SMH)
+    '/suggest-hl': `Suggest a Hyperliquid portfolio focused on HIP-3 onchain equities — NOT crypto assets (BTC, SOL, HYPE, ETH, SUI, NEAR are already in the core portfolio). Use docs/HYPERLIQUID-SYMBOL-MAP.md for the HL→FD ticker mapping. Include:
+- 8–12 positions from HIP-3 onchain stocks (e.g. TSM, NVDA, PLTR, ORCL, COIN, HOOD, CRCL, TSLA, META, MSFT, AMZN, MU, INTC), commodities (GLD, SLV, USO), or indices (SPY, SMH)
+- Do NOT allocate to BTC, SOL, HYPE, ETH, SUI, NEAR — those belong in the core portfolio
 - Prefer high-volume underlyings (e.g. NVDA, MU, TSLA, HOOD, CRCL, SNDNK) for larger weights — see docs/PRD-HYPERLIQUID-PORTFOLIO.md §2.1
 - Target weights and brief rationale
 - Save to ~/.dexter/PORTFOLIO-HYPERLIQUID.md using the portfolio tool with portfolio_id=hyperliquid`,

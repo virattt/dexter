@@ -21,23 +21,22 @@ Copy this file to `~/.dexter/HEARTBEAT.md` to customize what Dexter monitors. Th
 
 ## HIP-3 Target (for PORTFOLIO-HYPERLIQUID.md rebalancing)
 
-When you have a Hyperliquid portfolio, define your target allocation below. The heartbeat and `hyperliquid_portfolio_ops` tool parse this table for deterministic rebalance checks and concentration alerts.
+When you have a Hyperliquid portfolio, define your target allocation below. The heartbeat and `hyperliquid_portfolio_ops` tool parse this table for deterministic rebalance checks and concentration alerts. HIP-3 sleeve focuses on onchain equities; crypto (BTC, SOL, HYPE, ETH, SUI, NEAR) is in the core portfolio.
 
 **Canonical format (code-parsed):** One row per ticker. Columns: `Ticker | TargetMin | TargetMax | Category | Notes`. Percentages as numbers (no %). Code derives midpoint target and uses TargetMin/TargetMax as the allowed band. Concentration alert when current weight > TargetMax + 5%.
 
-| Ticker | TargetMin | TargetMax | Category | Notes |
-|--------|-----------|-----------|----------|-------|
-| BTC | 35 | 40 | Core | Base layer |
-| HYPE | 10 | 15 | Core | Onchain equities |
-| SOL | 8 | 12 | L1 | Agentic |
-| ETH | 6 | 10 | L1 | Base / settlement |
-| NEAR | 4 | 6 | L1 | Chain abstraction |
-| SUI | 4 | 6 | L1 | Agentic optionality |
-| ORCL | 2 | 4 | AI infra | |
-| PLTR | 2 | 4 | AI infra | |
-| COIN | 2 | 3 | Tokenization | |
-| HOOD | 2 | 3 | Tokenization | |
-| CRCL | 2 | 3 | Tokenization | |
-| AMZN | 0 | 2 | Hyperscalers | Optional |
-| MSFT | 0 | 2 | Hyperscalers | Optional |
-| GOOGL | 0 | 2 | Hyperscalers | Optional |
+| Ticker | TargetMin | TargetMax | Category     | Notes                                    |
+|--------|-----------|-----------|--------------|------------------------------------------|
+| TSM    | 15        | 20        | Foundry      | Foundry monopoly, tollbooth for AI chips |
+| NVDA   | 10        | 15        | AI infra     | GPU monopoly, high volume                |
+| ORCL   | 6         | 10        | AI infra     | Cloud/DB infra                           |
+| PLTR   | 6         | 10        | AI infra     | Enterprise AI                            |
+| COIN   | 5         | 8         | Tokenization | Regulated exchange                       |
+| HOOD   | 5         | 8         | Tokenization | Retail crypto/equities                   |
+| CRCL   | 5         | 8         | Tokenization | Stablecoin infra                         |
+| TSLA   | 4         | 7         | AI/Auto      | FSD + Optimus                            |
+| MU     | 4         | 7         | Memory       | HBM/NAND                                 |
+| META   | 3         | 5         | Hyperscaler  | Open-source AI                           |
+| MSFT   | 2         | 4         | Hyperscaler  | Azure AI                                 |
+| AMZN   | 2         | 4         | Hyperscaler  | AWS                                      |
+| GOOGL  | 2         | 4         | Hyperscaler  | Gemini + TPUs                            |

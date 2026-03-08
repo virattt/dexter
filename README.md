@@ -1,8 +1,10 @@
 # Dexter
 
-**Research that runs. Portfolios that stay aligned.**
+**A researcher who thinks. Not a search engine with opinions.**
 
-An autonomous financial research agent built for deep analysis: it decomposes questions into plans, runs them against live market data and SEC filings, checks its own work, and refines until the answer is data-backed. The bar is the **Portfolio Builder** — build and maintain a portfolio aligned with your thesis (SOUL.md) that beats the benchmarks (S&P 500, NASDAQ, BTC, top hedge funds). Otherwise it fails the bar.
+Dexter is a financial research agent that starts from a thesis and works inward. Before it pulls a single data point, it reads **SOUL.md** — the document that tells it who it is, what it believes, and where the edge lives. The thesis constrains the search space. The data fills the positions. The attribution measures the outcome.
+
+The bar is the **Portfolio Builder**: build and maintain a portfolio aligned with your thesis that beats the benchmarks (S&P 500, NASDAQ, BTC, top hedge funds). The tool doesn’t succeed by answering questions well; it succeeds by producing a portfolio that outperforms. Otherwise it fails the bar. *[More: [The Researcher Who Thinks](https://ikigaistudio.substack.com/p/the-researcher-who-thinks)]*
 
 ## Table of Contents
 
@@ -24,9 +26,13 @@ An autonomous financial research agent built for deep analysis: it decomposes qu
 
 ## What you get
 
-Not a chatbot. A research loop: plan → execute → validate → refine. Every answer is contextualized by your investment thesis in **SOUL.md**. You get weekly rebalance checks (Mondays), quarterly benchmark reports, and optional dollar rebalancing when AUM is set. You get regime labels, concentration alerts, and investor-letter drafts. You get fund ops: AUM config, YTD and since-inception performance, reports written to `~/.dexter/`. **VOICE.md** injects a consistent tone into every response; override at `~/.dexter/VOICE.md`. Loop detection and step limits cap runaway execution.
+Not a chatbot. A **research loop**: plan → execute → validate → refine. A search engine retrieves; a researcher interrogates. When the numbers say one thing and the narrative says another, Dexter digs until it finds which one is lying. Every answer is constrained by **SOUL.md** — your identity and thesis, not a one-off prompt.
 
-For tastytrade: a full portfolio-aware theta engine — SOUL-aligned scan (not SPX/SPY/QQQ by default), THETA-POLICY hard-block enforcement, strategy preview with dry-run, roll/repair, and analytics (realized P&L, earnings calendar, watchlist, risk metrics scorecard).
+You get weekly rebalance checks (Mondays), quarterly benchmark reports, and optional dollar rebalancing when AUM is set. Regime labels, concentration alerts, investor-letter drafts. Fund ops: AUM config, YTD and since-inception performance, reports in `~/.dexter/`. **VOICE.md** gives every response a consistent tone; override at `~/.dexter/VOICE.md`.
+
+**Two portfolios, zero overlap:** tastytrade sleeve (PORTFOLIO.md) for names *not* on Hyperliquid (e.g. AMAT, ASML, LRCX, KLAC, VRT, CEG — no TSM, AAPL, or any HL-tradable ticker). On-chain sleeve (PORTFOLIO-HYPERLIQUID.md) is for **HIP-3 onchain equities only** (tokenized stocks, commodities, indices) — not crypto. Core crypto (BTC, SOL, HYPE, ETH, SUI, NEAR) is held separately (e.g. 80% BTC / 10% SOL / 10% HYPE for options on Hypersurface); the HL sleeve focuses on what HIP-3 uniquely offers: onchain stocks like TSM, NVDA, PLTR, ORCL, COIN, HOOD, CRCL. Use both sleeves. Suggest both. Save both.
+
+**tastytrade:** Full theta engine — SOUL-aligned scan (thesis names, not index defaults), THETA-POLICY hard block, strategy preview, roll/repair, analytics. Dry-run before any live order; submit/cancel require explicit approval.
 
 The thesis is structural. The sizing is tactical. The discipline is the moat.
 
@@ -38,13 +44,13 @@ This fork extends [virattt/dexter](https://github.com/virattt/dexter) with a def
 
 | Layer | What | Why |
 |-------|------|-----|
-| **Portfolio Builder** | Agent owns the outcome: rebalance, benchmark, report. Bar = beat hedge funds, indexes, BTC. | Generic agents answer questions. This one is judged on the portfolio. |
-| **SOUL.md** | Thesis: AI infra supply chain (7 layers), conviction tiers, sizing rules. BTC-heavy core; HYPE, SOL/NEAR/SUI/ETH as satellites. | The edge lives where consensus hasn't priced. SOUL gives every query structural context. |
+| **Portfolio Builder** | Agent owns the outcome: rebalance, benchmark, report. Bar = beat hedge funds, indexes, BTC. Measurement is a number, not “insightful.” | Generic agents answer questions. This one is judged on the portfolio. |
+| **SOUL.md** | Identity + thesis: AI infra supply chain (7 layers), conviction tiers, sizing rules. BTC-heavy core; HYPE, SOL/NEAR/SUI/ETH as satellites. “When the evidence conflicts with doctrine, I follow the evidence.” | Not a prompt — a worldview. The edge lives where standard tools can’t see (equipment, EDA, power). SOUL constrains every query. |
 | **HEARTBEAT** | Weekly rebalance vs target. Quarterly report vs S&P, NASDAQ, BTC. Regime label. Newsletter draft when it matters. Dollar rebalancing when AUM set. | Passive monitoring isn't enough. Scheduled action: detect drift, deliver reports. |
 | **VOICE.md** | ikigaistudio tone and structure in every prompt. | Generic output sounds generic. Essays and letters need a recognizable voice. |
 | **Financial Datasets** | Primary source for prices, fundamentals, filings, insider trades, news. Optional Finnhub fallback for price/news when FD is down or rate-limited. | Built for agents: section-level filings, structured JSON. [DATA-API-FINANCIAL-DATASETS.md](docs/DATA-API-FINANCIAL-DATASETS.md). |
 | **tastytrade** | 6 shipped phases: accounts + positions + balances (Ph 1), option chain + quote (Ph 2), dry-run/submit/cancel (Ph 3, opt-in), portfolio sync with Target/Actual/Gap + heartbeat (Ph 4), SOUL-aligned theta engine — scan, preview, roll, repair (Ph 5), analytics — transactions, earnings calendar, watchlist, risk metrics scorecard (Ph 6). | Live broker data vs static PORTFOLIO.md. Theta scan defaults to SOUL thesis names — not SPX/SPY/QQQ. THETA-POLICY hard block + no-call list protects Core Compounders. Dry-run before any live order; submit/cancel require explicit approval. [PRD-TASTYTRADE-INTEGRATION.md](docs/PRD-TASTYTRADE-INTEGRATION.md), [PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md](docs/PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md). |
-| **Hyperliquid** | HIP-3 data, liquidity ranking, period returns, portfolio ops, live sync, order preview, opt-in execution with approval. | Third portfolio: on-chain, 24/7, preview-first then execute when you say. [PRD-HYPERLIQUID-PORTFOLIO.md](docs/PRD-HYPERLIQUID-PORTFOLIO.md). |
+| **Hyperliquid** | HIP-3 data, liquidity ranking, period returns, portfolio ops, live sync, order preview, opt-in execution with approval. **HL sleeve = onchain equities only** (TSM, NVDA, PLTR, COIN, HOOD, CRCL, etc.) — no BTC/SOL/HYPE/ETH/SUI/NEAR (those live in the core crypto portfolio). | Third portfolio: on-chain, 24/7, preview-first then execute when you say. [PRD-HYPERLIQUID-PORTFOLIO.md](docs/PRD-HYPERLIQUID-PORTFOLIO.md). |
 
 Core thesis: BTC HODL is the foundation. Diversification satellites are HYPE and SOL/NEAR/SUI/ETH. The AI infrastructure universe is the opportunity set. Dexter helps decide when to diversify — and when HODLing is the right call.
 
@@ -128,9 +134,9 @@ dexter/
 
 ## SOUL and HEARTBEAT
 
-Standard analysis works for high-coverage names. The edge lives where it can't: equipment cycles, EDA complexity, power bottlenecks. **SOUL.md** in the repo root is injected into every prompt. It defines coverage universe, structural thesis, conviction tiers, sizing rules, and where domain analysis beats generic tools. Edit it to reflect your thesis. Structure matters more than the specific names.
+**SOUL.md** in the repo root is injected into every session. It’s not a system prompt — it’s the lens. It defines the coverage universe (seven layers: chip → foundry → equipment → EDA → power → memory → networking), conviction tiering (Core Compounders vs Cyclical vs Speculative vs Avoid), and sizing rules (regime, layer durability, catalyst timing). Standard tools validate the consensus names; the edge lives where they can’t — equipment cycles, EDA complexity, power bottlenecks. Edit SOUL to reflect your thesis. Structure matters more than the names.
 
-**~/.dexter/HEARTBEAT.md** is your monitoring checklist. Weekly: rebalance vs target, regime label, concentration alerts, newsletter draft. Quarterly: performance vs BTC, SPY, GLD; result recorded for since-inception tracking. Keep **~/.dexter/PORTFOLIO.md** (ticker, weight, layer, tier) so Dexter can compare to target.
+**~/.dexter/HEARTBEAT.md** is your monitoring checklist. Weekly: rebalance vs target, regime label, concentration alerts, newsletter draft. Quarterly: performance vs BTC, SPY, GLD; result recorded for since-inception tracking. Keep **~/.dexter/PORTFOLIO.md** (and optionally **PORTFOLIO-HYPERLIQUID.md**) so Dexter can compare actual to target.
 
 ```bash
 cp docs/HEARTBEAT.example.md ~/.dexter/HEARTBEAT.md
@@ -158,7 +164,7 @@ Three states: **not connected** → **read-only** → **trading enabled**. In re
 
 **Theta (Phase 5):** Position risk, scan, strategy preview, roll, repair. Scan defaults to **SOUL.md thesis names** (equipment, foundry, chip, power, memory, networking, cyclical adjacents) — not SPX/SPY/QQQ. THETA-POLICY is enforced as a **hard block**: only compliant candidates are returned. The **no-call list** (TSM, ASML, AMAT, LRCX, KLAC, ANET, CEG…) blocks covered calls on Core Compounders so they can't be called away; puts and spreads are still valid. Roll and repair validate the proposed order against policy — if it violates, you get `policy_blocked` and violations, not a recommendation. Earnings exclusion in scan when THETA-POLICY and Financial Datasets allow; `earnings_exclusion_degraded` notice when the key is missing.
 
-**Portfolio sync (Phase 4):** Sync from tastytrade to a PORTFOLIO.md-style table with **Target/Actual/Gap** columns. Optional write to `~/.dexter/PORTFOLIO.md`. Session cache (5-min TTL) avoids redundant API calls. With `TASTYTRADE_HEARTBEAT_ENABLED=true`, heartbeat compares live positions to SOUL.md target and flags drift. **Venue split:** The tastytrade sleeve has zero overlap with Hyperliquid — symbols tradable on HL (e.g. AAPL, MSFT, BTC, SOL) are hard-blocked from theta scan, preview, submit, and from the default PORTFOLIO.md; use PORTFOLIO-HYPERLIQUID.md for those.
+**Portfolio sync (Phase 4):** Sync from tastytrade to a PORTFOLIO.md-style table with **Target/Actual/Gap** columns. Optional write to `~/.dexter/PORTFOLIO.md`. Session cache (5-min TTL) avoids redundant API calls. With `TASTYTRADE_HEARTBEAT_ENABLED=true`, heartbeat compares live positions to SOUL.md target and flags drift. **Venue split:** The tastytrade sleeve has zero overlap with Hyperliquid — symbols tradable on HL (e.g. TSM, AAPL, MSFT, BTC, SOL, COIN) are hard-blocked from theta scan, preview, submit, and from the default PORTFOLIO.md; use PORTFOLIO-HYPERLIQUID.md for those.
 
 **Analytics (Phase 6):** Realized P&L and win rate (`tastytrade_transactions`), upcoming earnings for SOUL underlyings + current positions with `within_7_days` flag (`tastytrade_earnings_calendar`), watchlist management with policy-alignment scan (`tastytrade_watchlist`), portfolio risk scorecard — Herfindahl concentration, theta/delta aggregate, buying power utilization (`tastytrade_risk_metrics`).
 
@@ -167,6 +173,8 @@ Three states: **not connected** → **read-only** → **trading enabled**. In re
 ---
 
 ## Hyperliquid
+
+**HIP-3 sleeve = onchain equities only.** The HL portfolio (PORTFOLIO-HYPERLIQUID.md) is for tokenized stocks, commodities, and indices — TSM, NVDA, PLTR, ORCL, COIN, HOOD, CRCL, TSLA, META, etc. Do *not* put BTC, SOL, HYPE, ETH, SUI, or NEAR in the HL target: core crypto is held separately (e.g. 80% BTC, 10% SOL, 10% HYPE for onchain options on Hypersurface). This keeps the HL sleeve focused on what HIP-3 uniquely offers (24/7 onchain equities) and avoids duplicating crypto weight.
 
 HIP-3 stack: prices, liquidity ranking, period returns, portfolio ops (rebalance_check, quarterly_summary), live sync to PORTFOLIO-HYPERLIQUID.md, order preview, then opt-in execution (submit/cancel) gated by `HYPERLIQUID_ORDER_ENABLED` and private key, with runtime approval. Preview first; heartbeat never submits. Env: `HYPERLIQUID_ACCOUNT_ADDRESS`; optional `HYPERLIQUID_ORDER_ENABLED` and `HYPERLIQUID_PRIVATE_KEY`. [PRD-HYPERLIQUID-PORTFOLIO.md](docs/PRD-HYPERLIQUID-PORTFOLIO.md), [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) (Queries 8, 8b–8e).
 

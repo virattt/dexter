@@ -55,6 +55,7 @@ Stocks use 1:1 mapping — Hyperliquid symbol = FD ticker.
 | AMD | AMD | AMD |
 | MSTR | MSTR | MicroStrategy |
 | CRCL | CRCL | Circle (if listed) |
+| TSM | TSM | TSMC |
 
 ---
 
