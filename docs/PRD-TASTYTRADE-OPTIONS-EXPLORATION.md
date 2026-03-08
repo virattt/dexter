@@ -68,7 +68,7 @@ What runbooks or docs are needed so someone who uses Hypersurface today can add 
 
 - **Setup:** THETA-POLICY.md in place (copy from [THETA-POLICY.example.md](THETA-POLICY.example.md)); OAuth and credentials ([TASTYTRADE.md](TASTYTRADE.md)).
 - **Venue split:** Document that tastytrade sleeve = non-HL names only; HL-tradable tickers are excluded from scan/preview/submit.
-- **Flow:** `/theta-scan` → choose candidate → `/theta-preview` → dry-run → approve → submit (when `TASTYTRADE_ORDER_ENABLED=true`). Optional: a one-page “From Hypersurface to tastytrade options” runbook.
+- **Flow:** `/theta-scan` → choose candidate → `/theta-preview` → dry-run → approve → submit (when `TASTYTRADE_ORDER_ENABLED=true`). See the one-page runbook: [RUNBOOK-TASTYTRADE-OPTIONS-FROM-HYPERSURFACE.md](RUNBOOK-TASTYTRADE-OPTIONS-FROM-HYPERSURFACE.md).
 
 ### 3.3 Ops and risk
 

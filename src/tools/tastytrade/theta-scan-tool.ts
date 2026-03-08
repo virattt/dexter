@@ -55,7 +55,7 @@ const schema = z.object({
     .describe('When true and THETA-POLICY has exclude_earnings_days > 0, filter out underlyings with earnings in that window. Default true.'),
 });
 
-type Candidate = {
+export type ThetaScanCandidate = {
   underlying: string;
   strategy_type: 'covered_call' | 'cash_secured_put' | 'credit_spread' | 'iron_condor';
   expiration_date: string | null;
@@ -71,6 +71,47 @@ type Candidate = {
   score: number;
   portfolio_fit?: { result: 'pass' | 'warn' | 'block'; reason: string };
 };
+
+type Candidate = ThetaScanCandidate;
+
+/**
+ * Build a Hypersurface-style markdown table from theta scan candidates.
+ * APR-like = annualized credit over DTE: (credit / notional) * (365 / dte); notional = buying_power_estimate or strike*100.
+ * Prob (ITM) = short_delta as proxy when present; otherwise "—".
+ */
+export function buildThetaScanTableSummary(candidates: Candidate[], maxRows: number): string {
+  if (candidates.length === 0) return '';
+  const rows = candidates.slice(0, maxRows);
+  const header = '| Underlying | Strategy | Strike(s) | Credit | APR-like | Prob (ITM) | DTE | Max loss |';
+  const sep = '| --- | --- | --- | --- | --- | --- | --- | --- |';
+  const lineRows = rows.map((c) => {
+    const shortLegs = c.legs.filter((leg) => leg.action === 'Sell to Open' && leg.strike != null);
+    const longLegs = c.legs.filter((leg) => leg.action === 'Buy to Open' && leg.strike != null);
+    const shortStrikes = shortLegs.map((l) => String(l.strike));
+    const longStrikes = longLegs.map((l) => String(l.strike));
+    const strikeStr =
+      shortStrikes.length > 0
+        ? longStrikes.length > 0
+          ? [...shortStrikes, ...longStrikes].join('/')
+          : shortStrikes.join('/')
+        : '—';
+    const creditStr = `$${c.estimated_credit.toFixed(2)}`;
+    const dteStr = c.dte != null ? String(c.dte) : '—';
+    const maxLossStr = c.max_loss != null ? `$${c.max_loss.toFixed(0)}` : '—';
+    let aprStr = '—';
+    if (c.dte != null && c.dte > 0 && c.estimated_credit > 0) {
+      const notional = c.buying_power_estimate > 0 ? c.buying_power_estimate : (shortLegs[0]?.strike ?? 0) * 100;
+      if (notional > 0) {
+        const apr = (c.estimated_credit / notional) * (365 / c.dte) * 100;
+        aprStr = `${apr.toFixed(1)}%`;
+      }
+    }
+    const probStr = c.short_delta != null ? `${(Math.abs(c.short_delta) * 100).toFixed(1)}%` : '—';
+    const strategyLabel = c.strategy_type.replace(/_/g, ' ');
+    return `| ${c.underlying} | ${strategyLabel} | ${strikeStr} | ${creditStr} | ${aprStr} | ${probStr} | ${dteStr} | ${maxLossStr} |`;
+  });
+  return [header, sep, ...lineRows].join('\n');
+}
 
 export const tastytradeThetaScanTool = new DynamicStructuredTool({
   name: 'tastytrade_theta_scan',
@@ -384,6 +425,11 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
         });
       }
 
+      const table_summary =
+        finalCandidates.length > 0
+          ? buildThetaScanTableSummary(finalCandidates, input.max_results ?? 5)
+          : '';
+
       return JSON.stringify({
         account_number: accountNumber,
         strategy_type: input.strategy_type,
@@ -398,6 +444,7 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
         total_equity: totalEquity,
         buying_power: buyingPower,
         candidates: finalCandidates,
+        table_summary: table_summary || undefined,
         notes: [
           excludedByHlOverlap.length > 0
             ? `Zero-overlap with Hyperliquid: ${excludedByHlOverlap.length} underlying(s) excluded (${excludedByHlOverlap.join(', ')}). Tastytrade sleeve is for non-HL assets only.`

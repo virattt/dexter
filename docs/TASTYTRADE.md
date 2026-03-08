@@ -74,6 +74,8 @@ The tastytrade sleeve has **zero overlap** with the Hyperliquid tradable univers
 
 PORTFOLIO.md (default portfolio) must not contain HL-tradable tickers; use PORTFOLIO-HYPERLIQUID.md for those. The portfolio tool and `validate-portfolio` enforce this. See [THETA-POLICY.md](THETA-POLICY.md#venue-split-zero-overlap-with-hyperliquid) and [PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md](PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md).
 
+If you use **Hypersurface** for crypto options and want to add US equity theta via Dexter, see [RUNBOOK-TASTYTRADE-OPTIONS-FROM-HYPERSURFACE.md](RUNBOOK-TASTYTRADE-OPTIONS-FROM-HYPERSURFACE.md).
+
 ---
 
 ## 2. Tools Reference

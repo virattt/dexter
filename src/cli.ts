@@ -313,7 +313,7 @@ Voice: structural thinking, precise numbers, blunt assessment. No hype. Output m
 - which short options are challenged
 - concentration by underlying
 - whether any short position looks like assignment risk this week`,
-    '/theta-scan': `Scan for the safest theta trade in my tastytrade account today. Use tastytrade_theta_scan with my THETA-POLICY defaults (underlyings from my SOUL.md thesis — not SPX/SPY/QQQ unless my policy lists them; policy is enforced as a hard block). Return the top 2 candidates with:
+    '/theta-scan': `Scan for the safest theta trade in my tastytrade account today. Use tastytrade_theta_scan with my THETA-POLICY defaults (underlyings from my SOUL.md thesis — not SPX/SPY/QQQ unless my policy lists them; policy is enforced as a hard block). When the tool returns table_summary, show that table (Underlying, Strategy, Strike(s), Credit, APR-like, Prob (ITM), DTE, Max loss). Also return the top 2 candidates with:
 - strategy type
 - strikes and expiration
 - estimated credit

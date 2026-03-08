@@ -226,6 +226,7 @@ HIP-3 stack: prices, liquidity ranking, period returns, portfolio ops (rebalance
 | [PRD-TASTYTRADE-INTEGRATION.md](docs/PRD-TASTYTRADE-INTEGRATION.md) | tastytrade integration PRD — all 6 phases |
 | [PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md](docs/PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md) | Phase 5 theta engine: tools, SOUL policy, guardrails |
 | [PRD-TASTYTRADE-OPTIONS-EXPLORATION.md](docs/PRD-TASTYTRADE-OPTIONS-EXPLORATION.md) | Explore tastytrade options alongside Hypersurface (venue comparison, gaps, readiness) |
+| [RUNBOOK-TASTYTRADE-OPTIONS-FROM-HYPERSURFACE.md](docs/RUNBOOK-TASTYTRADE-OPTIONS-FROM-HYPERSURFACE.md) | One-page: from Hypersurface to tastytrade options via Dexter (venue split, flow, prerequisites) |
 | [PRD-HYPERLIQUID-PORTFOLIO.md](docs/PRD-HYPERLIQUID-PORTFOLIO.md) | Hyperliquid portfolio and execution |
 | [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) | Copy-paste query library |
 | [FUND-CONFIG.md](docs/FUND-CONFIG.md), [EXTERNAL-RESOURCES.md](docs/EXTERNAL-RESOURCES.md) | AUM, inception date, research references |
