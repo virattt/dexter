@@ -59,7 +59,7 @@ export class IntroComponent extends Container {
       new Text(
         `${theme.muted('Try: ')}${theme.primary('/suggest')}${theme.muted(' (portfolio) · ')}${theme.primary(
           '/suggest-hl',
-        )}${theme.muted(' (on-chain) · ')}${theme.primary('/theta-scan')}${theme.muted(' (theta)')}`,
+        )}${theme.muted(' (on-chain) · ')}${theme.primary('/options')}${theme.muted(' (tastytrade thesis) · ')}${theme.primary('/hypersurface')}${theme.muted(' (Hypersurface)')}`,
         0,
         0,
       ),
@@ -67,8 +67,8 @@ export class IntroComponent extends Container {
     this.addChild(
       new Text(
         `${theme.muted('Or: ')}${theme.primary('/weekly')}${theme.muted(' (rebalance) · ')}${theme.primary(
-          '/theta-policy',
-        )}${theme.muted(' · ')}${theme.primary('/theta-help')}`,
+          '/hypersurface',
+        )}${theme.muted(' (Hypersurface strike) · ')}${theme.primary('/theta-policy')}${theme.muted(' · ')}${theme.primary('/theta-help')}`,
         0,
         0,
       ),

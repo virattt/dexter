@@ -112,6 +112,11 @@ These are the core options workflows. They all respect your `THETA-POLICY.md`.
 | `tastytrade_roll_short_option` | Builds a roll candidate for a short option (buy-to-close + sell-to-open) and dry-runs it | "Roll my short SPY 660 put to next week" |
 | `tastytrade_repair_position` | Analyzes a challenged short option and recommends hold, roll, close, or assignment | "My short AAPL 200 put is ITM — what should I do?" |
 
+**Use case split:** (1) **Execution on tastytrade** — focus on SOUL.md **non-crypto** underlyings (equities: equipment, foundry, chip, power, memory, networking). The theta scan and any orders you place on tastytrade should use this set. (2) **BTC options** — our main use is **advice for Hypersurface** (secured puts or covered calls on BTC that you execute on Hypersurface). Tastytrade has no spot BTC; we use a US Bitcoin ETF (IBIT/BITO/GBTC) only as a **data source** for strike/APR/probability. Use that advice to trade BTC options on Hypersurface; do not submit IBIT options on tastytrade unless the user explicitly wants to trade the ETF there.
+
+**BTC options (weekly, same expiry day as Hypersurface Friday)**  
+For strike advice for BTC secured puts or covered calls (execute on Hypersurface), use a US-listed Bitcoin ETF: **IBIT** (iShares), **BITO** (ProShares), or **GBTC**. Add one (e.g. IBIT) to `THETA-POLICY.md` allowed underlyings, then use `/theta-btc-weekly` or ask for "optimal strike for BTC options next week". The scan uses `underlyings_csv=IBIT` and `min_dte=1`, `max_dte=7` so expirations land on **this week's Friday** (US weekly options expire 4pm ET Friday — same calendar day as Hypersurface 9am Paris). You get ranked candidates with strike, credit, APR-like, and probability to inform your Hypersurface trades.
+
 ### Order Flow (requires `TASTYTRADE_ORDER_ENABLED=true`)
 
 | Tool | What it does | Example prompt |

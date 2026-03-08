@@ -93,6 +93,9 @@ Explain:
 4. when to use /theta-preview
 5. when to use /theta-repair
 6. when to use /theta-roll
+7. when to use /theta-btc-weekly (BTC options via IBIT, weekly Friday expiry)
+8. when to use /hypersurface (Hypersurface advice only — optimal strike for BTC, I execute manually)
+9. when to use /options (suggest options to execute on tastytrade that fit SOUL.md thesis)
 
 Then tell me:
 - the safest order to run them in for a normal trading day
@@ -313,7 +316,7 @@ Voice: structural thinking, precise numbers, blunt assessment. No hype. Output m
 - which short options are challenged
 - concentration by underlying
 - whether any short position looks like assignment risk this week`,
-    '/theta-scan': `Scan for the safest theta trade in my tastytrade account today. Use tastytrade_theta_scan with my THETA-POLICY defaults (underlyings from my SOUL.md thesis — not SPX/SPY/QQQ unless my policy lists them; policy is enforced as a hard block). When the tool returns table_summary, show that table (Underlying, Strategy, Strike(s), Credit, APR-like, Prob (ITM), DTE, Max loss). Also return the top 2 candidates with:
+    '/theta-scan': `Scan for the safest theta trade in my tastytrade account today. Use tastytrade_theta_scan with my THETA-POLICY defaults: underlyings from my SOUL.md thesis, non-crypto only (equities — equipment, foundry, chip, power, memory, networking). Do not default to SPX/SPY/QQQ or IBIT unless my policy or I explicitly ask for BTC. Policy is enforced as a hard block. When the tool returns table_summary, show that table (Underlying, Strategy, Strike(s), Credit, APR-like, Prob (ITM), DTE, Max loss). Also return the top 2 candidates with:
 - strategy type
 - strikes and expiration
 - estimated credit
@@ -339,6 +342,9 @@ Do not submit anything.`,
 - dry-run result
 - your recommendation
 Do not submit anything until I explicitly confirm.`,
+    '/theta-btc-weekly': `Give me optimal strike advice for BTC options expiring this Friday (same calendar day as Hypersurface). This is for secured puts or covered calls on BTC that I execute on Hypersurface; tastytrade is used only for strike/APR/probability data — do not submit any order on tastytrade. Use tastytrade_theta_scan with underlyings_csv=IBIT (or BITO if the user prefers), min_dte=1, max_dte=7, strategy_type=cash_secured_put or credit_spread. When the tool returns table_summary, show that table. Recommend 1–2 best strikes for the week with brief rationale (credit vs probability trade-off). If IBIT is not in THETA-POLICY allowed underlyings, tell the user to add IBIT (or BITO/GBTC) to ~/.dexter/THETA-POLICY.md and rerun.`,
+    '/hypersurface': `Advice for Hypersurface only — I will execute manually on Hypersurface; do not place any broker orders. Give me optimal strike advice for BTC options expiring this Friday (same calendar as Hypersurface weekly). Use tastytrade_theta_scan with underlyings_csv=IBIT (or BITO), min_dte=1, max_dte=7, strategy_type=cash_secured_put or credit_spread to get strike/APR/probability data. Show the table_summary and recommend 1–2 best strikes for secured puts or covered calls with brief rationale. If IBIT is not in THETA-POLICY allowed underlyings, tell me to add IBIT to ~/.dexter/THETA-POLICY.md and rerun.`,
+    '/options': `Suggest options to execute on tastytrade that fit our thesis from SOUL.md. Use tastytrade_theta_scan with THETA-POLICY defaults: underlyings from SOUL.md only, non-crypto (equities — equipment, foundry, chip, power, memory, networking). Do not include SPX/SPY/QQQ or IBIT unless my policy lists them. Policy is a hard block. Show the table_summary (Underlying, Strategy, Strike(s), Credit, APR-like, Prob (ITM), DTE, Max loss) and recommend the top 2–3 candidates with strategy type, strikes, expiration, credit, max loss, and how each fits the thesis. Do not submit any order — I will preview and confirm before submitting.`,
     '/theta-policy': `Help me bootstrap ~/.dexter/THETA-POLICY.md. Read docs/THETA-POLICY.example.md and docs/THETA-POLICY.md, then:
 1. show me the exact starter template
 2. explain what each field controls

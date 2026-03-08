@@ -1,6 +1,12 @@
 # THETA POLICY
 
-# Allowed underlyings — SOUL.md thesis names with liquid US equity options on tastytrade.
+# Use case: (1) Execution on tastytrade = SOUL.md non-crypto underlyings only (equities: equipment,
+# foundry, chip, power, memory, networking, cyclical adjacents). Secured puts and covered calls
+# you actually place on tastytrade should be from this set. (2) BTC options = advisory for
+# Hypersurface. We use tastytrade (IBIT) only for strike/APR/probability data; execute BTC
+# secured puts or covered calls on Hypersurface, not necessarily on tastytrade.
+#
+# Allowed underlyings — SOUL.md thesis names with liquid US equity options on tastytrade (non-crypto).
 # IMPORTANT: Tastytrade is the non-Hyperliquid sleeve. Do NOT list symbols that are tradable on
 # Hyperliquid (e.g. AAPL, MSFT, AMZN, META, COIN, BTC, SOL) — they are blocked by policy.
 # Use only names that are NOT in the HL universe (e.g. TSM, AMAT, ASML, LRCX, KLAC, VRT, CEG, MU, ANET).
@@ -17,6 +23,13 @@
 # Cyclical/Adjacent (liquid):    PLTR, MSFT, AMZN, META, COIN
 # Speculative (add only if you hold these):  CRWV, IREN, SMCI, DELL, INTC
 # (HL-tradable names like AAPL, AMD, PLTR, MSFT, AMZN, META, COIN are auto-excluded by Dexter.)
+#
+# BTC options (weekly, same calendar as Hypersurface Friday): advisory only — for secured puts or
+# covered calls on BTC that you execute on Hypersurface. Tastytrade has no spot BTC; use a US
+# Bitcoin ETF (IBIT, BITO, GBTC) as data source. Add one (e.g. IBIT) to allowed underlyings only
+# if you want /theta-btc-weekly to run; use theta_scan with underlyings_csv=IBIT, min_dte=1,
+# max_dte=7 for "this week's Friday" expiry. Do not use IBIT for tastytrade execution unless you
+# explicitly want to trade the ETF options on tastytrade.
 Allowed underlyings: TSM, AMAT, ASML, LRCX, KLAC, VRT, CEG, MU, ANET
 
 # No-call list — SOUL Core Compounders you want to hold long-term.
@@ -49,7 +62,7 @@ Exclude earnings days: 2
 | SPX, SPY, QQQ, IWM | Index indices — not in the SOUL thesis; add manually if wanted |
 | NVDA | SOUL "Avoid/Too Crowded" — consensus expression of AI thesis, thin edge for new positions |
 | MSTR | SOUL "Avoid" — financial engineering, no durable bottleneck |
-| HYPE, SOL, NEAR, SUI, ETH | Crypto only on tastytrade (not US equity options) |
+| HYPE, SOL, NEAR, SUI, ETH | Crypto spot — not US equity options; for BTC use IBIT/BITO/GBTC |
 | BESI / BESIY | ADR with typically thin option market |
 | TEL / TOELY | ADR with typically thin option market |
 | BE, SEI, PSIX | Speculative Optionality tier — add only if you hold and want to sell covered calls |

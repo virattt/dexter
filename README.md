@@ -13,6 +13,7 @@ The bar is the **Portfolio Builder**: build and maintain a portfolio aligned wit
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Running Dexter](#running-dexter)
+  - [CLI shortcuts](#cli-shortcuts)
 - [Project structure](#project-structure)
 - [SOUL and HEARTBEAT](#soul-and-heartbeat)
 - [Example queries](#example-queries)
@@ -111,7 +112,33 @@ Quick validation:
 bun run typecheck && bun test && bun run heartbeat -- --dry-run && bun run validate-portfolio
 ```
 
-Query shortcuts in the CLI: `/suggest`, `/weekly`, `/quarterly`, `/suggest-hl`, `/hl-report`, `/hl-essay`, `/theta-risk`, `/theta-scan`, `/theta-preview`, `/theta-repair`, `/theta-roll`, `/theta-policy`, `/theta-help`, `/tastytrade-status`. See [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) for the full query library.
+Type a shortcut in the CLI to run a full query; see [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) for the full library.
+
+### CLI shortcuts
+
+| Shortcut | What it does |
+|----------|--------------|
+| **Portfolio & reports** | |
+| `/suggest` | Suggest and save two portfolios (tastytrade sleeve + Hyperliquid sleeve) from SOUL.md; zero overlap. |
+| `/weekly` | Weekly performance report: portfolio return vs BTC, GLD, SPY; best/worst performers; one-line takeaway. |
+| `/quarterly` | Quarterly report: portfolio vs benchmarks, layer attribution, regime assessment, outlook; save to `~/.dexter/QUARTERLY-REPORT-*.md`. |
+| `/suggest-hl` | Suggest Hyperliquid portfolio (HIP-3 onchain equities only — no BTC/SOL/HYPE); save to PORTFOLIO-HYPERLIQUID.md. |
+| `/hl-report` | Quarterly performance report for the HL sleeve only; save to `~/.dexter/QUARTERLY-REPORT-HL-*.md`. |
+| `/hl-essay` | 600–800 word reflection on the on-chain stocks thesis using the latest HL quarterly report. |
+| **Theta (tastytrade options)** | |
+| `/theta-policy` | Bootstrap or explain `~/.dexter/THETA-POLICY.md` (allowed underlyings, no-call list, DTE, risk caps). No trades. |
+| `/theta-help` | When to use each theta shortcut; safest order for a normal day vs a challenged short; reference THETA-POLICY. |
+| `/theta-risk` | Live tastytrade options book: portfolio theta/delta, challenged shorts, concentration, assignment risk. |
+| `/theta-scan` | Scan for safest theta trade today (THETA-POLICY defaults, SOUL non-crypto). Table + top 2 candidates; no submit. |
+| `/theta-preview` | Run scan, pick best candidate, run strategy preview + dry-run. No submit. |
+| `/theta-roll` | Find most challenged short put; build later-dated roll; show dry-run. No submit until you confirm. |
+| `/theta-repair` | Analyze challenged short option; recommend hold, roll, close, or assignment. No submit. |
+| `/options` | **Suggest options to execute on tastytrade** that fit SOUL.md thesis (equities only, non-crypto). Table + top 2–3 candidates; you preview and submit when ready. |
+| **Hypersurface & BTC** | |
+| `/theta-btc-weekly` | Optimal strike advice for **BTC options** expiring this Friday (same calendar as Hypersurface). Uses IBIT/BITO for data; **you execute on Hypersurface** — no tastytrade order. |
+| `/hypersurface` | **Hypersurface-only advice** — optimal strike for BTC options this Friday. You execute manually on Hypersurface; no broker orders. Same data as `/theta-btc-weekly`. |
+| **Broker status** | |
+| `/tastytrade-status` | Report tastytrade setup: OAuth state, credentials path, configured vs connected. |
 
 ---
 
@@ -178,9 +205,9 @@ Three states: **not connected** → **read-only** → **trading enabled**. In re
 - **Venue split:** Theta scan and tastytrade orders use **only** symbols that are *not* tradable on Hyperliquid. HL-tradable tickers (TSM, AAPL, COIN, etc.) are stripped from the scan universe and from the tastytrade sleeve; they live in PORTFOLIO-HYPERLIQUID.md and HL tools.
 - **Earnings:** When THETA-POLICY sets `exclude_earnings_days` and Financial Datasets is configured, underlyings with earnings inside that window are dropped from the scan. If the key is missing, you get `earnings_exclusion_degraded` and no filtering.
 
-**CLI shortcuts:** `/theta-policy` (show policy), `/theta-help` (workflow), `/theta-risk` (position risk), `/theta-scan` (run scan), `/theta-preview`, `/theta-roll`, `/theta-repair`. Recommended loop: policy → risk → scan → preview → dry-run → approve → submit when you’re ready.
+**CLI shortcuts:** `/theta-policy` (show policy), `/theta-help` (workflow), `/theta-risk` (position risk), `/theta-scan` (run scan), `/theta-preview`, `/theta-roll`, `/theta-repair`, `/theta-btc-weekly` (BTC via IBIT), `/hypersurface` (Hypersurface strike advice), `/options` (tastytrade options that fit SOUL.md). Recommended loop: policy → risk → scan → preview → dry-run → approve → submit when you’re ready.
 
-**Theta (Phase 5) tools (summary):** Position risk, scan, strategy preview, roll, repair. Scan defaults to **SOUL.md thesis names** (equipment, foundry, chip, power, memory, networking, cyclical adjacents) — not SPX/SPY/QQQ. THETA-POLICY is enforced as a **hard block**; no-call list protects Core Compounders; venue split keeps HL names out of tastytrade theta.
+**Theta (Phase 5) tools (summary):** Position risk, scan, strategy preview, roll, repair. Scan defaults to **SOUL.md thesis names** (equipment, foundry, chip, power, memory, networking, cyclical adjacents) — not SPX/SPY/QQQ. THETA-POLICY is enforced as a **hard block**; no-call list protects Core Compounders; venue split keeps HL names out of tastytrade theta. **Use case:** Execution on tastytrade = SOUL non-crypto (equities) only; BTC options = advice for Hypersurface (strike/APR/prob via IBIT), execute on Hypersurface.
 
 **Portfolio sync (Phase 4):** Sync from tastytrade to a PORTFOLIO.md-style table with **Target/Actual/Gap** columns. Optional write to `~/.dexter/PORTFOLIO.md`. Session cache (5-min TTL) avoids redundant API calls. With `TASTYTRADE_HEARTBEAT_ENABLED=true`, heartbeat compares live positions to SOUL.md target and flags drift. **Venue split:** The tastytrade sleeve has zero overlap with Hyperliquid — symbols tradable on HL (e.g. TSM, AAPL, MSFT, BTC, SOL, COIN) are hard-blocked from theta scan, preview, submit, and from the default PORTFOLIO.md; use PORTFOLIO-HYPERLIQUID.md for those.
 
