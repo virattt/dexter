@@ -8,7 +8,7 @@
 
 ## 1. Overview
 
-tastytrade (formerly tastyworks) is a retail broker API for options, stocks, futures, and crypto. Dexter uses it for **read-only account data** in Phase 1: list accounts, fetch balances, and fetch positions. This enables portfolio sync, rebalance checks, and theta/options workflows that need live holdings.
+tastytrade (formerly tastyworks) is a retail broker API for options, stocks, futures, and crypto. Dexter uses it in three operator states: **not_connected**, **read_only** (accounts, positions, theta scan, strategy preview, order dry-run), and **trading_enabled** (also live orders, submit, cancel when `TASTYTRADE_ORDER_ENABLED=true`). Dry-run and preview are available in read-only; submit/cancel require explicit enablement and user approval.
 
 ### Design
 
@@ -28,7 +28,8 @@ tastytrade (formerly tastyworks) is a retail broker API for options, stocks, fut
 
 **Credentials file** (`~/.dexter/tastytrade-credentials.json`):
 
-- Obtain a **refresh token** from [my.tastytrade.com](https://www.tastytrade.com/) (Create Grant / API access). Paste it into the file.
+- **CLI login (recommended):** Run `bun run tastytrade:login` or `bun run start -- tastytrade login`. Ensure `TASTYTRADE_CLIENT_ID` and `TASTYTRADE_CLIENT_SECRET` are in `.env`. The command prints the URL to create a grant; paste the refresh token when prompted; credentials are written to the file.
+- **Manual:** Obtain a **refresh token** from [my.tastytrade.com → API Access → OAuth Applications](https://my.tastytrade.com/app.html#/manage/api-access/oauth-applications) (Create Grant). Paste it into the file as `{ "refresh_token": "..." }`, or run the CLI login and paste when prompted.
 - Optionally paste an **access_token** and **expires_at** (Unix ms) to skip refresh until expiry.
 - After first refresh, the file is updated with new access_token and expires_at.
 
@@ -73,9 +74,10 @@ Example:
 | `/market-data/quotes` | POST | `tastytrade_quote` | Live quotes (bid, ask, mark, volume) for equities, indices, or options |
 | `/symbols/search?prefix=` | GET | `tastytrade_symbol_search` | Symbol search by prefix or phrase |
 
-### Phase 3 — Order flow (opt-in)
+### Phase 3 — Order flow
 
-**Requires `TASTYTRADE_ORDER_ENABLED=true`.** High risk; only register when the user explicitly wants order submission.
+- **Read-only (no env required beyond credentials):** `tastytrade_order_dry_run` validates orders without submitting. Use with `tastytrade_strategy_preview` and `tastytrade_roll_short_option` to validate before enabling live trading.
+- **Trading (opt-in):** Set `TASTYTRADE_ORDER_ENABLED=true` to register `tastytrade_live_orders`, `tastytrade_submit_order`, `tastytrade_cancel_order`. Submit and cancel require explicit user approval in the CLI.
 
 | Endpoint | Method | Dexter Tool | Description |
 |----------|--------|-------------|-------------|

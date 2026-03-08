@@ -27,6 +27,8 @@ const TOOLS_REQUIRING_APPROVAL = [
   'edit_file',
   'hyperliquid_submit_order',
   'hyperliquid_cancel_order',
+  'tastytrade_submit_order',
+  'tastytrade_cancel_order',
 ] as const;
 
 /**

@@ -3,7 +3,15 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { tastytradeRequest } from './api.js';
 
-const THETA_POLICY_PATH = join(homedir(), '.dexter', 'THETA-POLICY.md');
+const DEXTER_DIR = join(homedir(), '.dexter');
+const THETA_POLICY_PATH = join(DEXTER_DIR, 'THETA-POLICY.md');
+const SOUL_PATH = join(DEXTER_DIR, 'SOUL.md');
+const PORTFOLIO_MD_PATH = join(DEXTER_DIR, 'PORTFOLIO.md');
+
+export interface SoulPortfolioContext {
+  soulCoreOrAvoidTickers: string[];
+  portfolioTargetWeightByTicker: Map<string, number>;
+}
 
 export type ThetaPolicy = {
   source: 'default' | 'file';
@@ -56,9 +64,12 @@ export function extractDataArray(data: unknown): unknown[] {
 
 export function extractFirstObject(data: unknown): Record<string, unknown> | null {
   if (!data) return null;
+  const arr = extractDataArray(data);
+  const first = arr[0];
+  if (first && typeof first === 'object' && !Array.isArray(first)) return first as Record<string, unknown>;
+  if (arr.length === 0 && typeof data === 'object' && !Array.isArray(data)) return null;
   if (typeof data === 'object' && !Array.isArray(data)) return data as Record<string, unknown>;
-  const first = extractDataArray(data)[0];
-  return first && typeof first === 'object' ? (first as Record<string, unknown>) : null;
+  return null;
 }
 
 export function extractNumber(value: unknown): number {
@@ -267,4 +278,149 @@ function parseNumber(content: string, pattern: RegExp): number | null {
   if (!match?.[1]) return null;
   const n = Number(match[1]);
   return Number.isFinite(n) ? n : null;
+}
+
+const FINANCIAL_DATASETS_BASE = 'https://api.financialdatasets.ai';
+
+/**
+ * Fetch upcoming earnings-related dates for a ticker (e.g. next fiscal period end or report date).
+ * Uses Financial Datasets /analyst-estimates/ fiscal_period as a proxy when FINANCIAL_DATASETS_API_KEY is set.
+ * Returns empty array if no key, ticker is an index, or parse fails.
+ */
+export async function getUpcomingEarningsDates(ticker: string): Promise<Date[]> {
+  const apiKey = process.env.FINANCIAL_DATASETS_API_KEY;
+  if (!apiKey?.trim()) return [];
+
+  const url = `${FINANCIAL_DATASETS_BASE}/analyst-estimates/?ticker=${encodeURIComponent(ticker)}&period=quarterly`;
+  try {
+    const res = await fetch(url, { headers: { 'x-api-key': apiKey } });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { analyst_estimates?: Array<{ fiscal_period?: string }> };
+    const estimates = data.analyst_estimates ?? [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dates: Date[] = [];
+    for (const item of estimates) {
+      const period = item.fiscal_period;
+      if (!period || typeof period !== 'string') continue;
+      const d = new Date(period);
+      if (!Number.isFinite(d.getTime())) continue;
+      d.setHours(0, 0, 0, 0);
+      if (d >= today) dates.push(d);
+    }
+    dates.sort((a, b) => a.getTime() - b.getTime());
+    return dates.slice(0, 4);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * True if the ticker has an earnings (or fiscal period) date within windowDays of today.
+ * Used to exclude underlyings from theta scan when policy requests earnings exclusion.
+ */
+export async function hasEarningsInWindow(ticker: string, windowDays: number): Promise<boolean> {
+  if (windowDays <= 0) return false;
+  const dates = await getUpcomingEarningsDates(ticker);
+  if (dates.length === 0) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const windowMs = windowDays * 24 * 60 * 60 * 1000;
+  for (const d of dates) {
+    const dist = Math.abs(d.getTime() - today.getTime());
+    if (dist <= windowMs) return true;
+  }
+  return false;
+}
+
+export type PortfolioFitResult = 'pass' | 'warn' | 'block';
+
+/**
+ * Compute a hard portfolio-fit result for a theta candidate or preview.
+ * block: e.g. selling calls on SOUL Core/Avoid tickers.
+ * warn: short premium on Core/Avoid (confirm), or trade would push exposure above target.
+ * pass: within policy and no conflict.
+ */
+export function computePortfolioFit(params: {
+  underlying: string;
+  soulCoreOrAvoidTickers: string[];
+  portfolioTargetWeightByTicker: Map<string, number>;
+  currentWeightPct?: number;
+  tradeExposurePct?: number;
+  targetWeightPct?: number;
+  isShortCall?: boolean;
+}): { result: PortfolioFitResult; reason: string } {
+  const { underlying, soulCoreOrAvoidTickers, portfolioTargetWeightByTicker } = params;
+  const inSoul = soulCoreOrAvoidTickers.includes(underlying);
+  const target = params.targetWeightPct ?? portfolioTargetWeightByTicker.get(underlying);
+
+  if (inSoul && params.isShortCall) {
+    return { result: 'block', reason: `${underlying} is in SOUL.md Core/Avoid; avoid selling calls.` };
+  }
+  if (inSoul) {
+    return { result: 'warn', reason: `${underlying} is in SOUL.md Core/Avoid; confirm before selling premium.` };
+  }
+  if (target != null && params.currentWeightPct != null && params.tradeExposurePct != null) {
+    const projected = params.currentWeightPct + params.tradeExposurePct;
+    if (projected > target * 1.05) {
+      return {
+        result: 'warn',
+        reason: `Projected ${underlying} exposure ${projected.toFixed(1)}% would exceed PORTFOLIO target ${target}%.`,
+      };
+    }
+  }
+  if (target != null) {
+    return { result: 'pass', reason: `PORTFOLIO.md target for ${underlying}: ${target}%.` };
+  }
+  return { result: 'pass', reason: 'No SOUL/PORTFOLIO constraint for this ticker.' };
+}
+
+/** Load SOUL.md and PORTFOLIO.md for portfolio-aware theta checks. Returns tickers to avoid (core/avoid) and target weights from PORTFOLIO.md. */
+export function loadSoulPortfolioContext(): SoulPortfolioContext {
+  const soulCoreOrAvoidTickers: string[] = [];
+  const portfolioTargetWeightByTicker = new Map<string, number>();
+
+  if (existsSync(SOUL_PATH)) {
+    try {
+      const soul = readFileSync(SOUL_PATH, 'utf-8');
+      const coreSection = soul.match(/Core Compounders[\s\S]*?(?=^##|\n\n\n|$)/im);
+      const avoidSection = soul.match(/Avoid[^\n]*[\s\S]*?(?=^##|\n\n\n|$)/im);
+      const sections = [coreSection?.[0] ?? '', avoidSection?.[0] ?? ''].join('\n');
+      const bulletLines = sections.split('\n').filter((l) => /^\s*[-*]\s+/.test(l) || /^\s*\d+\.\s+/.test(l));
+      const tickerLike = /\b([A-Z]{2,5})\b/g;
+      for (const line of bulletLines) {
+        let m: RegExpExecArray | null;
+        while ((m = tickerLike.exec(line)) !== null) {
+          const t = m[1];
+          if (!soulCoreOrAvoidTickers.includes(t)) soulCoreOrAvoidTickers.push(t);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (existsSync(PORTFOLIO_MD_PATH)) {
+    try {
+      const content = readFileSync(PORTFOLIO_MD_PATH, 'utf-8');
+      const lines = content.split('\n').filter((l) => l.trim().startsWith('|'));
+      const headerCells = lines[0]?.split('|').map((s) => s.trim().toLowerCase()) ?? [];
+      const tickerIdx = headerCells.indexOf('ticker');
+      const weightIdx = headerCells.indexOf('weight');
+      if (tickerIdx >= 0 && weightIdx >= 0) {
+        for (let i = 1; i < lines.length; i++) {
+          const cells = lines[i].split('|').map((s) => s.trim());
+          if (cells.some((c) => c === '---')) continue;
+          const ticker = cells[tickerIdx]?.replace(/%$/, '').trim().toUpperCase();
+          const weightStr = cells[weightIdx]?.replace(/%$/, '').trim();
+          const weight = Number(weightStr);
+          if (ticker && Number.isFinite(weight)) portfolioTargetWeightByTicker.set(ticker, weight);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return { soulCoreOrAvoidTickers, portfolioTargetWeightByTicker };
 }

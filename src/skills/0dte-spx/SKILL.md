@@ -171,11 +171,11 @@ User must be able to trade 2:30–3:50 PM. If not, recommend morning setup inste
 
 ## Data Source Fallbacks
 
-Until tastytrade Phase 2 is integrated:
+When tastytrade is not connected:
 
 - **SPX/SPY price:** `financial_search` → `get_stock_price` for SPY
 - **VIX:** `web_search` for "VIX level today" or user-provided
 - **Option chain / Greeks / IV:** User-provided or `web_search` for "SPY option chain"
 - **Economic events:** `web_search` for "economic calendar today"
 
-When tastytrade tools exist: use `tastytrade_option_chain`, `tastytrade_quote`, `tastytrade_market_metrics` for precise strikes and Greeks.
+When tastytrade is connected: use `tastytrade_option_chain` and `tastytrade_quote` for precise strikes and Greeks. (A dedicated market_metrics tool is not yet implemented; Greeks come from quote data where available.)

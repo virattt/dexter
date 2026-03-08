@@ -32,4 +32,11 @@ export {
   TASTYTRADE_ROLL_SHORT_OPTION_DESCRIPTION,
   TASTYTRADE_REPAIR_POSITION_DESCRIPTION,
 } from './descriptions.js';
-export { hasValidToken } from './auth.js';
+export {
+  hasValidToken,
+  hasConfiguredClient,
+  hasUsableCredentials,
+  getAuthStatus,
+  type TastytradeAuthStatus,
+  type TastytradeOperatorState,
+} from './auth.js';

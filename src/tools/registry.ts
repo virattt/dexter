@@ -72,6 +72,8 @@ import {
   TASTYTRADE_ORDER_DRY_RUN_DESCRIPTION,
   TASTYTRADE_SUBMIT_ORDER_DESCRIPTION,
   TASTYTRADE_CANCEL_ORDER_DESCRIPTION,
+  hasConfiguredClient,
+  hasUsableCredentials,
 } from './tastytrade/index.js';
 import { discoverSkills } from '../skills/index.js';
 
@@ -232,8 +234,8 @@ export function getToolRegistry(model: string): RegisteredTool[] {
     });
   }
 
-  // Include tastytrade tools when OAuth client is configured (refresh token in ~/.dexter/tastytrade-credentials.json)
-  if (process.env.TASTYTRADE_CLIENT_ID) {
+  // Include tastytrade tools when OAuth client is configured and credentials are usable
+  if (hasConfiguredClient() && hasUsableCredentials()) {
     tools.push(
       { name: 'tastytrade_accounts', tool: tastytradeAccountsTool, description: TASTYTRADE_ACCOUNTS_DESCRIPTION },
       { name: 'tastytrade_balances', tool: tastytradeBalancesTool, description: TASTYTRADE_BALANCES_DESCRIPTION },
@@ -246,13 +248,12 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       { name: 'tastytrade_theta_scan', tool: tastytradeThetaScanTool, description: TASTYTRADE_THETA_SCAN_DESCRIPTION },
       { name: 'tastytrade_strategy_preview', tool: tastytradeStrategyPreviewTool, description: TASTYTRADE_STRATEGY_PREVIEW_DESCRIPTION },
       { name: 'tastytrade_roll_short_option', tool: tastytradeRollShortOptionTool, description: TASTYTRADE_ROLL_SHORT_OPTION_DESCRIPTION },
-      { name: 'tastytrade_repair_position', tool: tastytradeRepairPositionTool, description: TASTYTRADE_REPAIR_POSITION_DESCRIPTION }
+      { name: 'tastytrade_repair_position', tool: tastytradeRepairPositionTool, description: TASTYTRADE_REPAIR_POSITION_DESCRIPTION },
+      { name: 'tastytrade_order_dry_run', tool: tastytradeOrderDryRunTool, description: TASTYTRADE_ORDER_DRY_RUN_DESCRIPTION }
     );
-    // Phase 3 order flow: only when explicitly enabled (high risk)
     if (process.env.TASTYTRADE_ORDER_ENABLED === 'true') {
       tools.push(
         { name: 'tastytrade_live_orders', tool: tastytradeLiveOrdersTool, description: TASTYTRADE_LIVE_ORDERS_DESCRIPTION },
-        { name: 'tastytrade_order_dry_run', tool: tastytradeOrderDryRunTool, description: TASTYTRADE_ORDER_DRY_RUN_DESCRIPTION },
         { name: 'tastytrade_submit_order', tool: tastytradeSubmitOrderTool, description: TASTYTRADE_SUBMIT_ORDER_DESCRIPTION },
         { name: 'tastytrade_cancel_order', tool: tastytradeCancelOrderTool, description: TASTYTRADE_CANCEL_ORDER_DESCRIPTION }
       );

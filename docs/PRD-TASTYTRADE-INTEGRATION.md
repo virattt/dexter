@@ -165,13 +165,13 @@ src/tools/tastytrade/
 
 Mirror patterns from `src/tools/finance/api.ts`.
 
-### 4.3 OAuth2 Flow
+### 4.3 OAuth2 Flow (implemented)
 
-1. **User initiates:** `dexter tastytrade login` (or similar CLI command)
-2. **Open browser** to tastytrade OAuth consent URL
-3. **Callback** receives auth code; exchange for access + refresh tokens
-4. **Store tokens** in `~/.dexter/tastytrade-credentials.json` (gitignored, encrypted preferred)
-5. **Refresh:** Before each API call, check expiry; refresh if needed
+1. **User runs:** `bun run tastytrade:login` or `bun run start -- tastytrade login`
+2. **Prerequisites:** `TASTYTRADE_CLIENT_ID` and `TASTYTRADE_CLIENT_SECRET` in `.env`
+3. **Obtain refresh token:** User opens [my.tastytrade.com → API Access → OAuth Applications](https://my.tastytrade.com/app.html#/manage/api-access/oauth-applications) and creates a grant (or uses an existing OAuth app); copies the refresh token
+4. **Paste in CLI:** Script prompts for the token; exchanges it for access + refresh via `/oauth/token`; writes `~/.dexter/tastytrade-credentials.json` (gitignored, chmod 0600)
+5. **Refresh:** Before each API call, check expiry; refresh if needed (existing logic in `auth.ts`)
 
 **Environment variables:**
 - `TASTYTRADE_CLIENT_ID` — OAuth app client ID
@@ -291,22 +291,28 @@ if (process.env.TASTYTRADE_CLIENT_ID && hasValidTastytradeToken()) {
 
 ## 10. Success Criteria
 
-### Phase 1
-- [ ] OAuth2 login flow works (sandbox)
-- [ ] `tastytrade_positions` returns positions
-- [ ] `tastytrade_balances` returns balances
-- [ ] "Sync my portfolio from tastytrade" updates PORTFOLIO.md
-- [ ] Heartbeat can optionally compare tastytrade positions to target
+**Tool registration:** Tastytrade tools are registered only when `hasConfiguredClient()` and `hasUsableCredentials()` are true (client id+secret set and `~/.dexter/tastytrade-credentials.json` with access_token or refresh_token). Use `/tastytrade-status` in the CLI to see setup steps and operator state.
 
-### Phase 2
-- [ ] `tastytrade_option_chain` returns option chain for symbol
-- [ ] `tastytrade_quote` returns quotes
-- [ ] Agent can answer "What's the IV on NVDA?" using tastytrade
+**Operator states:** `not_connected` -> `read_only` (accounts, positions, theta scan, strategy preview, order_dry_run) -> `trading_enabled` (also live_orders, submit_order, cancel_order when `TASTYTRADE_ORDER_ENABLED=true`). Dry-run and preview are available in read-only; submit/cancel require explicit enablement and user approval.
 
-### Phase 3
-- [ ] `tastytrade_order_dry_run` validates orders
-- [ ] `tastytrade_submit_order` submits (with confirmation)
-- [ ] `TASTYTRADE_ORDER_ENABLED` gates order tools
+### Phase 1 (shipped)
+- [x] `tastytrade_positions` returns positions
+- [x] `tastytrade_balances` returns balances
+- [x] `tastytrade_accounts` lists linked accounts
+- [x] "Sync my portfolio from tastytrade" builds PORTFOLIO.md-style table and can write via shared portfolio abstraction
+- [x] Heartbeat can optionally compare tastytrade positions to target (`TASTYTRADE_HEARTBEAT_ENABLED`)
+- [x] OAuth2 login flow (CLI command) — `bun run tastytrade:login` or `bun run start -- tastytrade login`; paste refresh token from my.tastytrade.com Create Grant
+
+### Phase 2 (shipped)
+- [x] `tastytrade_option_chain` returns option chain for symbol
+- [x] `tastytrade_quote` returns quotes
+- [x] `tastytrade_symbol_search` for symbol resolution
+- [ ] `tastytrade_market_metrics` — not implemented; Greeks/IV from quote data where available
+
+### Phase 3 (shipped)
+- [x] `tastytrade_order_dry_run` validates orders (available in read-only; no TASTYTRADE_ORDER_ENABLED required)
+- [x] `tastytrade_submit_order` / `tastytrade_cancel_order` require explicit user approval (same as Hyperliquid) and only register when `TASTYTRADE_ORDER_ENABLED=true`
+- [x] `TASTYTRADE_ORDER_ENABLED` gates only live_orders, submit_order, cancel_order
 
 ---
 

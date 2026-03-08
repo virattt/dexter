@@ -80,14 +80,12 @@ export async function tastytradeRequest<T = unknown>(
       if (res.status === 401 && attempt < MAX_RETRIES) {
         token = await getValidAccessToken();
         if (token) {
-          semaphore.release();
           await sleep(INITIAL_BACKOFF_MS * Math.pow(2, attempt));
           continue;
         }
       }
 
-      if (res.status === 429) {
-        semaphore.release();
+      if (res.status === 429 && attempt < MAX_RETRIES) {
         const retryAfter = res.headers.get('retry-after');
         const delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : INITIAL_BACKOFF_MS * Math.pow(2, attempt);
         await sleep(delay);

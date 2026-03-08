@@ -2,12 +2,12 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { orderDryRun } from './api.js';
 import { summarizeOrder } from './theta-helpers.js';
-import { parseOptionSymbol } from './utils.js';
+import { computePortfolioFit, loadSoulPortfolioContext, parseOptionSymbol } from './utils.js';
 
 export const tastytradeStrategyPreviewTool = new DynamicStructuredTool({
   name: 'tastytrade_strategy_preview',
   description:
-    'Build a trade memo for a candidate or manual order, and optionally run tastytrade dry-run when order flow is enabled.',
+    'Build a trade memo for a candidate or manual order and run tastytrade dry-run (read-only; no live trading required).',
   schema: z.object({
     account_number: z.string().describe('Tastytrade account number.'),
     order_json: z
@@ -56,17 +56,41 @@ export const tastytradeStrategyPreviewTool = new DynamicStructuredTool({
       creditOrDebit === 'credit' && width != null ? Number((width * 100 - Math.abs(price) * 100).toFixed(2)) : null;
     const breakevens = estimateBreakevens(legs, price);
     const inferredStrategy = inferStrategy(legs);
+    const soulPortfolio = loadSoulPortfolioContext();
+    const soulFlagged = underlyings.filter((u) => u !== '—' && soulPortfolio.soulCoreOrAvoidTickers.includes(u));
+    const targetWeights = underlyings
+      .filter((u) => u !== '—')
+      .map((u) => ({ ticker: u, target_pct: soulPortfolio.portfolioTargetWeightByTicker.get(u) }))
+      .filter((x) => x.target_pct != null);
+
+    const fitResults = underlyings
+      .filter((u) => u !== '—')
+      .map((u) => {
+        const isShortCall = legs.some(
+          (leg) => leg.underlying === u && leg.option_type === 'C' && leg.action === 'Sell to Open'
+        );
+        return computePortfolioFit({
+          underlying: u,
+          soulCoreOrAvoidTickers: soulPortfolio.soulCoreOrAvoidTickers,
+          portfolioTargetWeightByTicker: soulPortfolio.portfolioTargetWeightByTicker,
+          targetWeightPct: soulPortfolio.portfolioTargetWeightByTicker.get(u),
+          isShortCall,
+        });
+      });
+    const blockCount = fitResults.filter((f) => f.result === 'block').length;
+    const warnCount = fitResults.filter((f) => f.result === 'warn').length;
+    const portfolioFitResult =
+      blockCount > 0 ? 'block' : warnCount > 0 ? 'warn' : 'pass';
+    const portfolioFitReason =
+      fitResults.map((f) => `${f.result}: ${f.reason}`).join('; ') || 'No SOUL/PORTFOLIO context.';
 
     let dryRunResult: unknown = null;
-    let dryRunAttempted = false;
-    if (process.env.TASTYTRADE_ORDER_ENABLED === 'true') {
-      dryRunAttempted = true;
-      try {
-        const res = await orderDryRun(input.account_number, order);
-        dryRunResult = res.data;
-      } catch (error) {
-        dryRunResult = { error: error instanceof Error ? error.message : String(error) };
-      }
+    let dryRunAttempted = true;
+    try {
+      const res = await orderDryRun(input.account_number, order);
+      dryRunResult = res.data;
+    } catch (error) {
+      dryRunResult = { error: error instanceof Error ? error.message : String(error) };
     }
 
     return JSON.stringify({
@@ -87,6 +111,23 @@ export const tastytradeStrategyPreviewTool = new DynamicStructuredTool({
           'Invalidate if the position violates THETA-POLICY, if macro/event conditions change materially, or if a threatened short strike requires a defensive roll.',
         roll_plan:
           'If challenged, compare close-now cost versus rolling out in time for equal or better credit while keeping size within policy caps.',
+        portfolio_fit: {
+        result: portfolioFitResult,
+        reason: portfolioFitReason,
+        details:
+          soulFlagged.length > 0 || targetWeights.length > 0
+            ? [
+                soulFlagged.length > 0
+                  ? `SOUL.md flags ${soulFlagged.join(', ')} as Core/Avoid.`
+                  : null,
+                targetWeights.length > 0
+                  ? `PORTFOLIO.md targets: ${targetWeights.map((x) => `${x.ticker} ${x.target_pct}%`).join('; ')}.`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' ')
+            : 'No SOUL/PORTFOLIO context loaded.',
+      },
       },
       order_json: order,
       dry_run_attempted: dryRunAttempted,

@@ -15,7 +15,10 @@ import {
 } from './theta-helpers.js';
 import {
   availableBuyingPowerFromBalances,
+  computePortfolioFit,
   getFirstAccountNumber,
+  hasEarningsInWindow,
+  loadSoulPortfolioContext,
   loadThetaPolicy,
   normalizePositions,
   totalEquityFromBalances,
@@ -41,6 +44,10 @@ const schema = z.object({
   spread_width: z.number().optional().default(5).describe('Preferred spread width in strike points.'),
   min_credit: z.number().optional().default(0.5).describe('Minimum credit required per spread or option sold.'),
   max_results: z.number().optional().default(5).describe('Maximum candidates to return.'),
+  exclude_earnings: z
+    .boolean()
+    .optional()
+    .describe('When true and THETA-POLICY has exclude_earnings_days > 0, filter out underlyings with earnings in that window. Default true.'),
 });
 
 type Candidate = {
@@ -57,6 +64,7 @@ type Candidate = {
   legs: Array<{ symbol: string; action: string; quantity: number; instrument_type: string; strike?: number }>;
   order_json: string;
   score: number;
+  portfolio_fit?: { result: 'pass' | 'warn' | 'block'; reason: string };
 };
 
 export const tastytradeThetaScanTool = new DynamicStructuredTool({
@@ -127,11 +135,22 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
       });
     }
 
-    const underlyings =
+    let underlyings =
       input.underlyings_csv
         ?.split(',')
         .map((item) => item.trim().toUpperCase())
         .filter(Boolean) ?? policy.allowedUnderlyings;
+
+    const excludeEarnings =
+      input.exclude_earnings ?? (policy.excludeEarningsDays > 0);
+    let excludedByEarnings: string[] = [];
+    if (excludeEarnings && policy.excludeEarningsDays > 0) {
+      const inWindow = await Promise.all(
+        underlyings.map((u) => hasEarningsInWindow(u, policy.excludeEarningsDays))
+      );
+      excludedByEarnings = underlyings.filter((_, i) => inWindow[i]);
+      underlyings = underlyings.filter((_, i) => !inWindow[i]);
+    }
 
     const minDte = input.min_dte ?? policy.minDte;
     const maxDte = input.max_dte ?? policy.maxDte;
@@ -229,12 +248,49 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
         }
       }
 
+      const soulPortfolio = loadSoulPortfolioContext();
+      const currentWeightByTicker: Record<string, number> = {};
+      for (const p of positions) {
+        const u = p.underlying;
+        if (u && u !== '—') {
+          currentWeightByTicker[u] = (currentWeightByTicker[u] ?? 0) + (p.value ?? 0);
+        }
+      }
+      const totalEquityNum = totalEquity > 0 ? totalEquity : 1;
+      for (const u of Object.keys(currentWeightByTicker)) {
+        currentWeightByTicker[u] = (currentWeightByTicker[u]! / totalEquityNum) * 100;
+      }
+
       const finalCandidates = allCandidates
         .map((candidate) => applyPolicy(candidate, {
           totalEquity,
           maxRiskPerTradePct: policy.maxRiskPerTradePct,
           maxBuyingPowerUsagePct: policy.maxBuyingPowerUsagePct,
         }))
+        .map((c) => {
+          const notes = [...c.policy_notes];
+          const tradeExposurePct =
+            (c.buying_power_estimate > 0 ? c.buying_power_estimate : (c.max_loss ?? 0)) / totalEquityNum * 100;
+          const fit = computePortfolioFit({
+            underlying: c.underlying,
+            soulCoreOrAvoidTickers: soulPortfolio.soulCoreOrAvoidTickers,
+            portfolioTargetWeightByTicker: soulPortfolio.portfolioTargetWeightByTicker,
+            currentWeightPct: currentWeightByTicker[c.underlying],
+            tradeExposurePct,
+            targetWeightPct: soulPortfolio.portfolioTargetWeightByTicker.get(c.underlying),
+            isShortCall: c.legs.some(
+              (leg) => leg.action === 'Sell to Open' && (leg.symbol?.includes('C') ?? false)
+            ),
+          });
+          notes.push(`Portfolio fit: ${fit.result} — ${fit.reason}`);
+          const scoreDelta = fit.result === 'block' ? -100 : fit.result === 'warn' ? -25 : 0;
+          return {
+            ...c,
+            policy_notes: notes,
+            portfolio_fit: { result: fit.result, reason: fit.reason },
+            score: c.score + scoreDelta,
+          };
+        })
         .sort((a, b) => b.score - a.score)
         .slice(0, maxResults);
 
@@ -243,6 +299,8 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
         strategy_type: input.strategy_type,
         policy,
         theta_policy_present: hasThetaPolicyFile,
+        soul_portfolio_checked: soulPortfolio.soulCoreOrAvoidTickers.length > 0 || soulPortfolio.portfolioTargetWeightByTicker.size > 0,
+        excluded_by_earnings: excludedByEarnings,
         total_equity: totalEquity,
         buying_power: buyingPower,
         candidates: finalCandidates,
@@ -251,8 +309,18 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
             ? 'THETA-POLICY.md is present and its defaults were applied unless you overrode them in the tool input.'
             : 'THETA-POLICY.md is missing, so conservative defaults were used. Run /theta-policy to create one.',
           'Greeks and IV are best-effort from tastytrade quote data when available.',
-          'Earnings/event filtering should still be checked in the final agent response using financial_search or web_search.',
-        ],
+          excludedByEarnings.length > 0
+            ? `Earnings exclusion applied in-tool: ${excludedByEarnings.join(', ')} excluded (earnings within ${policy.excludeEarningsDays} days).`
+            : policy.excludeEarningsDays > 0
+              ? 'Earnings exclusion was applied when exclude_earnings=true; no underlyings were in the earnings window.'
+              : 'Earnings/event filtering can be enabled via THETA-POLICY exclude earnings days and exclude_earnings=true.',
+          minDte <= 1
+            ? 'For 0DTE or very short DTE, check Fed/CPI/macro calendar before trading; event days may warrant wider strikes or sitting out.'
+            : null,
+          soulPortfolio.soulCoreOrAvoidTickers.length > 0 || soulPortfolio.portfolioTargetWeightByTicker.size > 0
+            ? 'SOUL.md and PORTFOLIO.md were used to flag Core/Avoid tickers and target weights where present.'
+            : 'SOUL.md or PORTFOLIO.md not found; run /theta-scan after syncing portfolio for full portfolio-aware notes.',
+        ].filter(Boolean),
       });
     } catch (error) {
       return JSON.stringify({

@@ -129,12 +129,12 @@ If the file is missing, the agent uses conservative defaults (e.g. index/ETF onl
 
 ## 10. Success Criteria
 
-- [ ] **tastytrade_position_risk** returns an enriched view of current positions (underlying, DTE, side, risk metrics where available).
-- [ ] **tastytrade_theta_scan** returns ranked candidates for at least two strategy types (e.g. credit spread, iron condor) with portfolio-fit and policy compliance.
-- [ ] **tastytrade_strategy_preview** produces a trade memo and dry-run result; no submit without explicit user confirmation.
-- [ ] **tastytrade_roll_short_option** and **tastytrade_repair_position** suggest roll/close/assignment with rationale; submit only when user confirms and TASTYTRADE_ORDER_ENABLED=true.
-- [ ] **THETA-POLICY.md** is documented and read by the agent when scanning or previewing; missing file falls back to conservative defaults.
-- [ ] All Phase 5 recommendations are checked against SOUL.md and PORTFOLIO.md (no calls on no-call list, concentration noted).
+- [x] **tastytrade_position_risk** returns an enriched view of current positions (underlying, DTE, side, risk metrics where available).
+- [x] **tastytrade_theta_scan** returns ranked candidates for covered call, CSP, credit spread, iron condor with policy compliance and SOUL/PORTFOLIO notes.
+- [x] **tastytrade_strategy_preview** produces a trade memo and dry-run result; submit requires explicit user approval (same as Hyperliquid).
+- [x] **tastytrade_roll_short_option** and **tastytrade_repair_position** suggest roll/close/assignment with rationale; submit only when user confirms and TASTYTRADE_ORDER_ENABLED=true.
+- [x] **THETA-POLICY.md** is documented and read when scanning or previewing; missing file falls back to conservative defaults.
+- [x] Theta scan and strategy preview check SOUL.md (Core/Avoid tickers) and PORTFOLIO.md (target weights) and add portfolio-fit notes to candidates.
 
 ---
 

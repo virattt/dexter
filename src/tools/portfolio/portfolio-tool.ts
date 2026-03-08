@@ -10,8 +10,17 @@ const PORTFOLIO_HL_PATH = join(DEXTER_DIR, 'PORTFOLIO-HYPERLIQUID.md');
 
 export type PortfolioId = 'default' | 'hyperliquid';
 
-function getPortfolioPath(portfolioId: PortfolioId): string {
+export function getPortfolioPath(portfolioId: PortfolioId): string {
   return portfolioId === 'hyperliquid' ? PORTFOLIO_HL_PATH : PORTFOLIO_MD_PATH;
+}
+
+/** Shared write for portfolio content (used by portfolio tool and tastytrade_sync_portfolio). */
+export function writePortfolioContent(portfolioId: PortfolioId, content: string): void {
+  if (!existsSync(DEXTER_DIR)) {
+    mkdirSync(DEXTER_DIR, { recursive: true });
+  }
+  const path = getPortfolioPath(portfolioId);
+  writeFileSync(path, content, 'utf-8');
 }
 
 export const PORTFOLIO_TOOL_DESCRIPTION = `
@@ -78,10 +87,7 @@ export const portfolioTool = new DynamicStructuredTool({
       if (!input.content) {
         return 'Error: content is required for the update action.';
       }
-      if (!existsSync(DEXTER_DIR)) {
-        mkdirSync(DEXTER_DIR, { recursive: true });
-      }
-      writeFileSync(path, input.content, 'utf-8');
+      writePortfolioContent(portfolioId, input.content);
       return `Saved ${label} to ${path} (${input.content.length} characters).`;
     }
 

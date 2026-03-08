@@ -52,25 +52,58 @@ export async function startHttpServer(config: HttpServerConfig = {}): Promise<{ 
       const url = new URL(req.url);
 
       if (req.method === 'GET' && (url.pathname === '/health' || url.pathname === '/api/health')) {
+        const probe = url.searchParams.get('probe') === 'true';
+        const hasFdKey = !!(process.env.FINANCIAL_DATASETS_API_KEY?.trim?.());
+        const hasLlmKey = !!(
+          process.env.OPENAI_API_KEY ||
+          process.env.ANTHROPIC_API_KEY ||
+          process.env.GOOGLE_API_KEY ||
+          process.env.XAI_API_KEY ||
+          process.env.OPENROUTER_API_KEY
+        );
+        let financialDatasetsOk = hasFdKey;
+        let llmOk = hasLlmKey;
+        let probeResults: Record<string, 'ok' | 'error'> | undefined;
+
+        if (probe) {
+          if (hasFdKey) {
+            try {
+              const fdRes = await fetch(
+                'https://api.financialdatasets.ai/prices/snapshot/?ticker=AAPL',
+                { headers: { 'x-api-key': process.env.FINANCIAL_DATASETS_API_KEY! } },
+              );
+              financialDatasetsOk = fdRes.ok;
+              probeResults = { ...probeResults, financialDatasets: fdRes.ok ? 'ok' : 'error' };
+            } catch {
+              financialDatasetsOk = false;
+              probeResults = { ...probeResults, financialDatasets: 'error' };
+            }
+          }
+        }
+
         const checks: Record<string, boolean> = {
-          llm: !!(
-            process.env.OPENAI_API_KEY ||
-            process.env.ANTHROPIC_API_KEY ||
-            process.env.GOOGLE_API_KEY ||
-            process.env.XAI_API_KEY ||
-            process.env.OPENROUTER_API_KEY
-          ),
-          financialDatasets: !!(process.env.FINANCIAL_DATASETS_API_KEY?.trim?.()),
+          llm: llmOk,
+          financialDatasets: financialDatasetsOk,
           search: !!(
             process.env.EXASEARCH_API_KEY ||
             process.env.TAVILY_API_KEY ||
             process.env.PERPLEXITY_API_KEY
           ),
         };
-        const allOk = checks.llm && checks.financialDatasets;
-        const status = allOk ? 'ok' : 'degraded';
-        const code = allOk ? 200 : 503;
-        return Response.json({ status, service: 'dexter', checks }, { status: code });
+        const failed = (Object.entries(checks) as [string, boolean][])
+          .filter(([, ok]) => !ok)
+          .map(([name]) => name);
+        const criticalOk = checks.llm && checks.financialDatasets;
+        const status = criticalOk ? 'ok' : 'degraded';
+        const code = criticalOk ? 200 : 503;
+        const body: Record<string, unknown> = {
+          status,
+          service: 'dexter',
+          checks,
+          ...(failed.length > 0 ? { failed } : {}),
+        };
+        if (probeResults) body.probe = probeResults;
+        return Response.json(body, { status: code });
       }
 
       if (req.method === 'OPTIONS' && url.pathname === '/api/chat') {

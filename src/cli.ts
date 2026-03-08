@@ -32,7 +32,7 @@ import {
   createProviderSelector,
 } from './components/index.js';
 import { editorTheme, theme } from './theme.js';
-import { getCredentialsPath, hasValidToken } from './tools/tastytrade/auth.js';
+import { getAuthStatus, getCredentialsPath, hasValidToken } from './tools/tastytrade/auth.js';
 
 function truncateAtWord(str: string, maxLength: number): string {
   if (str.length <= maxLength) {
@@ -104,6 +104,22 @@ Then tell me:
 - what I should do first given the environment status above
 
 Reference ~/.dexter/THETA-POLICY.md if it exists, and explicitly call out any missing setup before suggesting live broker workflows.`;
+}
+
+function buildTastytradeStatusQuery(): string {
+  const status = getAuthStatus();
+  return `Report my tastytrade setup status.
+
+Current status:
+- operator state: ${status.operatorState}
+- configured (client id + secret set): ${status.configured}
+- has credentials file: ${status.hasCredentials}
+- credentials path: ${status.credentialsPath}
+- message: ${status.message}
+
+Operator states: not_connected (set env + credentials) -> read_only (accounts, positions, theta scan, strategy preview, order_dry_run) -> trading_enabled (also live_orders, submit_order, cancel_order when TASTYTRADE_ORDER_ENABLED=true).
+
+Tell me what I need to do next. If not_connected, give exact steps to reach read_only. If read_only, say how to enable trading (TASTYTRADE_ORDER_ENABLED) and that submit/cancel require explicit approval. See docs/PRD-TASTYTRADE-INTEGRATION.md and env.example.`;
 }
 
 function createScreen(
@@ -344,7 +360,11 @@ Do not place any trades.`,
     }
 
     const expandedQuery =
-      query === '/theta-help' ? buildThetaHelpQuery() : QUERY_SHORTCUTS[query] ?? query;
+      query === '/theta-help'
+        ? buildThetaHelpQuery()
+        : query === '/tastytrade-status'
+          ? buildTastytradeStatusQuery()
+          : QUERY_SHORTCUTS[query] ?? query;
 
     if (modelSelection.isInSelectionFlow() || agentRunner.pendingApproval || agentRunner.isProcessing) {
       return;

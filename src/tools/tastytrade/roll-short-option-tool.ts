@@ -11,7 +11,7 @@ import {
 export const tastytradeRollShortOptionTool = new DynamicStructuredTool({
   name: 'tastytrade_roll_short_option',
   description:
-    'Build a roll candidate for a short option (buy to close current, sell to open a later expiry), and optionally dry-run it when order flow is enabled.',
+    'Build a roll candidate for a short option (buy to close current, sell to open a later expiry) and run dry-run (read-only; no live trading required).',
   schema: z.object({
     account_number: z.string().optional().describe('Tastytrade account number. If omitted, uses the first linked account.'),
     position_symbol: z.string().optional().describe('Exact short option symbol to roll.'),
@@ -43,13 +43,11 @@ export const tastytradeRollShortOptionTool = new DynamicStructuredTool({
     }
 
     let dryRunResult: unknown = null;
-    if (process.env.TASTYTRADE_ORDER_ENABLED === 'true') {
-      try {
-        const res = await orderDryRun(accountNumber, roll.order_json);
-        dryRunResult = res.data;
-      } catch (error) {
-        dryRunResult = { error: error instanceof Error ? error.message : String(error) };
-      }
+    try {
+      const res = await orderDryRun(accountNumber, roll.order_json);
+      dryRunResult = res.data;
+    } catch (error) {
+      dryRunResult = { error: error instanceof Error ? error.message : String(error) };
     }
 
     return JSON.stringify({

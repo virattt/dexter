@@ -27,15 +27,15 @@ List live and recent orders for a tastytrade account (working, filled, cancelled
 `.trim();
 
 export const TASTYTRADE_ORDER_DRY_RUN_DESCRIPTION = `
-Validate an order without submitting. Returns buying power effect, fees, and order summary. Always use before submit_order so the user can confirm. Order must be valid JSON matching tastytrade order schema (time-in-force, order-type, legs, price/value). See developer.tastytrade.com order submission. Requires TASTYTRADE_ORDER_ENABLED=true.
+Validate an order without submitting. Returns buying power effect, fees, and order summary. Available in read-only mode (no live trading required). Always use before submit_order when the user intends to place an order. Order must be valid JSON matching tastytrade order schema (time-in-force, order-type, legs, price/value). See developer.tastytrade.com order submission.
 `.trim();
 
 export const TASTYTRADE_SUBMIT_ORDER_DESCRIPTION = `
-Submit an order to the market. High risk: only when the user has explicitly asked to place the order and has confirmed (e.g. after seeing dry_run results). Order must be valid JSON matching tastytrade order schema. Prefer order_dry_run first. Requires TASTYTRADE_ORDER_ENABLED=true.
+Submit an order to the market. REQUIRES EXPLICIT USER APPROVAL: call only after the user has confirmed they want to place the order (e.g. after seeing tastytrade_order_dry_run or tastytrade_strategy_preview). Default path: always use tastytrade_order_dry_run or tastytrade_strategy_preview first; never auto-submit. Order must be valid JSON matching tastytrade order schema. Requires TASTYTRADE_ORDER_ENABLED=true.
 `.trim();
 
 export const TASTYTRADE_CANCEL_ORDER_DESCRIPTION = `
-Cancel an open order by order id. Use after tastytrade_live_orders to get the order id. Only cancels working/pending orders. Requires TASTYTRADE_ORDER_ENABLED=true.
+Cancel an open order by order id. REQUIRES EXPLICIT USER APPROVAL: call only when the user has asked to cancel a specific order and confirmed. Use after tastytrade_live_orders to get the order id. Only cancels working/pending orders. Requires TASTYTRADE_ORDER_ENABLED=true.
 `.trim();
 
 export const TASTYTRADE_SYNC_PORTFOLIO_DESCRIPTION = `
@@ -51,11 +51,11 @@ Scan theta setups on tastytrade for covered calls, cash-secured puts, credit spr
 `.trim();
 
 export const TASTYTRADE_STRATEGY_PREVIEW_DESCRIPTION = `
-Build a trade memo for a candidate or manual order, and run tastytrade dry-run when order flow is enabled. Use after tastytrade_theta_scan and before submit_order. Returns trade thesis, legs, premium type, estimated max loss, breakevens, exit / roll plan, and dry-run result if available.
+Build a trade memo for a candidate or manual order and run tastytrade dry-run (always in read-only mode). Use after tastytrade_theta_scan and before submit_order. Returns trade thesis, legs, premium type, estimated max loss, breakevens, exit / roll plan, and dry-run result. Use tastytrade_submit_order only after the user explicitly confirms (and only when TASTYTRADE_ORDER_ENABLED=true).
 `.trim();
 
 export const TASTYTRADE_ROLL_SHORT_OPTION_DESCRIPTION = `
-Build a later-dated roll candidate for a short option and optionally dry-run it. Use when the user says "roll this short put/call", "move this position out a week", or after a short option becomes challenged. Returns current position, target contract, net credit/debit, and order_json for explicit confirmation before submit.
+Build a later-dated roll candidate for a short option and run dry-run (always in read-only mode). Use when the user says "roll this short put/call", "move this position out a week", or after a short option becomes challenged. Returns current position, target contract, net credit/debit, dry_run_result, and order_json. Use tastytrade_submit_order only after the user explicitly confirms (and only when TASTYTRADE_ORDER_ENABLED=true).
 `.trim();
 
 export const TASTYTRADE_REPAIR_POSITION_DESCRIPTION = `
