@@ -17,6 +17,7 @@ describe('tastytrade theta scan (hard-block)', () => {
         dte: 41,
         estimated_credit: 1.25,
         max_loss: 375,
+        breakeven_price: null,
         buying_power_estimate: 500,
         short_delta: 0.15,
         policy_ok: true,
@@ -30,7 +31,7 @@ describe('tastytrade theta scan (hard-block)', () => {
       },
     ];
     const table = buildThetaScanTableSummary(candidates, 5);
-    expect(table).toContain('| Underlying | Strategy | Strike(s) | Credit | APR-like | Prob (ITM) | DTE | Max loss |');
+    expect(table).toContain('| Underlying | Strategy | Strike(s) | Credit | APR-like | Prob (ITM) | DTE | Breakeven | Max loss |');
     expect(table).toContain('AMAT');
     expect(table).toContain('credit spread');
     expect(table).toContain('120/115');

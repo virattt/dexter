@@ -37,6 +37,12 @@ const schema = z.object({
     .string()
     .optional()
     .describe('Comma-separated underlyings to scan. Defaults to THETA-POLICY allowed underlyings.'),
+  advisory_only: z
+    .boolean()
+    .optional()
+    .describe(
+      'Advisory mode only: ignore tastytrade account feasibility checks (buying power / covered shares) and use the chain for strike advice only. Useful for Hypersurface BTC advice via IBIT/BITO.'
+    ),
   strategy_type: z
     .enum(['covered_call', 'cash_secured_put', 'credit_spread', 'iron_condor'])
     .optional()
@@ -62,6 +68,7 @@ export type ThetaScanCandidate = {
   dte: number | null;
   estimated_credit: number;
   max_loss: number | null;
+  breakeven_price?: number | null;
   buying_power_estimate: number;
   short_delta: number | null;
   policy_ok: boolean;
@@ -82,8 +89,8 @@ type Candidate = ThetaScanCandidate;
 export function buildThetaScanTableSummary(candidates: Candidate[], maxRows: number): string {
   if (candidates.length === 0) return '';
   const rows = candidates.slice(0, maxRows);
-  const header = '| Underlying | Strategy | Strike(s) | Credit | APR-like | Prob (ITM) | DTE | Max loss |';
-  const sep = '| --- | --- | --- | --- | --- | --- | --- | --- |';
+  const header = '| Underlying | Strategy | Strike(s) | Credit | APR-like | Prob (ITM) | DTE | Breakeven | Max loss |';
+  const sep = '| --- | --- | --- | --- | --- | --- | --- | --- | --- |';
   const lineRows = rows.map((c) => {
     const shortLegs = c.legs.filter((leg) => leg.action === 'Sell to Open' && leg.strike != null);
     const longLegs = c.legs.filter((leg) => leg.action === 'Buy to Open' && leg.strike != null);
@@ -97,6 +104,7 @@ export function buildThetaScanTableSummary(candidates: Candidate[], maxRows: num
         : '—';
     const creditStr = `$${c.estimated_credit.toFixed(2)}`;
     const dteStr = c.dte != null ? String(c.dte) : '—';
+    const breakevenStr = c.breakeven_price != null ? `$${c.breakeven_price.toFixed(2)}` : '—';
     const maxLossStr = c.max_loss != null ? `$${c.max_loss.toFixed(0)}` : '—';
     let aprStr = '—';
     if (c.dte != null && c.dte > 0 && c.estimated_credit > 0) {
@@ -108,7 +116,7 @@ export function buildThetaScanTableSummary(candidates: Candidate[], maxRows: num
     }
     const probStr = c.short_delta != null ? `${(Math.abs(c.short_delta) * 100).toFixed(1)}%` : '—';
     const strategyLabel = c.strategy_type.replace(/_/g, ' ');
-    return `| ${c.underlying} | ${strategyLabel} | ${strikeStr} | ${creditStr} | ${aprStr} | ${probStr} | ${dteStr} | ${maxLossStr} |`;
+    return `| ${c.underlying} | ${strategyLabel} | ${strikeStr} | ${creditStr} | ${aprStr} | ${probStr} | ${dteStr} | ${breakevenStr} | ${maxLossStr} |`;
   });
   return [header, sep, ...lineRows].join('\n');
 }
@@ -180,7 +188,10 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
         ],
       });
     }
-    await ensureSessionSync();
+    const advisoryOnly = input.advisory_only === true;
+    if (!advisoryOnly) {
+      await ensureSessionSync();
+    }
 
     let underlyings =
       input.underlyings_csv
@@ -217,13 +228,12 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
     const maxResults = input.max_results ?? 5;
 
     try {
-      const [balancesData, positionsData] = await Promise.all([
-        getCachedBalances(accountNumber),
-        getCachedPositions(accountNumber),
-      ]);
-      const buyingPower = availableBuyingPowerFromBalances(balancesData);
-      const totalEquity = totalEquityFromBalances(balancesData);
-      const positions = normalizePositions(positionsData);
+      const [balancesData, positionsData] = advisoryOnly
+        ? [null, null]
+        : await Promise.all([getCachedBalances(accountNumber), getCachedPositions(accountNumber)]);
+      const buyingPower = advisoryOnly ? 1_000_000_000 : availableBuyingPowerFromBalances(balancesData);
+      const totalEquity = advisoryOnly ? 0 : totalEquityFromBalances(balancesData);
+      const positions = advisoryOnly ? [] : normalizePositions(positionsData);
 
       const allCandidates: Candidate[] = [];
       for (const underlying of underlyings) {
@@ -258,6 +268,7 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
               shortDeltaMax,
               noCallList: policy.noCallList,
               instrumentTypeForLeg,
+              requireCoveredShares: !advisoryOnly,
             })
           );
         } else if (input.strategy_type === 'cash_secured_put') {
@@ -325,6 +336,7 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
           totalEquity,
           maxRiskPerTradePct: policy.maxRiskPerTradePct,
           maxBuyingPowerUsagePct: policy.maxBuyingPowerUsagePct,
+          advisoryOnly,
         })
       );
 
@@ -416,6 +428,9 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
           ].filter(Boolean),
           notes: [
             'Policy mode is hard_block: only policy-compliant candidates with portfolio_fit pass are returned.',
+            advisoryOnly
+              ? 'Advisory mode ignored tastytrade buying-power / covered-shares feasibility and used market data only for strike advice.'
+              : null,
             earningsExclusionDegraded
               ? 'Earnings exclusion was requested but FINANCIAL_DATASETS_API_KEY is not set; exclusion not applied.'
               : excludedByEarnings.length > 0
@@ -446,6 +461,9 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
         candidates: finalCandidates,
         table_summary: table_summary || undefined,
         notes: [
+          advisoryOnly
+            ? 'Advisory mode ignored tastytrade buying-power / covered-shares feasibility and used market data only for strike advice.'
+            : null,
           excludedByHlOverlap.length > 0
             ? `Zero-overlap with Hyperliquid: ${excludedByHlOverlap.length} underlying(s) excluded (${excludedByHlOverlap.join(', ')}). Tastytrade sleeve is for non-HL assets only.`
             : null,
@@ -502,11 +520,12 @@ function scanCoveredCalls(params: {
   shortDeltaMax: number;
   noCallList: string[];
   instrumentTypeForLeg: string;
+  requireCoveredShares: boolean;
 }): Candidate[] {
   const longShares = params.positions
     .filter((position) => position.underlying === params.underlying && !position.optionType && position.quantity > 0)
     .reduce((sum, position) => sum + position.quantity, 0);
-  const maxContracts = Math.floor(longShares / 100);
+  const maxContracts = params.requireCoveredShares ? Math.floor(longShares / 100) : 1;
   if (maxContracts <= 0) return [];
   const candidates: Candidate[] = [];
   for (const contract of params.contracts.filter((candidate) => candidate.optionType === 'C' && candidate.strike > params.underlyingPrice)) {
@@ -538,8 +557,9 @@ function scanCoveredCalls(params: {
       expiration_date: contract.expirationDate,
       dte: contract.dte,
       estimated_credit: Number(credit.toFixed(2)),
-      max_loss: null,
-      buying_power_estimate: 0,
+      max_loss: Number((params.underlyingPrice * 100 - credit * 100).toFixed(2)),
+      breakeven_price: Number((params.underlyingPrice - credit).toFixed(2)),
+      buying_power_estimate: Number((params.underlyingPrice * 100).toFixed(2)),
       short_delta: Number(delta.toFixed(4)),
       policy_ok: policyNotes.length === 0,
       policy_notes: policyNotes,
@@ -595,6 +615,7 @@ function scanCashSecuredPuts(params: {
       dte: contract.dte,
       estimated_credit: Number(credit.toFixed(2)),
       max_loss: Number((contract.strike * 100 - credit * 100).toFixed(2)),
+      breakeven_price: Number((contract.strike - credit).toFixed(2)),
       buying_power_estimate: Number(collateral.toFixed(2)),
       short_delta: Number(delta.toFixed(4)),
       policy_ok: true,
@@ -789,18 +810,18 @@ function spreadWidthFromCandidate(candidate: Candidate): number {
 
 function applyPolicy(
   candidate: Candidate,
-  params: { totalEquity: number; maxRiskPerTradePct: number; maxBuyingPowerUsagePct: number }
+  params: { totalEquity: number; maxRiskPerTradePct: number; maxBuyingPowerUsagePct: number; advisoryOnly?: boolean }
 ): Candidate {
   const notes = [...candidate.policy_notes];
   let policyOk = candidate.policy_ok;
-  if (candidate.max_loss != null && params.totalEquity > 0) {
+  if (!params.advisoryOnly && candidate.max_loss != null && params.totalEquity > 0) {
     const riskPct = candidate.max_loss / params.totalEquity;
     if (riskPct > params.maxRiskPerTradePct) {
       notes.push(`Max loss is ${(riskPct * 100).toFixed(2)}% of equity, above policy cap.`);
       policyOk = false;
     }
   }
-  if (candidate.buying_power_estimate > 0 && params.totalEquity > 0) {
+  if (!params.advisoryOnly && candidate.buying_power_estimate > 0 && params.totalEquity > 0) {
     const bpPct = candidate.buying_power_estimate / params.totalEquity;
     if (bpPct > params.maxBuyingPowerUsagePct) {
       notes.push(`Buying power estimate is ${(bpPct * 100).toFixed(2)}% of equity, above policy cap.`);

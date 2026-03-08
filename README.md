@@ -135,8 +135,8 @@ Type a shortcut in the CLI to run a full query; see [ULTIMATE-TEST-QUERIES.md](d
 | `/theta-repair` | Analyze challenged short option; recommend hold, roll, close, or assignment. No submit. |
 | `/options` | **Suggest options to execute on tastytrade** that fit SOUL.md thesis (equities only, non-crypto). Table + top 2–3 candidates; you preview and submit when ready. |
 | **Hypersurface & BTC** | |
-| `/theta-btc-weekly` | Optimal strike advice for **BTC options** expiring this Friday (same calendar as Hypersurface). Uses IBIT/BITO for data; **you execute on Hypersurface** — no tastytrade order. |
-| `/hypersurface` | **Hypersurface-only advice** — optimal strike for BTC options this Friday. You execute manually on Hypersurface; no broker orders. Same data as `/theta-btc-weekly`. |
+| `/theta-btc-weekly` | Optimal strike advice for **BTC options** expiring this Friday (same calendar as Hypersurface). Uses IBIT/BITO for data; **you execute on Hypersurface** — no tastytrade order. Prioritizes **why a given strike is best versus nearby strikes**, with only a short `IBIT on tastytrade instead` note. |
+| `/hypersurface` | **Hypersurface-first advice** — optimal strike for BTC options this Friday. You execute manually on Hypersurface; no broker orders. Prioritizes **why the chosen strike wins versus neighboring lines** and keeps IBIT/tastytrade commentary brief. |
 | **Broker status** | |
 | `/tastytrade-status` | Report tastytrade setup: OAuth state, credentials path, configured vs connected. |
 
