@@ -1,9 +1,12 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { getBalances, getPositions, getQuotes } from './api.js';
+import { getQuotes } from './api.js';
 import {
   availableBuyingPowerFromBalances,
   getFirstAccountNumber,
+  getCachedPositions,
+  getCachedBalances,
+  ensureSessionSync,
   normalizePositions,
   totalEquityFromBalances,
 } from './utils.js';
@@ -24,11 +27,14 @@ export const tastytradePositionRiskTool = new DynamicStructuredTool({
     if (!accountNumber) {
       return JSON.stringify({ error: 'No tastytrade account found. Provide account_number or link an account.' });
     }
-
-    const [positionsRes, balancesRes] = await Promise.all([getPositions(accountNumber), getBalances(accountNumber)]);
-    const positions = normalizePositions(positionsRes.data);
-    const totalEquity = totalEquityFromBalances(balancesRes.data);
-    const buyingPower = availableBuyingPowerFromBalances(balancesRes.data);
+    await ensureSessionSync();
+    const [positionsData, balancesData] = await Promise.all([
+      getCachedPositions(accountNumber),
+      getCachedBalances(accountNumber),
+    ]);
+    const positions = normalizePositions(positionsData);
+    const totalEquity = totalEquityFromBalances(balancesData);
+    const buyingPower = availableBuyingPowerFromBalances(balancesData);
 
     const underlyings = uniqueSymbols(positions.map((position) => position.underlying));
     const underlyingQuotes = new Map<string, number>();

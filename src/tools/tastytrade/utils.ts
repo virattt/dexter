@@ -2,8 +2,84 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { tastytradeRequest } from './api.js';
+import { getPositions, getBalances } from './api.js';
+import { writePortfolioContent } from '../portfolio/portfolio-tool.js';
 
 const DEXTER_DIR = join(homedir(), '.dexter');
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+let _positionsCache: { accountNumber: string; data: unknown; ts: number } | null = null;
+let _balancesCache: { accountNumber: string; data: unknown; ts: number } | null = null;
+let _sessionSynced = false;
+
+export function invalidateTastytradeCache(): void {
+  _positionsCache = null;
+  _balancesCache = null;
+  _sessionSynced = false;
+}
+
+export async function getCachedPositions(accountNumber: string): Promise<unknown> {
+  if (_positionsCache && _positionsCache.accountNumber === accountNumber && Date.now() - _positionsCache.ts < CACHE_TTL_MS) {
+    return _positionsCache.data;
+  }
+  const res = await getPositions(accountNumber);
+  _positionsCache = { accountNumber, data: res.data, ts: Date.now() };
+  return res.data;
+}
+
+export async function getCachedBalances(accountNumber: string): Promise<unknown> {
+  if (_balancesCache && _balancesCache.accountNumber === accountNumber && Date.now() - _balancesCache.ts < CACHE_TTL_MS) {
+    return _balancesCache.data;
+  }
+  const res = await getBalances(accountNumber);
+  _balancesCache = { accountNumber, data: res.data, ts: Date.now() };
+  return res.data;
+}
+
+/**
+ * On first tastytrade broker query in a session, sync positions and balances to PORTFOLIO.md.
+ * Call at the start of positions, balances, and theta_scan tools.
+ */
+export async function ensureSessionSync(): Promise<void> {
+  if (_sessionSynced) return;
+  const acc = await getFirstAccountNumber();
+  if (!acc) return;
+  try {
+    const [posRes, balRes] = await Promise.all([getPositions(acc), getBalances(acc)]);
+    const positions = normalizePositions(posRes.data);
+    const totalEquity = totalEquityFromBalances(balRes.data);
+    const byTicker = new Map<string, { quantity: number; value: number }>();
+    for (const p of positions) {
+      const ticker = p.underlying !== '—' ? p.underlying : p.symbol.split(/\s+/)[0] ?? p.symbol;
+      if (!ticker) continue;
+      const prev = byTicker.get(ticker) ?? { quantity: 0, value: 0 };
+      byTicker.set(ticker, { quantity: prev.quantity + p.quantity, value: prev.value + p.value });
+    }
+    const rows: { ticker: string; weight: number }[] = [];
+    for (const [ticker, { value }] of byTicker.entries()) {
+      const weight = totalEquity > 0 ? (value / totalEquity) * 100 : 0;
+      rows.push({ ticker, weight });
+    }
+    rows.sort((a, b) => b.weight - a.weight);
+    const portfolioPath = join(DEXTER_DIR, 'PORTFOLIO.md');
+    const hasDualColumn =
+      existsSync(portfolioPath) &&
+      (readFileSync(portfolioPath, 'utf-8').split('\n')[0] ?? '').toLowerCase().includes('target');
+    if (hasDualColumn) {
+      _sessionSynced = true;
+      return;
+    }
+    const header = '| Ticker | Weight | Layer | Tier |';
+    const sep = '| --- | --- | --- | --- |';
+    const body = rows.map((r) => `| ${r.ticker} | ${r.weight.toFixed(2)}% | — | — |`).join('\n');
+    const markdown = [header, sep, body].join('\n');
+    writePortfolioContent('default', markdown);
+    _sessionSynced = true;
+  } catch {
+    // Non-fatal; tools will still work
+  }
+}
+
 const THETA_POLICY_PATH = join(DEXTER_DIR, 'THETA-POLICY.md');
 const SOUL_PATH = join(DEXTER_DIR, 'SOUL.md');
 const PORTFOLIO_MD_PATH = join(DEXTER_DIR, 'PORTFOLIO.md');
@@ -95,8 +171,14 @@ export type NormalizedPosition = {
 export function extractDataArray(data: unknown): unknown[] {
   if (Array.isArray(data)) return data;
   if (!data || typeof data !== 'object') return [];
-  const obj = data as { data?: unknown[]; items?: unknown[] };
-  return obj.data ?? obj.items ?? [];
+  const obj = data as { data?: unknown; items?: unknown[] };
+  if (Array.isArray(obj.items)) return obj.items;
+  if (Array.isArray(obj.data)) return obj.data;
+  if (obj.data && typeof obj.data === 'object' && !Array.isArray(obj.data)) {
+    const inner = obj.data as { items?: unknown[] };
+    if (Array.isArray(inner.items)) return inner.items;
+  }
+  return [];
 }
 
 export function extractFirstObject(data: unknown): Record<string, unknown> | null {
@@ -104,8 +186,13 @@ export function extractFirstObject(data: unknown): Record<string, unknown> | nul
   const arr = extractDataArray(data);
   const first = arr[0];
   if (first && typeof first === 'object' && !Array.isArray(first)) return first as Record<string, unknown>;
-  if (arr.length === 0 && typeof data === 'object' && !Array.isArray(data)) return null;
-  if (typeof data === 'object' && !Array.isArray(data)) return data as Record<string, unknown>;
+  if (arr.length > 0) return null;
+  if (typeof data === 'object' && !Array.isArray(data)) {
+    const obj = data as Record<string, unknown>;
+    if (obj.data && typeof obj.data === 'object' && !Array.isArray(obj.data)) {
+      return obj.data as Record<string, unknown>;
+    }
+  }
   return null;
 }
 
@@ -116,8 +203,9 @@ export function extractNumber(value: unknown): number {
 
 export async function getFirstAccountNumber(): Promise<string | null> {
   const accountsRes = await tastytradeRequest<unknown>('/customers/me/accounts');
-  const first = extractDataArray(accountsRes.data)[0] as { 'account-number'?: string } | undefined;
-  return first?.['account-number'] ?? null;
+  const items = extractDataArray(accountsRes.data);
+  const first = items[0] as { account?: { 'account-number'?: string }; 'account-number'?: string } | undefined;
+  return first?.account?.['account-number'] ?? first?.['account-number'] ?? null;
 }
 
 export function normalizeUnderlyingTicker(symbol: string): string {
@@ -250,11 +338,45 @@ export function availableBuyingPowerFromBalances(data: unknown): number {
 }
 
 export function loadThetaPolicy(): ThetaPolicy {
+  // Fallback defaults when no ~/.dexter/THETA-POLICY.md is present.
+  // Underlyings are drawn from SOUL.md thesis names with liquid US equity options on tastytrade:
+  //   Layer 1 (Chip): AAPL, AMD, AVGO
+  //   Layer 2 (Foundry): TSM
+  //   Layer 3 (Equipment): AMAT, ASML, LRCX, KLAC
+  //   Layer 5 (Power/Infra): VRT, CEG
+  //   Layer 6 (Memory): MU
+  //   Layer 7 (Networking): ANET
+  //   Cyclical/Adjacent (liquid options): PLTR, MSFT, AMZN, META, COIN
+  // NOT included: SPX/SPY/QQQ/IWM (indices — user can add via THETA-POLICY.md if wanted)
+  // NOT included: HYPE/SOL/NEAR/SUI/ETH (crypto only on tastytrade)
+  // NOT included: BESI/BESIY, TEL/TOELY (ADRs with thin option markets)
+  // NOT included: NVDA/MSTR (SOUL "Avoid/Too Crowded" tier — high consensus, thin edge)
+  //
+  // No-call list: SOUL Core Compounders — durable bottleneck names we hold long-term;
+  //   covered calls are blocked to avoid having them called away.
+  //   Puts and spreads are still allowed.
   const defaults: ThetaPolicy = {
     source: 'default',
     path: THETA_POLICY_PATH,
-    allowedUnderlyings: ['SPX', 'SPY', 'QQQ', 'IWM'],
-    noCallList: [],
+    allowedUnderlyings: [
+      // Layer 1 — Chip Designers (liquid options, SOUL thesis)
+      'AAPL', 'AMD', 'AVGO',
+      // Layer 2 — Foundry
+      'TSM',
+      // Layer 3 — Equipment & Materials
+      'AMAT', 'ASML', 'LRCX', 'KLAC',
+      // Layer 5 — Power & Infrastructure
+      'VRT', 'CEG',
+      // Layer 6 — Memory
+      'MU',
+      // Layer 7 — Networking
+      'ANET',
+      // Cyclical / Adjacent watchlist (liquid options, thesis-adjacent)
+      'PLTR', 'MSFT', 'AMZN', 'META', 'COIN',
+    ],
+    // Core Compounders from SOUL.md: block covered calls so they can't be called away.
+    // Puts and spreads remain valid for entering/sizing positions.
+    noCallList: ['TSM', 'ASML', 'AMAT', 'LRCX', 'KLAC', 'SNPS', 'CDNS', 'ANET', 'CEG'],
     shortDeltaMin: 0.1,
     shortDeltaMax: 0.2,
     minDte: 0,
@@ -445,15 +567,19 @@ export function loadSoulPortfolioContext(): SoulPortfolioContext {
       const lines = content.split('\n').filter((l) => l.trim().startsWith('|'));
       const headerCells = lines[0]?.split('|').map((s) => s.trim().toLowerCase()) ?? [];
       const tickerIdx = headerCells.indexOf('ticker');
+      const targetIdx = headerCells.indexOf('target');
       const weightIdx = headerCells.indexOf('weight');
-      if (tickerIdx >= 0 && weightIdx >= 0) {
+      const weightCol = targetIdx >= 0 ? targetIdx : weightIdx;
+      if (tickerIdx >= 0 && weightCol >= 0) {
         for (let i = 1; i < lines.length; i++) {
           const cells = lines[i].split('|').map((s) => s.trim());
           if (cells.some((c) => c === '---')) continue;
           const ticker = cells[tickerIdx]?.replace(/%$/, '').trim().toUpperCase();
-          const weightStr = cells[weightIdx]?.replace(/%$/, '').trim();
-          const weight = Number(weightStr);
-          if (ticker && Number.isFinite(weight)) portfolioTargetWeightByTicker.set(ticker, weight);
+          const weightStr = (cells[weightCol] ?? '').replace(/%$/, '').trim();
+          if (ticker && weightStr !== '—' && weightStr !== '') {
+            const weight = Number(weightStr);
+            if (Number.isFinite(weight)) portfolioTargetWeightByTicker.set(ticker, weight);
+          }
         }
       }
     } catch {

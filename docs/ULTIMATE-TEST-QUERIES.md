@@ -339,8 +339,10 @@ Analyze my live tastytrade options book. Use tastytrade_position_risk and tell m
 
 **B. Theta scan**
 
+Use THETA-POLICY allowed underlyings (aligned with SOUL.md); do not default to "SPX, SPY, QQQ" unless that's what your policy lists.
+
 ```text
-Scan for the safest theta trade in my tastytrade account today. Use tastytrade_theta_scan with my THETA-POLICY defaults. Focus on SPX, SPY, and QQQ. Return the top 3 candidates with:
+Scan for the safest theta trade in my tastytrade account today. Use THETA-POLICY defaults (underlyings from SOUL thesis). Return the top 2 candidates with:
 - strategy type
 - strikes and expiration
 - estimated credit

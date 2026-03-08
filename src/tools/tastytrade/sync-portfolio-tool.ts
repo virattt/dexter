@@ -1,8 +1,43 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { getPositions, getBalances } from './api.js';
-import { getFirstAccountNumber, normalizePositions, totalEquityFromBalances } from './utils.js';
+import { getFirstAccountNumber, normalizePositions, totalEquityFromBalances, getCachedPositions, getCachedBalances, ensureSessionSync } from './utils.js';
 import { getPortfolioPath, writePortfolioContent } from '../portfolio/portfolio-tool.js';
+
+const PORTFOLIO_MD_PATH = join(homedir(), '.dexter', 'PORTFOLIO.md');
+
+function readExistingTargetsAndMeta(): Map<string, { target: number; layer: string; tier: string }> {
+  const out = new Map<string, { target: number; layer: string; tier: string }>();
+  if (!existsSync(PORTFOLIO_MD_PATH)) return out;
+  try {
+    const content = readFileSync(PORTFOLIO_MD_PATH, 'utf-8');
+    const lines = content.split('\n').filter((l) => l.trim().startsWith('|'));
+    const headerCells = lines[0]?.split('|').map((s) => s.trim().toLowerCase()) ?? [];
+    const tickerIdx = headerCells.indexOf('ticker');
+    const targetIdx = headerCells.indexOf('target');
+    const actualIdx = headerCells.indexOf('actual');
+    const weightIdx = headerCells.indexOf('weight');
+    const layerIdx = headerCells.indexOf('layer');
+    const tierIdx = headerCells.indexOf('tier');
+    const weightCol = targetIdx >= 0 ? targetIdx : weightIdx;
+    if (tickerIdx < 0 || weightCol < 0) return out;
+    for (let i = 1; i < lines.length; i++) {
+      const cells = lines[i].split('|').map((s) => s.trim());
+      if (cells.some((c) => c === '---')) continue;
+      const ticker = cells[tickerIdx]?.replace(/%$/, '').trim().toUpperCase();
+      const weightStr = (cells[weightCol] ?? cells[actualIdx] ?? '').replace(/%$/, '').trim();
+      const target = weightStr === '—' || weightStr === '' ? NaN : Number(weightStr);
+      const layer = layerIdx >= 0 ? (cells[layerIdx] ?? '—') : '—';
+      const tier = tierIdx >= 0 ? (cells[tierIdx] ?? '—') : '—';
+      if (ticker) out.set(ticker, { target: Number.isFinite(target) ? target : 0, layer, tier });
+    }
+  } catch {
+    // ignore
+  }
+  return out;
+}
 
 export const tastytradeSyncPortfolioTool = new DynamicStructuredTool({
   name: 'tastytrade_sync_portfolio',
@@ -24,10 +59,10 @@ export const tastytradeSyncPortfolioTool = new DynamicStructuredTool({
       }
     }
     const acc = accountNumber as string;
-
-    const [posRes, balRes] = await Promise.all([getPositions(acc), getBalances(acc)]);
-    const positions = normalizePositions(posRes.data);
-    const totalEquity = totalEquityFromBalances(balRes.data);
+    await ensureSessionSync();
+    const [positionsData, balancesData] = await Promise.all([getCachedPositions(acc), getCachedBalances(acc)]);
+    const positions = normalizePositions(positionsData);
+    const totalEquity = totalEquityFromBalances(balancesData);
 
     const byTicker = new Map<string, { quantity: number; value: number }>();
     for (const p of positions) {
@@ -37,17 +72,34 @@ export const tastytradeSyncPortfolioTool = new DynamicStructuredTool({
       byTicker.set(ticker, { quantity: prev.quantity + p.quantity, value: prev.value + p.value });
     }
 
-    const rows: { ticker: string; weight: number; quantity: number; value: number }[] = [];
+    const existing = readExistingTargetsAndMeta();
+    const rows: { ticker: string; actual: number; target: number; gap: number; layer: string; tier: string; quantity: number; value: number }[] = [];
     for (const [ticker, { quantity, value }] of byTicker.entries()) {
-      const weight = totalEquity > 0 ? (value / totalEquity) * 100 : 0;
-      rows.push({ ticker, weight, quantity, value });
+      const actual = totalEquity > 0 ? (value / totalEquity) * 100 : 0;
+      const meta = existing.get(ticker) ?? { target: 0, layer: '—', tier: '—' };
+      const target = meta.target;
+      const gap = actual - target;
+      rows.push({
+        ticker,
+        actual,
+        target,
+        gap,
+        layer: meta.layer,
+        tier: meta.tier,
+        quantity,
+        value,
+      });
     }
     rows.sort((a, b) => b.value - a.value);
 
-    const header = '| Ticker | Weight | Layer | Tier |';
-    const sep = '| --- | --- | --- | --- |';
-    const body = rows.map((r) => `| ${r.ticker} | ${r.weight.toFixed(2)}% | — | — |`).join('\n');
-    const markdown = [header, sep, body].join('\n');
+    const header = '| Ticker | Target | Actual | Gap | Layer | Tier |';
+    const sep = '| --- | --- | --- | --- | --- | --- |';
+    const body = rows.map((r) => {
+      const targetStr = r.target > 0 ? `${r.target.toFixed(2)}%` : '—';
+      const gapStr = r.target > 0 ? `${r.gap >= 0 ? '+' : ''}${r.gap.toFixed(2)}%` : '—';
+      return `| ${r.ticker} | ${targetStr} | ${r.actual.toFixed(2)}% | ${gapStr} | ${r.layer} | ${r.tier} |`;
+    });
+    const markdown = [header, sep, ...body].join('\n');
 
     if (input.write_to_portfolio) {
       writePortfolioContent('default', markdown);

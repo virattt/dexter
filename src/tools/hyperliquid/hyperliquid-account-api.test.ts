@@ -1,4 +1,4 @@
-import { describe, expect, test, afterEach } from 'bun:test';
+import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
 import {
   getHLAccountAddress,
   isHLAccountConfigured,
@@ -8,6 +8,10 @@ import {
 
 describe('hyperliquid-account-api', () => {
   const VALID_ADDRESS = '0x31ca8395cf837de08b24da3f660e77761dfb974b';
+
+  beforeEach(() => {
+    delete process.env.HYPERLIQUID_ACCOUNT_ADDRESS;
+  });
 
   afterEach(() => {
     delete process.env.HYPERLIQUID_ACCOUNT_ADDRESS;

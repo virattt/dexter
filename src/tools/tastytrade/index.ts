@@ -14,6 +14,10 @@ export { tastytradeThetaScanTool } from './theta-scan-tool.js';
 export { tastytradeStrategyPreviewTool } from './strategy-preview-tool.js';
 export { tastytradeRollShortOptionTool } from './roll-short-option-tool.js';
 export { tastytradeRepairPositionTool } from './repair-position-tool.js';
+export { tastytradeTransactionsTool } from './transactions-tool.js';
+export { tastytradeEarningsCalendarTool } from './earnings-calendar-tool.js';
+export { tastytradeWatchlistTool } from './watchlist-tool.js';
+export { tastytradeRiskMetricsTool } from './risk-metrics-tool.js';
 export {
   TASTYTRADE_ACCOUNTS_DESCRIPTION,
   TASTYTRADE_BALANCES_DESCRIPTION,
@@ -31,6 +35,10 @@ export {
   TASTYTRADE_STRATEGY_PREVIEW_DESCRIPTION,
   TASTYTRADE_ROLL_SHORT_OPTION_DESCRIPTION,
   TASTYTRADE_REPAIR_POSITION_DESCRIPTION,
+  TASTYTRADE_TRANSACTIONS_DESCRIPTION,
+  TASTYTRADE_EARNINGS_CALENDAR_DESCRIPTION,
+  TASTYTRADE_WATCHLIST_DESCRIPTION,
+  TASTYTRADE_RISK_METRICS_DESCRIPTION,
 } from './descriptions.js';
 export {
   hasValidToken,

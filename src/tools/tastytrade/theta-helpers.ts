@@ -96,13 +96,13 @@ function walkChain(node: unknown, context: WalkContext, contracts: Map<string, O
 
   addContract(
     contracts,
-    stringValue(obj['call-symbol'] ?? obj.call_symbol ?? obj.callSymbol),
+    stringValue(obj['call-symbol'] ?? obj.call_symbol ?? obj.callSymbol ?? obj.call),
     'C',
     nextContext
   );
   addContract(
     contracts,
-    stringValue(obj['put-symbol'] ?? obj.put_symbol ?? obj.putSymbol),
+    stringValue(obj['put-symbol'] ?? obj.put_symbol ?? obj.putSymbol ?? obj.put),
     'P',
     nextContext
   );

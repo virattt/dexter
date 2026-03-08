@@ -2,7 +2,7 @@
 
 **Research that runs. Portfolios that stay aligned.**
 
-An autonomous financial research agent built for deep analysis: it decomposes questions into plans, runs them against live market data and SEC filings, checks its own work, and refines until the answer is data-backed. The bar is the **Portfolio Builder** — build and maintain a portfolio aligned with your thesis that beats the benchmarks (S&P 500, NASDAQ, BTC, top hedge funds). Otherwise it fails the bar.
+An autonomous financial research agent built for deep analysis: it decomposes questions into plans, runs them against live market data and SEC filings, checks its own work, and refines until the answer is data-backed. The bar is the **Portfolio Builder** — build and maintain a portfolio aligned with your thesis (SOUL.md) that beats the benchmarks (S&P 500, NASDAQ, BTC, top hedge funds). Otherwise it fails the bar.
 
 ## Table of Contents
 
@@ -26,6 +26,8 @@ An autonomous financial research agent built for deep analysis: it decomposes qu
 
 Not a chatbot. A research loop: plan → execute → validate → refine. Every answer is contextualized by your investment thesis in **SOUL.md**. You get weekly rebalance checks (Mondays), quarterly benchmark reports, and optional dollar rebalancing when AUM is set. You get regime labels, concentration alerts, and investor-letter drafts. You get fund ops: AUM config, YTD and since-inception performance, reports written to `~/.dexter/`. **VOICE.md** injects a consistent tone into every response; override at `~/.dexter/VOICE.md`. Loop detection and step limits cap runaway execution.
 
+For tastytrade: a full portfolio-aware theta engine — SOUL-aligned scan (not SPX/SPY/QQQ by default), THETA-POLICY hard-block enforcement, strategy preview with dry-run, roll/repair, and analytics (realized P&L, earnings calendar, watchlist, risk metrics scorecard).
+
 The thesis is structural. The sizing is tactical. The discipline is the moat.
 
 ---
@@ -41,7 +43,7 @@ This fork extends [virattt/dexter](https://github.com/virattt/dexter) with a def
 | **HEARTBEAT** | Weekly rebalance vs target. Quarterly report vs S&P, NASDAQ, BTC. Regime label. Newsletter draft when it matters. Dollar rebalancing when AUM set. | Passive monitoring isn't enough. Scheduled action: detect drift, deliver reports. |
 | **VOICE.md** | ikigaistudio tone and structure in every prompt. | Generic output sounds generic. Essays and letters need a recognizable voice. |
 | **Financial Datasets** | Primary source for prices, fundamentals, filings, insider trades, news. Optional Finnhub fallback for price/news when FD is down or rate-limited. | Built for agents: section-level filings, structured JSON. [DATA-API-FINANCIAL-DATASETS.md](docs/DATA-API-FINANCIAL-DATASETS.md). |
-| **tastytrade** | Read-only first: accounts, positions, theta scan, strategy preview, order dry-run. Trading only when you enable it; submit/cancel behind explicit approval. Policy and portfolio-fit enforced in-tool. | Live broker data vs static PORTFOLIO.md. Theta workflows without touching live orders until you confirm. [PRD-TASTYTRADE-INTEGRATION.md](docs/PRD-TASTYTRADE-INTEGRATION.md), [PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md](docs/PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md). |
+| **tastytrade** | 6 shipped phases: accounts + positions + balances (Ph 1), option chain + quote (Ph 2), dry-run/submit/cancel (Ph 3, opt-in), portfolio sync with Target/Actual/Gap + heartbeat (Ph 4), SOUL-aligned theta engine — scan, preview, roll, repair (Ph 5), analytics — transactions, earnings calendar, watchlist, risk metrics scorecard (Ph 6). | Live broker data vs static PORTFOLIO.md. Theta scan defaults to SOUL thesis names — not SPX/SPY/QQQ. THETA-POLICY hard block + no-call list protects Core Compounders. Dry-run before any live order; submit/cancel require explicit approval. [PRD-TASTYTRADE-INTEGRATION.md](docs/PRD-TASTYTRADE-INTEGRATION.md), [PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md](docs/PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md). |
 | **Hyperliquid** | HIP-3 data, liquidity ranking, period returns, portfolio ops, live sync, order preview, opt-in execution with approval. | Third portfolio: on-chain, 24/7, preview-first then execute when you say. [PRD-HYPERLIQUID-PORTFOLIO.md](docs/PRD-HYPERLIQUID-PORTFOLIO.md). |
 
 Core thesis: BTC HODL is the foundation. Diversification satellites are HYPE and SOL/NEAR/SUI/ETH. The AI infrastructure universe is the opportunity set. Dexter helps decide when to diversify — and when HODLing is the right call.
@@ -102,7 +104,7 @@ Quick validation:
 bun run typecheck && bun test && bun run heartbeat -- --dry-run && bun run validate-portfolio
 ```
 
-Query shortcuts in the CLI: `/suggest`, `/weekly`, `/quarterly`, `/suggest-hl`, `/hl-report`, `/theta-risk`, `/theta-scan`, `/theta-preview`, `/theta-repair`, `/theta-roll`, `/theta-help`, `/theta-policy`. See [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) for the full library.
+Query shortcuts in the CLI: `/suggest`, `/weekly`, `/quarterly`, `/suggest-hl`, `/hl-report`, `/hl-essay`, `/theta-risk`, `/theta-scan`, `/theta-preview`, `/theta-repair`, `/theta-roll`, `/theta-policy`, `/theta-help`, `/tastytrade-status`. See [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) for the full query library.
 
 ---
 
@@ -152,11 +154,15 @@ More: [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md).
 
 ## tastytrade
 
-Three states: **not connected** → **read-only** → **trading enabled**. In read-only you get accounts, positions, theta scan, strategy preview, and **order dry-run** — no live orders. When you set `TASTYTRADE_ORDER_ENABLED=true`, live_orders, submit, and cancel appear; submit and cancel still require explicit approval in the CLI. Use `/tastytrade-status` to see your state.
+Three states: **not connected** → **read-only** → **trading enabled**. In read-only you get accounts, positions, balances, option chain, theta scan, strategy preview, and **order dry-run** — no live orders. When you set `TASTYTRADE_ORDER_ENABLED=true`, live_orders, submit, and cancel appear; submit and cancel still require explicit approval in the CLI. Use `/tastytrade-status` to see your state.
 
-Theta: position risk, scan, strategy preview, roll, repair. Scan and preview validate against **THETA-POLICY** (allowed underlyings, no-call list, DTE) and return **portfolio-fit** (pass/warn/block) from SOUL and PORTFOLIO. Roll and repair check the proposed order against policy; if it violates, you get `policy_blocked` and violations, not a recommendation. Earnings exclusion in scan when THETA-POLICY and Financial Datasets allow; degraded-mode notice when the key is missing. Sync portfolio from broker to a PORTFOLIO.md-style table (optional write to `~/.dexter/PORTFOLIO.md`). With `TASTYTRADE_HEARTBEAT_ENABLED=true`, heartbeat compares live positions to target and flags drift.
+**Theta (Phase 5):** Position risk, scan, strategy preview, roll, repair. Scan defaults to **SOUL.md thesis names** (equipment, foundry, chip, power, memory, networking, cyclical adjacents) — not SPX/SPY/QQQ. THETA-POLICY is enforced as a **hard block**: only compliant candidates are returned. The **no-call list** (TSM, ASML, AMAT, LRCX, KLAC, ANET, CEG…) blocks covered calls on Core Compounders so they can't be called away; puts and spreads are still valid. Roll and repair validate the proposed order against policy — if it violates, you get `policy_blocked` and violations, not a recommendation. Earnings exclusion in scan when THETA-POLICY and Financial Datasets allow; `earnings_exclusion_degraded` notice when the key is missing.
 
-Setup: `TASTYTRADE_CLIENT_ID` and `TASTYTRADE_CLIENT_SECRET` in `.env`, then `bun run tastytrade:login` and paste the refresh token from my.tastytrade.com. Credentials in `~/.dexter/tastytrade-credentials.json`. Theta policy: copy [THETA-POLICY.example.md](docs/THETA-POLICY.example.md) to `~/.dexter/THETA-POLICY.md`. Docs: [DATA-API-TASTYTRADE.md](docs/DATA-API-TASTYTRADE.md), [THETA-POLICY.md](docs/THETA-POLICY.md).
+**Portfolio sync (Phase 4):** Sync from tastytrade to a PORTFOLIO.md-style table with **Target/Actual/Gap** columns. Optional write to `~/.dexter/PORTFOLIO.md`. Session cache (5-min TTL) avoids redundant API calls. With `TASTYTRADE_HEARTBEAT_ENABLED=true`, heartbeat compares live positions to SOUL.md target and flags drift.
+
+**Analytics (Phase 6):** Realized P&L and win rate (`tastytrade_transactions`), upcoming earnings for SOUL underlyings + current positions with `within_7_days` flag (`tastytrade_earnings_calendar`), watchlist management with policy-alignment scan (`tastytrade_watchlist`), portfolio risk scorecard — Herfindahl concentration, theta/delta aggregate, buying power utilization (`tastytrade_risk_metrics`).
+
+**Setup:** `TASTYTRADE_CLIENT_ID` and `TASTYTRADE_CLIENT_SECRET` in `.env`, then `bun run tastytrade:login` and paste the refresh token from my.tastytrade.com. Credentials in `~/.dexter/tastytrade-credentials.json`. Theta policy: copy [THETA-POLICY.example.md](docs/THETA-POLICY.example.md) to `~/.dexter/THETA-POLICY.md` and edit to match your holdings. Docs: [TASTYTRADE.md](docs/TASTYTRADE.md), [THETA-POLICY.md](docs/THETA-POLICY.md), [DATA-API-TASTYTRADE.md](docs/DATA-API-TASTYTRADE.md).
 
 ---
 
@@ -182,16 +188,20 @@ HIP-3 stack: prices, liquidity ranking, period returns, portfolio ops (rebalance
 
 | Doc | Purpose |
 |-----|---------|
-| [SOUL.md](SOUL.md) | Thesis, coverage, conviction tiers |
+| [SOUL.md](SOUL.md) | Thesis, coverage universe, conviction tiers, sizing rules |
 | [VOICE.md](docs/VOICE.md) | Brand and writing style |
 | [HEARTBEAT.example.md](docs/HEARTBEAT.example.md) | Monitoring template → `~/.dexter/HEARTBEAT.md` |
-| [DATA-API-FINANCIAL-DATASETS.md](docs/DATA-API-FINANCIAL-DATASETS.md) | Financial Datasets API |
-| [DATA-API-TASTYTRADE.md](docs/DATA-API-TASTYTRADE.md) | tastytrade: states, tools, theta |
-| [THETA-POLICY.md](docs/THETA-POLICY.md), [THETA-POLICY.example.md](docs/THETA-POLICY.example.md) | Theta policy format and template |
-| [PRD-TASTYTRADE-INTEGRATION.md](docs/PRD-TASTYTRADE-INTEGRATION.md), [PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md](docs/PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md) | tastytrade phases and theta engine |
+| [DATA-API-FINANCIAL-DATASETS.md](docs/DATA-API-FINANCIAL-DATASETS.md) | Financial Datasets API reference |
+| [**TASTYTRADE.md**](docs/TASTYTRADE.md) | **tastytrade user guide: setup, all tools, theta workflows** |
+| [DATA-API-TASTYTRADE.md](docs/DATA-API-TASTYTRADE.md) | tastytrade API reference: all 6 phases, SOUL-aligned defaults |
+| [THETA-POLICY.md](docs/THETA-POLICY.md) | Theta policy format and field reference |
+| [THETA-POLICY.example.md](docs/THETA-POLICY.example.md) | SOUL-aligned policy template (copy to `~/.dexter/THETA-POLICY.md`) |
+| [THETA-PROMPTS-12.md](docs/THETA-PROMPTS-12.md) | 12 canonical theta prompts (v1.1, SOUL-aligned) |
+| [PRD-TASTYTRADE-INTEGRATION.md](docs/PRD-TASTYTRADE-INTEGRATION.md) | tastytrade integration PRD — all 6 phases |
+| [PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md](docs/PRD-TASTYTRADE-PHASE-5-THETA-ENGINE.md) | Phase 5 theta engine: tools, SOUL policy, guardrails |
 | [PRD-HYPERLIQUID-PORTFOLIO.md](docs/PRD-HYPERLIQUID-PORTFOLIO.md) | Hyperliquid portfolio and execution |
 | [ULTIMATE-TEST-QUERIES.md](docs/ULTIMATE-TEST-QUERIES.md) | Copy-paste query library |
-| [FUND-CONFIG.md](docs/FUND-CONFIG.md), [EXTERNAL-RESOURCES.md](docs/EXTERNAL-RESOURCES.md) | AUM, inception, research refs |
+| [FUND-CONFIG.md](docs/FUND-CONFIG.md), [EXTERNAL-RESOURCES.md](docs/EXTERNAL-RESOURCES.md) | AUM, inception date, research references |
 
 **Related:** [AI Hedge Fund](https://github.com/eliza420ai-beep/ai-hedge-fund) — same org; multi-agent equity analysis (18 analyst agents + risk/portfolio manager), Hyperliquid integration (planned), Tastytrade daily options (experimental). Shares thesis context via **SOUL.md** (and optional `~/.ai-hedge-fund/` config). Use it for signals and portfolio construction experiments; use Dexter for research, live broker data, theta workflows, and execution. Details: [EXTERNAL-RESOURCES.md §9](docs/EXTERNAL-RESOURCES.md#9-ai-hedge-fund--multi-agent-portfolio-construction).
 

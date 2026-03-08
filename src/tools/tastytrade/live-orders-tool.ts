@@ -7,8 +7,8 @@ async function getFirstAccountNumber(): Promise<string | null> {
   const res = await tastytradeRequest<unknown>('/customers/me/accounts');
   const data = res.data;
   const list = Array.isArray(data) ? data : (data as { data?: unknown[] })?.data ?? (data as { items?: unknown[] })?.items ?? [];
-  const first = list[0] as { 'account-number'?: string } | undefined;
-  return first?.['account-number'] ?? null;
+  const first = list[0] as { account?: { 'account-number'?: string }; 'account-number'?: string } | undefined;
+  return first?.account?.['account-number'] ?? first?.['account-number'] ?? null;
 }
 
 export const tastytradeLiveOrdersTool = new DynamicStructuredTool({

@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { getBalances, getOptionChain, getPositions, getQuotes } from './api.js';
+import { getOptionChain, getQuotes } from './api.js';
 import { getCredentialsPath, hasValidToken } from './auth.js';
 import {
   buildOrderJson,
@@ -22,6 +22,9 @@ import {
   loadThetaPolicy,
   normalizePositions,
   totalEquityFromBalances,
+  getCachedPositions,
+  getCachedBalances,
+  ensureSessionSync,
 } from './utils.js';
 
 const THETA_POLICY_PATH = join(homedir(), '.dexter', 'THETA-POLICY.md');
@@ -134,6 +137,7 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
         ],
       });
     }
+    await ensureSessionSync();
 
     let underlyings =
       input.underlyings_csv
@@ -167,10 +171,13 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
     const maxResults = input.max_results ?? 5;
 
     try {
-      const [balancesRes, positionsRes] = await Promise.all([getBalances(accountNumber), getPositions(accountNumber)]);
-      const buyingPower = availableBuyingPowerFromBalances(balancesRes.data);
-      const totalEquity = totalEquityFromBalances(balancesRes.data);
-      const positions = normalizePositions(positionsRes.data);
+      const [balancesData, positionsData] = await Promise.all([
+        getCachedBalances(accountNumber),
+        getCachedPositions(accountNumber),
+      ]);
+      const buyingPower = availableBuyingPowerFromBalances(balancesData);
+      const totalEquity = totalEquityFromBalances(balancesData);
+      const positions = normalizePositions(positionsData);
 
       const allCandidates: Candidate[] = [];
       for (const underlying of underlyings) {
@@ -339,8 +346,10 @@ export const tastytradeThetaScanTool = new DynamicStructuredTool({
           policy_mode: 'hard_block',
           no_candidates: true,
           setup_required: false,
+          policy,
           excluded_by_earnings: excludedByEarnings,
           excluded_by_policy: excludedByPolicy,
+          total_scanned: allCandidates.length,
           total_equity: totalEquity,
           buying_power: buyingPower,
           candidates: [],

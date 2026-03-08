@@ -3,15 +3,24 @@ import { z } from 'zod';
 import { tastytradeRequest } from './api.js';
 
 function extractAccountList(response: unknown): { 'account-number': string; nickname?: string }[] {
-  if (Array.isArray(response)) return response as { 'account-number': string; nickname?: string }[];
-  if (response && typeof response === 'object' && 'data' in response) {
+  let items: unknown[] = [];
+  if (Array.isArray(response)) {
+    items = response;
+  } else if (response && typeof response === 'object' && 'data' in response) {
     const inner = (response as { data: unknown }).data;
-    if (Array.isArray(inner)) return inner as { 'account-number': string; nickname?: string }[];
-    if (inner && typeof inner === 'object' && 'items' in (inner as object)) {
-      return ((inner as { items: unknown }).items as { 'account-number': string; nickname?: string }[]) ?? [];
+    if (Array.isArray(inner)) {
+      items = inner;
+    } else if (inner && typeof inner === 'object' && 'items' in (inner as object)) {
+      items = ((inner as { items: unknown[] }).items) ?? [];
     }
   }
-  return [];
+  return items.map((item: any) => {
+    const acct = item?.account ?? item;
+    return {
+      'account-number': acct?.['account-number'] ?? '',
+      nickname: acct?.nickname ?? item?.nickname,
+    };
+  }).filter((a) => a['account-number']);
 }
 
 export const tastytradeAccountsTool = new DynamicStructuredTool({

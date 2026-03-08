@@ -69,6 +69,42 @@ export async function loadSoulHLDocument(): Promise<string | null> {
 }
 
 /**
+ * Load PORTFOLIO.md content: current portfolio (target/actual weights).
+ * User file at ~/.dexter/PORTFOLIO.md. Used for gap analysis and rebalance context.
+ */
+export async function loadPortfolioDocument(): Promise<string | null> {
+  const userPath = join(homedir(), '.dexter', 'PORTFOLIO.md');
+  try {
+    return await readFile(userPath, 'utf-8');
+  } catch {
+    return null;
+  }
+}
+
+const THETA_POLICY_PATH = join(homedir(), '.dexter', 'THETA-POLICY.md');
+
+/**
+ * Load a one-paragraph summary of THETA-POLICY.md for system prompt.
+ * Used when tastytrade is in use so the model can reason about theta constraints.
+ */
+export async function loadThetaPolicySummary(): Promise<string | null> {
+  try {
+    const content = await readFile(THETA_POLICY_PATH, 'utf-8');
+    const allowed = content.match(/allowed underlyings?\s*:\s*(.+)/i)?.[1]?.trim() ?? '—';
+    const noCall = content.match(/(?:no-call list|no calls?)\s*:\s*(.+)/i)?.[1]?.trim() ?? '—';
+    const deltaRange = content.match(/short delta range\s*:\s*([0-9.]+)\s*-\s*([0-9.]+)/i);
+    const dteRange = content.match(/dte range\s*:\s*([0-9.]+)\s*-\s*([0-9.]+)/i);
+    const maxRisk = content.match(/max risk per trade\s*:\s*([0-9.]+)\s*%?/i)?.[1] ?? '—';
+    const maxBP = content.match(/max buying power usage\s*:\s*([0-9.]+)\s*%?/i)?.[1] ?? '—';
+    const deltaStr = deltaRange ? `${deltaRange[1]}-${deltaRange[2]}` : '—';
+    const dteStr = dteRange ? `${dteRange[1]}-${dteRange[2]}` : '—';
+    return `Theta policy: allowed underlyings ${allowed}, short delta ${deltaStr}, DTE ${dteStr}, max risk per trade ${maxRisk}%, max buying power usage ${maxBP}%, no-call list ${noCall}.`;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Load VOICE.md content: brand and writing style for reports/essays.
  * User override at ~/.dexter/VOICE.md, else bundled docs/VOICE.md.
  */
@@ -207,9 +243,11 @@ export function buildGroupSection(ctx: GroupContext): string {
  * @param soulContent - Optional SOUL.md identity content
  * @param voiceContent - Optional VOICE.md brand/writing style content
  * @param soulHLContent - Optional SOUL-HL.md HIP-3 portfolio thesis
+ * @param portfolioContent - Optional PORTFOLIO.md current portfolio
+ * @param thetaPolicySummary - Optional one-line THETA-POLICY summary (when tastytrade configured)
  * @param channel - Delivery channel (e.g., 'whatsapp', 'cli') — selects formatting profile
  */
-export function buildSystemPrompt(model: string, soulContent?: string | null, voiceContent?: string | null, soulHLContent?: string | null, channel?: string, groupContext?: GroupContext): string {
+export function buildSystemPrompt(model: string, soulContent?: string | null, voiceContent?: string | null, soulHLContent?: string | null, portfolioContent?: string | null, thetaPolicySummary?: string | null, channel?: string, groupContext?: GroupContext): string {
   const toolDescriptions = buildToolDescriptions(model);
   const profile = getChannelProfile(channel);
 
@@ -272,6 +310,18 @@ ${soulContent ? `## Identity
 ${soulContent}
 
 Embody the identity and investing philosophy described above. Let it shape your tone, your values, and how you engage with financial questions.
+` : ''}
+
+${portfolioContent ? `## Current Portfolio
+
+${portfolioContent}
+
+Use this portfolio context to reason about position sizing, concentration, underweight/overweight vs thesis, and gap analysis in every response. When tastytrade tools provide fresher data, prefer that.
+` : ''}
+
+${thetaPolicySummary ? `## Theta Policy
+
+${thetaPolicySummary}
 ` : ''}
 
 ${soulHLContent ? `## Hyperliquid Portfolio Thesis (SOUL-HL.md)

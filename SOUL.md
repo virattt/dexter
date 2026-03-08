@@ -206,6 +206,7 @@ Every name in the universe gets classified along a second axis: not just *where*
 
 **Adjacent Watchlist** (not core thesis positions, but relevant to the broader AI/tech rotation):
 - MSTR (MicroStrategy — leveraged Bitcoin proxy, relevant to the miner basket thesis)
+- MSTY (YieldMax MSTR covered-call ETF — high-yield income expression of the BTC/MSTR thesis, distributes option premium as dividends; risk is MSTR downside with capped upside)
 - CRCL (Circle — private-sector dollar infrastructure, not just crypto. USDC $73-78B in circulation, reserves fund US Treasuries at scale, GENIUS Act beneficiary. Revenue from reserve yield; 40%+ annual circulation growth target. Strategic moat: US government incentivized to support as USDC exports dollar dominance vs BRICS de-dollarization. Partnerships: Visa, Stripe, Deutsche Börse. Also: primary stablecoin settlement rail for the emerging equity tokenization market)
 - COIN (Coinbase — regulated exchange/institutional crypto on-ramp, tokenized asset custody and distribution infrastructure)
 - HOOD (Robinhood — retail trading platform, crypto + equities convergence, actively distributing tokenized private equity — OpenAI/SpaceX tokens in EU)

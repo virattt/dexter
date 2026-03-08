@@ -1,7 +1,7 @@
 # Theta Options Income — 12 Canonical Prompts
 
-**Version:** 1.0  
-**Last Updated:** 2026-03-07
+**Version:** 1.1  
+**Last Updated:** 2026-03-08
 
 Canonical reference for the 12 theta/options income prompts. Use this file as the single source of truth for skills, test queries, and integrations.
 
@@ -11,7 +11,7 @@ Canonical reference for the 12 theta/options income prompts. Use this file as th
 
 ## Table of Contents
 
-1. [The Tastytrade 0DTE SPX Credit Spread Scanner](#1-the-tastytrade-0dte-spx-credit-spread-scanner)
+1. [The SOUL Thesis Credit Spread Scanner](#1-the-soul-thesis-credit-spread-scanner)
 2. [The Citadel Market Regime Classifier](#2-the-citadel-market-regime-classifier)
 3. [The SIG Daily Theta Decay Calculator](#3-the-sig-daily-theta-decay-calculator)
 4. [The Two Sigma Probability-Based Strike Selection](#4-the-two-sigma-probability-based-strike-selection)
@@ -19,39 +19,41 @@ Canonical reference for the 12 theta/options income prompts. Use this file as th
 6. [The Jane Street Pre-Market Edge Analyzer](#6-the-jane-street-pre-market-edge-analyzer)
 7. [The Wolverine Trading Risk Management System](#7-the-wolverine-trading-risk-management-system)
 8. [The Akuna Capital Volatility Skew Exploiter](#8-the-akuna-capital-volatility-skew-exploiter)
-9. [The Peak6 SPY Weekly Income Calendar](#9-the-peak6-spy-weekly-income-calendar)
+9. [The SOUL Thesis Weekly Income Calendar](#9-the-soul-thesis-weekly-income-calendar)
 10. [The IMC Trading Earnings Theta Crusher](#10-the-imc-trading-earnings-theta-crusher)
 11. [The Optiver End-of-Day Theta Scalper](#11-the-optiver-end-of-day-theta-scalper)
 12. [The Citadel Monthly Performance Dashboard](#12-the-citadel-monthly-performance-dashboard)
 
 ---
 
-## 1. The Tastytrade 0DTE SPX Credit Spread Scanner
+## 1. The SOUL Thesis Credit Spread Scanner
 
-**User provides:** Today's date, current SPX price, VIX level, and any major economic events scheduled today.
+**User provides:** Today's date, VIX level, any major economic events, and which SOUL underlyings to scan.
+
+Default underlyings from THETA-POLICY: AAPL, AMD, AVGO, TSM, AMAT, ASML, LRCX, KLAC, VRT, CEG, MU, ANET, PLTR, MSFT, AMZN, META, COIN. Override with `underlyings_csv` for a specific scan.
 
 ---
 
-"You are a senior options trader at Tastytrade who specializes in 0DTE (zero days to expiration) SPX credit spreads — the strategy professional theta traders use to generate daily income from time decay on the S&P 500 index.
+"You are Dexter, running a theta scan on SOUL.md thesis names in my tastytrade account. Underlyings are from the AI infrastructure supply chain (equipment, foundry, chip, power/infra, memory, networking) — not generic indices.
 
-I need a complete 0DTE trade setup for today's market session with exact strikes and risk parameters.
+I need the top 2 candidates from today's theta scan with exact strikes and risk parameters.
 
 Scan:
 
 - Market conditions check: is today's VIX level, overnight futures action, and economic calendar suitable for selling premium
-- SPX expected move: calculate today's implied expected range using current ATM straddle pricing
-- Put credit spread setup: short put strike at 0.10-0.15 delta and long put 5-10 points below for protection
-- Call credit spread setup: short call strike at 0.10-0.15 delta and long call 5-10 points above for protection
-- Iron condor combination: if conditions favor it, combine both sides for double premium collection
-- Premium target: minimum $0.50-$1.00 credit collected per spread to justify the risk-reward
-- Risk-reward ratio: maximum loss vs premium collected with a minimum 1:3 reward-to-risk target
-- Entry timing: optimal time of day to enter (typically 9:45-10:30 AM after opening volatility settles)
-- Stop-loss rules: close the trade if spread reaches 2x the premium collected or if SPX breaches short strike
-- Exit strategy: let expire worthless for full profit, or close at 50% profit if reached before 2 PM
+- Regime context: are SOUL underlyings trending (bad for iron condors) or range-bound (ideal for premium selling)
+- Candidate selection: scan THETA-POLICY allowed underlyings for the best put credit spread, call credit spread, or iron condor setup today
+- Strike selection: short strike at 0.10-0.15 delta, long strike 5-10% of underlying price below/above for protection
+- Expected move: use current IV to calculate today's or this week's expected range for each candidate
+- Premium target: minimum credit that justifies the risk-reward given the underlying's price and volatility
+- SOUL portfolio fit: would this position add useful thesis exposure or create redundant concentration?
+- No-call check: skip covered call suggestions on Core Compounders (TSM, ASML, AMAT, LRCX, KLAC, ANET, CEG)
+- Earnings exclusion: skip underlyings with earnings within 2 days (default THETA-POLICY setting)
+- Stop-loss and exit rules: close if spread reaches 2x credit; take profit at 50% of max credit
 
-Format as a Tastytrade-style 0DTE trade ticket with exact strikes, entry price, max profit, max loss, and time-based exit rules.
+Format as a Dexter-style trade ticket: top 2 candidates with strategy, strikes, expiration, credit, max loss, and which one fits my current book best.
 
-Today's setup: [ENTER TODAY'S DATE, CURRENT SPX PRICE, VIX LEVEL, AND ANY MAJOR ECONOMIC EVENTS SCHEDULED TODAY]"
+Today's scan: [ENTER TODAY'S DATE, VIX LEVEL, AND ANY MAJOR ECONOMIC EVENTS. OPTIONALLY SPECIFY underlyings_csv TO OVERRIDE THETA-POLICY LIST.]"
 
 ---
 
@@ -115,7 +117,7 @@ My positions: [LIST YOUR CURRENT SHORT PREMIUM POSITIONS WITH TICKER, STRIKE, EX
 
 ## 4. The Two Sigma Probability-Based Strike Selection
 
-**User provides:** The underlying (SPX, QQQ, or stock ticker), current price, and target win rate.
+**User provides:** The SOUL thesis underlying (e.g. TSM, AMAT, AAPL, AMD, AVGO, MU, PLTR, VRT), current price, and target win rate.
 
 ---
 
@@ -138,7 +140,7 @@ Select:
 
 Format as a Two Sigma-style probability matrix with strike recommendations at different confidence levels and today's specific trade setup.
 
-Today's trade: [ENTER THE UNDERLYING (SPX, QQQ, OR STOCK TICKER), CURRENT PRICE, AND YOUR TARGET WIN RATE]"
+Today's trade: [ENTER THE SOUL THESIS UNDERLYING (e.g. TSM, AMAT, AAPL, AMD, AVGO, MU, PLTR, VRT), CURRENT PRICE, AND YOUR TARGET WIN RATE]"
 
 ---
 
@@ -154,7 +156,7 @@ I need a complete daily or weekly iron condor setup optimized for maximum probab
 
 Build:
 
-- Underlying selection: SPX, SPY, QQQ, or IWM — which index is best for iron condors today based on IV and trend
+- Underlying selection: from SOUL thesis names (AAPL, AMD, AVGO, TSM, AMAT, ASML, LRCX, KLAC, VRT, CEG, MU, ANET, PLTR, MSFT, AMZN, META, COIN) — which best fits an iron condor today based on IV, trend, and portfolio fit
 - Expected range calculation: today's or this week's expected move to set my short strikes outside
 - Put side construction: short put at 0.10-0.15 delta, long put 5-10 points below, credit collected
 - Call side construction: short call at 0.10-0.15 delta, long call 5-10 points above, credit collected
@@ -167,7 +169,7 @@ Build:
 
 Format as a D.E. Shaw-style iron condor trade plan with a payoff range description, adjustment protocol, and daily income projection.
 
-My iron condor: [ENTER THE UNDERLYING, CURRENT PRICE, YOUR ACCOUNT SIZE, AND WHETHER YOU WANT DAILY (0DTE) OR WEEKLY EXPIRATION]"
+My iron condor: [ENTER THE SOUL THESIS UNDERLYING (e.g. AAPL, AMD, TSM, AMAT, MU, PLTR), CURRENT PRICE, YOUR ACCOUNT SIZE, AND WHETHER YOU WANT DAILY (0DTE) OR WEEKLY EXPIRATION]"
 
 ---
 
@@ -258,30 +260,33 @@ The underlying: [ENTER TICKER, CURRENT PRICE, AND WHETHER YOU WANT TO TRADE DAIL
 
 ---
 
-## 9. The Peak6 SPY Weekly Income Calendar
+## 9. The SOUL Thesis Weekly Income Calendar
 
 **User provides:** Account size, weekly income target, risk tolerance per week, and whether you can monitor trades during market hours.
 
+Underlyings come from THETA-POLICY (SOUL.md names: AAPL, AMD, AVGO, TSM, AMAT, ASML, LRCX, KLAC, VRT, CEG, MU, ANET, PLTR, MSFT, AMZN, META, COIN). No-call list protects Core Compounders from covered-call assignment.
+
 ---
 
-"You are a senior income portfolio manager at Peak6 who runs a systematic weekly options income calendar on SPY — opening and closing positions on a fixed schedule that compounds premium income week after week.
+"You are Dexter, running a systematic weekly options income calendar on SOUL.md thesis names — opening and closing positions on a fixed schedule that compounds premium income week after week, while keeping the thesis intact.
 
 I need a complete weekly trading calendar that tells me exactly what to do each day of the week.
 
 Schedule:
 
-- Monday morning: analyze VIX, check economic calendar, set weekly expected range, and identify optimal strikes
-- Monday trade: open a weekly put credit spread or iron condor expiring Friday at 0.12-0.15 delta short strikes
-- Tuesday management: check positions at 10 AM — if at 30%+ profit already, consider closing early to free capital
-- Wednesday midweek review: reassess market direction — if one side is threatened, prepare adjustment or roll
-- Thursday acceleration: theta decay accelerates sharply — decide to hold for full decay or close at 65% profit
-- Friday morning decision: close all positions by 11 AM to avoid pin risk, or let OTM options expire worthless
-- Friday afternoon: review the week's performance, log all trades, and prepare Monday's watchlist
-- Position sizing cycle: use fixed percentage of account per week (3-5%) and increase only after 4 consecutive winning weeks
-- Loss week protocol: after a losing week, reduce position size by 50% for the following week
-- Monthly reconciliation: review all 4 weekly cycles, calculate actual win rate, and adjust delta levels if needed
+- Monday morning: run tastytrade_theta_scan on THETA-POLICY allowed underlyings; analyze VIX, check earnings calendar, set weekly expected ranges, identify top 2-3 candidates
+- Monday trade: open weekly put credit spreads or iron condors expiring Friday on the best SOUL candidates at 0.12-0.15 delta short strikes; skip any names with earnings within 2 days
+- Tuesday management: check positions at 10 AM — if at 30%+ profit already, consider closing early to free capital for new setup
+- Wednesday midweek review: reassess — if one side is threatened, prepare adjustment or roll to next expiry; check THETA-POLICY compliance on any roll
+- Thursday acceleration: theta decay accelerates sharply — decide to hold for full decay or close at 65% profit; no new positions on 0DTE candidates unless account size supports it
+- Friday morning decision: close all positions by 11 AM to avoid pin risk and assignment; let far-OTM positions expire worthless if clean
+- Friday afternoon: sync positions to PORTFOLIO.md via tastytrade_sync_portfolio; log trades, compute week's theta P&L, prepare Monday's watchlist
+- Position sizing cycle: fixed 3-5% of account per week; increase only after 4 consecutive winning weeks
+- No-call enforcement: covered calls on TSM, ASML, AMAT, LRCX, KLAC, ANET, CEG are blocked — use puts or spreads on these names only
+- Loss week protocol: after a losing week, reduce position size by 50% for the following week; run tastytrade_position_risk before reopening
+- Monthly reconciliation: review all 4 weekly cycles; calculate win rate by underlying; remove chronic losers from THETA-POLICY list; add names with better IV/trend profile
 
-Format as a Peak6-style weekly trading calendar with exact daily actions, position management checkpoints, and a trade journal template.
+Format as a weekly trading calendar with exact daily actions, SOUL thesis alignment notes, position management checkpoints, and a trade journal template.
 
 My account: [ENTER YOUR ACCOUNT SIZE, WEEKLY INCOME TARGET, RISK TOLERANCE PER WEEK, AND WHETHER YOU CAN MONITOR TRADES DURING MARKET HOURS]"
 
@@ -318,7 +323,7 @@ The earnings trade: [ENTER STOCK TICKER, EARNINGS DATE, CURRENT IV, AND YOUR DIR
 
 ## 11. The Optiver End-of-Day Theta Scalper
 
-**User provides:** The underlying (SPX, SPY, QQQ), account size, and whether you can actively trade the final 90 minutes.
+**User provides:** The SOUL thesis underlying (e.g. AAPL, AMD, AVGO, MU, PLTR, MSFT, AMZN, META), account size, and whether you can actively trade the final 90 minutes. Use liquid SOUL names — not indices. 0DTE is best on underlyings with active intraday option flow.
 
 ---
 
@@ -341,7 +346,7 @@ Scalp:
 
 Format as an Optiver-style intraday scalping playbook with a minute-by-minute timeline, entry criteria, and a risk management checklist.
 
-My setup: [ENTER THE UNDERLYING (SPX, SPY, QQQ), YOUR ACCOUNT SIZE, AND WHETHER YOU CAN ACTIVELY TRADE THE FINAL 90 MINUTES]"
+My setup: [ENTER THE SOUL THESIS UNDERLYING (e.g. AAPL, AMD, AVGO, MU, PLTR, MSFT, AMZN, META), YOUR ACCOUNT SIZE, AND WHETHER YOU CAN ACTIVELY TRADE THE FINAL 90 MINUTES]"
 
 ---
 

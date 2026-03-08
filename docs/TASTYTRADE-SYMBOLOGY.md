@@ -33,6 +33,7 @@ For portfolio sync and drift checks:
 - **Indices (SPX, VIX, etc.)** — Use index symbols in quotes and option chains; underlying is the index symbol.
 - **Fractional strikes** — Some underlyings use fractional strikes; OCC encodes them in the 8-digit strike field.
 - **Symbol search** — Use `tastytrade_symbol_search` to resolve names to symbols before calling quote or option chain.
+- **SOUL tickers** — Some SOUL.md names are not US symbols: use **BESIY** (not BESI), **TOELY** for Tokyo Electron (not TEL) if supported; HYPE/SOL/NEAR/SUI/ETH are crypto on tastytrade. See [TASTYTRADE.md § 5.5](TASTYTRADE.md#soulmd-tickers-and-tastytrade-symbols) for the full mapping.
 
 ---
 

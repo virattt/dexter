@@ -1,6 +1,6 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { tastytradeRequest } from './api.js';
+import { getFirstAccountNumber, ensureSessionSync, getCachedBalances } from './utils.js';
 
 export const tastytradeBalancesTool = new DynamicStructuredTool({
   name: 'tastytrade_balances',
@@ -14,18 +14,12 @@ export const tastytradeBalancesTool = new DynamicStructuredTool({
       ),
   }),
   func: async (input) => {
-    let accountNumber = input.account_number;
+    let accountNumber = input.account_number ?? (await getFirstAccountNumber());
     if (!accountNumber) {
-      const accountsRes = await tastytradeRequest<unknown>('/customers/me/accounts');
-      const data = accountsRes.data;
-      const list = Array.isArray(data) ? data : (data as { data?: unknown[] })?.data ?? (data as { items?: unknown[] })?.items ?? [];
-      const first = list[0] as { 'account-number'?: string } | undefined;
-      accountNumber = first?.['account-number'];
-      if (!accountNumber) {
-        return JSON.stringify({ error: 'No tastytrade account found. List accounts first or provide account_number.' });
-      }
+      return JSON.stringify({ error: 'No tastytrade account found. List accounts first or provide account_number.' });
     }
-    const res = await tastytradeRequest<unknown>(`/accounts/${encodeURIComponent(accountNumber)}/account-balances`);
-    return JSON.stringify({ account_number: accountNumber, balances: res.data });
+    await ensureSessionSync();
+    const data = await getCachedBalances(accountNumber);
+    return JSON.stringify({ account_number: accountNumber, balances: data });
   },
 });

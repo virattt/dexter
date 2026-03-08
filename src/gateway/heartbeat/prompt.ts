@@ -214,7 +214,7 @@ Inception: ${fundConfig.inceptionDate ?? 'not set'}
     ? `
 ## Tastytrade drift check (optional)
 
-If tastytrade is connected, call tastytrade_positions and tastytrade_balances to get live broker positions. Compare to the target from Identity (SOUL.md) and PORTFOLIO.md. Flag any position more than ~5% above its target weight (e.g. "tastytrade shows 8% NVDA vs 5% target — consider trimming"). You may use tastytrade_sync_portfolio to build a current table first, then compare to target. **Do NOT submit or cancel tastytrade orders from heartbeat — drift check and alert only.**
+If tastytrade is connected, call tastytrade_positions and tastytrade_balances to get live broker positions. Compare to the target from Identity (SOUL.md) and PORTFOLIO.md (Target column). **Drift thresholds:** Flag any position >5% above target weight (e.g. "NVDA 8% vs 5% target — consider trimming") OR >3% below target for Core Compounders (e.g. "AAPL 4% vs 7% target — consider adding"). You may use tastytrade_sync_portfolio to build a current table with Target/Actual/Gap first, then compare. **Do NOT submit or cancel tastytrade orders from heartbeat — drift check and alert only.**
 `
     : '';
 

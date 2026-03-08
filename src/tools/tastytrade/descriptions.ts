@@ -47,7 +47,7 @@ Enrich live tastytrade positions into a decision-ready risk view. Use when the u
 `.trim();
 
 export const TASTYTRADE_THETA_SCAN_DESCRIPTION = `
-Scan theta setups on tastytrade for covered calls, cash-secured puts, credit spreads, or iron condors. Use when the user asks "what theta trade should I do?", "best 0DTE setup", "scan SPX/SPY/QQQ income trades", or "show safest income trade". Policy is enforced as a hard block: only THETA-POLICY-compliant candidates with portfolio_fit pass are returned. Output includes policy_mode: "hard_block", excluded_by_policy (with reason buckets), excluded_by_earnings, and when earnings exclusion is requested but FINANCIAL_DATASETS_API_KEY is missing, earnings_exclusion_degraded. When no candidates pass, returns no_candidates with next_steps. Respects THETA-POLICY defaults when present; returns ranked candidates with legs, credit, max loss, and order_json for preview/dry-run.
+Scan theta setups on tastytrade for covered calls, cash-secured puts, credit spreads, or iron condors. Use when the user asks "what theta trade should I do?", "best 0DTE setup", "safest income trade", or "scan for theta". Prefer underlyings from SOUL.md when set in THETA-POLICY (Allowed underlyings); do not default to SPX/SPY/QQQ unless the user's policy lists them. Policy is enforced as a hard block: only THETA-POLICY-compliant candidates with portfolio_fit pass are returned. Output includes policy_mode: "hard_block", excluded_by_policy (with reason buckets), excluded_by_earnings, and when earnings exclusion is requested but FINANCIAL_DATASETS_API_KEY is missing, earnings_exclusion_degraded. When no candidates pass, returns no_candidates with next_steps. Respects THETA-POLICY defaults when present; returns ranked candidates with legs, credit, max loss, and order_json for preview/dry-run.
 `.trim();
 
 export const TASTYTRADE_STRATEGY_PREVIEW_DESCRIPTION = `
@@ -60,4 +60,20 @@ Build a later-dated roll candidate for a short option and run dry-run (always in
 
 export const TASTYTRADE_REPAIR_POSITION_DESCRIPTION = `
 Analyze a challenged short option and recommend hold, roll, close now, or possible assignment. When a roll candidate exists, it is checked against THETA-POLICY; alternatives.roll includes policy_blocked, policy_violations, and policy_note. Use when the user asks "how should I repair this position?", "should I roll or take assignment?", or "this short option is in trouble". Returns a recommendation, alternatives (with roll order_json and policy status when applicable).
+`.trim();
+
+export const TASTYTRADE_TRANSACTIONS_DESCRIPTION = `
+Fetch transaction history for a tastytrade account. Use when the user asks "what did I trade", "transaction history", "realized P&L", "win rate on my theta trades", or "closed trades this month". Optional start_date and end_date (YYYY-MM-DD) and type (e.g. Trade, Money Movement). Returns list of transactions with date, type, symbol, action, quantity, value, fees.
+`.trim();
+
+export const TASTYTRADE_EARNINGS_CALENDAR_DESCRIPTION = `
+Show upcoming earnings dates for tickers. Use when the user asks "when is AAPL earnings", "earnings calendar", "which holdings have earnings soon", or to avoid theta trades before earnings. Optional tickers_csv; defaults to THETA-POLICY allowed underlyings. Set include_positions=true to add current tastytrade position underlyings. within_days limits how far ahead to show (default 14). Returns next_earnings date and days_until; flags within_7_days.
+`.trim();
+
+export const TASTYTRADE_WATCHLIST_DESCRIPTION = `
+List, create, update, or delete tastytrade watchlists; or scan a watchlist for quotes. Actions: list (all watchlists), create (name + optional symbols_csv), add_symbols (name + symbols_csv), remove_symbols (name + symbols_csv), delete (name), scan (name — fetches quotes for all symbols and marks theta-policy alignment).
+`.trim();
+
+export const TASTYTRADE_RISK_METRICS_DESCRIPTION = `
+Portfolio risk scorecard: concentration (Herfindahl index, top-5 weight %), aggregate theta and delta exposure, buying power utilization %. Use when the user asks "portfolio risk", "concentration", "how much theta/delta", "buying power used", or "risk metrics". Beta and max drawdown require financial_search and transaction history respectively.
 `.trim();

@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { submitOrder } from './api.js';
+import { invalidateTastytradeCache } from './utils.js';
 
 export const tastytradeSubmitOrderTool = new DynamicStructuredTool({
   name: 'tastytrade_submit_order',
@@ -21,6 +22,7 @@ export const tastytradeSubmitOrderTool = new DynamicStructuredTool({
       return JSON.stringify({ error: 'order_json must be valid JSON.' });
     }
     const res = await submitOrder(input.account_number, order);
+    invalidateTastytradeCache();
     return JSON.stringify({ account_number: input.account_number, result: res.data });
   },
 });

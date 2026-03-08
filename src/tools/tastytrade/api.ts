@@ -45,7 +45,7 @@ export interface TastytradeApiResponse<T = unknown> {
 
 export async function tastytradeRequest<T = unknown>(
   path: string,
-  options: { method?: 'GET' | 'POST' | 'DELETE'; body?: string; query?: Record<string, string> } = {}
+  options: { method?: 'GET' | 'POST' | 'PUT' | 'DELETE'; body?: string; query?: Record<string, string> } = {}
 ): Promise<TastytradeApiResponse<T>> {
   const method = options.method ?? 'GET';
   let token = await getValidAccessToken();
@@ -126,7 +126,7 @@ export async function getAccounts(): Promise<TastytradeApiResponse<unknown>> {
 }
 
 export async function getBalances(accountNumber: string): Promise<TastytradeApiResponse<unknown>> {
-  return tastytradeRequest(`/accounts/${encodeURIComponent(accountNumber)}/account-balances`);
+  return tastytradeRequest(`/accounts/${encodeURIComponent(accountNumber)}/balances`);
 }
 
 export async function getPositions(accountNumber: string): Promise<TastytradeApiResponse<unknown>> {
@@ -139,11 +139,22 @@ export async function getOptionChain(underlyingSymbol: string): Promise<Tastytra
   return tastytradeRequest(`/option-chains/${encodeURIComponent(symbol)}/nested`);
 }
 
-/** Quote for one or more symbols. Instrument type: Equity | Index | Equity Option | Future | etc. */
-export async function getQuotes(symbols: string[], instrumentType: 'Equity' | 'Index' | 'Equity Option' = 'Equity'): Promise<TastytradeApiResponse<unknown>> {
-  const key = instrumentType === 'Equity' ? 'equities' : instrumentType === 'Index' ? 'indices' : 'options';
-  const body = JSON.stringify({ [key]: symbols });
-  return tastytradeRequest<unknown>('/market-data/quotes', { method: 'POST', body });
+/** Quote for one or more symbols. Pass any symbol type (equity, index, option). Batches large lists to avoid URL length limits. */
+export async function getQuotes(symbols: string[], _instrumentType?: string): Promise<TastytradeApiResponse<unknown>> {
+  const cleaned = symbols.map((s) => s.trim()).filter(Boolean);
+  const BATCH_SIZE = 50;
+  if (cleaned.length <= BATCH_SIZE) {
+    return tastytradeRequest<unknown>('/market-data', { query: { symbols: cleaned.join(',') } });
+  }
+  const allItems: unknown[] = [];
+  for (let i = 0; i < cleaned.length; i += BATCH_SIZE) {
+    const batch = cleaned.slice(i, i + BATCH_SIZE);
+    const res = await tastytradeRequest<unknown>('/market-data', { query: { symbols: batch.join(',') } });
+    const data = res.data as { data?: { items?: unknown[] }; items?: unknown[] };
+    const items = data?.data?.items ?? data?.items ?? (Array.isArray(res.data) ? res.data : []);
+    allItems.push(...items);
+  }
+  return { data: { data: { items: allItems } } as unknown, status: 200 };
 }
 
 /** Symbol search by prefix or phrase. */
@@ -178,4 +189,62 @@ export async function cancelOrder(accountNumber: string, orderId: string): Promi
   return tastytradeRequest(`/accounts/${encodeURIComponent(accountNumber)}/orders/${encodeURIComponent(orderId)}`, {
     method: 'DELETE',
   });
+}
+
+/** Transaction history for an account. Optional filters: start_date, end_date (YYYY-MM-DD), type (e.g. Trade, Money Movement). */
+export async function getTransactions(
+  accountNumber: string,
+  params?: { start_date?: string; end_date?: string; type?: string }
+): Promise<TastytradeApiResponse<unknown>> {
+  const query: Record<string, string> = {};
+  if (params?.start_date) query['start-date'] = params.start_date;
+  if (params?.end_date) query['end-date'] = params.end_date;
+  if (params?.type) query['type'] = params.type;
+  return tastytradeRequest(`/accounts/${encodeURIComponent(accountNumber)}/transactions`, {
+    query: Object.keys(query).length > 0 ? query : undefined,
+  });
+}
+
+/** List the user's private watchlists. */
+export async function getWatchlists(): Promise<TastytradeApiResponse<unknown>> {
+  return tastytradeRequest('/watchlists');
+}
+
+/** Get a single private watchlist by name. */
+export async function getWatchlist(name: string): Promise<TastytradeApiResponse<unknown>> {
+  return tastytradeRequest(`/watchlists/${encodeURIComponent(name)}`);
+}
+
+/** Create a new private watchlist. Body: { name, "watchlist-entries"?: [{ symbol, "instrument-type" }], "group-name"?, "order-index"? }. */
+export async function createWatchlist(body: {
+  name: string;
+  'watchlist-entries'?: Array<{ symbol: string; 'instrument-type'?: string }>;
+  'group-name'?: string;
+  'order-index'?: number;
+}): Promise<TastytradeApiResponse<unknown>> {
+  const payload = {
+    name: body.name,
+    'watchlist-entries': body['watchlist-entries'] ?? [],
+    'group-name': body['group-name'] ?? 'default',
+    'order-index': body['order-index'] ?? 9999,
+  };
+  return tastytradeRequest('/watchlists', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+/** Update an existing private watchlist (full replace of watchlist-entries). */
+export async function updateWatchlist(
+  name: string,
+  body: { 'watchlist-entries': Array<{ symbol: string; 'instrument-type'?: string }>; 'group-name'?: string; 'order-index'?: number }
+): Promise<TastytradeApiResponse<unknown>> {
+  const payload = {
+    'watchlist-entries': body['watchlist-entries'],
+    'group-name': body['group-name'] ?? 'default',
+    'order-index': body['order-index'] ?? 9999,
+  };
+  return tastytradeRequest(`/watchlists/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify(payload) });
+}
+
+/** Delete a private watchlist by name. */
+export async function deleteWatchlist(name: string): Promise<TastytradeApiResponse<unknown>> {
+  return tastytradeRequest(`/watchlists/${encodeURIComponent(name)}`, { method: 'DELETE' });
 }

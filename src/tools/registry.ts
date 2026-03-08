@@ -52,6 +52,10 @@ import {
   tastytradeStrategyPreviewTool,
   tastytradeRollShortOptionTool,
   tastytradeRepairPositionTool,
+  tastytradeTransactionsTool,
+  tastytradeEarningsCalendarTool,
+  tastytradeWatchlistTool,
+  tastytradeRiskMetricsTool,
   tastytradeLiveOrdersTool,
   tastytradeOrderDryRunTool,
   tastytradeSubmitOrderTool,
@@ -68,6 +72,10 @@ import {
   TASTYTRADE_STRATEGY_PREVIEW_DESCRIPTION,
   TASTYTRADE_ROLL_SHORT_OPTION_DESCRIPTION,
   TASTYTRADE_REPAIR_POSITION_DESCRIPTION,
+  TASTYTRADE_TRANSACTIONS_DESCRIPTION,
+  TASTYTRADE_EARNINGS_CALENDAR_DESCRIPTION,
+  TASTYTRADE_WATCHLIST_DESCRIPTION,
+  TASTYTRADE_RISK_METRICS_DESCRIPTION,
   TASTYTRADE_LIVE_ORDERS_DESCRIPTION,
   TASTYTRADE_ORDER_DRY_RUN_DESCRIPTION,
   TASTYTRADE_SUBMIT_ORDER_DESCRIPTION,
@@ -249,6 +257,10 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       { name: 'tastytrade_strategy_preview', tool: tastytradeStrategyPreviewTool, description: TASTYTRADE_STRATEGY_PREVIEW_DESCRIPTION },
       { name: 'tastytrade_roll_short_option', tool: tastytradeRollShortOptionTool, description: TASTYTRADE_ROLL_SHORT_OPTION_DESCRIPTION },
       { name: 'tastytrade_repair_position', tool: tastytradeRepairPositionTool, description: TASTYTRADE_REPAIR_POSITION_DESCRIPTION },
+      { name: 'tastytrade_transactions', tool: tastytradeTransactionsTool, description: TASTYTRADE_TRANSACTIONS_DESCRIPTION },
+      { name: 'tastytrade_earnings_calendar', tool: tastytradeEarningsCalendarTool, description: TASTYTRADE_EARNINGS_CALENDAR_DESCRIPTION },
+      { name: 'tastytrade_watchlist', tool: tastytradeWatchlistTool, description: TASTYTRADE_WATCHLIST_DESCRIPTION },
+      { name: 'tastytrade_risk_metrics', tool: tastytradeRiskMetricsTool, description: TASTYTRADE_RISK_METRICS_DESCRIPTION },
       { name: 'tastytrade_order_dry_run', tool: tastytradeOrderDryRunTool, description: TASTYTRADE_ORDER_DRY_RUN_DESCRIPTION }
     );
     if (process.env.TASTYTRADE_ORDER_ENABLED === 'true') {
