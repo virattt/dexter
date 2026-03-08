@@ -3,16 +3,12 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type {
-  AgentEvent,
   ApprovalDecision,
-  DoneEvent,
   ToolEndEvent,
   ToolErrorEvent,
   ToolStartEvent,
 } from './agent/index.js';
-import { getModelDisplayName } from './utils/model.js';
 import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js';
-import type { DisplayEvent } from './agent/types.js';
 import { logger } from './utils/logger.js';
 import {
   AgentRunnerController,

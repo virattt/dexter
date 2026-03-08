@@ -17,6 +17,9 @@ export type {
   ToolApprovalEvent,
   ToolDeniedEvent,
   ToolLimitEvent,
+  ContextClearedEvent,
+  MemoryRecalledEvent,
+  MemoryFlushEvent,
   DoneEvent,
 } from './types.js';
 

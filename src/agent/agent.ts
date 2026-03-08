@@ -11,6 +11,8 @@ import { formatUserFacingError, isContextOverflowError } from '../utils/errors.j
 import type { AgentConfig, AgentEvent, ContextClearedEvent, TokenUsage } from '../agent/types.js';
 import { createRunContext, type RunContext } from './run-context.js';
 import { AgentToolExecutor } from './tool-executor.js';
+import { MemoryManager } from '../memory/index.js';
+import { runMemoryFlush, shouldRunMemoryFlush } from '../memory/flush.js';
 
 
 const DEFAULT_MODEL = 'gpt-5.4';
@@ -29,11 +31,14 @@ export class Agent {
   private readonly toolExecutor: AgentToolExecutor;
   private readonly systemPrompt: string;
   private readonly signal?: AbortSignal;
+  private readonly memoryEnabled: boolean;
+  private readonly memoryContextInfo?: { filesLoaded: string[]; tokenEstimate: number };
 
   private constructor(
     config: AgentConfig,
     tools: StructuredToolInterface[],
-    systemPrompt: string
+    systemPrompt: string,
+    memoryContextInfo?: { filesLoaded: string[]; tokenEstimate: number },
   ) {
     this.model = config.model ?? DEFAULT_MODEL;
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
@@ -42,6 +47,8 @@ export class Agent {
     this.toolExecutor = new AgentToolExecutor(this.toolMap, config.signal, config.requestToolApproval, config.sessionApprovedTools);
     this.systemPrompt = systemPrompt;
     this.signal = config.signal;
+    this.memoryEnabled = config.memoryEnabled ?? true;
+    this.memoryContextInfo = memoryContextInfo;
   }
 
   /**
@@ -50,15 +57,38 @@ export class Agent {
   static async create(config: AgentConfig = {}): Promise<Agent> {
     const model = config.model ?? DEFAULT_MODEL;
     const tools = getTools(model);
-    const [soulContent, voiceContent, soulHLContent, portfolioContent, thetaPolicySummary] = await Promise.all([
-      loadSoulDocument(),
+    const soulContent = await loadSoulDocument();
+    const [voiceContent, soulHLContent, portfolioContent, thetaPolicySummary] = await Promise.all([
       loadVoiceDocument(),
       loadSoulHLDocument(),
       loadPortfolioDocument(),
       loadThetaPolicySummary(),
     ]);
-    const systemPrompt = buildSystemPrompt(model, soulContent, voiceContent, soulHLContent, portfolioContent, thetaPolicySummary, config.channel, config.groupContext);
-    return new Agent(config, tools, systemPrompt);
+    let memoryContextInfo: { filesLoaded: string[]; tokenEstimate: number } | undefined;
+    let memoryContextText: string | null = null;
+
+    if (config.memoryEnabled !== false) {
+      const memoryManager = await MemoryManager.get();
+      const memoryContext = await memoryManager.loadSessionContext();
+      memoryContextText = memoryContext.text || null;
+      memoryContextInfo = {
+        filesLoaded: memoryContext.filesLoaded,
+        tokenEstimate: memoryContext.tokenEstimate,
+      };
+    }
+
+    const systemPrompt = buildSystemPrompt(
+      model,
+      soulContent,
+      voiceContent,
+      soulHLContent,
+      portfolioContent,
+      thetaPolicySummary,
+      config.channel,
+      config.groupContext,
+      memoryContextText,
+    );
+    return new Agent(config, tools, systemPrompt, memoryContextInfo);
   }
 
   /**
@@ -75,6 +105,15 @@ export class Agent {
     }
 
     const ctx = createRunContext(query);
+    const memoryFlushState = { alreadyFlushed: false };
+
+    if (this.memoryEnabled && this.memoryContextInfo && this.memoryContextInfo.filesLoaded.length > 0) {
+      yield {
+        type: 'memory_recalled',
+        filesLoaded: this.memoryContextInfo.filesLoaded,
+        tokenCount: this.memoryContextInfo.tokenEstimate,
+      };
+    }
 
     // Build initial prompt with conversation history context
     let currentPrompt = this.buildInitialPrompt(query, inMemoryHistory);
@@ -159,7 +198,7 @@ export class Agent {
           return;
         }
       }
-      yield* this.manageContextThreshold(ctx);
+      yield* this.manageContextThreshold(ctx, query, memoryFlushState);
 
       // Build iteration prompt with full tool results (Anthropic-style)
       currentPrompt = buildIterationPrompt(
@@ -219,13 +258,41 @@ export class Agent {
   /**
    * Clear oldest tool results if context size exceeds threshold.
    */
-  private *manageContextThreshold(ctx: RunContext): Generator<ContextClearedEvent, void> {
+  private async *manageContextThreshold(
+    ctx: RunContext,
+    query: string,
+    memoryFlushState: { alreadyFlushed: boolean },
+  ): AsyncGenerator<ContextClearedEvent | AgentEvent, void> {
     const fullToolResults = ctx.scratchpad.getToolResults();
     const estimatedContextTokens = estimateTokens(this.systemPrompt + ctx.query + fullToolResults);
 
     if (estimatedContextTokens > CONTEXT_THRESHOLD) {
+      if (
+        this.memoryEnabled &&
+        shouldRunMemoryFlush({
+          estimatedContextTokens,
+          alreadyFlushed: memoryFlushState.alreadyFlushed,
+        })
+      ) {
+        yield { type: 'memory_flush', phase: 'start' };
+        const flushResult = await runMemoryFlush({
+          model: this.model,
+          systemPrompt: this.systemPrompt,
+          query,
+          toolResults: fullToolResults,
+          signal: this.signal,
+        }).catch(() => ({ flushed: false, written: false as const }));
+        memoryFlushState.alreadyFlushed = flushResult.flushed;
+        yield {
+          type: 'memory_flush',
+          phase: 'end',
+          filesWritten: flushResult.written ? [`${new Date().toISOString().slice(0, 10)}.md`] : [],
+        };
+      }
+
       const clearedCount = ctx.scratchpad.clearOldestToolResults(KEEP_TOOL_USES);
       if (clearedCount > 0) {
+        memoryFlushState.alreadyFlushed = false;
         yield { type: 'context_cleared', clearedCount, keptCount: KEEP_TOOL_USES };
       }
     }
