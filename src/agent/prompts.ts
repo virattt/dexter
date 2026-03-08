@@ -5,6 +5,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getChannelProfile } from './channels.js';
+import { MemoryManager } from '../memory/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -70,6 +71,44 @@ ${skillList}
 - When a skill is relevant, invoke it IMMEDIATELY as your first action
 - Skills provide specialized workflows for complex tasks (e.g., DCF valuation)
 - Do not invoke a skill that has already been invoked for the current query`;
+}
+
+function buildMemorySection(memoryContext?: string): string {
+  const contextSection = memoryContext?.trim()
+    ? `
+## Recent Memory Context
+
+${memoryContext.trim()}`
+    : '';
+
+  return `## Memory
+
+You have persistent memory stored as Markdown files in ~/.dexter/memory/.
+
+### Recalling memories
+Before answering questions about prior work, decisions, dates, people, preferences, or
+facts the user has shared: use memory_search to find relevant notes, then memory_get to
+read specific sections. If low confidence after search, mention that you checked.
+
+### Storing and managing memories
+Use the **memory_update** tool to add, edit, or delete memories. Do NOT use write_file
+or edit_file for memory files; always use memory_update.
+- **Append**: memory_update action="append" to add new facts/preferences/notes
+  - file="long_term" for durable facts and preferences (MEMORY.md)
+  - file="daily" for day-to-day notes (today's log)
+- **Edit**: memory_update action="edit" with old_text and new_text to correct or update an entry
+- **Delete**: memory_update action="delete" with old_text to remove an entry the user wants forgotten
+Before editing or deleting, use memory_get to verify the exact text to match.${contextSection}`;
+}
+
+export async function loadMemoryContext(): Promise<string | null> {
+  try {
+    const manager = await MemoryManager.get();
+    const context = await manager.loadSessionContext();
+    return context.text.trim() ? context.text : null;
+  } catch {
+    return null;
+  }
 }
 
 // ============================================================================
@@ -166,7 +205,13 @@ export function buildGroupSection(ctx: GroupContext): string {
  * @param soulContent - Optional SOUL.md identity content
  * @param channel - Delivery channel (e.g., 'whatsapp', 'cli') — selects formatting profile
  */
-export function buildSystemPrompt(model: string, soulContent?: string | null, channel?: string, groupContext?: GroupContext): string {
+export function buildSystemPrompt(
+  model: string,
+  soulContent?: string | null,
+  channel?: string,
+  groupContext?: GroupContext,
+  memoryContext?: string | null,
+): string {
   const toolDescriptions = buildToolDescriptions(model);
   const profile = getChannelProfile(channel);
 
@@ -200,6 +245,8 @@ ${toolDescriptions}
 - Only respond directly for: conceptual definitions, stable historical facts, or conversational queries
 
 ${buildSkillsSection()}
+
+${buildMemorySection(memoryContext ?? undefined)}
 
 ## Heartbeat
 

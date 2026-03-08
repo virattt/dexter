@@ -11,6 +11,7 @@ import { FINANCIAL_SEARCH_DESCRIPTION } from './finance/financial-search.js';
 import { FINANCIAL_METRICS_DESCRIPTION } from './finance/financial-metrics.js';
 import { READ_FILINGS_DESCRIPTION } from './finance/read-filings.js';
 import { heartbeatTool, HEARTBEAT_TOOL_DESCRIPTION } from './heartbeat/heartbeat-tool.js';
+import { memoryGetTool, MEMORY_GET_DESCRIPTION, memorySearchTool, MEMORY_SEARCH_DESCRIPTION, memoryUpdateTool, MEMORY_UPDATE_DESCRIPTION } from './memory/index.js';
 import { discoverSkills } from '../skills/index.js';
 
 /**
@@ -78,6 +79,21 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'heartbeat',
       tool: heartbeatTool,
       description: HEARTBEAT_TOOL_DESCRIPTION,
+    },
+    {
+      name: 'memory_search',
+      tool: memorySearchTool,
+      description: MEMORY_SEARCH_DESCRIPTION,
+    },
+    {
+      name: 'memory_get',
+      tool: memoryGetTool,
+      description: MEMORY_GET_DESCRIPTION,
+    },
+    {
+      name: 'memory_update',
+      tool: memoryUpdateTool,
+      description: MEMORY_UPDATE_DESCRIPTION,
     },
   ];
 
