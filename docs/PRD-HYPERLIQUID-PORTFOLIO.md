@@ -187,7 +187,7 @@ Add `hl_basket` (or `hl_index`) to quarterly records:
 
 ### Agent System Prompt
 - Add: "You can suggest a **Hyperliquid portfolio** — tickers tradeable 24/7 on HIP-3, no fiat conversion. Save to ~/.dexter/PORTFOLIO-HYPERLIQUID.md via portfolio tool with portfolio_id=hyperliquid."
-- Add: "When suggesting a Hyperliquid portfolio, only use tickers from the HL universe (see HYPERLIQUID-UNIVERSE.md or tool description). Prefer high-volume underlyings (e.g. NVDA, MU, TSLA, HOOD, CRCL, SNDNK) for larger weights — see PRD §2.1."
+- Add: "When suggesting a Hyperliquid portfolio, only use tickers from the HL universe (see HYPERLIQUID-UNIVERSE.md or tool description). Size by thesis conviction, not by volume — volume matters for execution quality (spreads, slippage) but should not drive allocation weights."
 
 ### Heartbeat
 - Weekly: If PORTFOLIO-HYPERLIQUID.md exists, include it in rebalance check

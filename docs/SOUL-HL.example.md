@@ -9,7 +9,7 @@ HIP-3 sleeve focuses on onchain equities (tokenized stocks, commodities, indices
 | Ticker | TargetMin | TargetMax | Category     | Notes                                    |
 |--------|-----------|-----------|--------------|------------------------------------------|
 | TSM    | 15        | 20        | Foundry      | Foundry monopoly, tollbooth for AI chips |
-| NVDA   | 10        | 15        | AI infra     | GPU monopoly, high volume                |
+| NVDA   | 10        | 15        | AI infra     | GPU monopoly                             |
 | ORCL   | 6         | 10        | AI infra     | Cloud/DB infra                           |
 | PLTR   | 6         | 10        | AI infra     | Enterprise AI                            |
 | COIN   | 5         | 8         | Tokenization | Regulated exchange                       |

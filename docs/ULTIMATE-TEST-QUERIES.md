@@ -157,14 +157,14 @@ Voice: structural, precise numbers, no hype (VOICE.md). Output markdown.
 ```
 Suggest a Hyperliquid portfolio for me — only tickers available on HIP-3 (on-chain stocks, indices, commodities). Use docs/HYPERLIQUID-SYMBOL-MAP.md for the HL→FD ticker mapping. Include:
 - 8–12 positions from the HL universe (stocks like NVDA/PLTR, commodities via ETFs like GLD/SLV/USO, indices via proxies like SPY/SMH)
-- Prefer high-volume underlyings (NVDA, MU, TSLA, HOOD, CRCL, SNDNK, etc.) for larger weights — see docs/PRD-HYPERLIQUID-PORTFOLIO.md §2.1
+- Size by thesis conviction, not by volume (volume matters for execution quality, not allocation weights)
 - Table format: Ticker | Weight | Category | Notes (so the file is valid for rebalance and performance tracking)
 - Exclude pre-IPO (OPENAI, SPACEX, ANTHROPIC) — no FD price data for benchmarking
 - Target weights and brief rationale
 - Save to ~/.dexter/PORTFOLIO-HYPERLIQUID.md using the portfolio tool with portfolio_id=hyperliquid
 ```
 
-**Expected behavior:** Agent uses the symbol map, prefers high-volume tickers for larger weights, suggests an on-chain-only allocation in the required table format (no pre-IPO), and **calls portfolio with portfolio_id=hyperliquid** to save automatically.
+**Expected behavior:** Agent uses the symbol map, sizes by thesis conviction (not volume), suggests an on-chain-only allocation in the required table format (no pre-IPO), and **calls portfolio with portfolio_id=hyperliquid** to save automatically.
 
 ---
 

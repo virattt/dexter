@@ -73,7 +73,7 @@ For performance calculation, use the `hyperliquid_prices` tool (HL-native prices
 
 ## Liquidity (Volume)
 
-When suggesting or rebalancing the Hyperliquid portfolio, prefer **high-volume underlyings** for larger weights (better execution, tighter spreads). Top volume names include: NVDA, MU, SNDNK, HOOD, CRCL, TSLA, INTC, ORCL, EWY, GOOGL, COIN, MSTR, META, AMZN, MSFT. Full ranked list and usage: **docs/PRD-HYPERLIQUID-PORTFOLIO.md §2.1**.
+**Volume and execution:** Higher-volume underlyings (e.g. NVDA, MU, TSLA, HOOD, CRCL, SNDNK, ORCL, COIN) have tighter spreads and better fill quality. Use volume to assess execution feasibility, not to drive allocation weights — size by thesis conviction. Full ranked list: **docs/PRD-HYPERLIQUID-PORTFOLIO.md §2.1**.
 
 ---
 

@@ -291,7 +291,7 @@ Output:
     '/suggest-hl': `Suggest a Hyperliquid portfolio focused on HIP-3 onchain equities — NOT crypto assets (BTC, SOL, HYPE, ETH, SUI, NEAR are already in the core portfolio). Use docs/HYPERLIQUID-SYMBOL-MAP.md for the HL→FD ticker mapping. Include:
 - 8–12 positions from HIP-3 onchain stocks (e.g. TSM, NVDA, PLTR, ORCL, COIN, HOOD, CRCL, TSLA, META, MSFT, AMZN, MU, INTC), commodities (GLD, SLV, USO), or indices (SPY, SMH)
 - Do NOT allocate to BTC, SOL, HYPE, ETH, SUI, NEAR — those belong in the core portfolio
-- Prefer high-volume underlyings (e.g. NVDA, MU, TSLA, HOOD, CRCL, SNDNK) for larger weights — see docs/PRD-HYPERLIQUID-PORTFOLIO.md §2.1
+- Size by thesis conviction, not by volume. Volume matters for execution quality (spreads, slippage) but should not drive allocation weights
 - Target weights and brief rationale
 - Save to ~/.dexter/PORTFOLIO-HYPERLIQUID.md using the portfolio tool with portfolio_id=hyperliquid`,
     '/hl-report': `Write a quarterly performance report for my Hyperliquid portfolio only. Use ~/.dexter/PORTFOLIO-HYPERLIQUID.md. Map HL symbols to FD tickers per docs/HYPERLIQUID-SYMBOL-MAP.md. Fetch quarter-to-date (or 90-day) prices for each position plus BTC-USD, GLD, SPY. Include:

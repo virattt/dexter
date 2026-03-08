@@ -28,8 +28,8 @@ export function writePortfolioContent(portfolioId: PortfolioId, content: string)
 export const PORTFOLIO_TOOL_DESCRIPTION = `
 Manage portfolio files. **Use two portfolios** — zero overlap between them.
 
-1. **default** (~/.dexter/PORTFOLIO.md) — Tastytrade sleeve: ONLY tickers that are NOT tradable on Hyperliquid (e.g. TSM, AMAT, ASML, LRCX, KLAC, VRT, CEG, MU, ANET). Used for weekly rebalance, theta, and quarterly reports. Saving HL-tradable symbols here is blocked.
-2. **hyperliquid** (~/.dexter/PORTFOLIO-HYPERLIQUID.md) — On-chain sleeve: ONLY tickers tradeable on Hyperliquid (HIP-3): BTC, SOL, SUI, NEAR, ETH, HYPE, and on-chain stocks (e.g. AAPL, MSFT, NVDA, PLTR). See docs/HYPERLIQUID-SYMBOL-MAP.md.
+1. **default** (~/.dexter/PORTFOLIO.md) — Tastytrade sleeve: ONLY tickers that are NOT tradable on Hyperliquid (e.g. AMAT, ASML, LRCX, KLAC, VRT, CEG, ANET). No TSM, MU, AAPL, MSFT, COIN, etc. If you include HL-tradable symbols by mistake, they are auto-removed and a warning is returned; the rest is saved.
+2. **hyperliquid** (~/.dexter/PORTFOLIO-HYPERLIQUID.md) — On-chain sleeve: HIP-3 onchain equities only (e.g. TSM, NVDA, PLTR, ORCL, COIN, HOOD, CRCL). No BTC, SOL, HYPE, ETH, SUI, NEAR (core crypto is separate). See docs/HYPERLIQUID-SYMBOL-MAP.md.
 
 ## MANDATORY: Auto-Save on Suggest
 
@@ -37,8 +37,8 @@ When you suggest a portfolio (any allocation with tickers and weights), you MUST
 - NEVER end with "I can format this for you" or "if you want, I can copy-paste" — the file must be written automatically
 - Call the tool BEFORE or AS PART OF your final response — do not wait for user confirmation
 - **Two portfolios:** If the user asks for a full portfolio, suggest BOTH sleeves and make TWO update calls: one with portfolio_id=default (non-HL names only), one with portfolio_id=hyperliquid (HL names only).
-- Default (tastytrade): Table Ticker | Weight | Layer | Tier. No AAPL, MSFT, AMZN, META, COIN, BTC, SOL, etc.
-- Hyperliquid: Table Ticker | Weight | Category | Notes. Only HL universe. Prefer high-volume underlyings; see docs/PRD-HYPERLIQUID-PORTFOLIO.md §2.1.
+- Default (tastytrade): Table Ticker | Weight | Layer | Tier. No TSM, MU, AAPL, MSFT, AMZN, META, COIN, BTC, SOL, or any HL-tradable ticker (see docs/HYPERLIQUID-SYMBOL-MAP.md).
+- Hyperliquid: Table Ticker | Weight | Category | Notes. Only HL universe. Size by conviction, not volume.
 
 ## When to Use
 
@@ -90,15 +90,37 @@ export const portfolioTool = new DynamicStructuredTool({
       if (!input.content) {
         return 'Error: content is required for the update action.';
       }
+      let contentToSave = input.content;
+      const removed: string[] = [];
       if (portfolioId === 'default') {
-        const positions = parsePortfolioMarkdown(input.content);
-        const hlTickers = positions.filter((p) => isTickerTradableOnHyperliquid(p.ticker)).map((p) => p.ticker);
-        if (hlTickers.length > 0) {
-          return `Error: The default portfolio (tastytrade sleeve) must not contain Hyperliquid-tradable symbols. Remove or move these to portfolio_id=hyperliquid (PORTFOLIO-HYPERLIQUID.md): ${hlTickers.join(', ')}.`;
+        const lines = contentToSave.split('\n');
+        const kept: string[] = [];
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('|') || trimmed.startsWith('|--')) {
+            kept.push(line);
+            continue;
+          }
+          const cells = trimmed.split('|').map((c) => c.trim()).filter(Boolean);
+          const ticker = cells[0]?.toUpperCase();
+          if (ticker && /^(TICKER|WEIGHT|LAYER|TIER|CATEGORY|NOTES)$/i.test(ticker)) {
+            kept.push(line);
+            continue;
+          }
+          if (ticker && isTickerTradableOnHyperliquid(ticker)) {
+            removed.push(ticker);
+            continue;
+          }
+          kept.push(line);
         }
+        contentToSave = kept.join('\n');
       }
-      writePortfolioContent(portfolioId, input.content);
-      return `Saved ${label} to ${path} (${input.content.length} characters).`;
+      writePortfolioContent(portfolioId, contentToSave);
+      const base = `Saved ${label} to ${path} (${contentToSave.length} characters).`;
+      if (removed.length > 0) {
+        return `${base} Removed Hyperliquid-tradable symbols from tastytrade sleeve (use portfolio_id=hyperliquid for these): ${[...new Set(removed)].join(', ')}.`;
+      }
+      return base;
     }
 
     return 'Unknown action. Use "view" or "update".';
