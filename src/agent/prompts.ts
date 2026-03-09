@@ -50,7 +50,7 @@ export async function loadSoulDocument(): Promise<string | null> {
 
 /**
  * Load SOUL-HL.md content: HIP-3 / Hyperliquid portfolio thesis.
- * User override at ~/.dexter/SOUL-HL.md, else bundled docs/SOUL-HL.example.md.
+ * User override at .dexter/SOUL-HL.md, else bundled docs/SOUL-HL.example.md.
  * Used when PORTFOLIO-HYPERLIQUID.md exists or query involves HL portfolio.
  */
 export async function loadSoulHLDocument(): Promise<string | null> {
@@ -71,7 +71,7 @@ export async function loadSoulHLDocument(): Promise<string | null> {
 
 /**
  * Load PORTFOLIO.md content: current portfolio (target/actual weights).
- * User file at ~/.dexter/PORTFOLIO.md. Used for gap analysis and rebalance context.
+ * User file at .dexter/PORTFOLIO.md. Used for gap analysis and rebalance context.
  */
 export async function loadPortfolioDocument(): Promise<string | null> {
   const userPath = dexterPath('PORTFOLIO.md');
@@ -107,7 +107,7 @@ export async function loadThetaPolicySummary(): Promise<string | null> {
 
 /**
  * Load VOICE.md content: brand and writing style for reports/essays.
- * User override at ~/.dexter/VOICE.md, else bundled docs/VOICE.md.
+ * User override at .dexter/VOICE.md, else bundled docs/VOICE.md.
  */
 export async function loadVoiceDocument(): Promise<string | null> {
   const userVoicePath = dexterPath('VOICE.md');
@@ -285,7 +285,7 @@ export function buildGroupSection(ctx: GroupContext): string {
  * @param portfolioContent - Optional PORTFOLIO.md current portfolio
  * @param thetaPolicySummary - Optional one-line THETA-POLICY summary (when tastytrade configured)
  * @param channel - Delivery channel (e.g., 'whatsapp', 'cli') — selects formatting profile
- * @param memoryContext - Optional persisted session memory from ~/.dexter/memory/
+ * @param memoryContext - Optional persisted session memory from .dexter/memory/
  */
 export function buildSystemPrompt(
   model: string,
@@ -341,10 +341,12 @@ Your primary purpose is to help build and maintain a near-perfect portfolio — 
 **When you suggest a portfolio:** MANDATORY — you MUST call the portfolio tool with action=update to save before finishing. Never offer "I can format this for you" or copy-paste. The file is written automatically; the user does nothing.
 - **Use two portfolios.** Zero overlap: tastytrade sleeve (PORTFOLIO.md) = only non-HL tickers; Hyperliquid sleeve (PORTFOLIO-HYPERLIQUID.md) = only HL tickers. When suggesting a full portfolio, prefer suggesting BOTH and saving both (two portfolio tool calls). Target 10–20 positions per sleeve.
 - **Always include "Not in the portfolio — and why"** for each sleeve: list thesis-universe names that were considered but excluded, with a one-line reason for each (e.g. crowding, valuation, wrong regime, insufficient moat, better expression elsewhere, illiquid on HL, overlap with other sleeve). The trades we don't make are thesis calls too.
-- Tastytrade sleeve → portfolio_id=default (saves to ~/.dexter/PORTFOLIO.md). No TSM, AAPL, MSFT, AMZN, META, COIN, BTC, SOL, or any ticker tradable on Hyperliquid (see docs/HYPERLIQUID-SYMBOL-MAP.md).
-- Hyperliquid sleeve (HIP-3, 24/7, on-chain) → portfolio_id=hyperliquid (saves to ~/.dexter/PORTFOLIO-HYPERLIQUID.md). **The HL sleeve focuses on HIP-3 onchain equities (tokenized stocks, commodities, indices) — NOT crypto assets (BTC, SOL, HYPE, ETH, SUI, NEAR) which are held separately in the core portfolio.** Only use tickers from the HL universe (see docs/HYPERLIQUID-SYMBOL-MAP.md). Size by thesis conviction, not volume. Volume matters for execution (tighter spreads) but should not drive allocation weights. For HL rebalance vs target: if hyperliquid_sync_portfolio is available (HL account configured), call it with write_to_file=true first to refresh the file from live positions, then use hyperliquid_portfolio_ops with action=rebalance_check (target from HEARTBEAT.md "## HIP-3 Target"). Otherwise use hyperliquid_portfolio_ops with the existing PORTFOLIO-HYPERLIQUID.md. **HL execution is always preview-first:** after rebalance_check, call hyperliquid_order_preview to get reviewable order intents; present the preview and stop. Do NOT call any HL submit or cancel tool until the user explicitly confirms. Never auto-submit HL orders. Use hyperliquid_prices for pre-IPO (OPENAI, SPACEX, ANTHROPIC) prices.
+- Tastytrade sleeve → portfolio_id=default (saves to .dexter/PORTFOLIO.md). No TSM, AAPL, MSFT, AMZN, META, COIN, BTC, SOL, or any ticker tradable on Hyperliquid (see docs/HYPERLIQUID-SYMBOL-MAP.md).
+- Hyperliquid sleeve (HIP-3, 24/7, on-chain) → portfolio_id=hyperliquid (saves to .dexter/PORTFOLIO-HYPERLIQUID.md). **The HL sleeve focuses on HIP-3 onchain equities (tokenized stocks, commodities, indices) — NOT crypto assets (BTC, SOL, HYPE, ETH, SUI, NEAR) which are held separately in the core portfolio.** Only use tickers from the HL universe (see docs/HYPERLIQUID-SYMBOL-MAP.md). Size by thesis conviction, not volume. Volume matters for execution (tighter spreads) but should not drive allocation weights. For HL rebalance vs target: if hyperliquid_sync_portfolio is available (HL account configured), call it with write_to_file=true first to refresh the file from live positions, then use hyperliquid_portfolio_ops with action=rebalance_check (target from HEARTBEAT.md "## HIP-3 Target"). Otherwise use hyperliquid_portfolio_ops with the existing PORTFOLIO-HYPERLIQUID.md. **HL execution is always preview-first:** after rebalance_check, call hyperliquid_order_preview to get reviewable order intents; present the preview and stop. Do NOT call any HL submit or cancel tool until the user explicitly confirms. Never auto-submit HL orders. Use hyperliquid_prices for pre-IPO (OPENAI, SPACEX, ANTHROPIC) prices.
 
-**When you write a quarterly performance report:** MANDATORY — you MUST call save_report to persist it to ~/.dexter/QUARTERLY-REPORT-YYYY-QN.md (e.g. QUARTERLY-REPORT-2026-Q1.md). The report is used for the essay workflow. For HL: if hyperliquid_sync_portfolio is available, call it with write_to_file=true first so the summary uses live holdings; then use hyperliquid_portfolio_ops with action=quarterly_summary and period (e.g. 2026-Q1), and pass the returned quarterly payload to performance_history record_quarter; or use hyperliquid_performance then record_quarter.
+**When you write a quarterly performance report:** MANDATORY — you MUST call save_report to persist it to .dexter/QUARTERLY-REPORT-YYYY-QN.md (e.g. QUARTERLY-REPORT-2026-Q1.md). The report is used for the essay workflow. For HL: if hyperliquid_sync_portfolio is available, call it with write_to_file=true first so the summary uses live holdings; then use hyperliquid_portfolio_ops with action=quarterly_summary and period (e.g. 2026-Q1), and pass the returned quarterly payload to performance_history record_quarter; or use hyperliquid_performance then record_quarter.
+
+**AIHF second opinion:** When the user asks for a "double-check", "second opinion", "validate portfolio", "run AIHF", or "what does the hedge fund think?", use the aihf_double_check tool. This sends included + excluded tickers to the AI Hedge Fund's 18 analyst agents and returns agreement scores, high-conviction conflicts, and excluded-but-interesting names. The tool reads from current PORTFOLIO.md and PORTFOLIO-HYPERLIQUID.md if tickers are not provided explicitly. After a portfolio suggestion, you may offer to run the double-check. This is advisory only — never auto-modify portfolios based on AIHF output.
 
 ## Heartbeat
 
@@ -380,7 +382,7 @@ ${thetaPolicySummary}
 
 ${soulHLContent ? `## Hyperliquid Portfolio Thesis (SOUL-HL.md)
 
-When working with ~/.dexter/PORTFOLIO-HYPERLIQUID.md or HIP-3 / on-chain portfolio queries, use this thesis:
+When working with .dexter/PORTFOLIO-HYPERLIQUID.md or HIP-3 / on-chain portfolio queries, use this thesis:
 ${soulHLContent}
 ` : ''}
 

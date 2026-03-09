@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { HEARTBEAT_OK_TOKEN } from './suppression.js';
 import { dexterPath } from '../../utils/paths.js';
+import { isAIHFConfigured } from '../../tools/aihf/index.js';
 
 const HEARTBEAT_MD_PATH = dexterPath('HEARTBEAT.md');
 const PORTFOLIO_MD_PATH = dexterPath('PORTFOLIO.md');
@@ -165,7 +166,8 @@ ${isQuarterStart ? `### Quarterly Performance Report
 - **YTD and since-inception:** Call performance_history view (or summary/ytd/since_inception when available). If inceptionDate in fund-config exists, compute since-inception. Include in both reports.
 - **Performance history:** Use hyperliquid_portfolio_ops quarterly_summary for HL decimals, or hyperliquid_performance; then pass to performance_history record_quarter.
 - Use financial_search for prices; for HL use hyperliquid_prices for pre-IPO or HL-native prices.
-- Deliver the full report(s) to the user` : ''}
+- Deliver the full report(s) to the user
+${isAIHFConfigured() ? `- **AIHF Double-Check:** After saving the quarterly report(s), run the aihf_double_check tool with action=run. It reads PORTFOLIO.md and PORTFOLIO-HYPERLIQUID.md automatically. Include the summary (agreement %, conflicts, excluded-but-interesting) in your heartbeat alert. The full report is saved to .dexter/AIHF-DOUBLE-CHECK-YYYY-MM-DD.md automatically.` : ''}` : ''}
 `;
   }
 

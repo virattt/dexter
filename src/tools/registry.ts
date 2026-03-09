@@ -84,6 +84,11 @@ import {
   hasConfiguredClient,
   hasUsableCredentials,
 } from './tastytrade/index.js';
+import {
+  aihfDoubleCheckTool,
+  AIHF_DOUBLE_CHECK_DESCRIPTION,
+  isAIHFConfigured,
+} from './aihf/index.js';
 import { discoverSkills } from '../skills/index.js';
 
 /**
@@ -286,6 +291,15 @@ export function getToolRegistry(model: string): RegisteredTool[] {
         { name: 'tastytrade_cancel_order', tool: tastytradeCancelOrderTool, description: TASTYTRADE_CANCEL_ORDER_DESCRIPTION }
       );
     }
+  }
+
+  // Include AIHF double-check tool when configured
+  if (isAIHFConfigured()) {
+    tools.push({
+      name: 'aihf_double_check',
+      tool: aihfDoubleCheckTool,
+      description: AIHF_DOUBLE_CHECK_DESCRIPTION,
+    });
   }
 
   // Include skill tool if any skills are available

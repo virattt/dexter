@@ -1,0 +1,26 @@
+{
+  "summary": {
+    "included_agreement_pct": 0.86,
+    "conflict_count": 1,
+    "excluded_interesting_count": 1
+  },
+  "conflicts": [
+    {
+      "ticker": "NVDA",
+      "sleeve": "hyperliquid",
+      "dexter_stance": "in @ 10%",
+      "aihf_stance": "SELL",
+      "aihf_confidence": 0.78,
+      "note": "AIHF bearish; Valuation stretched after multi-year run; supply catching up to demand."
+    }
+  ],
+  "excluded_interesting": [
+    {
+      "ticker": "MU",
+      "dexter_reason": "Real upside, but muddies cleaner TSM + tokenization structure.",
+      "aihf_signal": "BUY",
+      "aihf_confidence": 0.8,
+      "suggested_action": "Consider revisiting; AIHF signals BUY with 80% confidence."
+    }
+  ]
+}

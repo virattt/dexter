@@ -1,0 +1,17 @@
+{
+  "default_included": [
+    { "ticker": "AMAT", "weight": 14 },
+    { "ticker": "ASML", "weight": 12 },
+    { "ticker": "LRCX", "weight": 10 },
+    { "ticker": "ANET", "weight": 8 }
+  ],
+  "hyperliquid_included": [
+    { "ticker": "TSM", "weight": 16 },
+    { "ticker": "NVDA", "weight": 10 },
+    { "ticker": "PLTR", "weight": 8 }
+  ],
+  "excluded": [
+    { "ticker": "MU", "reason": "Real upside, but muddies cleaner TSM + tokenization structure." },
+    { "ticker": "AVGO", "reason": "Good business, weaker expression than equipment + ANET." }
+  ]
+}
