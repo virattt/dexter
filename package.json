@@ -28,6 +28,7 @@
     "@mariozechner/pi-tui": "^0.52.9",
     "@mozilla/readability": "^0.6.0",
     "@whiskeysockets/baileys": "7.0.0-rc.9",
+    "better-sqlite3": "^12.6.2",
     "diff": "^8.0.3",
     "dotenv": "^17.2.3",
     "exa-js": "^2.2.0",
@@ -41,6 +42,7 @@
   "devDependencies": {
     "@babel/core": "^7.28.5",
     "@babel/preset-env": "^7.28.5",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/bun": "latest",
     "@types/jest": "^29.5.14",
     "@types/qrcode-terminal": "^0.12.2",

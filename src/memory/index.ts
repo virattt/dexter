@@ -21,7 +21,7 @@ const DEFAULT_CONFIG: MemoryRuntimeConfig = {
   chunkTokens: 400,
   chunkOverlapTokens: 80,
   maxResults: 6,
-  minScore: 0.35,
+  minScore: 0.1,
   vectorWeight: 0.7,
   textWeight: 0.3,
   watchDebounceMs: 1500,

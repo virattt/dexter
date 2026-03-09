@@ -78,13 +78,16 @@ function fromBlob(blob: Uint8Array): number[] {
   return Array.from(new Float32Array(buffer));
 }
 
-// Keep only alphanumeric chars and whitespace to avoid FTS5 syntax errors.
+// Build an FTS5 OR query so partial term overlap still surfaces results.
 function sanitizeFts5Query(query: string): string {
-  return query
+  const tokens = query
     .replace(/[^\w\s]/g, ' ')
     .replace(/\b(?:AND|OR|NOT|NEAR)\b/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .split(/\s+/)
+    .filter(Boolean);
+  if (tokens.length === 0) return '';
+  if (tokens.length === 1) return tokens[0]!;
+  return tokens.join(' OR ');
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -118,13 +121,33 @@ export class MemoryDatabase {
   }
 
   private static async openSqlite(path: string): Promise<SqliteDatabase> {
+    // Prefer bun:sqlite when running under Bun; fall back to better-sqlite3 for Node.js
     try {
       const sqlite = await import('bun:sqlite');
       const DatabaseCtor = sqlite.Database as new (dbPath: string) => SqliteDatabase;
       return new DatabaseCtor(path);
     } catch {
-      throw new Error('Memory search requires Bun runtime with bun:sqlite support.');
+      return MemoryDatabase.openBetterSqlite3(path);
     }
+  }
+
+  private static async openBetterSqlite3(path: string): Promise<SqliteDatabase> {
+    const mod = await import('better-sqlite3');
+    const Database = mod.default;
+    const raw = new Database(path);
+
+    return {
+      exec: (sql: string) => raw.exec(sql),
+      query: <T>(sql: string): SqliteQuery<T> => {
+        const stmt = raw.prepare(sql);
+        return {
+          all: (...params: unknown[]) => stmt.all(...params) as T[],
+          get: (...params: unknown[]) => (stmt.get(...params) as T) ?? null,
+          run: (...params: unknown[]) => { stmt.run(...params); },
+        };
+      },
+      close: () => raw.close(),
+    };
   }
 
   close(): void {
