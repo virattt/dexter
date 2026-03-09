@@ -1,6 +1,4 @@
 import { appendFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { homedir } from 'node:os';
 import { loadGatewayConfig } from '../config.js';
 import { runAgentForMessage } from '../agent-runner.js';
 import { assertOutboundAllowed, sendMessageWhatsApp } from '../channels/whatsapp/index.js';
@@ -8,8 +6,10 @@ import { resolveSessionStorePath, loadSessionStore, type SessionEntry } from '..
 import { cleanMarkdownForWhatsApp } from '../utils.js';
 import { buildHeartbeatQuery } from './prompt.js';
 import { evaluateSuppression, type SuppressionState } from './suppression.js';
+import { dexterPath } from '../../utils/paths.js';
+import { getSetting } from '../../utils/config.js';
 
-const LOG_PATH = join(homedir(), '.dexter', 'gateway-debug.log');
+const LOG_PATH = dexterPath('gateway-debug.log');
 
 function debugLog(msg: string) {
   appendFileSync(LOG_PATH, `${new Date().toISOString()} ${msg}\n`);
@@ -133,8 +133,8 @@ export function startHeartbeatRunner(params: { configPath?: string }): Heartbeat
 
       // Run agent
       debugLog(`[heartbeat] running agent for session=${session.sessionKey}`);
-      const model = heartbeatCfg.model ?? 'gpt-5.4';
-      const modelProvider = heartbeatCfg.modelProvider ?? 'openai';
+      const model = heartbeatCfg.model ?? getSetting('modelId', 'gpt-5.4') as string;
+      const modelProvider = heartbeatCfg.modelProvider ?? getSetting('provider', 'openai') as string;
       const answer = await runAgentForMessage({
         sessionKey: session.sessionKey,
         query,

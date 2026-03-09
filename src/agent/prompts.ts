@@ -1,11 +1,11 @@
 import { buildToolDescriptions } from '../tools/registry.js';
 import { buildSkillMetadataSection, discoverSkills } from '../skills/index.js';
 import { readFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getChannelProfile } from './channels.js';
 import { MemoryManager } from '../memory/index.js';
+import { dexterPath } from '../utils/paths.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -31,7 +31,7 @@ export function getCurrentDate(): string {
  * Load SOUL.md content from user override or bundled file.
  */
 export async function loadSoulDocument(): Promise<string | null> {
-  const userSoulPath = join(homedir(), '.dexter', 'SOUL.md');
+  const userSoulPath = dexterPath('SOUL.md');
   try {
     return await readFile(userSoulPath, 'utf-8');
   } catch {
@@ -54,7 +54,7 @@ export async function loadSoulDocument(): Promise<string | null> {
  * Used when PORTFOLIO-HYPERLIQUID.md exists or query involves HL portfolio.
  */
 export async function loadSoulHLDocument(): Promise<string | null> {
-  const userPath = join(homedir(), '.dexter', 'SOUL-HL.md');
+  const userPath = dexterPath('SOUL-HL.md');
   try {
     return await readFile(userPath, 'utf-8');
   } catch {
@@ -74,7 +74,7 @@ export async function loadSoulHLDocument(): Promise<string | null> {
  * User file at ~/.dexter/PORTFOLIO.md. Used for gap analysis and rebalance context.
  */
 export async function loadPortfolioDocument(): Promise<string | null> {
-  const userPath = join(homedir(), '.dexter', 'PORTFOLIO.md');
+  const userPath = dexterPath('PORTFOLIO.md');
   try {
     return await readFile(userPath, 'utf-8');
   } catch {
@@ -82,7 +82,7 @@ export async function loadPortfolioDocument(): Promise<string | null> {
   }
 }
 
-const THETA_POLICY_PATH = join(homedir(), '.dexter', 'THETA-POLICY.md');
+const THETA_POLICY_PATH = dexterPath('THETA-POLICY.md');
 
 /**
  * Load a one-paragraph summary of THETA-POLICY.md for system prompt.
@@ -110,7 +110,7 @@ export async function loadThetaPolicySummary(): Promise<string | null> {
  * User override at ~/.dexter/VOICE.md, else bundled docs/VOICE.md.
  */
 export async function loadVoiceDocument(): Promise<string | null> {
-  const userVoicePath = join(homedir(), '.dexter', 'VOICE.md');
+  const userVoicePath = dexterPath('VOICE.md');
   try {
     return await readFile(userVoicePath, 'utf-8');
   } catch {
@@ -160,7 +160,7 @@ ${memoryContext.trim()}`
 
   return `## Memory
 
-You have persistent memory stored as Markdown files in ~/.dexter/memory/.
+You have persistent memory stored as Markdown files in .dexter/memory/.
 
 ### Recalling memories
 Before answering questions about prior work, decisions, dates, people, preferences, or
@@ -351,7 +351,7 @@ Your primary purpose is to help build and maintain a near-perfect portfolio — 
 You have a periodic heartbeat that runs on a schedule (configurable by the user).
 - **Weekly (Mondays):** Checks if the portfolio needs rebalancing vs the target from your Identity
 - **Quarterly (first week of Jan/Apr/Jul/Oct):** Writes a performance report
-- **Always:** Reads ~/.dexter/HEARTBEAT.md for the monitoring checklist
+- **Always:** Reads .dexter/HEARTBEAT.md for the monitoring checklist
 Users can ask you to manage their heartbeat checklist — use the heartbeat tool to view/update it.
 Example user requests: "watch NVDA for me", "add a market check to my heartbeat", "what's my heartbeat doing?"
 

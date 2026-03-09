@@ -1,15 +1,14 @@
 import type { AnyMessageContent } from '@whiskeysockets/baileys';
 import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import type { WaSocket } from './session.js';
 import { loadGatewayConfig, resolveWhatsAppAccount } from '../../config.js';
 import { normalizeE164, toWhatsappJid } from '../../utils.js';
+import { dexterPath } from '../../../utils/paths.js';
 
 function debugLog(msg: string) {
   try {
-    const logDir = path.join(os.homedir(), '.dexter', 'debug', 'logs');
-    const logPath = path.join(logDir, 'gateway-outbound.log');
+    const logDir = dexterPath('debug', 'logs');
+    const logPath = dexterPath('debug', 'logs', 'gateway-outbound.log');
     fs.mkdirSync(logDir, { recursive: true });
     fs.appendFileSync(logPath, `${new Date().toISOString()} ${msg}\n`);
   } catch {

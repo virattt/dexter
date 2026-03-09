@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { homedir } from 'node:os';
 import { z } from 'zod';
 import { normalizeE164 } from './utils.js';
+import { dexterPath } from '../utils/paths.js';
 
-const DEFAULT_GATEWAY_PATH = join(homedir(), '.dexter', 'gateway.json');
+const DEFAULT_GATEWAY_PATH = dexterPath('gateway.json');
 const DmPolicySchema = z.enum(['pairing', 'allowlist', 'open', 'disabled']);
 const GroupPolicySchema = z.enum(['open', 'allowlist', 'disabled']);
 const ReconnectSchema = z.object({
@@ -196,7 +196,7 @@ export function resolveWhatsAppAccount(
   accountId: string,
 ): WhatsAppAccountConfig {
   const account = cfg.channels.whatsapp.accounts?.[accountId] ?? {};
-  const authDir = account.authDir ?? join(homedir(), '.dexter', 'credentials', 'whatsapp', accountId);
+  const authDir = account.authDir ?? dexterPath('credentials', 'whatsapp', accountId);
   const rawAllowFrom = account.allowFrom ?? cfg.channels.whatsapp.allowFrom ?? [];
   const allowFrom = Array.from(
     new Set(

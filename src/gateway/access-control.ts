@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { homedir } from 'node:os';
+import { dirname } from 'node:path';
 import { randomInt } from 'node:crypto';
 import { isSelfChatMode, normalizeE164 } from './utils.js';
+import { dexterPath } from '../utils/paths.js';
 
 const PAIRING_REPLY_HISTORY_GRACE_MS = 30_000;
 
@@ -17,7 +17,7 @@ type PairingStore = Record<string, PairingRequest>;
 function pairingPath(): string {
   return (
     process.env.DEXTER_PAIRING_PATH ??
-    join(homedir(), '.dexter', 'pairing', 'whatsapp.json')
+    dexterPath('pairing', 'whatsapp.json')
   );
 }
 

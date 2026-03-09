@@ -1,11 +1,10 @@
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { homedir } from 'node:os';
 import { HEARTBEAT_OK_TOKEN } from './suppression.js';
+import { dexterPath } from '../../utils/paths.js';
 
-const HEARTBEAT_MD_PATH = join(homedir(), '.dexter', 'HEARTBEAT.md');
-const PORTFOLIO_MD_PATH = join(homedir(), '.dexter', 'PORTFOLIO.md');
-const PORTFOLIO_HL_PATH = join(homedir(), '.dexter', 'PORTFOLIO-HYPERLIQUID.md');
+const HEARTBEAT_MD_PATH = dexterPath('HEARTBEAT.md');
+const PORTFOLIO_MD_PATH = dexterPath('PORTFOLIO.md');
+const PORTFOLIO_HL_PATH = dexterPath('PORTFOLIO-HYPERLIQUID.md');
 
 const DEFAULT_CHECKLIST = `- BTC — price, dominance, any material move or news that affects HODL thesis
 - HYPE — onchain stocks narrative: HIP-3, equity tokenization, Hyperliquid updates
@@ -15,7 +14,7 @@ const DEFAULT_CHECKLIST = `- BTC — price, dominance, any material move or news
 - Breaking financial news — major earnings surprises, Fed announcements, significant market events`;
 
 /**
- * Load ~/.dexter/HEARTBEAT.md content.
+ * Load .dexter/HEARTBEAT.md content.
  * Returns the content string, or null if the file doesn't exist.
  */
 export async function loadHeartbeatDocument(): Promise<string | null> {
@@ -26,7 +25,7 @@ export async function loadHeartbeatDocument(): Promise<string | null> {
   }
 }
 
-const FUND_CONFIG_PATH = join(homedir(), '.dexter', 'fund-config.json');
+const FUND_CONFIG_PATH = dexterPath('fund-config.json');
 
 /**
  * Load ~/.dexter/PORTFOLIO.md content if it exists.
