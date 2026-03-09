@@ -19,8 +19,6 @@ Semantic search over persistent memory files.
 
 const memorySearchSchema = z.object({
   query: z.string().describe('Natural language query for memory recall.'),
-  maxResults: z.number().optional().describe('Optional result limit (default 6).'),
-  minScore: z.number().optional().describe('Optional minimum fused score threshold.'),
 });
 
 export const memorySearchTool = new DynamicStructuredTool({
@@ -38,10 +36,7 @@ export const memorySearchTool = new DynamicStructuredTool({
       });
     }
 
-    const results = await manager.search(input.query, {
-      maxResults: input.maxResults,
-      minScore: input.minScore,
-    });
+    const results = await manager.search(input.query);
     return formatToolResult({
       results,
     });

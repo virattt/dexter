@@ -78,6 +78,15 @@ function fromBlob(blob: Uint8Array): number[] {
   return Array.from(new Float32Array(buffer));
 }
 
+// Keep only alphanumeric chars and whitespace to avoid FTS5 syntax errors.
+function sanitizeFts5Query(query: string): string {
+  return query
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\b(?:AND|OR|NOT|NEAR)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length === 0 || b.length === 0 || a.length !== b.length) {
     return 0;
@@ -269,11 +278,15 @@ export class MemoryDatabase {
   }
 
   searchKeyword(query: string, maxResults: number): MemoryKeywordCandidate[] {
+    const sanitized = sanitizeFts5Query(query);
+    if (!sanitized) {
+      return [];
+    }
     const rows = this.db
       .query<{ chunk_id: number; rank: number }>(
         'SELECT chunk_id, bm25(chunks_fts) AS rank FROM chunks_fts WHERE chunks_fts MATCH ? ORDER BY rank LIMIT ?',
       )
-      .all(query, maxResults);
+      .all(sanitized, maxResults);
     return rows.map((row) => ({
       chunkId: row.chunk_id,
       score: 1 / (1 + Math.max(0, row.rank)),

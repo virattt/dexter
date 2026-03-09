@@ -188,6 +188,11 @@ export class MemoryManager {
     this.indexer?.markDirty();
   }
 
+  async listFiles(): Promise<string[]> {
+    await this.initialize();
+    return this.store.listMemoryFiles();
+  }
+
   async loadSessionContext(): Promise<MemorySessionContext> {
     await this.initialize();
     return this.store.loadSessionContext(this.config.maxSessionContextTokens);

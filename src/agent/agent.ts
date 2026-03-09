@@ -2,7 +2,7 @@ import { AIMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlm } from '../model/llm.js';
 import { getTools } from '../tools/registry.js';
-import { buildSystemPrompt, buildIterationPrompt, loadSoulDocument } from '../agent/prompts.js';
+import { buildSystemPrompt, buildIterationPrompt, loadSoulDocument } from './prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { buildHistoryContext } from '../utils/history-context.js';
@@ -32,13 +32,11 @@ export class Agent {
   private readonly systemPrompt: string;
   private readonly signal?: AbortSignal;
   private readonly memoryEnabled: boolean;
-  private readonly memoryContextInfo?: { filesLoaded: string[]; tokenEstimate: number };
 
   private constructor(
     config: AgentConfig,
     tools: StructuredToolInterface[],
     systemPrompt: string,
-    memoryContextInfo?: { filesLoaded: string[]; tokenEstimate: number },
   ) {
     this.model = config.model ?? DEFAULT_MODEL;
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
@@ -48,7 +46,6 @@ export class Agent {
     this.systemPrompt = systemPrompt;
     this.signal = config.signal;
     this.memoryEnabled = config.memoryEnabled ?? true;
-    this.memoryContextInfo = memoryContextInfo;
   }
 
   /**
@@ -58,17 +55,11 @@ export class Agent {
     const model = config.model ?? DEFAULT_MODEL;
     const tools = getTools(model);
     const soulContent = await loadSoulDocument();
-    let memoryContextInfo: { filesLoaded: string[]; tokenEstimate: number } | undefined;
-    let memoryContextText: string | null = null;
+    let memoryFiles: string[] = [];
 
     if (config.memoryEnabled !== false) {
       const memoryManager = await MemoryManager.get();
-      const memoryContext = await memoryManager.loadSessionContext();
-      memoryContextText = memoryContext.text || null;
-      memoryContextInfo = {
-        filesLoaded: memoryContext.filesLoaded,
-        tokenEstimate: memoryContext.tokenEstimate,
-      };
+      memoryFiles = await memoryManager.listFiles();
     }
 
     const systemPrompt = buildSystemPrompt(
@@ -76,9 +67,9 @@ export class Agent {
       soulContent,
       config.channel,
       config.groupContext,
-      memoryContextText,
+      memoryFiles,
     );
-    return new Agent(config, tools, systemPrompt, memoryContextInfo);
+    return new Agent(config, tools, systemPrompt);
   }
 
   /**
@@ -96,14 +87,6 @@ export class Agent {
 
     const ctx = createRunContext(query);
     const memoryFlushState = { alreadyFlushed: false };
-
-    if (this.memoryEnabled && this.memoryContextInfo && this.memoryContextInfo.filesLoaded.length > 0) {
-      yield {
-        type: 'memory_recalled',
-        filesLoaded: this.memoryContextInfo.filesLoaded,
-        tokenCount: this.memoryContextInfo.tokenEstimate,
-      };
-    }
 
     // Build initial prompt with conversation history context
     let currentPrompt = this.buildInitialPrompt(query, inMemoryHistory);

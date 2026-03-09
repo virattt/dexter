@@ -35,11 +35,21 @@ export async function hybridSearch(params: {
   const maxResults = Math.max(1, params.options?.maxResults ?? params.defaults.maxResults);
   const minScore = params.options?.minScore ?? params.defaults.minScore;
   const candidateCount = maxResults * 4;
-  const weights = normalizeWeights(params.defaults.vectorWeight, params.defaults.textWeight);
 
   const queryEmbedding = await embedSingleQuery(params.embeddingClient, params.query);
   const vectorCandidates = queryEmbedding ? params.db.searchVector(queryEmbedding, candidateCount) : [];
   const keywordCandidates = params.db.searchKeyword(params.query, candidateCount);
+
+  // When a search path is unavailable (no embedding client → no vector results),
+  // give full weight to the path that did run so scores aren't artificially suppressed.
+  const hasVector = vectorCandidates.length > 0;
+  const hasKeyword = keywordCandidates.length > 0;
+  const weights =
+    hasVector && hasKeyword
+      ? normalizeWeights(params.defaults.vectorWeight, params.defaults.textWeight)
+      : hasVector
+        ? { vector: 1, text: 0 }
+        : { vector: 0, text: 1 };
 
   const scoreMap = new Map<number, CombinedScore>();
   for (const candidate of vectorCandidates) {

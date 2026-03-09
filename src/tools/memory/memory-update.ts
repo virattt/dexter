@@ -18,30 +18,34 @@ Add, edit, or delete persistent memory entries.
 - For workspace project files (use \`write_file\` / \`edit_file\`)
 - For temporary scratchpad data that does not need to persist
 
-## Actions
+## Usage
 
-- **append**: Add new content to the end of a memory file. Requires \`content\`.
-- **edit**: Find-and-replace text in a memory file. Requires \`old_text\` and \`new_text\`.
-- **delete**: Remove specific text from a memory file. Requires \`old_text\`.
+For the common case (remembering something), just pass \`content\`. Action defaults to "append" and file defaults to long-term memory (MEMORY.md). Only pass \`action\` and \`file\` when you need something other than the defaults.
+
+- **append** (default): Add new content. Requires \`content\`.
+- **edit**: Find-and-replace text. Requires \`old_text\` and \`new_text\`.
+- **delete**: Remove specific text. Requires \`old_text\`.
 
 ## File Aliases
 
-- \`"long_term"\` -> MEMORY.md (durable facts, preferences)
+- \`"long_term"\` (default) -> MEMORY.md (durable facts, preferences)
 - \`"daily"\` -> today's YYYY-MM-DD.md
 - Or specify a filename directly (e.g. \`"2026-03-08.md"\`)
 `.trim();
 
 const memoryUpdateSchema = z.object({
-  action: z
-    .enum(['append', 'edit', 'delete'])
-    .describe('The operation: "append" to add, "edit" to find-and-replace, "delete" to remove.'),
-  file: z
-    .string()
-    .describe('Target file: "long_term" (MEMORY.md), "daily" (today\'s log), or a filename like "2026-03-08.md".'),
   content: z
     .string()
     .optional()
     .describe('Text to append. Required for "append" action.'),
+  action: z
+    .enum(['append', 'edit', 'delete'])
+    .default('append')
+    .describe('The operation. Defaults to "append". Only pass for "edit" or "delete".'),
+  file: z
+    .string()
+    .default('long_term')
+    .describe('Target file. Defaults to "long_term" (MEMORY.md). Only pass for "daily" or a specific filename.'),
   old_text: z
     .string()
     .optional()

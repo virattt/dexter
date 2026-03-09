@@ -20,10 +20,14 @@ function truncateAtWord(str: string, maxLength: number): string {
   return `${str.slice(0, maxLength)}...`;
 }
 
-function formatArgs(args: Record<string, unknown>): string {
-  if (Object.keys(args).length === 1 && 'query' in args) {
+function formatArgs(tool: string, args: Record<string, unknown>): string {
+  if ('query' in args) {
     const query = String(args.query);
     return theme.muted(`"${truncateAtWord(query, 60)}"`);
+  }
+  if (tool === 'memory_update') {
+    const text = String(args.content ?? args.old_text ?? '').replace(/\n/g, ' ');
+    if (text) return theme.muted(truncateAtWord(text, 80));
   }
   return theme.muted(
     Object.entries(args)
@@ -58,7 +62,7 @@ export class ToolEventComponent extends Container {
   constructor(_tui: unknown, tool: string, args: Record<string, unknown>) {
     super();
     this.addChild(new Spacer(1));
-    const title = `${formatToolName(tool)}${args ? `${theme.muted('(')}${formatArgs(args)}${theme.muted(')')}` : ''}`;
+    const title = `${formatToolName(tool)}${args ? `${theme.muted('(')}${formatArgs(tool, args)}${theme.muted(')')}` : ''}`;
     this.header = new Text(`⏺ ${title}`, 0, 0);
     this.addChild(this.header);
   }

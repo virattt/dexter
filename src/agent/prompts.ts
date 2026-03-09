@@ -4,7 +4,6 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getChannelProfile } from './channels.js';
-import { MemoryManager } from '../memory/index.js';
 import { dexterPath } from '../utils/paths.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -73,42 +72,27 @@ ${skillList}
 - Do not invoke a skill that has already been invoked for the current query`;
 }
 
-function buildMemorySection(memoryContext?: string): string {
-  const contextSection = memoryContext?.trim()
-    ? `
-## Recent Memory Context
-
-${memoryContext.trim()}`
+function buildMemorySection(memoryFiles: string[]): string {
+  const fileListSection = memoryFiles.length > 0
+    ? `\nMemory files on disk: ${memoryFiles.join(', ')}`
     : '';
 
   return `## Memory
 
-You have persistent memory stored as Markdown files in .dexter/memory/.
+You have persistent memory stored as Markdown files in .dexter/memory/.${fileListSection}
 
 ### Recalling memories
-Before answering questions about prior work, decisions, dates, people, preferences, or
-facts the user has shared: use memory_search to find relevant notes, then memory_get to
-read specific sections. If low confidence after search, mention that you checked.
+Use memory_search to recall stored facts, preferences, or notes. The search covers all
+memory files (long-term and daily logs). Follow up with memory_get to read full sections
+when you need exact text.
 
 ### Storing and managing memories
-Use the **memory_update** tool to add, edit, or delete memories. Do NOT use write_file
-or edit_file for memory files; always use memory_update.
-- **Append**: memory_update action="append" to add new facts/preferences/notes
-  - file="long_term" for durable facts and preferences (MEMORY.md)
-  - file="daily" for day-to-day notes (today's log)
-- **Edit**: memory_update action="edit" with old_text and new_text to correct or update an entry
-- **Delete**: memory_update action="delete" with old_text to remove an entry the user wants forgotten
-Before editing or deleting, use memory_get to verify the exact text to match.${contextSection}`;
-}
-
-export async function loadMemoryContext(): Promise<string | null> {
-  try {
-    const manager = await MemoryManager.get();
-    const context = await manager.loadSessionContext();
-    return context.text.trim() ? context.text : null;
-  } catch {
-    return null;
-  }
+Use **memory_update** to add, edit, or delete memories. Do NOT use write_file or
+edit_file for memory files.
+- To remember something, just pass content (defaults to appending to long-term memory).
+- For daily notes, pass file="daily".
+- For edits/deletes, pass action="edit" or action="delete" with old_text.
+Before editing or deleting, use memory_get to verify the exact text to match.`;
 }
 
 // ============================================================================
@@ -210,7 +194,7 @@ export function buildSystemPrompt(
   soulContent?: string | null,
   channel?: string,
   groupContext?: GroupContext,
-  memoryContext?: string | null,
+  memoryFiles?: string[],
 ): string {
   const toolDescriptions = buildToolDescriptions(model);
   const profile = getChannelProfile(channel);
@@ -246,7 +230,7 @@ ${toolDescriptions}
 
 ${buildSkillsSection()}
 
-${buildMemorySection(memoryContext ?? undefined)}
+${buildMemorySection(memoryFiles ?? [])}
 
 ## Heartbeat
 
