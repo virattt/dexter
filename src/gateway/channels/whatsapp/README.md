@@ -34,7 +34,17 @@ This will:
 3. Go to **Settings > Linked Devices > Link a Device**
 4. Scan the QR code
 
-Once linked, your phone number is automatically added to the allowed senders list and credentials are saved to `.dexter/credentials/whatsapp/default/`.
+After linking, you'll be asked how you want to use Dexter:
+
+### Option 1: Self-chat (personal phone)
+
+Use your own WhatsApp to talk to Dexter by messaging yourself. The linked phone number is added to `allowFrom` and self-chat mode is activated automatically.
+
+### Option 2: Dedicated bot phone
+
+If Dexter has its own phone number (e.g. a separate SIM), choose this option and enter the phone number(s) allowed to message it. The gateway will be configured with `dmPolicy: "allowlist"` so other people can DM the bot.
+
+Credentials are saved to `.dexter/credentials/whatsapp/default/`.
 
 ## 🚀 How to Run
 
@@ -72,7 +82,7 @@ Dexter: NVIDIA's revenue for fiscal year 2024 was $60.9 billion...
 
 The gateway configuration is stored at `.dexter/gateway.json`. It's auto-created when you run `gateway:login`.
 
-**Default configuration:**
+**Self-chat configuration** (personal phone, message yourself):
 ```json
 {
   "gateway": {
@@ -89,12 +99,39 @@ The gateway configuration is stored at `.dexter/gateway.json`. It's auto-created
 }
 ```
 
+**Bot phone configuration** (dedicated Dexter phone, others message it):
+```json
+{
+  "gateway": {
+    "accountId": "default",
+    "logLevel": "info"
+  },
+  "channels": {
+    "whatsapp": {
+      "enabled": true,
+      "accounts": {
+        "default": {
+          "dmPolicy": "allowlist",
+          "allowFrom": ["+1555YOURNUM"],
+          "groupPolicy": "disabled",
+          "groupAllowFrom": []
+        }
+      },
+      "allowFrom": ["+1555YOURNUM"]
+    }
+  },
+  "bindings": []
+}
+```
+
 **Key settings:**
 
 | Setting | Description |
 |---------|-------------|
 | `channels.whatsapp.allowFrom` | Phone numbers allowed to message Dexter (E.164 format) |
 | `channels.whatsapp.enabled` | Enable/disable the WhatsApp channel |
+| `accounts.<id>.dmPolicy` | DM access policy: `pairing` (default), `allowlist`, `open`, or `disabled` |
+| `accounts.<id>.allowFrom` | Per-account allowed senders (overrides top-level `allowFrom`) |
 | `gateway.logLevel` | Log verbosity: `silent`, `error`, `info`, `debug` |
 
 ## 👥 Group Chat
