@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { homedir } from 'node:os';
 import { z } from 'zod';
 import { normalizeE164 } from './utils.js';
+import { dexterPath } from '../utils/paths.js';
 
-const DEFAULT_GATEWAY_PATH = join(homedir(), '.dexter', 'gateway.json');
+const DEFAULT_GATEWAY_PATH = dexterPath('gateway.json');
 const DmPolicySchema = z.enum(['pairing', 'allowlist', 'open', 'disabled']);
 const GroupPolicySchema = z.enum(['open', 'allowlist', 'disabled']);
 const ReconnectSchema = z.object({
@@ -26,6 +26,25 @@ const WhatsAppAccountSchema = z.object({
   sendReadReceipts: z.boolean().optional().default(true),
 });
 
+const HeartbeatConfigSchema = z
+  .object({
+    enabled: z.boolean().optional().default(false),
+    intervalMinutes: z.number().min(5).optional().default(10),
+    // default to NYSE market hours: 9:30 AM - 4:00 PM ET, Mon-Fri
+    activeHours: z
+      .object({
+        start: z.string().optional().default('09:30'),
+        end: z.string().optional().default('16:00'),
+        timezone: z.string().optional().default('America/New_York'),
+        daysOfWeek: z.array(z.number().min(0).max(6)).optional().default([1, 2, 3, 4, 5]),
+      })
+      .optional(),
+    model: z.string().optional(),
+    modelProvider: z.string().optional(),
+    maxIterations: z.number().optional().default(6),
+  })
+  .optional();
+
 const GatewayConfigSchema = z.object({
   gateway: z
     .object({
@@ -33,6 +52,7 @@ const GatewayConfigSchema = z.object({
       logLevel: z.enum(['silent', 'error', 'info', 'debug']).optional(),
       heartbeatSeconds: z.number().optional(),
       reconnect: ReconnectSchema.optional(),
+      heartbeat: HeartbeatConfigSchema,
     })
     .optional(),
   channels: z
@@ -73,6 +93,14 @@ export type GatewayConfig = {
       factor?: number;
       jitter?: number;
       maxAttempts?: number;
+    };
+    heartbeat?: {
+      enabled: boolean;
+      intervalMinutes: number;
+      activeHours?: { start: string; end: string; timezone?: string; daysOfWeek?: number[] };
+      model?: string;
+      modelProvider?: string;
+      maxIterations: number;
     };
   };
   channels: {
@@ -126,6 +154,16 @@ export function loadGatewayConfig(overridePath?: string): GatewayConfig {
       logLevel: parsed.gateway?.logLevel ?? 'info',
       heartbeatSeconds: parsed.gateway?.heartbeatSeconds,
       reconnect: parsed.gateway?.reconnect,
+      heartbeat: parsed.gateway?.heartbeat
+        ? {
+            enabled: parsed.gateway.heartbeat.enabled ?? false,
+            intervalMinutes: parsed.gateway.heartbeat.intervalMinutes ?? 30,
+            activeHours: parsed.gateway.heartbeat.activeHours,
+            model: parsed.gateway.heartbeat.model,
+            modelProvider: parsed.gateway.heartbeat.modelProvider,
+            maxIterations: parsed.gateway.heartbeat.maxIterations ?? 6,
+          }
+        : undefined,
     },
     channels: {
       whatsapp: {
@@ -158,7 +196,7 @@ export function resolveWhatsAppAccount(
   accountId: string,
 ): WhatsAppAccountConfig {
   const account = cfg.channels.whatsapp.accounts?.[accountId] ?? {};
-  const authDir = account.authDir ?? join(homedir(), '.dexter', 'credentials', 'whatsapp', accountId);
+  const authDir = account.authDir ?? dexterPath('credentials', 'whatsapp', accountId);
   const rawAllowFrom = account.allowFrom ?? cfg.channels.whatsapp.allowFrom ?? [];
   const allowFrom = Array.from(
     new Set(

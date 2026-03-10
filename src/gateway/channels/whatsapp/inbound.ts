@@ -14,12 +14,29 @@ import { readSelfId } from './auth-store.js';
 import { checkInboundAccessControl } from '../../access-control.js';
 import { resolveJidToPhoneJid, type LidLookup } from './lid.js';
 import { appendFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dexterPath } from '../../../utils/paths.js';
 
-const LOG_PATH = join(homedir(), '.dexter', 'gateway-debug.log');
+const LOG_PATH = dexterPath('gateway-debug.log');
 function debugLog(msg: string) {
   appendFileSync(LOG_PATH, `${new Date().toISOString()} ${msg}\n`);
+}
+
+function extractMentionedJids(message: WAMessage): string[] {
+  const rawMsg = message.message;
+  if (!rawMsg) return [];
+
+  const normalized = normalizeMessageContent(rawMsg);
+  if (!normalized) return [];
+
+  // Check contextInfo.mentionedJid across message types that support mentions
+  const contextInfo =
+    normalized.extendedTextMessage?.contextInfo ??
+    normalized.imageMessage?.contextInfo ??
+    normalized.videoMessage?.contextInfo ??
+    normalized.documentMessage?.contextInfo;
+
+  const jids = contextInfo?.mentionedJid;
+  return Array.isArray(jids) ? jids.filter((j): j is string => typeof j === 'string') : [];
 }
 
 function extractText(message: WAMessage): string {
@@ -110,9 +127,11 @@ export async function monitorWebInbox(params: {
   console.log('[whatsapp] Connected');
   const connectedAtMs = Date.now();
   const selfJid = sock.user?.id;
+  const selfLid = (sock.user as unknown as Record<string, unknown>)?.lid as string | undefined ?? null;
   const selfFromSock = jidToE164(selfJid);
   const selfFromCreds = readSelfId(params.authDir).e164;
   const selfE164 = selfFromSock ?? selfFromCreds;
+  debugLog(`[inbound] selfJid=${selfJid} selfLid=${selfLid} selfE164=${selfE164}`);
 
   // Get LID lookup for resolving LID JIDs to phone JIDs
   // Baileys 7.x provides signalRepository.lidMapping for LID resolution
@@ -219,6 +238,7 @@ export async function monitorWebInbox(params: {
         debugLog(`[inbound] skipping empty body`);
         continue;
       }
+      const mentionedJids = extractMentionedJids(message);
       const inbound: WhatsAppInboundMessage = {
         id: message.key?.id ?? undefined,
         accountId: access.resolvedAccountId,
@@ -230,6 +250,9 @@ export async function monitorWebInbox(params: {
         senderName: message.pushName ? String(message.pushName) : undefined,
         isFromMe: Boolean(message.key?.fromMe),
         selfE164,
+        mentionedJids,
+        selfJid: selfJid ?? null,
+        selfLid,
         groupSubject,
         groupParticipants,
         body,

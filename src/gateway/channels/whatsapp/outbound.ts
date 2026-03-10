@@ -1,18 +1,19 @@
 import type { AnyMessageContent } from '@whiskeysockets/baileys';
 import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import type { WaSocket } from './session.js';
 import { loadGatewayConfig, resolveWhatsAppAccount } from '../../config.js';
 import { normalizeE164, toWhatsappJid } from '../../utils.js';
+import { dexterPath } from '../../../utils/paths.js';
 
 function debugLog(msg: string) {
-  const logPath = path.join(os.homedir(), '.dexter', 'gateway-debug.log');
-  const dir = path.dirname(logPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+  try {
+    const logDir = dexterPath('debug', 'logs');
+    const logPath = dexterPath('debug', 'logs', 'gateway-outbound.log');
+    fs.mkdirSync(logDir, { recursive: true });
+    fs.appendFileSync(logPath, `${new Date().toISOString()} ${msg}\n`);
+  } catch {
+    // Avoid breaking outbound sends if log dir is unwritable
   }
-  fs.appendFileSync(logPath, `${new Date().toISOString()} ${msg}\n`);
 }
 
 type ActiveListener = {
@@ -63,7 +64,11 @@ export function assertOutboundAllowed(params: {
   const toJid = toWhatsappJid(params.to);
 
   if (toJid.endsWith('@g.us')) {
-    throw new Error('Outbound blocked: group destinations are disabled in strict self-chat mode.');
+    if (account.groupPolicy === 'disabled') {
+      throw new Error('Outbound blocked: group destinations are disabled in strict self-chat mode.');
+    }
+    // Group JIDs don't have E.164 recipients — skip individual recipient validation
+    return { toJid, recipientE164: '' };
   }
 
   const recipientE164 = extractE164FromJid(toJid);

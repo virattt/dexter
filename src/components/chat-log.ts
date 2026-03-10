@@ -275,12 +275,12 @@ export class ChatLogComponent extends Container {
   }
 
   addPerformanceStats(duration: number, tokenUsage?: TokenUsage, tokensPerSecond?: number) {
-    if (!tokenUsage) {
-      return;
-    }
-    const parts = [formatDuration(duration), `${tokenUsage.totalTokens.toLocaleString()} tokens`];
-    if (tokensPerSecond !== undefined) {
-      parts.push(`(${tokensPerSecond.toFixed(1)} tok/s)`);
+    const parts = [formatDuration(duration)];
+    if (tokenUsage && tokenUsage.totalTokens > 20_000) {
+      parts.push(`${tokenUsage.totalTokens.toLocaleString()} tokens`);
+      if (tokensPerSecond !== undefined) {
+        parts.push(`(${tokensPerSecond.toFixed(1)} tok/s)`);
+      }
     }
     this.addChild(new Spacer(1));
     this.addChild(new Text(`${theme.muted('✻ ')}${theme.muted(parts.join(' · '))}`, 0, 0));

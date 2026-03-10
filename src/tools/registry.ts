@@ -1,6 +1,6 @@
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { createFinancialSearch, createFinancialMetrics, createReadFilings } from './finance/index.js';
-import { exaSearch, perplexitySearch, tavilySearch, WEB_SEARCH_DESCRIPTION } from './search/index.js';
+import { exaSearch, perplexitySearch, tavilySearch, WEB_SEARCH_DESCRIPTION, xSearchTool, X_SEARCH_DESCRIPTION } from './search/index.js';
 import { skillTool, SKILL_TOOL_DESCRIPTION } from './skill.js';
 import { webFetchTool, WEB_FETCH_DESCRIPTION } from './fetch/web-fetch.js';
 import { browserTool, BROWSER_DESCRIPTION } from './browser/browser.js';
@@ -10,6 +10,8 @@ import { editFileTool, EDIT_FILE_DESCRIPTION } from './filesystem/edit-file.js';
 import { FINANCIAL_SEARCH_DESCRIPTION } from './finance/financial-search.js';
 import { FINANCIAL_METRICS_DESCRIPTION } from './finance/financial-metrics.js';
 import { READ_FILINGS_DESCRIPTION } from './finance/read-filings.js';
+import { heartbeatTool, HEARTBEAT_TOOL_DESCRIPTION } from './heartbeat/heartbeat-tool.js';
+import { memoryGetTool, MEMORY_GET_DESCRIPTION, memorySearchTool, MEMORY_SEARCH_DESCRIPTION, memoryUpdateTool, MEMORY_UPDATE_DESCRIPTION } from './memory/index.js';
 import { discoverSkills } from '../skills/index.js';
 
 /**
@@ -73,6 +75,26 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: editFileTool,
       description: EDIT_FILE_DESCRIPTION,
     },
+    {
+      name: 'heartbeat',
+      tool: heartbeatTool,
+      description: HEARTBEAT_TOOL_DESCRIPTION,
+    },
+    {
+      name: 'memory_search',
+      tool: memorySearchTool,
+      description: MEMORY_SEARCH_DESCRIPTION,
+    },
+    {
+      name: 'memory_get',
+      tool: memoryGetTool,
+      description: MEMORY_GET_DESCRIPTION,
+    },
+    {
+      name: 'memory_update',
+      tool: memoryUpdateTool,
+      description: MEMORY_UPDATE_DESCRIPTION,
+    },
   ];
 
   // Include web_search if Exa, Perplexity, or Tavily API key is configured (Exa → Perplexity → Tavily)
@@ -93,6 +115,15 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'web_search',
       tool: tavilySearch,
       description: WEB_SEARCH_DESCRIPTION,
+    });
+  }
+
+  // Include x_search if X Bearer Token is configured
+  if (process.env.X_BEARER_TOKEN) {
+    tools.push({
+      name: 'x_search',
+      tool: xSearchTool,
+      description: X_SEARCH_DESCRIPTION,
     });
   }
 

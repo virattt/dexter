@@ -1,6 +1,8 @@
 import { Agent } from '../agent/agent.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
+import { HEARTBEAT_OK_TOKEN } from './heartbeat/suppression.js';
 import type { AgentEvent } from '../agent/types.js';
+import type { GroupContext } from '../agent/prompts.js';
 
 type SessionState = {
   history: InMemoryChatHistory;
@@ -30,6 +32,9 @@ export type AgentRunRequest = {
   maxIterations?: number;
   signal?: AbortSignal;
   onEvent?: (event: AgentEvent) => void | Promise<void>;
+  isHeartbeat?: boolean;
+  channel?: string;
+  groupContext?: GroupContext;
 };
 
 export async function runAgentForMessage(req: AgentRunRequest): Promise<string> {
@@ -43,6 +48,8 @@ export async function runAgentForMessage(req: AgentRunRequest): Promise<string> 
       modelProvider: req.modelProvider,
       maxIterations: req.maxIterations ?? 10,
       signal: req.signal,
+      channel: req.channel,
+      groupContext: req.groupContext,
     });
     for await (const event of agent.run(req.query, session.history)) {
       await req.onEvent?.(event);
@@ -52,6 +59,11 @@ export async function runAgentForMessage(req: AgentRunRequest): Promise<string> 
     }
     if (finalAnswer) {
       await session.history.saveAnswer(finalAnswer);
+    }
+
+    // Prune HEARTBEAT_OK turns to avoid context pollution
+    if (req.isHeartbeat && finalAnswer.trim().toUpperCase().includes(HEARTBEAT_OK_TOKEN)) {
+      session.history.pruneLastTurn();
     }
   };
 

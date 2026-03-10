@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, appendFileSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { createHash } from 'crypto';
+import { dexterPath } from '../utils/paths.js';
 
 /**
  * Record of a tool call for external consumers (e.g., DoneEvent)
@@ -63,7 +64,7 @@ const DEFAULT_LIMIT_CONFIG: ToolLimitConfig = {
  * - Query similarity detection to help prevent retry loops
  */
 export class Scratchpad {
-  private readonly scratchpadDir = '.dexter/scratchpad';
+  private readonly scratchpadDir = dexterPath('scratchpad');
   private readonly filepath: string;
   private readonly limitConfig: ToolLimitConfig;
 

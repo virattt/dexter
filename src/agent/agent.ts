@@ -2,7 +2,7 @@ import { AIMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlm } from '../model/llm.js';
 import { getTools } from '../tools/registry.js';
-import { buildSystemPrompt, buildIterationPrompt, loadSoulDocument } from '../agent/prompts.js';
+import { buildSystemPrompt, buildIterationPrompt, loadSoulDocument } from './prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { buildHistoryContext } from '../utils/history-context.js';
@@ -11,9 +11,11 @@ import { formatUserFacingError, isContextOverflowError } from '../utils/errors.j
 import type { AgentConfig, AgentEvent, ContextClearedEvent, TokenUsage } from '../agent/types.js';
 import { createRunContext, type RunContext } from './run-context.js';
 import { AgentToolExecutor } from './tool-executor.js';
+import { MemoryManager } from '../memory/index.js';
+import { runMemoryFlush, shouldRunMemoryFlush } from '../memory/flush.js';
 
 
-const DEFAULT_MODEL = 'gpt-5.2';
+const DEFAULT_MODEL = 'gpt-5.4';
 const DEFAULT_MAX_ITERATIONS = 10;
 const MAX_OVERFLOW_RETRIES = 2;
 const OVERFLOW_KEEP_TOOL_USES = 3;
@@ -29,11 +31,12 @@ export class Agent {
   private readonly toolExecutor: AgentToolExecutor;
   private readonly systemPrompt: string;
   private readonly signal?: AbortSignal;
+  private readonly memoryEnabled: boolean;
 
   private constructor(
     config: AgentConfig,
     tools: StructuredToolInterface[],
-    systemPrompt: string
+    systemPrompt: string,
   ) {
     this.model = config.model ?? DEFAULT_MODEL;
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
@@ -42,6 +45,7 @@ export class Agent {
     this.toolExecutor = new AgentToolExecutor(this.toolMap, config.signal, config.requestToolApproval, config.sessionApprovedTools);
     this.systemPrompt = systemPrompt;
     this.signal = config.signal;
+    this.memoryEnabled = config.memoryEnabled ?? true;
   }
 
   /**
@@ -51,7 +55,20 @@ export class Agent {
     const model = config.model ?? DEFAULT_MODEL;
     const tools = getTools(model);
     const soulContent = await loadSoulDocument();
-    const systemPrompt = buildSystemPrompt(model, soulContent);
+    let memoryFiles: string[] = [];
+
+    if (config.memoryEnabled !== false) {
+      const memoryManager = await MemoryManager.get();
+      memoryFiles = await memoryManager.listFiles();
+    }
+
+    const systemPrompt = buildSystemPrompt(
+      model,
+      soulContent,
+      config.channel,
+      config.groupContext,
+      memoryFiles,
+    );
     return new Agent(config, tools, systemPrompt);
   }
 
@@ -69,6 +86,7 @@ export class Agent {
     }
 
     const ctx = createRunContext(query);
+    const memoryFlushState = { alreadyFlushed: false };
 
     // Build initial prompt with conversation history context
     let currentPrompt = this.buildInitialPrompt(query, inMemoryHistory);
@@ -153,7 +171,7 @@ export class Agent {
           return;
         }
       }
-      yield* this.manageContextThreshold(ctx);
+      yield* this.manageContextThreshold(ctx, query, memoryFlushState);
 
       // Build iteration prompt with full tool results (Anthropic-style)
       currentPrompt = buildIterationPrompt(
@@ -213,13 +231,41 @@ export class Agent {
   /**
    * Clear oldest tool results if context size exceeds threshold.
    */
-  private *manageContextThreshold(ctx: RunContext): Generator<ContextClearedEvent, void> {
+  private async *manageContextThreshold(
+    ctx: RunContext,
+    query: string,
+    memoryFlushState: { alreadyFlushed: boolean },
+  ): AsyncGenerator<ContextClearedEvent | AgentEvent, void> {
     const fullToolResults = ctx.scratchpad.getToolResults();
     const estimatedContextTokens = estimateTokens(this.systemPrompt + ctx.query + fullToolResults);
 
     if (estimatedContextTokens > CONTEXT_THRESHOLD) {
+      if (
+        this.memoryEnabled &&
+        shouldRunMemoryFlush({
+          estimatedContextTokens,
+          alreadyFlushed: memoryFlushState.alreadyFlushed,
+        })
+      ) {
+        yield { type: 'memory_flush', phase: 'start' };
+        const flushResult = await runMemoryFlush({
+          model: this.model,
+          systemPrompt: this.systemPrompt,
+          query,
+          toolResults: fullToolResults,
+          signal: this.signal,
+        }).catch(() => ({ flushed: false, written: false as const }));
+        memoryFlushState.alreadyFlushed = flushResult.flushed;
+        yield {
+          type: 'memory_flush',
+          phase: 'end',
+          filesWritten: flushResult.written ? [`${new Date().toISOString().slice(0, 10)}.md`] : [],
+        };
+      }
+
       const clearedCount = ctx.scratchpad.clearOldestToolResults(KEEP_TOOL_USES);
       if (clearedCount > 0) {
+        memoryFlushState.alreadyFlushed = false;
         yield { type: 'context_cleared', clearedCount, keptCount: KEEP_TOOL_USES };
       }
     }

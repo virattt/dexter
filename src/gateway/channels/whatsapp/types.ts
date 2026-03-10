@@ -14,6 +14,9 @@ export type WhatsAppInboundMessage = {
   selfE164?: string | null;
   groupSubject?: string;
   groupParticipants?: string[];
+  mentionedJids?: string[];
+  selfJid?: string | null;
+  selfLid?: string | null;
   body: string;
   timestamp?: number;
   sendComposing: () => Promise<void>;

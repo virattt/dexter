@@ -29,3 +29,4 @@ Search the web for current information on any topic. Returns relevant search res
 export { tavilySearch } from './tavily.js';
 export { exaSearch } from './exa.js';
 export { perplexitySearch } from './perplexity.js';
+export { xSearchTool, X_SEARCH_DESCRIPTION } from './x-search.js';
