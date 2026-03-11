@@ -7,7 +7,7 @@ describe('gateway utils', () => {
       expect(normalizeE164('15551234567')).toBe('+15551234567');
       expect(normalizeE164('  1 555-123-4567  ')).toBe('+15551234567');
     });
-
+@@
     test('strips whatsapp: prefix and keeps plus', () => {
       expect(normalizeE164('whatsapp:+15551234567')).toBe('+15551234567');
       expect(normalizeE164('whatsapp: +1 (555) 123-4567')).toBe('+15551234567');

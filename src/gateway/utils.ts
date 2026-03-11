@@ -1,10 +1,11 @@
 export function normalizeE164(number: string): string {
   const withoutPrefix = number.replace(/^whatsapp:/, '').trim();
-  const digits = withoutPrefix.replace(/[^\d+]/g, '');
-  if (digits.startsWith('+')) {
-    return `+${digits.slice(1)}`;
+  // Strip everything except digits; we deliberately ignore any number of leading '+'.
+  const digitsOnly = withoutPrefix.replace(/[^\d]/g, '');
+  if (!digitsOnly) {
+    return '+';
   }
-  return `+${digits}`;
+  return `+${digitsOnly}`;
 }
 
 export function isSelfChatMode(
