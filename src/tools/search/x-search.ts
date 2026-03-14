@@ -228,7 +228,7 @@ const schema = z.object({
   limit: z
     .number()
     .int()
-    .positive()
+    .min(1)
     .optional()
     .default(15)
     .describe('Maximum number of results to return (default: 15)'),
