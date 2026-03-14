@@ -1,0 +1,99 @@
+name: Rebase PR on main
+
+on:
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  rebase:
+    if: github.event.label.name == 'rebase' && github.event.pull_request.state == 'open'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Collect PR metadata
+        id: meta
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const sameRepo = pr.head.repo.full_name === context.repo.owner + "/" + context.repo.repo;
+            core.setOutput("same_repo", String(sameRepo));
+            core.setOutput("head_ref", pr.head.ref);
+
+      - name: Checkout repository
+        if: steps.meta.outputs.same_repo == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git author
+        if: steps.meta.outputs.same_repo == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Rebase branch onto main
+        if: steps.meta.outputs.same_repo == 'true'
+        id: rebase
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git fetch origin "${{ steps.meta.outputs.head_ref }}"
+          git checkout -B rebase-target FETCH_HEAD
+          git rebase origin/main
+          git push origin HEAD:"${{ steps.meta.outputs.head_ref }}" --force-with-lease
+
+      - name: Comment unsupported fork PR
+        if: steps.meta.outputs.same_repo != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = [
+              "The `rebase` label is currently supported only for branches in this repository.",
+              "This PR comes from a fork, so no rebase was attempted.",
+            ].join("\n");
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Comment rebase result
+        if: steps.meta.outputs.same_repo == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ok = "${{ steps.rebase.outcome }}" === "success";
+            const body = ok
+              ? "Applied `rebase`: rebased this PR branch onto `main`."
+              : "Tried to apply `rebase`, but the rebase failed. Resolve conflicts locally, push, then add the label again.";
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Remove rebase label
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: "rebase",
+              });
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+            }
