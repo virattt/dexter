@@ -120,6 +120,15 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
       ...opts,
       ...(process.env.OLLAMA_BASE_URL ? { baseUrl: process.env.OLLAMA_BASE_URL } : {}),
     }),
+  novita: (name, opts) =>
+    new ChatOpenAI({
+      model: name.replace(/^novita:/, ''),
+      ...opts,
+      apiKey: getApiKey('NOVITA_API_KEY'),
+      configuration: {
+        baseURL: 'https://api.novita.ai/openai',
+      },
+    }),
 };
 
 const DEFAULT_FACTORY: ModelFactory = (name, opts) =>

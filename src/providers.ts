@@ -71,6 +71,13 @@ export const PROVIDERS: ProviderDef[] = [
     displayName: 'Ollama',
     modelPrefix: 'ollama:',
   },
+  {
+    id: 'novita',
+    displayName: 'Novita AI',
+    modelPrefix: 'novita:',
+    apiKeyEnvVar: 'NOVITA_API_KEY',
+    fastModel: 'novita:deepseek/deepseek-v3.2',
+  },
 ];
 
 const defaultProvider = PROVIDERS.find((p) => p.id === 'openai')!;
