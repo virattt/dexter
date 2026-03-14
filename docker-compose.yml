@@ -1,0 +1,14 @@
+services:
+  dexter:
+    build: .
+    env_file:
+      - .env
+    # Interactive mode required — Dexter is an Ink (React) CLI app
+    stdin_open: true
+    tty: true
+    # Persist settings (selected model/provider) across container restarts
+    volumes:
+      - dexter-data:/app/.dexter
+
+volumes:
+  dexter-data:
