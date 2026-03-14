@@ -1,10 +1,9 @@
-import { AIMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatAnthropic } from '@langchain/anthropic';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { ChatOllama } from '@langchain/ollama';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { SystemMessage, HumanMessage } from '@langchain/core/messages';
+import { SystemMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { Runnable } from '@langchain/core/runnables';
@@ -64,6 +63,14 @@ function getApiKey(envVar: string): string {
   return apiKey;
 }
 
+function getRequiredEnvVar(envVar: string): string {
+  const value = process.env[envVar];
+  if (!value?.trim()) {
+    throw new Error(`[LLM] ${envVar} not found in environment variables`);
+  }
+  return value.trim();
+}
+
 // Factories keyed by provider id — prefix routing is handled by resolveProvider()
 const MODEL_FACTORIES: Record<string, ModelFactory> = {
   anthropic: (name, opts) =>
@@ -96,6 +103,25 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
         baseURL: 'https://openrouter.ai/api/v1',
       },
     }),
+  azure: (name, opts) => {
+    const deployment = name.replace(/^azure:/, '').trim();
+
+    if (!deployment) {
+      throw new Error('[Azure OpenAI] Missing deployment name. Use model format azure:<deployment-name>.');
+    }
+
+    const endpoint = getRequiredEnvVar('AZURE_OPENAI_ENDPOINT').replace(/\/+$/, '');
+    const apiKey = getApiKey('AZURE_OPENAI_API_KEY');
+
+    return new ChatOpenAI({
+      model: deployment,
+      ...opts,
+      apiKey,
+      configuration: {
+        baseURL: endpoint
+      },
+    });
+  },
   moonshot: (name, opts) =>
     new ChatOpenAI({
       model: name,

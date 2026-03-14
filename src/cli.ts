@@ -344,11 +344,16 @@ export async function runCli() {
       const input = new ApiKeyInputComponent();
       input.onSubmit = (value) => modelSelection.handleModelInputSubmit(value);
       input.onCancel = () => modelSelection.handleModelInputSubmit(null);
+      const isAzure = state.pendingProvider === 'azure';
       renderScreenView(
         `Enter model name for ${getProviderDisplayName(state.pendingProvider)}`,
-        'Type or paste the model name from openrouter.ai/models',
+        isAzure
+          ? 'Type your Azure OpenAI deployment name'
+          : 'Type or paste the model name from openrouter.ai/models',
         input,
-        'Examples: anthropic/claude-3.5-sonnet, openai/gpt-4-turbo, meta-llama/llama-3-70b\nEnter to confirm · esc to go back',
+        isAzure
+          ? 'Examples: gpt-5-prod, gpt-4.1-main\nEnter to confirm · esc to go back'
+          : 'Examples: anthropic/claude-3.5-sonnet, openai/gpt-4-turbo, meta-llama/llama-3-70b\nEnter to confirm · esc to go back',
         input,
       );
       return;
