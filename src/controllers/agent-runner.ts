@@ -37,6 +37,26 @@ export class AgentRunnerController {
     this.onChange = onChange;
   }
 
+  /**
+   * Load previous conversation history into the UI.
+   * Call this after loadHistory() to display resumed conversations.
+   */
+  loadPreviousHistory(): void {
+    const messages = this.inMemoryChatHistory.getMessages();
+    if (messages.length === 0) return;
+
+    this.historyValue = messages
+      .filter((m) => m.answer !== null)
+      .map((m) => ({
+        id: `restored-${m.id}`,
+        query: m.query,
+        events: [],
+        answer: m.answer ?? '',
+        status: 'complete' as HistoryItemStatus,
+      }));
+    this.emitChange();
+  }
+
   get history(): HistoryItem[] {
     return this.historyValue;
   }

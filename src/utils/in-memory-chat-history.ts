@@ -1,4 +1,7 @@
 import { createHash } from 'crypto';
+import { readFile, writeFile, mkdir } from 'fs/promises';
+import { existsSync } from 'fs';
+import { join, dirname } from 'path';
 import { callLlm, DEFAULT_MODEL } from '../model/llm.js';
 import {
   DEFAULT_HISTORY_LIMIT,
@@ -6,6 +9,10 @@ import {
   type HistoryEntry,
 } from './history-context.js';
 import { z } from 'zod';
+
+const DEXTER_DIR = '.dexter';
+const CONTEXT_DIR = 'context';
+const CONTEXT_FILE = 'conversation.json';
 
 /**
  * Represents a single conversation turn (query + answer + summary)
@@ -36,8 +43,15 @@ Keep summaries to 1-2 sentences that capture the key information.`;
 const MESSAGE_SELECTION_SYSTEM_PROMPT = `You are a relevance evaluator. Select which previous conversation messages are relevant to the current query.
 Return only message IDs that contain information directly useful for answering the current query.`;
 
+interface ContextFile {
+  messages: Message[];
+  model: string;
+  savedAt: string;
+}
+
 /**
- * Manages in-memory conversation history for multi-turn conversations.
+ * Manages conversation history for multi-turn conversations.
+ * Persists to disk for session resume on restart.
  * Stores user queries, final answers, and LLM-generated summaries.
  */
 export class InMemoryChatHistory {
@@ -45,10 +59,57 @@ export class InMemoryChatHistory {
   private model: string;
   private readonly maxTurns: number;
   private relevantMessagesByQuery: Map<string, Message[]> = new Map();
+  private filePath: string;
+  private loaded = false;
 
-  constructor(model: string = DEFAULT_MODEL, maxTurns: number = DEFAULT_HISTORY_LIMIT) {
+  constructor(model: string = DEFAULT_MODEL, maxTurns: number = DEFAULT_HISTORY_LIMIT, baseDir: string = process.cwd()) {
     this.model = model;
     this.maxTurns = maxTurns;
+    this.filePath = join(baseDir, DEXTER_DIR, CONTEXT_DIR, CONTEXT_FILE);
+  }
+
+  /**
+   * Loads conversation context from disk.
+   * Call this on startup to resume previous session.
+   */
+  async load(): Promise<void> {
+    if (this.loaded) return;
+
+    try {
+      if (existsSync(this.filePath)) {
+        const content = await readFile(this.filePath, 'utf-8');
+        const data: ContextFile = JSON.parse(content);
+        this.messages = data.messages || [];
+        // Restore IDs to ensure consistency
+        this.messages.forEach((msg, idx) => {
+          msg.id = idx;
+        });
+      }
+    } catch {
+      // If there's any error reading/parsing, start fresh
+      this.messages = [];
+    }
+
+    this.loaded = true;
+  }
+
+  /**
+   * Saves conversation context to disk.
+   * Called automatically after adding messages.
+   */
+  private async save(): Promise<void> {
+    const dir = dirname(this.filePath);
+
+    if (!existsSync(dir)) {
+      await mkdir(dir, { recursive: true });
+    }
+
+    const data: ContextFile = {
+      messages: this.messages,
+      model: this.model,
+      savedAt: new Date().toISOString(),
+    };
+    await writeFile(this.filePath, JSON.stringify(data, null, 2), 'utf-8');
   }
 
   /**
@@ -92,7 +153,7 @@ Generate a brief 1-2 sentence summary of this answer.`;
    * Saves a new user query to history immediately (before answer is available).
    * Answer and summary are null until saveAnswer() is called with the answer.
    */
-  saveUserQuery(query: string): void {
+  async saveUserQuery(query: string): Promise<void> {
     // Clear the relevance cache since message history has changed
     this.relevantMessagesByQuery.clear();
 
@@ -102,6 +163,9 @@ Generate a brief 1-2 sentence summary of this answer.`;
       answer: null,
       summary: null,
     });
+
+    // Persist to disk
+    await this.save();
   }
 
   /**
@@ -259,10 +323,11 @@ Select which previous messages are relevant to understanding or answering the cu
   }
 
   /**
-   * Clears all messages and cache
+   * Clears all messages and cache, and removes persisted file
    */
-  clear(): void {
+  async clear(): Promise<void> {
     this.messages = [];
     this.relevantMessagesByQuery.clear();
+    await this.save();
   }
 }
