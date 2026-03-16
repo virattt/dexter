@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
 import { formatToolResult } from '../types.js';
+import { validateTicker } from './validation.js';
 
 const AnalystEstimatesInputSchema = z.object({
   ticker: z
@@ -20,8 +21,10 @@ export const getAnalystEstimates = new DynamicStructuredTool({
   description: `Retrieves analyst estimates for a given company ticker, including metrics like estimated EPS. Useful for understanding consensus expectations, assessing future growth prospects, and performing valuation analysis.`,
   schema: AnalystEstimatesInputSchema,
   func: async (input) => {
+    const ticker = validateTicker(input.ticker);
+
     const params = {
-      ticker: input.ticker,
+      ticker,
       period: input.period,
     };
     const { data, url } = await callApi('/analyst-estimates/', params);

@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi, stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
+import { validateLimit, validateReportPeriodFilters, validateTicker } from './validation.js';
 
 const REDUNDANT_INSIDER_FIELDS = ['issuer'] as const;
 
@@ -40,14 +41,24 @@ export const getInsiderTrades = new DynamicStructuredTool({
   description: `Retrieves insider trading transactions for a given company ticker. Insider trades include purchases and sales of company stock by executives, directors, and other insiders. This data is sourced from SEC Form 4 filings. Use filing_date filters to narrow down results by date range.`,
   schema: InsiderTradesInputSchema,
   func: async (input) => {
+    const ticker = validateTicker(input.ticker);
+    const limit = validateLimit(input.limit, { fieldName: 'limit', min: 1, max: 1000 });
+    const filters = validateReportPeriodFilters({
+      report_period: input.filing_date,
+      report_period_gt: input.filing_date_gt,
+      report_period_gte: input.filing_date_gte,
+      report_period_lt: input.filing_date_lt,
+      report_period_lte: input.filing_date_lte,
+    });
+
     const params: Record<string, string | number | undefined> = {
-      ticker: input.ticker.toUpperCase(),
-      limit: input.limit,
-      filing_date: input.filing_date,
-      filing_date_gte: input.filing_date_gte,
-      filing_date_lte: input.filing_date_lte,
-      filing_date_gt: input.filing_date_gt,
-      filing_date_lt: input.filing_date_lt,
+      ticker,
+      limit,
+      filing_date: filters.report_period,
+      filing_date_gte: filters.report_period_gte,
+      filing_date_lte: filters.report_period_lte,
+      filing_date_gt: filters.report_period_gt,
+      filing_date_lt: filters.report_period_lt,
     };
     const { data, url } = await callApi('/insider-trades/', params);
     return formatToolResult(

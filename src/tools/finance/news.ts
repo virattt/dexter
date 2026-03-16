@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
 import { formatToolResult } from '../types.js';
+import { validateLimit, validateTicker } from './validation.js';
 
 const CompanyNewsInputSchema = z.object({
   ticker: z
@@ -19,9 +20,12 @@ export const getCompanyNews = new DynamicStructuredTool({
     'Retrieves recent company news headlines for a stock ticker, including title, source, publication date, and URL. Use for company catalysts, price move explanations, press releases, and recent announcements.',
   schema: CompanyNewsInputSchema,
   func: async (input) => {
+    const ticker = validateTicker(input.ticker);
+    const limit = validateLimit(input.limit, { fieldName: 'limit', min: 1, max: 10 });
+
     const params: Record<string, string | number | undefined> = {
-      ticker: input.ticker.trim().toUpperCase(),
-      limit: Math.min(input.limit, 10),
+      ticker,
+      limit,
     };
     const { data, url } = await callApi('/news', params);
     return formatToolResult((data.news as unknown[]) || [], [url]);

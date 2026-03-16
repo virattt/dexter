@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { callApi } from './api.js';
 import { formatToolResult } from '../types.js';
+import { validateDateRange, validateTicker } from './validation.js';
 
 export const STOCK_PRICE_DESCRIPTION = `
 Fetches current stock price snapshots for equities, including open, high, low, close prices, volume, and market cap. Powered by Financial Datasets.
@@ -19,7 +20,7 @@ export const getStockPrice = new DynamicStructuredTool({
     'Fetches the current stock price snapshot for an equity ticker, including open, high, low, close prices, volume, and market cap.',
   schema: StockPriceInputSchema,
   func: async (input) => {
-    const ticker = input.ticker.trim().toUpperCase();
+    const ticker = validateTicker(input.ticker);
     const params = { ticker };
     const { data, url } = await callApi('/prices/snapshot/', params);
     return formatToolResult(data.snapshot || {}, [url]);
@@ -44,14 +45,17 @@ export const getStockPrices = new DynamicStructuredTool({
     'Retrieves historical price data for a stock over a specified date range, including open, high, low, close prices and volume.',
   schema: StockPricesInputSchema,
   func: async (input) => {
+    const ticker = validateTicker(input.ticker);
+    const { start, end } = validateDateRange(input.start_date, input.end_date);
+
     const params = {
-      ticker: input.ticker.trim().toUpperCase(),
+      ticker,
       interval: input.interval,
-      start_date: input.start_date,
-      end_date: input.end_date,
+      start_date: start,
+      end_date: end,
     };
     // Cache when the date window is fully closed (OHLCV data is final)
-    const endDate = new Date(input.end_date + 'T00:00:00');
+    const endDate = new Date(end + 'T00:00:00');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const { data, url } = await callApi('/prices/', params, { cacheable: endDate < today });
