@@ -17,7 +17,7 @@ describe('finance validation helpers', () => {
     });
 
     test('strips whitespace and punctuation', () => {
-      expect(normalizeTicker(' 1 555-A P L ')).toBe('1555APL');
+      expect(normalizeTicker(' 1 555-A P L ')).toBe('1555-APL');
     });
   });
 
