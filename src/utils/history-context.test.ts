@@ -110,5 +110,4 @@ describe('buildHistoryContext', () => {
       expect(context).toContain(`Msg ${i}`);
     }
   });
-})
-
+});

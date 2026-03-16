@@ -47,17 +47,18 @@ export class LongTermChatHistory {
     options?: {
       /**
        * Maximum number of entries to retain in memory and on disk.
-       * Values <= 0 are treated as "no limit".
+       * Values <= 0 are treated as "no limit" (no trimming).
        */
       maxEntries?: number;
     }
   ) {
     this.filePath = join(baseDir, getDexterDir(), MESSAGES_DIR, MESSAGES_FILE);
     const requestedMax = options?.maxEntries;
-    this.maxEntries =
-      typeof requestedMax === 'number' && requestedMax > 0
-        ? Math.floor(requestedMax)
-        : DEFAULT_MAX_ENTRIES;
+    if (typeof requestedMax === 'number') {
+      this.maxEntries = requestedMax > 0 ? Math.floor(requestedMax) : 0;
+    } else {
+      this.maxEntries = DEFAULT_MAX_ENTRIES;
+    }
   }
 
   /**
@@ -78,9 +79,9 @@ export class LongTermChatHistory {
         await this.save();
       }
     } catch {
-      // If there's any error reading/parsing, start fresh
+      // If there's any error reading/parsing, start fresh in memory
+      // but leave the on-disk file untouched so users can recover it manually.
       this.messages = [];
-      await this.save();
     }
 
     // Enforce max entries on load as well, in case file grew too large.

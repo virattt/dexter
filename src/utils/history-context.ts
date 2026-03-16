@@ -39,7 +39,7 @@ export function buildHistoryContext(params: BuildHistoryContextParams): string {
   }
 
   const historyText = entriesToUse
-    .map((entry) => `${entry.role === 'user' ? 'User' : 'Assistant'}: ${entry.content}`)
+    .map(entry => `${entry.role === 'user' ? 'User' : 'Assistant'}: ${entry.content}`)
     .join(`${lineBreak}${lineBreak}`);
 
   return [

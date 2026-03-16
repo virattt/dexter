@@ -1,9 +1,10 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { existsSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
+import { tmpdir } from 'os';
 import { LongTermChatHistory } from './long-term-chat-history.js';
 
-const TEST_BASE_DIR = '.dexter-long-term-history-tests';
+const TEST_BASE_DIR = join(tmpdir(), 'dexter-long-term-history-tests');
 
 function getMessagesFilePath(): string {
   return join(TEST_BASE_DIR, '.dexter', 'messages', 'chat_history.json');
@@ -111,5 +112,15 @@ describe('LongTermChatHistory', () => {
     expect(Array.isArray(parsed.messages)).toBe(true);
     expect(parsed.messages.length).toBe(3);
   });
-})
 
+  test('does not trim when maxEntries is <= 0', async () => {
+    const history = new LongTermChatHistory(TEST_BASE_DIR, { maxEntries: 0 });
+
+    for (let i = 0; i < 10; i++) {
+      await history.addUserMessage(`Msg ${i}`);
+    }
+
+    const messages = history.getMessages();
+    expect(messages.length).toBe(10);
+  });
+});
