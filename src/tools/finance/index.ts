@@ -6,6 +6,7 @@ export { getSegmentedRevenues } from './segments.js';
 export { getStockPrice, getStockPrices, getStockTickers, STOCK_PRICE_DESCRIPTION } from './stock-price.js';
 export { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
 export { getInsiderTrades } from './insider_trades.js';
+export { getEarnings } from './earnings.js';
 export { createFinancialSearch } from './financial-search.js';
 export { createFinancialMetrics } from './financial-metrics.js';
 export { createReadFilings } from './read-filings.js';

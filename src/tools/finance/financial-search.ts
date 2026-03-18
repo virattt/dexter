@@ -59,6 +59,7 @@ import { getInsiderTrades } from './insider_trades.js';
 import { getStockPrice, getStockPrices, getStockTickers } from './stock-price.js';
 import { getHistoricalKeyRatios } from './key-ratios.js';
 import { getCompanyNews } from './news.js';
+import { getEarnings } from './earnings.js';
 
 // All finance tools available for routing
 const FINANCE_TOOLS: StructuredToolInterface[] = [
@@ -74,6 +75,8 @@ const FINANCE_TOOLS: StructuredToolInterface[] = [
   getBalanceSheets,
   getCashFlowStatements,
   getAllFinancialStatements,
+  // Earnings
+  getEarnings,
   // Key Ratios, Snapshots & Estimates
   getKeyRatios,
   getHistoricalKeyRatios,
@@ -114,6 +117,7 @@ Given a user's natural language query about financial data, call the appropriate
    - For latest financial metrics snapshot (P/E, margins, ROE, EPS, growth rates) → get_key_ratios
    - For historical P/E ratio, historical market cap, valuation metrics over time → get_historical_key_ratios
    - For revenue, earnings, profitability → get_income_statements
+   - For latest earnings release snapshot, EPS/revenue beat-miss, earnings surprises → get_earnings
    - For debt, assets, equity → get_balance_sheets
    - For cash flow, free cash flow → get_cash_flow_statements
    - For news, catalysts, "why did X move", recent announcements → get_company_news
