@@ -24,9 +24,7 @@ export default {
     ],
   },
   // Transform ESM packages from node_modules that Jest can't handle natively
-  transformIgnorePatterns: [
-    'node_modules/(?!(p-retry|is-network-error|@langchain)/)',
-  ],
+  transformIgnorePatterns: ['node_modules/(?!(p-retry|is-network-error|@langchain)/)'],
   testMatch: ['**/__tests__/**/*.test.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   collectCoverageFrom: [
@@ -38,4 +36,3 @@ export default {
   coverageDirectory: 'coverage',
   verbose: true,
 };
-

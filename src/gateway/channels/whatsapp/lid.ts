@@ -1,6 +1,6 @@
 /**
  * LID (Linked ID) resolution utilities for WhatsApp.
- * 
+ *
  * WhatsApp uses LID JIDs for self-chat which don't have Signal sessions.
  * We need to resolve LID JIDs to phone number JIDs (@s.whatsapp.net) for replies.
  */
@@ -11,7 +11,7 @@ export type LidLookup = {
 
 /**
  * Resolve a JID to a phone number JID suitable for sending messages.
- * 
+ *
  * - If already @s.whatsapp.net or @g.us, returns as-is
  * - If @lid, attempts resolution via lidLookup.getPNForLID()
  * - Returns null if resolution fails or jid is null/undefined
@@ -19,10 +19,10 @@ export type LidLookup = {
 export async function resolveJidToPhoneJid(
   jid: string | null | undefined,
   lidLookup?: LidLookup,
-  debugLog?: (msg: string) => void,
+  debugLog?: (msg: string) => void
 ): Promise<string | null> {
   const log = debugLog ?? (() => {});
-  
+
   if (!jid) {
     log(`[lid] jid is null/undefined`);
     return null;
@@ -41,7 +41,9 @@ export async function resolveJidToPhoneJid(
       try {
         const pnJid = await lidLookup.getPNForLID(jid);
         log(`[lid] getPNForLID returned: ${pnJid}`);
-        if (pnJid) return pnJid;
+        if (pnJid) {
+          return pnJid;
+        }
       } catch (err) {
         log(`[lid] getPNForLID error: ${err instanceof Error ? err.message : String(err)}`);
       }

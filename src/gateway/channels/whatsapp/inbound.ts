@@ -4,9 +4,13 @@ import {
   extractMessageContent,
   type ConnectionState,
   type WAMessage,
-  type proto,
 } from '@whiskeysockets/baileys';
-import { createWaSocket, getStatusCode, isLoggedOutReason, waitForWaConnection } from './session.js';
+import {
+  createWaSocket,
+  getStatusCode,
+  isLoggedOutReason,
+  waitForWaConnection,
+} from './session.js';
 import type { WhatsAppCloseReason, WhatsAppInboundMessage } from './types.js';
 import { setActiveWebListener } from './outbound.js';
 import { isRecentInboundMessage } from './dedupe.js';
@@ -23,10 +27,14 @@ function debugLog(msg: string) {
 
 function extractMentionedJids(message: WAMessage): string[] {
   const rawMsg = message.message;
-  if (!rawMsg) return [];
+  if (!rawMsg) {
+    return [];
+  }
 
   const normalized = normalizeMessageContent(rawMsg);
-  if (!normalized) return [];
+  if (!normalized) {
+    return [];
+  }
 
   // Check contextInfo.mentionedJid across message types that support mentions
   const contextInfo =
@@ -45,36 +53,38 @@ function extractText(message: WAMessage): string {
     debugLog(`[extractText] no message content`);
     return '';
   }
-  
+
   // Use Baileys' normalizeMessageContent to unwrap viewOnce, ephemeral, etc.
   const normalized = normalizeMessageContent(rawMsg);
   if (!normalized) {
     debugLog(`[extractText] normalizeMessageContent returned null`);
     return '';
   }
-  
+
   // Log available message keys for debugging
   const keys = Object.keys(normalized);
   debugLog(`[extractText] message keys: ${keys.join(', ')}`);
-  
+
   // Try extractMessageContent for deeper extraction
   const extracted = extractMessageContent(normalized);
   const candidates = [normalized, extracted && extracted !== normalized ? extracted : undefined];
-  
+
   for (const candidate of candidates) {
-    if (!candidate) continue;
-    
+    if (!candidate) {
+      continue;
+    }
+
     // Check conversation (simple text)
     if (typeof candidate.conversation === 'string' && candidate.conversation.trim()) {
       return candidate.conversation.trim();
     }
-    
+
     // Check extended text message
     const extended = candidate.extendedTextMessage?.text;
     if (extended?.trim()) {
       return extended.trim();
     }
-    
+
     // Check media captions
     const caption =
       candidate.imageMessage?.caption ??
@@ -84,7 +94,7 @@ function extractText(message: WAMessage): string {
       return caption.trim();
     }
   }
-  
+
   return '';
 }
 
@@ -127,7 +137,8 @@ export async function monitorWebInbox(params: {
   console.log('[whatsapp] Connected');
   const connectedAtMs = Date.now();
   const selfJid = sock.user?.id;
-  const selfLid = (sock.user as unknown as Record<string, unknown>)?.lid as string | undefined ?? null;
+  const selfLid =
+    ((sock.user as unknown as Record<string, unknown>)?.lid as string | undefined) ?? null;
   const selfFromSock = jidToE164(selfJid);
   const selfFromCreds = readSelfId(params.authDir).e164;
   const selfE164 = selfFromSock ?? selfFromCreds;
@@ -136,10 +147,14 @@ export async function monitorWebInbox(params: {
   // Get LID lookup for resolving LID JIDs to phone JIDs
   // Baileys 7.x provides signalRepository.lidMapping for LID resolution
   const lidMapping = sock.signalRepository?.lidMapping;
-  const lidLookup: LidLookup | undefined = lidMapping ? {
-    getPNForLID: lidMapping.getPNForLID?.bind(lidMapping),
-  } : undefined;
-  debugLog(`[inbound] lidLookup available: ${!!lidLookup}, getPNForLID: ${typeof lidLookup?.getPNForLID}`);
+  const lidLookup: LidLookup | undefined = lidMapping
+    ? {
+        getPNForLID: lidMapping.getPNForLID?.bind(lidMapping),
+      }
+    : undefined;
+  debugLog(
+    `[inbound] lidLookup available: ${!!lidLookup}, getPNForLID: ${typeof lidLookup?.getPNForLID}`
+  );
 
   let onCloseResolve: ((reason: WhatsAppCloseReason) => void) | null = null;
   const onClose = new Promise<WhatsAppCloseReason>((resolve) => {
@@ -176,11 +191,13 @@ export async function monitorWebInbox(params: {
 
       const isGroup = isJidGroup(remoteJid) === true;
       const senderJid = message.key?.participant ?? remoteJid;
-      
+
       // For direct chats, resolve LID JID to phone JID for reliable replies
       let replyToJid = remoteJid;
       if (!isGroup) {
-        debugLog(`[inbound] attempting LID resolution for ${remoteJid}, lidLookup available: ${!!lidLookup}, getPNForLID available: ${!!lidLookup?.getPNForLID}`);
+        debugLog(
+          `[inbound] attempting LID resolution for ${remoteJid}, lidLookup available: ${!!lidLookup}, getPNForLID available: ${!!lidLookup?.getPNForLID}`
+        );
         const resolvedJid = await resolveJidToPhoneJid(remoteJid, lidLookup, debugLog);
         debugLog(`[inbound] resolveJidToPhoneJid result: ${resolvedJid}`);
         if (resolvedJid) {
@@ -190,12 +207,14 @@ export async function monitorWebInbox(params: {
           debugLog(`[inbound] LID resolution failed, using original ${remoteJid} for replies`);
         }
       }
-      
+
       const from = toPhoneFromJid(isGroup ? senderJid : replyToJid);
       const messageTimestampMs = message.messageTimestamp
         ? Number(message.messageTimestamp) * 1000
         : undefined;
-      debugLog(`[inbound] from=${from} selfE164=${selfE164} isGroup=${isGroup} isFromMe=${message.key?.fromMe} allowFrom=${JSON.stringify(params.allowFrom)} dmPolicy=${params.dmPolicy} groupPolicy=${params.groupPolicy}`);
+      debugLog(
+        `[inbound] from=${from} selfE164=${selfE164} isGroup=${isGroup} isFromMe=${message.key?.fromMe} allowFrom=${JSON.stringify(params.allowFrom)} dmPolicy=${params.dmPolicy} groupPolicy=${params.groupPolicy}`
+      );
       const access = await checkInboundAccessControl({
         accountId: params.accountId,
         from,
@@ -214,7 +233,7 @@ export async function monitorWebInbox(params: {
         },
       });
       debugLog(
-        `[inbound] access allowed=${access.allowed} denyReason=${access.denyReason ?? 'none'} isSelfChat=${access.isSelfChat} shouldMarkRead=${access.shouldMarkRead}`,
+        `[inbound] access allowed=${access.allowed} denyReason=${access.denyReason ?? 'none'} isSelfChat=${access.isSelfChat} shouldMarkRead=${access.shouldMarkRead}`
       );
       if (!access.allowed) {
         continue;
@@ -226,7 +245,9 @@ export async function monitorWebInbox(params: {
         try {
           const meta = await sock.groupMetadata(remoteJid);
           groupSubject = meta.subject;
-          groupParticipants = meta.participants?.map((participant) => toPhoneFromJid(participant.id));
+          groupParticipants = meta.participants?.map((participant) =>
+            toPhoneFromJid(participant.id)
+          );
         } catch {
           // ignore metadata fetch failures
         }
@@ -323,4 +344,3 @@ export async function monitorWebInbox(params: {
     },
   };
 }
-

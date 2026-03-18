@@ -36,7 +36,9 @@ interface RawXResponse {
 
 function getBearerToken(): string {
   const token = process.env.X_BEARER_TOKEN;
-  if (!token) throw new Error('X_BEARER_TOKEN is not set');
+  if (!token) {
+    throw new Error('X_BEARER_TOKEN is not set');
+  }
   return token;
 }
 
@@ -51,9 +53,7 @@ async function xApiGet(url: string): Promise<RawXResponse> {
 
   if (res.status === 429) {
     const reset = res.headers.get('x-rate-limit-reset');
-    const waitSec = reset
-      ? Math.max(parseInt(reset) - Math.floor(Date.now() / 1000), 1)
-      : 60;
+    const waitSec = reset ? Math.max(parseInt(reset) - Math.floor(Date.now() / 1000), 1) : 60;
     throw new Error(`X API rate limited. Resets in ${waitSec}s`);
   }
 
@@ -66,7 +66,9 @@ async function xApiGet(url: string): Promise<RawXResponse> {
 }
 
 function parseTweets(raw: RawXResponse): XTweet[] {
-  if (!raw.data) return [];
+  if (!raw.data) {
+    return [];
+  }
 
   const users: Record<string, Record<string, unknown>> = {};
   for (const u of raw.includes?.users ?? []) {
@@ -92,9 +94,7 @@ function parseTweets(raw: RawXResponse): XTweet[] {
         replies: m.reply_count ?? 0,
         impressions: m.impression_count ?? 0,
       },
-      urls: urlEntities
-        .map((e) => e.expanded_url as string)
-        .filter(Boolean),
+      urls: urlEntities.map((e) => e.expanded_url as string).filter(Boolean),
       tweet_url: `https://x.com/${(u.username as string) ?? '?'}/status/${t.id as string}`,
     };
   });
@@ -106,14 +106,15 @@ function parseSince(since: string): string | null {
   if (match) {
     const num = parseInt(match[1]);
     const unit = match[2];
-    const ms =
-      unit === 'm' ? num * 60_000 :
-      unit === 'h' ? num * 3_600_000 :
-      num * 86_400_000;
+    const ms = unit === 'm' ? num * 60_000 : unit === 'h' ? num * 3_600_000 : num * 86_400_000;
     return new Date(Date.now() - ms).toISOString();
   }
   if (since.includes('T') || /^\d{4}-/.test(since)) {
-    try { return new Date(since).toISOString(); } catch { return null; }
+    try {
+      return new Date(since).toISOString();
+    } catch {
+      return null;
+    }
   }
   return null;
 }
@@ -125,7 +126,7 @@ async function searchTweets(
     maxResults?: number;
     sortOrder?: 'relevancy' | 'recency';
     since?: string;
-  } = {},
+  } = {}
 ): Promise<XTweet[]> {
   const pages = Math.min(opts.pages ?? 1, 5);
   const maxResults = Math.max(Math.min(opts.maxResults ?? 100, 100), 10);
@@ -135,7 +136,9 @@ async function searchTweets(
   let timeFilter = '';
   if (opts.since) {
     const startTime = parseSince(opts.since);
-    if (startTime) timeFilter = `&start_time=${startTime}`;
+    if (startTime) {
+      timeFilter = `&start_time=${startTime}`;
+    }
   }
 
   const allTweets: XTweet[] = [];
@@ -151,14 +154,20 @@ async function searchTweets(
     const raw = await xApiGet(url);
     allTweets.push(...parseTweets(raw));
     nextToken = raw.meta?.next_token;
-    if (!nextToken) break;
-    if (page < pages - 1) await sleep(RATE_DELAY_MS);
+    if (!nextToken) {
+      break;
+    }
+    if (page < pages - 1) {
+      await sleep(RATE_DELAY_MS);
+    }
   }
 
   // Deduplicate
   const seen = new Set<string>();
   return allTweets.filter((t) => {
-    if (seen.has(t.id)) return false;
+    if (seen.has(t.id)) {
+      return false;
+    }
     seen.add(t.id);
     return true;
   });
@@ -166,14 +175,16 @@ async function searchTweets(
 
 async function getProfile(
   username: string,
-  count: number,
+  count: number
 ): Promise<{ user: Record<string, unknown>; tweets: XTweet[] }> {
   const userUrl =
     `${X_API_BASE}/users/by/username/${username}` +
     `?user.fields=public_metrics,description,created_at`;
   const userData = await xApiGet(userUrl as unknown as string);
   const user = (userData as unknown as { data: Record<string, unknown> }).data;
-  if (!user) throw new Error(`User @${username} not found`);
+  if (!user) {
+    throw new Error(`User @${username} not found`);
+  }
 
   await sleep(RATE_DELAY_MS);
 
@@ -197,19 +208,16 @@ const schema = z.object({
   command: z
     .enum(['search', 'profile', 'thread'])
     .describe(
-      'search: search recent tweets; profile: get recent tweets from a user; thread: fetch a conversation thread',
+      'search: search recent tweets; profile: get recent tweets from a user; thread: fetch a conversation thread'
     ),
   query: z
     .string()
     .optional()
     .describe(
       'For search: the search query (supports X operators like from:, -is:retweet, OR, etc.). ' +
-      'For thread: the root tweet ID.',
+        'For thread: the root tweet ID.'
     ),
-  username: z
-    .string()
-    .optional()
-    .describe('For profile: the X/Twitter username (without @)'),
+  username: z.string().optional().describe('For profile: the X/Twitter username (without @)'),
   sort: z
     .enum(['likes', 'impressions', 'retweets', 'recent'])
     .optional()
@@ -253,14 +261,17 @@ export const xSearchTool = new DynamicStructuredTool({
       const limit = input.limit ?? 15;
 
       if (input.command === 'search') {
-        if (!input.query) throw new Error('query is required for search command');
+        if (!input.query) {
+          throw new Error('query is required for search command');
+        }
 
         let query = input.query;
         // Auto-suppress retweets unless caller explicitly included the operator
-        if (!query.includes('is:retweet')) query += ' -is:retweet';
+        if (!query.includes('is:retweet')) {
+          query += ' -is:retweet';
+        }
 
-        const sortOrder =
-          input.sort === 'recent' ? 'recency' : 'relevancy';
+        const sortOrder = input.sort === 'recent' ? 'recency' : 'relevancy';
 
         const maxResults = Math.min(Math.max(limit, 10), 100);
         let tweets = await searchTweets(query, {
@@ -287,14 +298,18 @@ export const xSearchTool = new DynamicStructuredTool({
       }
 
       if (input.command === 'profile') {
-        if (!input.username) throw new Error('username is required for profile command');
+        if (!input.username) {
+          throw new Error('username is required for profile command');
+        }
         const { user, tweets } = await getProfile(input.username, limit);
         const urls = tweets.map((t) => t.tweet_url);
         return formatToolResult({ user, tweets: tweets.slice(0, limit) }, urls);
       }
 
       if (input.command === 'thread') {
-        if (!input.query) throw new Error('tweet ID (query field) is required for thread command');
+        if (!input.query) {
+          throw new Error('tweet ID (query field) is required for thread command');
+        }
         const tweets = await getThread(input.query);
         const urls = tweets.map((t) => t.tweet_url);
         return formatToolResult({ tweets: tweets.slice(0, limit) }, urls);
@@ -303,7 +318,7 @@ export const xSearchTool = new DynamicStructuredTool({
       throw new Error(`Unknown command: ${input.command}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`[x_search] ${message}`);
+      throw new Error(`[x_search] ${message}`, { cause: error });
     }
   },
 });

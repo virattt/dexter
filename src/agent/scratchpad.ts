@@ -56,9 +56,9 @@ const DEFAULT_LIMIT_CONFIG: ToolLimitConfig = {
  * Append-only scratchpad for tracking agent work on a query.
  * Uses JSONL format (newline-delimited JSON) for resilient appending.
  * Files are persisted in .dexter/scratchpad/ for debugging/history.
- * 
+ *
  * This is the single source of truth for all agent work on a query.
- * 
+ *
  * Includes soft limit warnings to guide the LLM:
  * - Tool call counting with suggested limits (warnings, not blocks)
  * - Query similarity detection to help prevent retry loops
@@ -85,10 +85,11 @@ export class Scratchpad {
 
     const hash = createHash('md5').update(query).digest('hex').slice(0, 12);
     const now = new Date();
-    const timestamp = now.toISOString()
-      .slice(0, 19)           // "2026-01-21T15:30:45"
-      .replace('T', '-')      // "2026-01-21-15:30:45"
-      .replace(/:/g, '');     // "2026-01-21-153045"
+    const timestamp = now
+      .toISOString()
+      .slice(0, 19) // "2026-01-21T15:30:45"
+      .replace('T', '-') // "2026-01-21-15:30:45"
+      .replace(/:/g, ''); // "2026-01-21-153045"
     this.filepath = join(this.scratchpadDir, `${timestamp}_${hash}.jsonl`);
 
     // Write initial entry with the query
@@ -100,11 +101,7 @@ export class Scratchpad {
    * Parses JSON strings to store as objects for cleaner JSONL output.
    * Anthropic-style: no inline summarization, full results preserved.
    */
-  addToolResult(
-    toolName: string,
-    args: Record<string, unknown>,
-    result: string
-  ): void {
+  addToolResult(toolName: string, args: Record<string, unknown>, result: string): void {
     this.append({
       type: 'tool_result',
       timestamp: new Date().toISOString(),
@@ -131,7 +128,8 @@ export class Scratchpad {
     if (currentCount >= maxCalls) {
       return {
         allowed: true,
-        warning: `Tool '${toolName}' has been called ${currentCount} times (suggested limit: ${maxCalls}). ` +
+        warning:
+          `Tool '${toolName}' has been called ${currentCount} times (suggested limit: ${maxCalls}). ` +
           `If previous calls didn't return the needed data, consider: ` +
           `(1) trying a different tool, (2) using different search terms, or ` +
           `(3) proceeding with what you have and noting any data gaps to the user.`,
@@ -142,13 +140,14 @@ export class Scratchpad {
     if (query) {
       const previousQueries = this.toolQueries.get(toolName) ?? [];
       const similarQuery = this.findSimilarQuery(query, previousQueries);
-      
+
       if (similarQuery) {
         // Allow but warn - the LLM should know it's repeating
         const remaining = maxCalls - currentCount;
         return {
           allowed: true,
-          warning: `This query is very similar to a previous '${toolName}' call. ` +
+          warning:
+            `This query is very similar to a previous '${toolName}' call. ` +
             `You have ${remaining} attempt(s) before reaching the suggested limit. ` +
             `If the tool isn't returning useful results, consider: ` +
             `(1) trying a different tool, (2) using different search terms, or ` +
@@ -161,7 +160,8 @@ export class Scratchpad {
     if (currentCount === maxCalls - 1) {
       return {
         allowed: true,
-        warning: `You are approaching the suggested limit for '${toolName}' (${currentCount + 1}/${maxCalls}). ` +
+        warning:
+          `You are approaching the suggested limit for '${toolName}' (${currentCount + 1}/${maxCalls}). ` +
           `If this doesn't return the needed data, consider trying a different approach.`,
       };
     }
@@ -191,13 +191,13 @@ export class Scratchpad {
    */
   getToolUsageStatus(): ToolUsageStatus[] {
     const statuses: ToolUsageStatus[] = [];
-    
+
     for (const [toolName, callCount] of this.toolCallCounts) {
       const maxCalls = this.limitConfig.maxCallsPerTool;
       const remainingCalls = Math.max(0, maxCalls - callCount);
       const recentQueries = this.toolQueries.get(toolName) ?? [];
       const overLimit = callCount >= maxCalls;
-      
+
       statuses.push({
         toolName,
         callCount,
@@ -208,7 +208,7 @@ export class Scratchpad {
         blockReason: overLimit ? `Over suggested limit of ${maxCalls} calls` : undefined,
       });
     }
-    
+
     return statuses;
   }
 
@@ -217,20 +217,23 @@ export class Scratchpad {
    */
   formatToolUsageForPrompt(): string | null {
     const statuses = this.getToolUsageStatus();
-    
+
     if (statuses.length === 0) {
       return null;
     }
 
-    const lines = statuses.map(s => {
-      const status = s.callCount >= s.maxCalls
-        ? `${s.callCount} calls (over suggested limit of ${s.maxCalls})`
-        : `${s.callCount}/${s.maxCalls} calls`;
+    const lines = statuses.map((s) => {
+      const status =
+        s.callCount >= s.maxCalls
+          ? `${s.callCount} calls (over suggested limit of ${s.maxCalls})`
+          : `${s.callCount}/${s.maxCalls} calls`;
       return `- ${s.toolName}: ${status}`;
     });
 
-    return `## Tool Usage This Query\n\n${lines.join('\n')}\n\n` +
-      `Note: If a tool isn't returning useful results after several attempts, consider trying a different tool/approach.`;
+    return (
+      `## Tool Usage This Query\n\n${lines.join('\n')}\n\n` +
+      `Note: If a tool isn't returning useful results after several attempts, consider trying a different tool/approach.`
+    );
   }
 
   /**
@@ -239,16 +242,16 @@ export class Scratchpad {
    */
   private findSimilarQuery(newQuery: string, previousQueries: string[]): string | null {
     const newWords = this.tokenize(newQuery);
-    
+
     for (const prevQuery of previousQueries) {
       const prevWords = this.tokenize(prevQuery);
       const similarity = this.calculateSimilarity(newWords, prevWords);
-      
+
       if (similarity >= this.limitConfig.similarityThreshold) {
         return prevQuery;
       }
     }
-    
+
     return null;
   }
 
@@ -261,7 +264,7 @@ export class Scratchpad {
         .toLowerCase()
         .replace(/[^\w\s]/g, ' ')
         .split(/\s+/)
-        .filter(w => w.length > 2) // Skip very short words
+        .filter((w) => w.length > 2) // Skip very short words
     );
   }
 
@@ -269,11 +272,13 @@ export class Scratchpad {
    * Calculate word overlap similarity between two word sets.
    */
   private calculateSimilarity(set1: Set<string>, set2: Set<string>): number {
-    if (set1.size === 0 || set2.size === 0) return 0;
-    
-    const intersection = [...set1].filter(w => set2.has(w)).length;
+    if (set1.size === 0 || set2.size === 0) {
+      return 0;
+    }
+
+    const intersection = [...set1].filter((w) => set2.has(w)).length;
     const union = new Set([...set1, ...set2]).size;
-    
+
     return intersection / union; // Jaccard similarity
   }
 
@@ -305,26 +310,30 @@ export class Scratchpad {
   getToolResults(): string {
     const entries = this.readEntries();
     let toolResultIndex = 0;
-    
+
     const formattedResults: string[] = [];
     for (const entry of entries) {
-      if (entry.type !== 'tool_result' || !entry.toolName) continue;
-      
+      if (entry.type !== 'tool_result' || !entry.toolName) {
+        continue;
+      }
+
       // Skip entries that have been cleared from context (in-memory only)
       if (this.clearedToolIndices.has(toolResultIndex)) {
         formattedResults.push(`[Tool result #${toolResultIndex + 1} cleared from context]`);
         toolResultIndex++;
         continue;
       }
-      
-      const argsStr = entry.args 
-        ? Object.entries(entry.args).map(([k, v]) => `${k}=${v}`).join(', ')
+
+      const argsStr = entry.args
+        ? Object.entries(entry.args)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(', ')
         : '';
       const resultStr = this.stringifyResult(entry.result);
       formattedResults.push(`### ${entry.toolName}(${argsStr})\n${resultStr}`);
       toolResultIndex++;
     }
-    
+
     return formattedResults.join('\n\n');
   }
 
@@ -332,14 +341,14 @@ export class Scratchpad {
    * Clear oldest tool results from context (in-memory only).
    * Anthropic-style: removes oldest tool results, keeping most recent N.
    * The JSONL file is NOT modified - this only affects what gets sent to the LLM.
-   * 
+   *
    * @param keepCount - Number of most recent tool results to keep
    * @returns Number of tool results that were cleared
    */
   clearOldestToolResults(keepCount: number): number {
     const entries = this.readEntries();
     const toolResultIndices: number[] = [];
-    
+
     let index = 0;
     for (const entry of entries) {
       if (entry.type === 'tool_result') {
@@ -350,17 +359,19 @@ export class Scratchpad {
         index++;
       }
     }
-    
+
     // Calculate how many to clear
     const toClearCount = Math.max(0, toolResultIndices.length - keepCount);
-    
-    if (toClearCount === 0) return 0;
-    
+
+    if (toClearCount === 0) {
+      return 0;
+    }
+
     // Clear oldest entries (first N indices)
     for (let i = 0; i < toClearCount; i++) {
       this.clearedToolIndices.add(toolResultIndices[i]);
     }
-    
+
     return toClearCount;
   }
 
@@ -371,7 +382,7 @@ export class Scratchpad {
     const entries = this.readEntries();
     let count = 0;
     let index = 0;
-    
+
     for (const entry of entries) {
       if (entry.type === 'tool_result') {
         if (!this.clearedToolIndices.has(index)) {
@@ -380,7 +391,7 @@ export class Scratchpad {
         index++;
       }
     }
-    
+
     return count;
   }
 
@@ -389,8 +400,8 @@ export class Scratchpad {
    */
   getToolCallRecords(): ToolCallRecord[] {
     return this.readEntries()
-      .filter(e => e.type === 'tool_result' && e.toolName)
-      .map(e => ({
+      .filter((e) => e.type === 'tool_result' && e.toolName)
+      .map((e) => ({
         tool: e.toolName!,
         args: e.args!,
         result: this.stringifyResult(e.result),
@@ -412,7 +423,7 @@ export class Scratchpad {
    * Check if any tool results have been recorded
    */
   hasToolResults(): boolean {
-    return this.readEntries().some(e => e.type === 'tool_result');
+    return this.readEntries().some((e) => e.type === 'tool_result');
   }
 
   /**
@@ -421,7 +432,7 @@ export class Scratchpad {
    */
   hasExecutedSkill(skillName: string): boolean {
     return this.readEntries().some(
-      e => e.type === 'tool_result' && e.toolName === 'skill' && e.args?.skill === skillName
+      (e) => e.type === 'tool_result' && e.toolName === 'skill' && e.args?.skill === skillName
     );
   }
 

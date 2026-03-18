@@ -15,13 +15,15 @@ export function getProviderDisplayName(providerId: string): string {
 
 export function checkApiKeyExistsForProvider(providerId: string): boolean {
   const apiKeyName = getApiKeyNameForProvider(providerId);
-  if (!apiKeyName) return true;
+  if (!apiKeyName) {
+    return true;
+  }
   return checkApiKeyExists(apiKeyName);
 }
 
 export function checkApiKeyExists(apiKeyName: string): boolean {
   const value = process.env[apiKeyName];
-  if (value && value.trim() && !value.trim().startsWith('your-')) {
+  if (value?.trim() && !value.trim().startsWith('your-')) {
     return true;
   }
 
@@ -48,7 +50,7 @@ export function checkApiKeyExists(apiKeyName: string): boolean {
 
 export function saveApiKeyToEnv(apiKeyName: string, apiKeyValue: string): boolean {
   try {
-    let lines: string[] = [];
+    const lines: string[] = [];
     let keyUpdated = false;
 
     if (existsSync('.env')) {
@@ -96,6 +98,8 @@ export function saveApiKeyToEnv(apiKeyName: string, apiKeyValue: string): boolea
 
 export function saveApiKeyForProvider(providerId: string, apiKey: string): boolean {
   const apiKeyName = getApiKeyNameForProvider(providerId);
-  if (!apiKeyName) return false;
+  if (!apiKeyName) {
+    return false;
+  }
   return saveApiKeyToEnv(apiKeyName, apiKey);
 }

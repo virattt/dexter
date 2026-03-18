@@ -19,8 +19,8 @@ const DEPRECATED_MODEL_UPGRADES: Record<string, string> = {
 
 interface Config {
   provider?: string;
-  modelId?: string;  // Selected model ID (e.g., "gpt-5.4", "ollama:llama3.1")
-  model?: string;    // Legacy key, kept for migration
+  modelId?: string; // Selected model ID (e.g., "gpt-5.4", "ollama:llama3.1")
+  model?: string; // Legacy key, kept for migration
   memory?: {
     enabled?: boolean;
     embeddingProvider?: 'openai' | 'gemini' | 'ollama' | 'auto';
@@ -37,7 +37,7 @@ export function loadConfig(): Config {
 
   try {
     const content = readFileSync(SETTINGS_FILE, 'utf-8');
-    let config = JSON.parse(content) as Config;
+    const config = JSON.parse(content) as Config;
 
     // Upgrade deprecated model IDs (e.g. gpt-5.2 -> gpt-5.4)
     if (config.modelId && DEPRECATED_MODEL_UPGRADES[config.modelId]) {
@@ -90,23 +90,23 @@ function migrateModelToProvider(config: Config): Config {
 
 export function getSetting<T>(key: string, defaultValue: T): T {
   let config = loadConfig();
-  
+
   // Run migration if accessing provider setting
   if (key === 'provider') {
     config = migrateModelToProvider(config);
   }
-  
+
   return (config[key] as T) ?? defaultValue;
 }
 
 export function setSetting(key: string, value: unknown): boolean {
   const config = loadConfig();
   config[key] = value;
-  
+
   // If setting provider, remove legacy model key
   if (key === 'provider' && config.model) {
     delete config.model;
   }
-  
+
   return saveConfig(config);
 }

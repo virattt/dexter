@@ -10,7 +10,9 @@ const rosters = new Map<string, Map<string, string>>();
  * Record a group member's display name from an incoming message.
  */
 export function noteGroupMember(groupId: string, senderId: string, displayName?: string): void {
-  if (!displayName) return;
+  if (!displayName) {
+    return;
+  }
 
   let roster = rosters.get(groupId);
   if (!roster) {

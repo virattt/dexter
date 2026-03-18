@@ -34,10 +34,7 @@ For the common case (remembering something), just pass \`content\`. Action defau
 `.trim();
 
 const memoryUpdateSchema = z.object({
-  content: z
-    .string()
-    .optional()
-    .describe('Text to append. Required for "append" action.'),
+  content: z.string().optional().describe('Text to append. Required for "append" action.'),
   action: z
     .enum(['append', 'edit', 'delete'])
     .default('append')
@@ -45,21 +42,19 @@ const memoryUpdateSchema = z.object({
   file: z
     .string()
     .default('long_term')
-    .describe('Target file. Defaults to "long_term" (MEMORY.md). Only pass for "daily" or a specific filename.'),
+    .describe(
+      'Target file. Defaults to "long_term" (MEMORY.md). Only pass for "daily" or a specific filename.'
+    ),
   old_text: z
     .string()
     .optional()
     .describe('Existing text to find. Required for "edit" and "delete" actions.'),
-  new_text: z
-    .string()
-    .optional()
-    .describe('Replacement text. Required for "edit" action.'),
+  new_text: z.string().optional().describe('Replacement text. Required for "edit" action.'),
 });
 
 export const memoryUpdateTool = new DynamicStructuredTool({
   name: 'memory_update',
-  description:
-    'Add, edit, or delete persistent memory entries in MEMORY.md or daily logs.',
+  description: 'Add, edit, or delete persistent memory entries in MEMORY.md or daily logs.',
   schema: memoryUpdateSchema,
   func: async (input) => {
     const manager = await MemoryManager.get();
@@ -118,7 +113,11 @@ export const memoryUpdateTool = new DynamicStructuredTool({
 });
 
 function resolveDisplayName(file: string): string {
-  if (file === 'long_term') return 'MEMORY.md';
-  if (file === 'daily') return `${new Date().toISOString().slice(0, 10)}.md`;
+  if (file === 'long_term') {
+    return 'MEMORY.md';
+  }
+  if (file === 'daily') {
+    return `${new Date().toISOString().slice(0, 10)}.md`;
+  }
   return file;
 }

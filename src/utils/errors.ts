@@ -36,12 +36,7 @@ const ERROR_PATTERNS = {
     'service unavailable',
     'high demand',
   ],
-  timeout: [
-    'timeout',
-    'timed out',
-    'deadline exceeded',
-    'context deadline exceeded',
-  ],
+  timeout: ['timeout', 'timed out', 'deadline exceeded', 'context deadline exceeded'],
   billing: [
     /["']?(?:status|code)["']?\s*[:=]\s*402\b/i,
     /\bhttp\s*402\b/i,
@@ -81,10 +76,14 @@ const ERROR_PAYLOAD_PREFIX_RE = /^\[[\w\s]+\]\s*|^(?:error|api\s*error)[:\s-]+/i
 const HTTP_STATUS_PREFIX_RE = /^(\d{3})\s+(.+)$/s;
 
 export function parseApiErrorInfo(raw?: string): ApiErrorInfo | null {
-  if (!raw) return null;
+  if (!raw) {
+    return null;
+  }
 
   let trimmed = raw.trim();
-  if (!trimmed) return null;
+  if (!trimmed) {
+    return null;
+  }
 
   let httpCode: number | undefined;
 
@@ -102,11 +101,12 @@ export function parseApiErrorInfo(raw?: string): ApiErrorInfo | null {
 
   try {
     const parsed = JSON.parse(trimmed) as Record<string, unknown>;
-    const requestId = typeof parsed.request_id === 'string'
-      ? parsed.request_id
-      : typeof parsed.requestId === 'string'
-        ? parsed.requestId
-        : undefined;
+    const requestId =
+      typeof parsed.request_id === 'string'
+        ? parsed.request_id
+        : typeof parsed.requestId === 'string'
+          ? parsed.requestId
+          : undefined;
 
     if (parsed.error && typeof parsed.error === 'object' && !Array.isArray(parsed.error)) {
       const err = parsed.error as Record<string, unknown>;
@@ -119,7 +119,12 @@ export function parseApiErrorInfo(raw?: string): ApiErrorInfo | null {
       };
     }
 
-    if (parsed.type === 'error' && parsed.error && typeof parsed.error === 'object' && !Array.isArray(parsed.error)) {
+    if (
+      parsed.type === 'error' &&
+      parsed.error &&
+      typeof parsed.error === 'object' &&
+      !Array.isArray(parsed.error)
+    ) {
       const err = parsed.error as Record<string, unknown>;
       return {
         httpCode,
@@ -153,7 +158,9 @@ function matchesPatterns(raw: string, patterns: readonly ErrorPattern[]): boolea
 }
 
 export function isContextOverflowError(raw?: string): boolean {
-  if (!raw) return false;
+  if (!raw) {
+    return false;
+  }
   const lower = raw.toLowerCase();
 
   if (lower.includes('tpm') || lower.includes('tokens per minute')) {
@@ -164,7 +171,7 @@ export function isContextOverflowError(raw?: string): boolean {
     return true;
   }
 
-  if (CHINESE_CONTEXT_OVERFLOW.some(msg => raw.includes(msg))) {
+  if (CHINESE_CONTEXT_OVERFLOW.some((msg) => raw.includes(msg))) {
     return true;
   }
 
@@ -205,14 +212,28 @@ export function isOverloadedError(raw?: string): boolean {
 }
 
 export function classifyError(raw?: string): ErrorType {
-  if (!raw) return 'unknown';
+  if (!raw) {
+    return 'unknown';
+  }
 
-  if (isContextOverflowError(raw)) return 'context_overflow';
-  if (isRateLimitError(raw)) return 'rate_limit';
-  if (isBillingError(raw)) return 'billing';
-  if (isAuthError(raw)) return 'auth';
-  if (isTimeoutError(raw)) return 'timeout';
-  if (isOverloadedError(raw)) return 'overloaded';
+  if (isContextOverflowError(raw)) {
+    return 'context_overflow';
+  }
+  if (isRateLimitError(raw)) {
+    return 'rate_limit';
+  }
+  if (isBillingError(raw)) {
+    return 'billing';
+  }
+  if (isAuthError(raw)) {
+    return 'auth';
+  }
+  if (isTimeoutError(raw)) {
+    return 'timeout';
+  }
+  if (isOverloadedError(raw)) {
+    return 'overloaded';
+  }
 
   return 'unknown';
 }
@@ -233,16 +254,22 @@ export function formatUserFacingError(raw: string, provider?: string): string {
 
   switch (errorType) {
     case 'context_overflow':
-      return 'Context overflow: the conversation is too large for the model. ' +
-        'Try starting a new conversation or use a model with a larger context window.';
+      return (
+        'Context overflow: the conversation is too large for the model. ' +
+        'Try starting a new conversation or use a model with a larger context window.'
+      );
     case 'rate_limit':
       return `${providerLabel}API rate limit reached. Please wait a moment and try again.`;
     case 'billing':
-      return `${providerLabel}API key has run out of credits or has an insufficient balance. ` +
-        'Check your billing dashboard and top up, or switch to a different API key.';
+      return (
+        `${providerLabel}API key has run out of credits or has an insufficient balance. ` +
+        'Check your billing dashboard and top up, or switch to a different API key.'
+      );
     case 'auth':
-      return `${providerLabel}API key is invalid or expired. ` +
-        'Check that your API key is correct in your environment variables.';
+      return (
+        `${providerLabel}API key is invalid or expired. ` +
+        'Check that your API key is correct in your environment variables.'
+      );
     case 'timeout':
       return 'LLM request timed out. Please try again.';
     case 'overloaded':

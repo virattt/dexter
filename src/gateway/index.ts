@@ -57,20 +57,27 @@ async function promptSetupMode(cfg: GatewayConfig, linkedPhone: string): Promise
 
     // Bot mode: collect allowed sender phone numbers
     console.log('');
-    console.log('Enter the phone number(s) allowed to message Dexter (E.164 format, e.g. +15551234567).');
+    console.log(
+      'Enter the phone number(s) allowed to message Dexter (E.164 format, e.g. +15551234567).'
+    );
     console.log('Separate multiple numbers with commas, or type * to allow anyone.');
 
     let phones: string[] = [];
     while (phones.length === 0) {
       const input = (await rl.question('Allowed number(s): ')).trim();
-      if (!input) continue;
+      if (!input) {
+        continue;
+      }
 
       if (input === '*') {
         phones = ['*'];
         break;
       }
 
-      phones = input.split(',').map((s) => s.trim()).filter(Boolean);
+      phones = input
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
       const invalid = phones.filter((p) => !E164_RE.test(p));
       if (invalid.length > 0) {
         console.log(`Invalid format: ${invalid.join(', ')}. Use E.164 format (e.g. +15551234567).`);
@@ -135,4 +142,3 @@ async function run(): Promise<void> {
 }
 
 void run();
-

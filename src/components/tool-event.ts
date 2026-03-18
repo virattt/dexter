@@ -27,12 +27,14 @@ function formatArgs(tool: string, args: Record<string, unknown>): string {
   }
   if (tool === 'memory_update') {
     const text = String(args.content ?? args.old_text ?? '').replace(/\n/g, ' ');
-    if (text) return theme.muted(truncateAtWord(text, 80));
+    if (text) {
+      return theme.muted(truncateAtWord(text, 80));
+    }
   }
   return theme.muted(
     Object.entries(args)
       .map(([key, value]) => `${key}=${truncateAtWord(String(value).replace(/\n/g, '\\n'), 60)}`)
-      .join(', '),
+      .join(', ')
   );
 }
 
@@ -87,7 +89,11 @@ export class ToolEventComponent extends Container {
 
   setError(error: string) {
     this.clearDetail();
-    const detail = new Text(`${theme.muted('⎿  ')}${theme.error(`Error: ${truncateAtWord(error, 80)}`)}`, 0, 0);
+    const detail = new Text(
+      `${theme.muted('⎿  ')}${theme.error(`Error: ${truncateAtWord(error, 80)}`)}`,
+      0,
+      0
+    );
     this.completedDetails.push(detail);
     this.addChild(detail);
   }
@@ -97,7 +103,7 @@ export class ToolEventComponent extends Container {
     this.activeDetail = new Text(
       `${theme.muted('⎿  ')}${theme.warning(truncateAtWord(warning || 'Approaching suggested limit', 100))}`,
       0,
-      0,
+      0
     );
     this.addChild(this.activeDetail);
   }
@@ -105,7 +111,11 @@ export class ToolEventComponent extends Container {
   setDenied(path: string, tool: string) {
     this.clearDetail();
     const action = tool === 'write_file' ? 'write to' : tool === 'edit_file' ? 'edit of' : tool;
-    const detail = new Text(`${theme.muted('⎿  ')}${theme.warning(`User denied ${action} ${path}`)}`, 0, 0);
+    const detail = new Text(
+      `${theme.muted('⎿  ')}${theme.warning(`User denied ${action} ${path}`)}`,
+      0,
+      0
+    );
     this.completedDetails.push(detail);
     this.addChild(detail);
   }

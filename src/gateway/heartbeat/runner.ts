@@ -25,7 +25,9 @@ function isWithinActiveHours(activeHours?: {
   timezone?: string;
   daysOfWeek?: number[];
 }): boolean {
-  if (!activeHours) return true;
+  if (!activeHours) {
+    return true;
+  }
 
   const tz = activeHours.timezone ?? 'America/New_York';
   const now = new Date();
@@ -63,7 +65,9 @@ function findTargetSession(): SessionEntry | null {
   const store = loadSessionStore(storePath);
   const entries = Object.values(store).filter((e) => e.lastTo);
 
-  if (entries.length === 0) return null;
+  if (entries.length === 0) {
+    return null;
+  }
 
   // Sort by updatedAt descending, return the most recent
   entries.sort((a, b) => b.updatedAt - a.updatedAt);
@@ -89,7 +93,9 @@ export function startHeartbeatRunner(params: { configPath?: string }): Heartbeat
   };
 
   async function tick(): Promise<void> {
-    if (stopped || running) return;
+    if (stopped || running) {
+      return;
+    }
     running = true;
 
     try {
@@ -110,7 +116,7 @@ export function startHeartbeatRunner(params: { configPath?: string }): Heartbeat
 
       // Find target session
       const session = findTargetSession();
-      if (!session || !session.lastTo || !session.lastAccountId) {
+      if (!session?.lastTo || !session.lastAccountId) {
         debugLog('[heartbeat] no target session found (user has not messaged yet), skipping');
         return;
       }
@@ -133,8 +139,9 @@ export function startHeartbeatRunner(params: { configPath?: string }): Heartbeat
 
       // Run agent
       debugLog(`[heartbeat] running agent for session=${session.sessionKey}`);
-      const model = heartbeatCfg.model ?? getSetting('modelId', 'gpt-5.4') as string;
-      const modelProvider = heartbeatCfg.modelProvider ?? getSetting('provider', 'openai') as string;
+      const model = heartbeatCfg.model ?? (getSetting('modelId', 'gpt-5.4') as string);
+      const modelProvider =
+        heartbeatCfg.modelProvider ?? (getSetting('provider', 'openai') as string);
       const answer = await runAgentForMessage({
         sessionKey: session.sessionKey,
         query,
@@ -148,7 +155,9 @@ export function startHeartbeatRunner(params: { configPath?: string }): Heartbeat
 
       // Evaluate suppression
       const result = evaluateSuppression(answer, suppressionState);
-      debugLog(`[heartbeat] suppression: shouldSuppress=${result.shouldSuppress} reason=${result.reason}`);
+      debugLog(
+        `[heartbeat] suppression: shouldSuppress=${result.shouldSuppress} reason=${result.reason}`
+      );
 
       if (!result.shouldSuppress) {
         const cleaned = cleanMarkdownForWhatsApp(result.cleanedText);
@@ -173,7 +182,9 @@ export function startHeartbeatRunner(params: { configPath?: string }): Heartbeat
   }
 
   function scheduleNext(): void {
-    if (stopped) return;
+    if (stopped) {
+      return;
+    }
 
     // Re-read config for interval (may have changed)
     const cfg = loadGatewayConfig(params.configPath);

@@ -1,0 +1,9 @@
+node_modules
+dist
+.dexter
+coverage
+playwright-report
+*.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml

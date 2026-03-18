@@ -85,8 +85,12 @@ function sanitizeFts5Query(query: string): string {
     .replace(/\b(?:AND|OR|NOT|NEAR)\b/gi, '')
     .split(/\s+/)
     .filter(Boolean);
-  if (tokens.length === 0) return '';
-  if (tokens.length === 1) return tokens[0]!;
+  if (tokens.length === 0) {
+    return '';
+  }
+  if (tokens.length === 1) {
+    return tokens[0]!;
+  }
   return tokens.join(' OR ');
 }
 
@@ -143,7 +147,9 @@ export class MemoryDatabase {
         return {
           all: (...params: unknown[]) => stmt.all(...params) as T[],
           get: (...params: unknown[]) => (stmt.get(...params) as T) ?? null,
-          run: (...params: unknown[]) => { stmt.run(...params); },
+          run: (...params: unknown[]) => {
+            stmt.run(...params);
+          },
         };
       },
       close: () => raw.close(),
@@ -168,7 +174,11 @@ export class MemoryDatabase {
   }
 
   clearEmbeddings(): void {
-    this.db.query('UPDATE chunks SET embedding = NULL, embedding_provider = NULL, embedding_model = NULL').run();
+    this.db
+      .query(
+        'UPDATE chunks SET embedding = NULL, embedding_provider = NULL, embedding_model = NULL'
+      )
+      .run();
     this.db.query('DELETE FROM embedding_cache').run();
   }
 
@@ -190,7 +200,7 @@ export class MemoryDatabase {
   }): void {
     this.db
       .query(
-        'INSERT OR REPLACE INTO embedding_cache (content_hash, embedding, provider, model, created_at) VALUES (?, ?, ?, ?, ?)',
+        'INSERT OR REPLACE INTO embedding_cache (content_hash, embedding, provider, model, created_at) VALUES (?, ?, ?, ?, ?)'
       )
       .run(params.contentHash, toBlob(params.embedding), params.provider, params.model, Date.now());
   }
@@ -198,7 +208,7 @@ export class MemoryDatabase {
   getChunkByHash(contentHash: string): ChunkRow | null {
     return this.db
       .query<ChunkRow>(
-        'SELECT id, file_path, start_line, end_line, content, content_hash, embedding FROM chunks WHERE content_hash = ?',
+        'SELECT id, file_path, start_line, end_line, content, content_hash, embedding FROM chunks WHERE content_hash = ?'
       )
       .get(contentHash);
   }
@@ -214,7 +224,7 @@ export class MemoryDatabase {
     if (existing) {
       this.db
         .query(
-          'UPDATE chunks SET file_path = ?, start_line = ?, end_line = ?, content = ?, embedding = ?, embedding_provider = ?, embedding_model = ?, updated_at = ? WHERE id = ?',
+          'UPDATE chunks SET file_path = ?, start_line = ?, end_line = ?, content = ?, embedding = ?, embedding_provider = ?, embedding_model = ?, updated_at = ? WHERE id = ?'
         )
         .run(
           params.chunk.filePath,
@@ -225,16 +235,18 @@ export class MemoryDatabase {
           params.provider ?? null,
           params.model ?? null,
           Date.now(),
-          existing.id,
+          existing.id
         );
       this.db.query('DELETE FROM chunks_fts WHERE chunk_id = ?').run(existing.id);
-      this.db.query('INSERT INTO chunks_fts (content, chunk_id) VALUES (?, ?)').run(params.chunk.content, existing.id);
+      this.db
+        .query('INSERT INTO chunks_fts (content, chunk_id) VALUES (?, ?)')
+        .run(params.chunk.content, existing.id);
       return { id: existing.id, inserted: false };
     }
 
     this.db
       .query(
-        'INSERT INTO chunks (file_path, start_line, end_line, content, content_hash, embedding, embedding_provider, embedding_model, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO chunks (file_path, start_line, end_line, content, content_hash, embedding, embedding_provider, embedding_model, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
       )
       .run(
         params.chunk.filePath,
@@ -245,21 +257,25 @@ export class MemoryDatabase {
         embeddingBlob,
         params.provider ?? null,
         params.model ?? null,
-        Date.now(),
+        Date.now()
       );
 
-    const inserted = this.db.query<{ id: number }>('SELECT id FROM chunks WHERE content_hash = ?').get(
-      params.chunk.contentHash,
-    );
+    const inserted = this.db
+      .query<{ id: number }>('SELECT id FROM chunks WHERE content_hash = ?')
+      .get(params.chunk.contentHash);
     if (!inserted) {
       throw new Error('Failed to resolve inserted chunk id.');
     }
-    this.db.query('INSERT INTO chunks_fts (content, chunk_id) VALUES (?, ?)').run(params.chunk.content, inserted.id);
+    this.db
+      .query('INSERT INTO chunks_fts (content, chunk_id) VALUES (?, ?)')
+      .run(params.chunk.content, inserted.id);
     return { id: inserted.id, inserted: true };
   }
 
   deleteChunksForFile(filePath: string): number {
-    const rows = this.db.query<{ id: number }>('SELECT id FROM chunks WHERE file_path = ?').all(filePath);
+    const rows = this.db
+      .query<{ id: number }>('SELECT id FROM chunks WHERE file_path = ?')
+      .all(filePath);
     for (const row of rows) {
       this.db.query('DELETE FROM chunks_fts WHERE chunk_id = ?').run(row.id);
     }
@@ -268,23 +284,26 @@ export class MemoryDatabase {
   }
 
   listIndexedFiles(): string[] {
-    const rows = this.db.query<{ file_path: string }>('SELECT DISTINCT file_path FROM chunks').all();
+    const rows = this.db
+      .query<{ file_path: string }>('SELECT DISTINCT file_path FROM chunks')
+      .all();
     return rows.map((row) => row.file_path);
   }
 
   listAllChunks(): ChunkRow[] {
     return this.db
       .query<ChunkRow>(
-        'SELECT id, file_path, start_line, end_line, content, content_hash, embedding FROM chunks ORDER BY id ASC',
+        'SELECT id, file_path, start_line, end_line, content, content_hash, embedding FROM chunks ORDER BY id ASC'
       )
       .all();
   }
 
   searchVector(queryEmbedding: number[], maxResults: number): MemoryVectorCandidate[] {
     const rows = this.db
-      .query<{ id: number; embedding: Uint8Array | null }>(
-        'SELECT id, embedding FROM chunks WHERE embedding IS NOT NULL',
-      )
+      .query<{
+        id: number;
+        embedding: Uint8Array | null;
+      }>('SELECT id, embedding FROM chunks WHERE embedding IS NOT NULL')
       .all();
     const scored = rows
       .map((row) => {
@@ -306,8 +325,11 @@ export class MemoryDatabase {
       return [];
     }
     const rows = this.db
-      .query<{ chunk_id: number; rank: number }>(
-        'SELECT chunk_id, bm25(chunks_fts) AS rank FROM chunks_fts WHERE chunks_fts MATCH ? ORDER BY rank LIMIT ?',
+      .query<{
+        chunk_id: number;
+        rank: number;
+      }>(
+        'SELECT chunk_id, bm25(chunks_fts) AS rank FROM chunks_fts WHERE chunks_fts MATCH ? ORDER BY rank LIMIT ?'
       )
       .all(sanitized, maxResults);
     return rows.map((row) => ({
@@ -323,7 +345,7 @@ export class MemoryDatabase {
     const placeholders = ids.map(() => '?').join(', ');
     const rows = this.db
       .query<ChunkRow>(
-        `SELECT id, file_path, start_line, end_line, content, content_hash, embedding FROM chunks WHERE id IN (${placeholders})`,
+        `SELECT id, file_path, start_line, end_line, content, content_hash, embedding FROM chunks WHERE id IN (${placeholders})`
       )
       .all(...ids);
     const rowById = new Map(rows.map((row) => [row.id, row]));

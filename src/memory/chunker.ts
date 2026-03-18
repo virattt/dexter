@@ -29,7 +29,10 @@ function splitIntoParagraphs(text: string): Paragraph[] {
   let start = 0;
 
   const pushParagraph = (startLineIdx: number, endLineIdx: number) => {
-    const paragraphText = lines.slice(startLineIdx, endLineIdx + 1).join('\n').trim();
+    const paragraphText = lines
+      .slice(startLineIdx, endLineIdx + 1)
+      .join('\n')
+      .trim();
     if (!paragraphText) {
       return;
     }
@@ -78,7 +81,7 @@ export function chunkMemoryText(params: {
   while (startIndex < paragraphs.length) {
     let endIndex = startIndex;
     let content = '';
-    let startLine = paragraphs[startIndex]?.startLine ?? 1;
+    const startLine = paragraphs[startIndex]?.startLine ?? 1;
     let endLine = paragraphs[startIndex]?.endLine ?? startLine;
 
     while (endIndex < paragraphs.length) {

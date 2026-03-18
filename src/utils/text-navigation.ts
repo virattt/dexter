@@ -3,12 +3,18 @@
  * Used for Option+Left (Mac) / Ctrl+Left (Windows) navigation.
  */
 export function findPrevWordStart(text: string, pos: number): number {
-  if (pos <= 0) return 0;
+  if (pos <= 0) {
+    return 0;
+  }
   let i = pos - 1;
   // Skip non-word chars
-  while (i > 0 && !/\w/.test(text[i])) i--;
+  while (i > 0 && !/\w/.test(text[i])) {
+    i--;
+  }
   // Move to word start
-  while (i > 0 && /\w/.test(text[i - 1])) i--;
+  while (i > 0 && /\w/.test(text[i - 1])) {
+    i--;
+  }
   return i;
 }
 
@@ -18,12 +24,18 @@ export function findPrevWordStart(text: string, pos: number): number {
  */
 export function findNextWordEnd(text: string, pos: number): number {
   const len = text.length;
-  if (pos >= len) return len;
+  if (pos >= len) {
+    return len;
+  }
   let i = pos;
   // Skip non-word chars
-  while (i < len && !/\w/.test(text[i])) i++;
+  while (i < len && !/\w/.test(text[i])) {
+    i++;
+  }
   // Move to word end
-  while (i < len && /\w/.test(text[i])) i++;
+  while (i < len && /\w/.test(text[i])) {
+    i++;
+  }
   return i;
 }
 

@@ -31,7 +31,9 @@ export function createProgressChannel(): ProgressChannel {
   let pendingResolve: ((value: IteratorResult<string>) => void) | null = null;
 
   const emit = (message: string) => {
-    if (closed) return;
+    if (closed) {
+      return;
+    }
 
     if (pendingResolve) {
       // Consumer is waiting -- deliver immediately

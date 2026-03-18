@@ -36,15 +36,21 @@ export type GatewayService = {
 };
 
 function elide(text: string, maxLen: number): string {
-  if (text.length <= maxLen) return text;
+  if (text.length <= maxLen) {
+    return text;
+  }
   return text.slice(0, maxLen - 3) + '...';
 }
 
 async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage): Promise<void> {
   const bodyPreview = elide(inbound.body.replace(/\n/g, ' '), 50);
   const isGroup = inbound.chatType === 'group';
-  console.log(`Inbound message ${inbound.from} (${inbound.chatType}, ${inbound.body.length} chars): "${bodyPreview}"`);
-  debugLog(`[gateway] handleInbound from=${inbound.from} isGroup=${isGroup} body="${inbound.body.slice(0, 30)}..."`);
+  console.log(
+    `Inbound message ${inbound.from} (${inbound.chatType}, ${inbound.body.length} chars): "${bodyPreview}"`
+  );
+  debugLog(
+    `[gateway] handleInbound from=${inbound.from} isGroup=${isGroup} body="${inbound.body.slice(0, 30)}..."`
+  );
 
   // --- Group-specific: track member, check mention gating ---
   if (isGroup) {
@@ -99,7 +105,9 @@ async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage
     // For groups, use inbound.sendComposing directly (bypasses outbound strict checks)
     if (isGroup) {
       await inbound.sendComposing();
-      typingTimer = setInterval(() => { void inbound.sendComposing(); }, TYPING_INTERVAL_MS);
+      typingTimer = setInterval(() => {
+        void inbound.sendComposing();
+      }, TYPING_INTERVAL_MS);
     } else {
       await sendComposing({ to: inbound.replyToJid, accountId: inbound.accountId });
       typingTimer = setInterval(() => {
@@ -204,7 +212,7 @@ async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage
 }
 
 export async function startGateway(params: { configPath?: string } = {}): Promise<GatewayService> {
-  const cfg = loadGatewayConfig(params.configPath);
+  const _cfg = loadGatewayConfig(params.configPath);
   const plugin = createWhatsAppPlugin({
     loadConfig: () => loadGatewayConfig(params.configPath),
     onMessage: async (inbound) => {
@@ -228,4 +236,3 @@ export async function startGateway(params: { configPath?: string } = {}): Promis
     snapshot: () => manager.getSnapshot(),
   };
 }
-

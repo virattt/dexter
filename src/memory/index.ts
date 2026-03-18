@@ -199,8 +199,12 @@ export class MemoryManager {
   }
 
   private resolveFileAlias(file: string): string {
-    if (file === 'long_term') return 'MEMORY.md';
-    if (file === 'daily') return this.getTodayFileName();
+    if (file === 'long_term') {
+      return 'MEMORY.md';
+    }
+    if (file === 'daily') {
+      return this.getTodayFileName();
+    }
     return file;
   }
 

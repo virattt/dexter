@@ -1,11 +1,6 @@
 import { Agent } from '../agent/agent.js';
 import type { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
-import type {
-  AgentConfig,
-  AgentEvent,
-  ApprovalDecision,
-  DoneEvent,
-} from '../agent/index.js';
+import type { AgentConfig, AgentEvent, ApprovalDecision, DoneEvent } from '../agent/index.js';
 import type { DisplayEvent } from '../agent/types.js';
 import type { HistoryItem, HistoryItemStatus, WorkingState } from '../types.js';
 
@@ -30,7 +25,7 @@ export class AgentRunnerController {
   constructor(
     agentConfig: AgentConfig,
     inMemoryChatHistory: InMemoryChatHistory,
-    onChange?: ChangeListener,
+    onChange?: ChangeListener
   ) {
     this.agentConfig = agentConfig;
     this.inMemoryChatHistory = inMemoryChatHistory;
@@ -55,7 +50,8 @@ export class AgentRunnerController {
 
   get isProcessing(): boolean {
     return (
-      this.historyValue.length > 0 && this.historyValue[this.historyValue.length - 1]?.status === 'processing'
+      this.historyValue.length > 0 &&
+      this.historyValue[this.historyValue.length - 1]?.status === 'processing'
     );
   }
 
@@ -187,7 +183,7 @@ export class AgentRunnerController {
         this.updateLastItem((last) => ({
           ...last,
           events: last.events.map((entry) =>
-            entry.id === last.activeToolId ? { ...entry, progressMessage: event.message } : entry,
+            entry.id === last.activeToolId ? { ...entry, progressMessage: event.message } : entry
           ),
         }));
         break;
@@ -246,7 +242,7 @@ export class AgentRunnerController {
       ...last,
       activeToolId: undefined,
       events: last.events.map((entry) =>
-        entry.id === last.activeToolId ? { ...entry, completed: true, endEvent: event } : entry,
+        entry.id === last.activeToolId ? { ...entry, completed: true, endEvent: event } : entry
       ),
     }));
   }
@@ -257,7 +253,7 @@ export class AgentRunnerController {
 
   private updateLastItem(updater: (item: HistoryItem) => HistoryItem) {
     const last = this.historyValue[this.historyValue.length - 1];
-    if (!last || last.status !== 'processing') {
+    if (last?.status !== 'processing') {
       return;
     }
     const next = updater(last);
@@ -266,7 +262,7 @@ export class AgentRunnerController {
 
   private markLastProcessing(status: HistoryItemStatus) {
     const last = this.historyValue[this.historyValue.length - 1];
-    if (!last || last.status !== 'processing') {
+    if (last?.status !== 'processing') {
       return;
     }
     this.historyValue = [...this.historyValue.slice(0, -1), { ...last, status }];

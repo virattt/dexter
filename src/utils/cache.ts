@@ -78,10 +78,7 @@ export function buildCacheKey(
   const hash = createHash('md5').update(raw).digest('hex').slice(0, 12);
 
   // Turn "/prices/" → "prices"
-  const cleanEndpoint = endpoint
-    .replace(/^\//, '')
-    .replace(/\/$/, '')
-    .replace(/\//g, '_');
+  const cleanEndpoint = endpoint.replace(/^\//, '').replace(/\/$/, '').replace(/\//g, '_');
 
   // Prefix with ticker when available for human-readable filenames (optional)
   const ticker = typeof params.ticker === 'string' ? params.ticker.toUpperCase() : null;
@@ -95,7 +92,9 @@ export function buildCacheKey(
  * Guards against truncated writes, schema changes, or manual edits.
  */
 function isValidCacheEntry(value: unknown): value is CacheEntry {
-  if (typeof value !== 'object' || value === null) return false;
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
   const obj = value as Record<string, unknown>;
   return (
     typeof obj.endpoint === 'string' &&
