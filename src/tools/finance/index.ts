@@ -10,4 +10,5 @@ export { getEarnings } from './earnings.js';
 export { createGetFinancials } from './get-financials.js';
 export { createGetMarketData } from './get-market-data.js';
 export { createReadFilings } from './read-filings.js';
+export { createScreenStocks } from './screen-stocks.js';
 

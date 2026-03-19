@@ -1,6 +1,6 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { callApi } from './api.js';
+import { api } from './api.js';
 import { formatToolResult } from '../types.js';
 
 const EarningsInputSchema = z.object({
@@ -16,7 +16,7 @@ export const getEarnings = new DynamicStructuredTool({
   schema: EarningsInputSchema,
   func: async (input) => {
     const ticker = input.ticker.trim().toUpperCase();
-    const { data, url } = await callApi('/earnings', { ticker });
+    const { data, url } = await api.get('/earnings', { ticker });
     return formatToolResult(data.earnings || {}, [url]);
   },
 });
