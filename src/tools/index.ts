@@ -3,13 +3,13 @@ export { getToolRegistry, getTools, buildToolDescriptions } from './registry.js'
 export type { RegisteredTool } from './registry.js';
 
 // Individual tool exports (for backward compatibility and direct access)
-export { createFinancialSearch } from './finance/index.js';
+export { createGetFinancials } from './finance/index.js';
 export { tavilySearch } from './search/index.js';
 
 // Tool descriptions
 export {
-  FINANCIAL_SEARCH_DESCRIPTION,
-} from './finance/financial-search.js';
+  GET_FINANCIALS_DESCRIPTION,
+} from './finance/get-financials.js';
 export {
   WEB_SEARCH_DESCRIPTION,
 } from './search/index.js';

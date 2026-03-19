@@ -4,7 +4,7 @@ Use these typical WACC ranges as starting points, then adjust based on company-s
 
 ## Determining Company Sector
 
-Use `financial_search` with query `"[TICKER] company facts"` to retrieve the company's `sector`. Match the returned sector to the table below.
+Use `get_financials` with query `"[TICKER] company facts"` to retrieve the company's `sector`. Match the returned sector to the table below.
 
 ## WACC by Sector
 

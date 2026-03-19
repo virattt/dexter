@@ -22,7 +22,7 @@ DCF Analysis Progress:
 
 ## Step 1: Gather Financial Data
 
-Call the `financial_search` tool with these queries:
+Call the `get_financials` tool with these queries:
 
 ### 1.1 Cash Flow History
 **Query:** `"[TICKER] annual cash flow statements for the last 5 years"`
@@ -51,11 +51,15 @@ Call the `financial_search` tool with these queries:
 **Use:** Calculate implied EPS growth rate for cross-validation
 
 ### 1.5 Current Price
+Call the `get_market_data` tool:
+
 **Query:** `"[TICKER] price snapshot"`
 
 **Extract:** `price`
 
 ### 1.6 Company Facts
+Call the `get_financials` tool:
+
 **Query:** `"[TICKER] company facts"`
 
 **Extract:** `sector`, `industry`, `market_cap`

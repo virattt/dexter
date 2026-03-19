@@ -19,7 +19,7 @@ Read file contents from the local workspace.
 ## When NOT to Use
 
 - Fetching web URLs (use \`web_fetch\`)
-- Looking up financial APIs (use \`financial_search\` / \`financial_metrics\`)
+- Looking up financial APIs (use \`get_financials\`)
 - Writing or changing files (use \`write_file\` / \`edit_file\`)
 
 ## Usage Notes
