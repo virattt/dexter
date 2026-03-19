@@ -16,6 +16,7 @@ import { fetchCvmFundamentals } from './cvm.js';
 import { fetchFundamentusData } from './fundamentus.js';
 import { fetchStatusInvestData } from './status-invest.js';
 import { fetchStockHistory, fetchBrentHistory, fetchUsdBrlHistory } from './historical.js';
+import { readDailyCache, writeDailyCache } from './daily-cache.js';
 
 export const BRAZILIAN_FUNDAMENTALS_DESCRIPTION = `
 Use this tool to get fundamental financial data for Brazilian (B3) listed companies.
@@ -90,6 +91,17 @@ export const brazilianFundamentalsTool = new DynamicStructuredTool({
     }
 
     // ─── Fundamentals ─────────────────────────────────────────────────────────
+    // Check daily cache first (fundamentals are quarterly/annual, safe to cache 1 day)
+    if (input.dataType !== 'historico') {
+      const cached = readDailyCache(ticker);
+      if (cached && cached._dataType === input.dataType) {
+        return formatToolResult(cached, [
+          `https://www.fundamentus.com.br/detalhes.php?papel=${ticker}`,
+          `https://statusinvest.com.br/acoes/${ticker.toLowerCase()}`,
+        ]);
+      }
+    }
+
     onProgress?.(`Buscando dados fundamentalistas para ${ticker}...`);
 
     const [cvmData, fundamentusData, statusInvestData] = await Promise.all([
@@ -191,6 +203,9 @@ export const brazilianFundamentalsTool = new DynamicStructuredTool({
         []
       );
     }
+
+    // Save to daily cache for subsequent queries
+    writeDailyCache(ticker, { ...result, _dataType: input.dataType });
 
     return formatToolResult(result, [
       `https://www.fundamentus.com.br/detalhes.php?papel=${ticker}`,

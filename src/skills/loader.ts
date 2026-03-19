@@ -29,6 +29,7 @@ export function parseSkillFile(content: string, path: string, source: SkillSourc
     path,
     source,
     instructions: instructions.trim(),
+    ...(typeof data.maxIterations === 'number' ? { maxIterations: data.maxIterations } : {}),
   };
 }
 
@@ -69,5 +70,6 @@ export function extractSkillMetadata(path: string, source: SkillSource): { name:
     description: data.description,
     path,
     source,
+    ...(typeof data.maxIterations === 'number' ? { maxIterations: data.maxIterations } : {}),
   };
 }

@@ -4,7 +4,10 @@
  * No official API key required; these are open endpoints used by their web app.
  */
 
+import { logger } from '../../utils/logger.js';
+
 const SI_BASE = 'https://statusinvest.com.br';
+const MAX_RETRIES = 3;
 
 export interface StatusInvestIndicators {
   pl?: number;
@@ -60,13 +63,38 @@ function safeGet(obj: Record<string, unknown>, key: string): number | undefined 
   return undefined;
 }
 
+/** Fetch with retry helper for StatusInvest. */
+async function fetchWithRetry(url: string, opts: RequestInit, label: string): Promise<Response | null> {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(url, opts);
+      if (!res.ok) {
+        logger.warn(`[StatusInvest] HTTP ${res.status} para ${label} (tentativa ${attempt}/${MAX_RETRIES})`);
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, 500 * 2 ** (attempt - 1)));
+          continue;
+        }
+        return null;
+      }
+      return res;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn(`[StatusInvest] Erro ao buscar ${label} (tentativa ${attempt}/${MAX_RETRIES}): ${msg}`);
+      if (attempt < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, 500 * 2 ** (attempt - 1)));
+      }
+    }
+  }
+  return null;
+}
+
 /** Fetch key indicators from StatusInvest search endpoint. */
 async function fetchIndicators(ticker: string): Promise<StatusInvestIndicators | null> {
   try {
     // StatusInvest exposes a search endpoint that returns basic fundamentals
     const url = `${SI_BASE}/acoes/${ticker.toLowerCase()}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000), headers: SI_HEADERS });
-    if (!res.ok) return null;
+    const res = await fetchWithRetry(url, { signal: AbortSignal.timeout(6000), headers: SI_HEADERS }, ticker);
+    if (!res) return null;
     const html = await res.text();
 
     // StatusInvest embeds fundamental data in JSON within the page
@@ -95,6 +123,9 @@ async function fetchIndicators(ticker: string): Promise<StatusInvestIndicators |
 
     // Only return if we got at least some data
     const hasData = Object.entries(result).some(([k, v]) => k !== 'source' && v !== undefined);
+    if (!hasData) {
+      logger.warn(`[StatusInvest] Nenhum indicador extraído para ${ticker}. O layout do site pode ter mudado.`);
+    }
     return hasData ? result : null;
   } catch {
     return null;
@@ -107,8 +138,8 @@ async function fetchDreHistory(ticker: string): Promise<StatusInvestDreEntry[] |
     const currentYear = new Date().getFullYear();
     const minYear = currentYear - 5;
     const url = `${SI_BASE}/acao/getdre?code=${ticker.toUpperCase()}&type=0&range.min=${minYear}&range.max=${currentYear}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000), headers: SI_HEADERS });
-    if (!res.ok) return null;
+    const res = await fetchWithRetry(url, { signal: AbortSignal.timeout(6000), headers: SI_HEADERS }, `DRE/${ticker}`);
+    if (!res) return null;
 
     const json = await res.json() as Record<string, unknown>;
     // StatusInvest DRE response structure: { grid: [ { columns: [...] } ], ... }
@@ -149,8 +180,8 @@ async function fetchDreHistory(ticker: string): Promise<StatusInvestDreEntry[] |
 async function fetchDividends(ticker: string): Promise<StatusInvestDividend[] | null> {
   try {
     const url = `${SI_BASE}/acao/companytickerprovents?ticker=${ticker.toUpperCase()}&chartProventsType=2`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000), headers: SI_HEADERS });
-    if (!res.ok) return null;
+    const res = await fetchWithRetry(url, { signal: AbortSignal.timeout(5000), headers: SI_HEADERS }, `dividends/${ticker}`);
+    if (!res) return null;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const json = await res.json() as { assetEarningsModels?: any[] };

@@ -19,6 +19,12 @@ export interface SkillMetadata {
   path: string;
   /** Where this skill was discovered from */
   source: SkillSource;
+  /**
+   * Optional override for the agent's max iterations when this skill is active.
+   * Useful for complex multi-step skills (e.g., DCF valuation) that need more iterations.
+   * Falls back to the agent's default (10) if not specified.
+   */
+  maxIterations?: number;
 }
 
 /**

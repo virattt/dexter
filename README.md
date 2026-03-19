@@ -41,7 +41,8 @@ O projeto utiliza apenas fontes públicas disponíveis na internet, incluindo:
 * CVM (Comissão de Valores Mobiliários)
 * Fundamentus
 * StatusInvest
-* Outras bases públicas de dados financeiros
+* Yahoo Finance (séries históricas)
+* Brapi, Finnhub, B3 Feed (cotações)
 
 A coleta das informações é realizada por meio de **web scraping controlado**, apenas para obtenção dos dados necessários às análises.
 
@@ -59,11 +60,18 @@ Caso alguma plataforma solicite ajustes ou remoção de integração, a solicita
 
 ## Funcionalidades
 
-* Agente de IA para análise financeira
-* Suporte a ativos da B3
-* Coleta automática de indicadores fundamentalistas
-* Integração com dados públicos da CVM
-* Análise automatizada de empresas brasileiras
+* Agente de IA para análise financeira do mercado brasileiro (B3)
+* Suporte a múltiplos provedores de LLM: OpenAI (GPT-5.4), Anthropic (Claude), Google (Gemini), xAI (Grok), Ollama (local) e outros
+* Coleta automática de indicadores fundamentalistas (P/L, P/VP, ROE, ROIC, EV/EBITDA, etc.)
+* Integração com dados oficiais da CVM (DRE, Balanço Patrimonial, Fluxo de Caixa)
+* Análise de histórico de dividendos via StatusInvest
+* Votação majoritária para cotações (Yahoo Finance + Brapi + Finnhub + B3 Feed)
+* Skill de valuation por DCF com análise de sensibilidade 3×3
+* Cache diário de dados fundamentalistas (evita re-fetch desnecessário)
+* Alertas automáticos quando scraping detecta mudança de layout
+* Retry automático com backoff exponencial nas chamadas de dados
+* Gateway WhatsApp com suporte a grupos
+* Módulo de memória persistente entre sessões (`~/.dexter/MEMORY.md`)
 * Estrutura modular para inclusão de novas fontes de dados
 
 ---
@@ -94,16 +102,166 @@ Crie o arquivo `.env`:
 cp env.example .env
 ```
 
-Adicione sua chave da OpenAI (ou demais provedores):
+Adicione suas chaves de API:
 
 ```bash
+# Obrigatório: ao menos um provedor de LLM
 OPENAI_API_KEY=your_key_here
+
+# Opcionais: provedores alternativos
+ANTHROPIC_API_KEY=your_key_here
+GOOGLE_API_KEY=your_key_here
+
+# Opcionais: dados financeiros brasileiros (melhora cobertura de cotações)
+BRAPI_API_KEY=your_key_here
+FINNHUB_API_KEY=your_key_here
 ```
 
 Execute o projeto:
 
 ```bash
 bun start
+```
+
+---
+
+## Gateway WhatsApp
+
+O Dexter-Br suporta uso via WhatsApp, incluindo **grupos**.
+
+### Primeiro acesso (login QR Code)
+
+```bash
+bun run gateway:login
+```
+
+### Iniciar o gateway
+
+```bash
+bun run gateway
+```
+
+### Configurar grupo WhatsApp
+
+Copie o arquivo de exemplo e ajuste:
+
+```bash
+cp gateway.json.example ~/.dexter/gateway.json
+```
+
+O arquivo `gateway.json.example` na raiz do projeto contém a configuração padrão incluindo o grupo pré-configurado. Edite o `peerId` no bloco `bindings` com o ID do seu grupo se necessário.
+
+**Políticas de acesso disponíveis:**
+
+| Política | Descrição |
+|---|---|
+| `groupPolicy: "open"` | Qualquer membro do grupo pode interagir |
+| `groupPolicy: "allowlist"` | Apenas números em `groupAllowFrom` |
+| `groupPolicy: "disabled"` | Grupos bloqueados (padrão) |
+
+---
+
+## Skills
+
+O Dexter-Br suporta workflows extensíveis via arquivos `SKILL.md`.
+
+### DCF Valuation
+
+Invoque automaticamente ao perguntar sobre valor intrínseco, preço justo ou análise DCF:
+
+> "Qual o valor justo da PETR4?"
+> "Calcule o DCF para VALE3"
+
+O skill DCF executa 8 etapas: coleta de dados, cálculo de FCF, estimativa de WACC, projeção de fluxo de caixa, análise de sensibilidade e validação.
+
+### Criar novos skills
+
+Crie um arquivo `SKILL.md` em qualquer um dos diretórios:
+- `src/skills/<nome>/SKILL.md` — skills builtin
+- `~/.dexter/skills/<nome>/SKILL.md` — skills do usuário
+- `.dexter/skills/<nome>/SKILL.md` — skills do projeto
+
+Estrutura mínima:
+
+```markdown
+---
+name: meu-skill
+description: Quando usar este skill.
+maxIterations: 15
+---
+
+# Instruções do Skill
+
+...
+```
+
+O campo `maxIterations` é opcional e sobrescreve o limite padrão de 10 iterações do agente para análises mais complexas.
+
+---
+
+## Memória Persistente
+
+O agente mantém memória entre sessões via arquivos markdown:
+
+- `~/.dexter/MEMORY.md` — notas de longo prazo
+- `~/.dexter/daily/YYYY-MM-DD.md` — notas diárias
+
+Esses arquivos podem ser editados manualmente para guiar o comportamento do agente.
+
+---
+
+## Modelos Suportados
+
+| Provedor | Modelos | Variável de ambiente |
+|---|---|---|
+| OpenAI (padrão) | `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano` | `OPENAI_API_KEY` |
+| Anthropic | `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5` | `ANTHROPIC_API_KEY` |
+| Google | `gemini-3.1-pro`, `gemini-3-flash`, `gemini-3.1-flash-lite` | `GOOGLE_API_KEY` |
+| xAI (Grok) | `grok-*` | `XAI_API_KEY` |
+| OpenRouter | `openrouter:<modelo>` | `OPENROUTER_API_KEY` |
+| Ollama (local) | `ollama:<modelo>` | `OLLAMA_BASE_URL` |
+
+O modelo padrão é `gpt-5.4`. Em caso de falha, o agente tenta automaticamente `claude-sonnet-4-6` e depois `gemini-3.1-pro`.
+
+---
+
+## Testes
+
+```bash
+# Executar todos os testes
+bun test
+
+# Modo watch
+bun test --watch
+
+# Verificação de tipos
+bun run typecheck
+```
+
+---
+
+## Estrutura do Projeto
+
+```
+src/
+├── agent/          # Loop do agente, prompts, scratchpad, token counter
+├── cli.ts          # Interface CLI (TUI com pi-tui)
+├── gateway/        # Gateway WhatsApp (Baileys)
+│   └── group/      # Detecção de menção, histórico e membros de grupos
+├── memory/         # Memória persistente entre sessões
+├── model/          # Abstração multi-provedor de LLM
+├── skills/         # Sistema de skills (SKILL.md)
+│   └── dcf/        # Skill de valuation DCF
+└── tools/
+    ├── brazil/     # Tools específicas do mercado brasileiro
+    │   ├── cvm.ts                  # Dados oficiais CVM
+    │   ├── fundamentus.ts          # Scraping Fundamentus
+    │   ├── status-invest.ts        # API StatusInvest
+    │   ├── historical.ts           # Séries históricas Yahoo Finance
+    │   ├── brazilian-market-search.ts  # Cotações por votação majoritária
+    │   ├── brazilian-fundamentals.ts   # Agregador de fundamentals
+    │   └── daily-cache.ts          # Cache diário TTL
+    └── ...         # Tools genéricas (web search, browser, etc.)
 ```
 
 ---

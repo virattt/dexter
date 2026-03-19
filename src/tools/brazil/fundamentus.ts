@@ -4,7 +4,10 @@
  * No API key required. Data is publicly available.
  */
 
+import { logger } from '../../utils/logger.js';
+
 const FUNDAMENTUS_BASE = 'https://www.fundamentus.com.br/detalhes.php?papel=';
+const MAX_RETRIES = 3;
 
 export interface FundamentusData {
   // Valuation
@@ -72,7 +75,10 @@ function extractTableValue(html: string, label: string): number | undefined {
 
 /** Parse the full Fundamentus detail page HTML for a ticker. */
 function parseFundamentusHtml(html: string, ticker: string): FundamentusData | null {
-  if (!html || html.includes('Nenhum papel encontrado')) return null;
+  if (!html || html.includes('Nenhum papel encontrado')) {
+    logger.warn(`[Fundamentus] Ticker "${ticker}" não encontrado. Verifique o código da ação.`);
+    return null;
+  }
 
   // Helper: extract value after a known label pattern
   const extract = (label: string) => extractTableValue(html, label);
@@ -127,22 +133,46 @@ function parseFundamentusHtml(html: string, ticker: string): FundamentusData | n
 
 /** Fetch fundamental indicators from Fundamentus for a given ticker. */
 export async function fetchFundamentusData(ticker: string): Promise<FundamentusData | null> {
-  try {
-    const normalized = ticker.replace(/\.SA$/i, '').toUpperCase();
-    const url = `${FUNDAMENTUS_BASE}${normalized}`;
-    const response = await fetch(url, {
-      signal: AbortSignal.timeout(6000),
-      headers: {
-        // Fundamentus blocks raw fetch without a user agent
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
-        'Accept-Language': 'pt-BR,pt;q=0.9',
-      },
-    });
+  const normalized = ticker.replace(/\.SA$/i, '').toUpperCase();
+  const url = `${FUNDAMENTUS_BASE}${normalized}`;
 
-    if (!response.ok) return null;
-    const html = await response.text();
-    return parseFundamentusHtml(html, normalized);
-  } catch {
-    return null;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(6000),
+        headers: {
+          // Fundamentus blocks raw fetch without a user agent
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+          'Accept-Language': 'pt-BR,pt;q=0.9',
+        },
+      });
+
+      if (!response.ok) {
+        logger.warn(`[Fundamentus] HTTP ${response.status} para ${normalized} (tentativa ${attempt}/${MAX_RETRIES})`);
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, 500 * 2 ** (attempt - 1)));
+          continue;
+        }
+        return null;
+      }
+
+      const html = await response.text();
+      const result = parseFundamentusHtml(html, normalized);
+
+      // Alert if scraping returned no data at all — possible layout change
+      if (result && Object.keys(result).filter(k => k !== 'source').length === 0) {
+        logger.warn(`[Fundamentus] Nenhum dado extraído para ${normalized}. O layout do site pode ter mudado.`);
+      }
+
+      return result;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn(`[Fundamentus] Erro ao buscar ${normalized} (tentativa ${attempt}/${MAX_RETRIES}): ${msg}`);
+      if (attempt < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, 500 * 2 ** (attempt - 1)));
+      }
+    }
   }
+
+  return null;
 }
