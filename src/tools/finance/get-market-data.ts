@@ -11,7 +11,7 @@ import { getCurrentDate } from '../../agent/prompts.js';
  * Used in the system prompt to guide the LLM on when and how to use this tool.
  */
 export const GET_MARKET_DATA_DESCRIPTION = `
-Intelligent meta-tool for retrieving stock and cryptocurrency price data. Takes a natural language query and automatically routes to appropriate market data sources.
+Intelligent meta-tool for retrieving market data including prices, news, and insider activity. Takes a natural language query and automatically routes to appropriate market data sources.
 
 ## When to Use
 
@@ -22,13 +22,15 @@ Intelligent meta-tool for retrieving stock and cryptocurrency price data. Takes 
 - Historical cryptocurrency prices over date ranges
 - Available crypto ticker lookup
 - Multi-asset price comparisons
+- Company news and recent headlines
+- Insider trading activity
+- Price move explanations ("why did X go up/down" → combines price + news)
 
 ## When NOT to Use
 
 - Company financials like income statements, balance sheets, cash flow (use get_financials)
 - Financial metrics and key ratios (use get_financials)
 - Analyst estimates (use get_financials)
-- Company news (use get_financials)
 - SEC filings (use read_filings)
 - General web searches (use web_search)
 
@@ -46,9 +48,11 @@ function formatSubToolName(name: string): string {
   return name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
-// Import price tools directly (avoid circular deps with index.ts)
+// Import market data tools directly (avoid circular deps with index.ts)
 import { getStockPrice, getStockPrices, getStockTickers } from './stock-price.js';
 import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
+import { getCompanyNews } from './news.js';
+import { getInsiderTrades } from './insider_trades.js';
 
 // All market data tools available for routing
 const MARKET_DATA_TOOLS: StructuredToolInterface[] = [
@@ -60,6 +64,9 @@ const MARKET_DATA_TOOLS: StructuredToolInterface[] = [
   getCryptoPriceSnapshot,
   getCryptoPrices,
   getCryptoTickers,
+  // News & Activity
+  getCompanyNews,
+  getInsiderTrades,
 ];
 
 // Create a map for quick tool lookup by name
@@ -70,7 +77,7 @@ function buildRouterPrompt(): string {
   return `You are a market data routing assistant.
 Current date: ${getCurrentDate()}
 
-Given a user's natural language query about stock or cryptocurrency prices, call the appropriate tool(s).
+Given a user's natural language query about market data, call the appropriate tool(s).
 
 ## Guidelines
 
@@ -92,6 +99,9 @@ Given a user's natural language query about stock or cryptocurrency prices, call
    - For a current crypto price/snapshot → get_crypto_price_snapshot
    - For historical crypto prices over a date range → get_crypto_prices
    - For "what cryptos are available" or crypto ticker lookup → get_crypto_tickers
+   - For news, catalysts, recent announcements → get_company_news
+   - For insider buying/selling activity → get_insider_trades
+   - For "why did X go up/down" → combine get_stock_price + get_company_news
 
 4. **Efficiency**:
    - For current/latest price, use snapshot tools (not historical with limit 1)
@@ -103,7 +113,7 @@ Call the appropriate tool(s) now.`;
 
 // Input schema for the get_market_data tool
 const GetMarketDataInputSchema = z.object({
-  query: z.string().describe('Natural language query about stock or cryptocurrency prices'),
+  query: z.string().describe('Natural language query about market data, prices, news, or insider activity'),
 });
 
 /**
@@ -113,12 +123,12 @@ const GetMarketDataInputSchema = z.object({
 export function createGetMarketData(model: string): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: 'get_market_data',
-    description: `Intelligent meta-tool for retrieving stock and cryptocurrency price data. Takes a natural language query and automatically routes to appropriate market data tools. Use for:
-- Current stock prices and snapshots
-- Historical stock prices over date ranges
-- Stock ticker lookup
+    description: `Intelligent meta-tool for retrieving market data including prices, news, and insider activity. Takes a natural language query and automatically routes to appropriate market data tools. Use for:
+- Current and historical stock prices
 - Current and historical cryptocurrency prices
-- Crypto ticker lookup`,
+- Stock and crypto ticker lookup
+- Company news and recent headlines
+- Insider trading activity`,
     schema: GetMarketDataInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
       const onProgress = config?.metadata?.onProgress as ((msg: string) => void) | undefined;

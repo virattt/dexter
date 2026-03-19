@@ -20,8 +20,6 @@ Intelligent meta-tool for retrieving company financial data. Takes a natural lan
 - Financial metrics and key ratios (P/E ratio, market cap, EPS, dividend yield, enterprise value, ROE, ROA, margins)
 - Historical metrics and trend analysis across multiple periods
 - Analyst estimates and price targets
-- Company news and recent headlines
-- Insider trading activity
 - Revenue segment breakdowns
 - Earnings data (EPS/revenue beat-miss, earnings surprises)
 - Multi-company comparisons (pass the full query, it handles routing internally)
@@ -29,6 +27,7 @@ Intelligent meta-tool for retrieving company financial data. Takes a natural lan
 ## When NOT to Use
 
 - Stock or cryptocurrency prices (use get_market_data instead)
+- Company news or insider trading activity (use get_market_data instead)
 - General web searches or non-financial topics (use web_search instead)
 - Questions that don't require external financial data (answer directly from knowledge)
 - Non-public company information
@@ -54,8 +53,6 @@ import { getIncomeStatements, getBalanceSheets, getCashFlowStatements, getAllFin
 import { getKeyRatios, getHistoricalKeyRatios } from './key-ratios.js';
 import { getAnalystEstimates } from './estimates.js';
 import { getSegmentedRevenues } from './segments.js';
-import { getInsiderTrades } from './insider_trades.js';
-import { getCompanyNews } from './news.js';
 import { getEarnings } from './earnings.js';
 
 // All finance tools available for routing
@@ -71,10 +68,7 @@ const FINANCE_TOOLS: StructuredToolInterface[] = [
   getKeyRatios,
   getHistoricalKeyRatios,
   getAnalystEstimates,
-  // News
-  getCompanyNews,
   // Other Data
-  getInsiderTrades,
   getSegmentedRevenues,
 ];
 
@@ -107,7 +101,6 @@ Given a user's natural language query about financial data, call the appropriate
    - For latest earnings release snapshot, EPS/revenue beat-miss, earnings surprises → get_earnings
    - For debt, assets, equity → get_balance_sheets
    - For cash flow, free cash flow → get_cash_flow_statements
-   - For news, catalysts, recent announcements → get_company_news
    - For comprehensive analysis → get_all_financial_statements
 
 4. **Efficiency**:
@@ -140,15 +133,13 @@ export function createGetFinancials(model: string): DynamicStructuredTool {
 - Financial metrics and key ratios (P/E ratio, market cap, EPS, dividend yield, ROE, margins)
 - Historical metrics and trend analysis
 - Analyst estimates and price targets
-- Company news and recent headlines
-- Insider trading activity
 - Earnings data and revenue segments`,
     schema: GetFinancialsInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
       const onProgress = config?.metadata?.onProgress as ((msg: string) => void) | undefined;
 
       // 1. Call LLM with finance tools bound (native tool calling)
-      onProgress?.('Fetching financials...');
+      onProgress?.('Fetching...');
       const { response } = await callLlm(input.query, {
         model,
         systemPrompt: buildRouterPrompt(),
