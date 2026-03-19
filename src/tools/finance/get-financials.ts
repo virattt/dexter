@@ -33,7 +33,7 @@ Intelligent meta-tool for retrieving company financial data. Takes a natural lan
 - Non-public company information
 - Real-time trading or order execution
 - Reading SEC filing content (use read_filings instead)
-- Stock screening by criteria (use screen_stocks)
+- Stock screening by criteria (use stock_screener)
 
 ## Usage Notes
 

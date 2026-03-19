@@ -52,7 +52,7 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       description: READ_FILINGS_DESCRIPTION,
     },
     {
-      name: 'screen_stocks',
+      name: 'stock_screener',
       tool: createScreenStocks(model),
       description: SCREEN_STOCKS_DESCRIPTION,
     },

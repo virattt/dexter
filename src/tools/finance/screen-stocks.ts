@@ -54,13 +54,20 @@ const ScreenerFilterSchema = z.object({
     operator: z.enum(['gt', 'gte', 'lt', 'lte', 'eq', 'between']).describe('Comparison operator'),
     value: z.union([z.number(), z.array(z.number())]).describe('Threshold value, or [min, max] array for "between" operator'),
   })).describe('Array of screening filters to apply'),
-  currency: z.string().optional().describe('Currency code (e.g., "USD"). Defaults to USD if not specified.'),
-  limit: z.number().optional().describe('Maximum number of results to return (default: 25)'),
+  currency: z.string().default('USD').describe('Currency code (e.g., "USD")'),
+  limit: z.number().default(5).describe('Maximum number of results to return'),
 });
 
 type ScreenerFilters = z.infer<typeof ScreenerFilterSchema>;
 
+// Escape curly braces for LangChain template interpolation
+function escapeTemplateVars(str: string): string {
+  return str.replace(/\{/g, '{{').replace(/\}/g, '}}');
+}
+
 function buildScreenerPrompt(metrics: Record<string, unknown>): string {
+  const escapedMetrics = escapeTemplateVars(JSON.stringify(metrics, null, 2));
+
   return `You are a stock screening assistant.
 Current date: ${getCurrentDate()}
 
@@ -68,7 +75,7 @@ Given a user's natural language query about stock screening criteria, produce th
 
 ## Available Screener Metrics
 
-${JSON.stringify(metrics, null, 2)}
+${escapedMetrics}
 
 ## Guidelines
 
@@ -97,7 +104,7 @@ const ScreenStocksInputSchema = z.object({
  */
 export function createScreenStocks(model: string): DynamicStructuredTool {
   return new DynamicStructuredTool({
-    name: 'screen_stocks',
+    name: 'stock_screener',
     description: `Screens for stocks matching financial criteria. Takes a natural language query and returns matching tickers with metric values. Use for:
 - Finding stocks by valuation (P/E, P/B, EV/EBITDA)
 - Screening by profitability (margins, ROE, ROA)
@@ -145,13 +152,11 @@ export function createScreenStocks(model: string): DynamicStructuredTool {
       // Step 3: POST to screener API
       onProgress?.('Screening stocks...');
       try {
-        const body: Record<string, unknown> = {
+        const { data, url } = await api.post('/financials/search/screener/', {
           filters: filters.filters,
-        };
-        if (filters.currency) body.currency = filters.currency;
-        if (filters.limit) body.limit = filters.limit;
-
-        const { data, url } = await api.post('/financials/search/screener/', body);
+          currency: filters.currency,
+          limit: filters.limit,
+        });
         return formatToolResult(data, [url]);
       } catch (error) {
         return formatToolResult(

@@ -32,7 +32,7 @@ Intelligent meta-tool for retrieving market data including prices, news, and ins
 - Financial metrics and key ratios (use get_financials)
 - Analyst estimates (use get_financials)
 - SEC filings (use read_filings)
-- Stock screening by criteria (use screen_stocks)
+- Stock screening by criteria (use stock_screener)
 - General web searches (use web_search)
 
 ## Usage Notes
