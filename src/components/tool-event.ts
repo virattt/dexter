@@ -3,7 +3,9 @@ import type { ApprovalDecision } from '../agent/types.js';
 import { theme } from '../theme.js';
 
 function formatToolName(name: string): string {
-  return name
+  // Strip common verb prefixes for cleaner display (get_financials → Financials)
+  const stripped = name.replace(/^(get)_/, '');
+  return stripped
     .split('_')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
