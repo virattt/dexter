@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { formatToolResult } from '../types.js';
 
 const ADANOS_API_BASE = 'https://api.adanos.org';
-const DEFAULT_SOURCES = ['reddit', 'x', 'polymarket'] as const;
 const SOURCE_KEYS = ['reddit', 'x', 'polymarket'] as const;
 
 type SourceKey = (typeof SOURCE_KEYS)[number];
@@ -66,9 +65,9 @@ const MarketSentimentInputSchema = z.object({
     .number()
     .int()
     .min(1)
-    .max(30)
+    .max(90)
     .default(7)
-    .describe('Lookback window in days (1-30, default: 7).'),
+    .describe('Lookback window in days (1-90, default: 7). Free Adanos accounts may be limited to 30 days by the API.'),
   sources: z
     .array(z.enum(SOURCE_KEYS))
     .optional()
@@ -288,7 +287,7 @@ export const marketSentimentTool = new DynamicStructuredTool({
   func: async (input) => {
     try {
       const tickers = [...new Set(input.tickers.map(normalizeTicker).filter(Boolean))];
-      const requestedSources = [...new Set((input.sources?.length ? input.sources : DEFAULT_SOURCES))];
+      const requestedSources = [...new Set((input.sources?.length ? input.sources : SOURCE_KEYS))];
 
       if (tickers.length === 0) {
         throw new Error('At least one valid ticker is required');

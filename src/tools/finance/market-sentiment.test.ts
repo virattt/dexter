@@ -302,6 +302,48 @@ describe('marketSentimentTool', () => {
       '[market_sentiment] All requested sentiment sources failed (reddit: reddit compare request failed: 429 Too Many Requests; x: x compare request failed: 429 Too Many Requests; polymarket: polymarket compare request failed: 429 Too Many Requests)',
     );
   });
+
+  test('supports the full paid lookback window exposed by the API', async () => {
+    const fetchMock = mock(async (url: string | URL) => {
+      const href = String(url);
+      expect(href).toContain('days=90');
+      return jsonResponse({
+        stocks: [
+          {
+            ticker: 'TSLA',
+            buzz_score: 70.3,
+            bullish_pct: 55,
+            trend: 'stable',
+            sentiment_score: 0.18,
+            mentions: 1200,
+            unique_posts: 410,
+            subreddit_count: 38,
+            total_upvotes: 8200,
+          },
+        ],
+      });
+    });
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const rawResult = await marketSentimentTool.invoke({
+      tickers: ['TSLA'],
+      days: 90,
+      sources: ['reddit'],
+    });
+    const result = JSON.parse(rawResult as string);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.data.period_days).toBe(90);
+    expect(result.data.requested_sources).toEqual(['reddit']);
+    expect(result.data.stocks[0]).toMatchObject({
+      ticker: 'TSLA',
+      average_buzz: 70.3,
+      average_bullish_pct: 55.0,
+      sources_with_data: 1,
+      sources_requested: 1,
+    });
+  });
 });
 
 describe('market_sentiment registry gating', () => {
