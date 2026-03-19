@@ -220,7 +220,7 @@ ${toolDescriptions}
 
 - Only use tools when the query actually requires external data
 - For stock prices, financials, metrics, estimates, insider trades, and company news headlines, use financial_search
-- For structured stock sentiment across Reddit, X/Twitter, and prediction markets, use market_sentiment
+- For structured social stock sentiment across Reddit, X/Twitter, and prediction markets, use social_sentiment
 - Call financial_search ONCE with the full natural language query - it handles multi-company/multi-metric requests internally
 - Do NOT break up queries into multiple tool calls when one call can handle the request
 - When news headlines are returned, assess whether the titles and metadata already answer the user's question before fetching full articles with web_fetch (fetching is expensive). Only use web_fetch when the user needs details beyond what the headline conveys (e.g., quotes, specifics of a deal, earnings call takeaways)

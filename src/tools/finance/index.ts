@@ -7,7 +7,7 @@ export { getStockPrice, getStockPrices, getStockTickers, STOCK_PRICE_DESCRIPTION
 export { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
 export { getInsiderTrades } from './insider_trades.js';
 export { getEarnings } from './earnings.js';
-export { marketSentimentTool, MARKET_SENTIMENT_DESCRIPTION } from './market-sentiment.js';
+export { socialSentimentTool, SOCIAL_SENTIMENT_DESCRIPTION } from './social-sentiment.js';
 export { createFinancialSearch } from './financial-search.js';
 export { createFinancialMetrics } from './financial-metrics.js';
 export { createReadFilings } from './read-filings.js';
