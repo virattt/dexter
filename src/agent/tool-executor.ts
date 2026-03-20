@@ -37,7 +37,7 @@ export class AgentToolExecutor {
       tool: string;
       args: Record<string, unknown>;
     }) => Promise<ApprovalDecision>,
-    sessionApprovedTools?: Set<string>,
+    sessionApprovedTools?: Set<string>
   ) {
     this.sessionApprovedTools = sessionApprovedTools ?? new Set();
   }
@@ -53,7 +53,9 @@ export class AgentToolExecutor {
       // Deduplicate skill calls - each skill can only run once per query
       if (toolName === 'skill') {
         const skillName = toolArgs.skill as string;
-        if (ctx.scratchpad.hasExecutedSkill(skillName)) continue;
+        if (ctx.scratchpad.hasExecutedSkill(skillName)) {
+          continue;
+        }
       }
 
       yield* this.executeSingle(toolName, toolArgs, ctx);
@@ -68,7 +70,8 @@ export class AgentToolExecutor {
     const toolQuery = this.extractQueryFromArgs(toolArgs);
 
     if (this.requiresApproval(toolName) && !this.sessionApprovedTools.has(toolName)) {
-      const decision = (await this.requestToolApproval?.({ tool: toolName, args: toolArgs })) ?? 'deny';
+      const decision =
+        (await this.requestToolApproval?.({ tool: toolName, args: toolArgs })) ?? 'deny';
       yield { type: 'tool_approval', tool: toolName, args: toolArgs, approved: decision };
       if (decision === 'deny') {
         yield { type: 'tool_denied', tool: toolName, args: toolArgs };

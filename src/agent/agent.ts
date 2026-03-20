@@ -15,7 +15,6 @@ import { MemoryManager } from '../memory/index.js';
 import { runMemoryFlush, shouldRunMemoryFlush } from '../memory/flush.js';
 import { resolveProvider } from '../providers.js';
 
-
 const DEFAULT_MODEL = 'gpt-5.4';
 const DEFAULT_MAX_ITERATIONS = 10;
 const MAX_OVERFLOW_RETRIES = 2;
@@ -34,16 +33,17 @@ export class Agent {
   private readonly signal?: AbortSignal;
   private readonly memoryEnabled: boolean;
 
-  private constructor(
-    config: AgentConfig,
-    tools: StructuredToolInterface[],
-    systemPrompt: string,
-  ) {
+  private constructor(config: AgentConfig, tools: StructuredToolInterface[], systemPrompt: string) {
     this.model = config.model ?? DEFAULT_MODEL;
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
     this.tools = tools;
-    this.toolMap = new Map(tools.map(t => [t.name, t]));
-    this.toolExecutor = new AgentToolExecutor(this.toolMap, config.signal, config.requestToolApproval, config.sessionApprovedTools);
+    this.toolMap = new Map(tools.map((t) => [t.name, t]));
+    this.toolExecutor = new AgentToolExecutor(
+      this.toolMap,
+      config.signal,
+      config.requestToolApproval,
+      config.sessionApprovedTools
+    );
     this.systemPrompt = systemPrompt;
     this.signal = config.signal;
     this.memoryEnabled = config.memoryEnabled ?? true;
@@ -68,7 +68,7 @@ export class Agent {
       soulContent,
       config.channel,
       config.groupContext,
-      memoryFiles,
+      memoryFiles
     );
     return new Agent(config, tools, systemPrompt);
   }
@@ -82,7 +82,13 @@ export class Agent {
     const startTime = Date.now();
 
     if (this.tools.length === 0) {
-      yield { type: 'done', answer: 'No tools available. Please check your API key configuration.', toolCalls: [], iterations: 0, totalTime: Date.now() - startTime };
+      yield {
+        type: 'done',
+        answer: 'No tools available. Please check your API key configuration.',
+        toolCalls: [],
+        iterations: 0,
+        totalTime: Date.now() - startTime,
+      };
       return;
     }
 
@@ -177,7 +183,7 @@ export class Agent {
 
       // Build iteration prompt with full tool results (Anthropic-style)
       currentPrompt = buildIterationPrompt(
-        query, 
+        query,
         ctx.scratchpad.getToolResults(),
         ctx.scratchpad.formatToolUsageForPrompt()
       );
@@ -201,7 +207,10 @@ export class Agent {
    * @param prompt - The prompt to send to the LLM
    * @param useTools - Whether to bind tools (default: true). When false, returns string directly.
    */
-  private async callModel(prompt: string, useTools: boolean = true): Promise<{ response: AIMessage | string; usage?: TokenUsage }> {
+  private async callModel(
+    prompt: string,
+    useTools: boolean = true
+  ): Promise<{ response: AIMessage | string; usage?: TokenUsage }> {
     const result = await callLlm(prompt, {
       model: this.model,
       systemPrompt: this.systemPrompt,
@@ -236,7 +245,7 @@ export class Agent {
   private async *manageContextThreshold(
     ctx: RunContext,
     query: string,
-    memoryFlushState: { alreadyFlushed: boolean },
+    memoryFlushState: { alreadyFlushed: boolean }
   ): AsyncGenerator<ContextClearedEvent | AgentEvent, void> {
     const fullToolResults = ctx.scratchpad.getToolResults();
     const estimatedContextTokens = estimateTokens(this.systemPrompt + ctx.query + fullToolResults);
@@ -276,10 +285,7 @@ export class Agent {
   /**
    * Build initial prompt with conversation history context if available
    */
-  private buildInitialPrompt(
-    query: string,
-    inMemoryChatHistory?: InMemoryChatHistory
-  ): string {
+  private buildInitialPrompt(query: string, inMemoryChatHistory?: InMemoryChatHistory): string {
     if (!inMemoryChatHistory?.hasMessages()) {
       return query;
     }

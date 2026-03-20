@@ -36,7 +36,8 @@ Execute a skill to get specialized instructions for complex tasks.
  */
 export const skillTool = new DynamicStructuredTool({
   name: 'skill',
-  description: 'Execute a skill to get specialized instructions for a task. Returns instructions to follow.',
+  description:
+    'Execute a skill to get specialized instructions for a task. Returns instructions to follow.',
   schema: z.object({
     skill: z.string().describe('Name of the skill to invoke (e.g., "dcf")'),
     args: z.string().optional().describe('Optional arguments for the skill (e.g., ticker symbol)'),
@@ -45,26 +46,30 @@ export const skillTool = new DynamicStructuredTool({
     const skillDef = getSkill(skill);
 
     if (!skillDef) {
-      const available = discoverSkills().map((s) => s.name).join(', ');
+      const available = discoverSkills()
+        .map((s) => s.name)
+        .join(', ');
       return `Error: Skill "${skill}" not found. Available skills: ${available || 'none'}`;
     }
 
     // Return instructions with optional args context
     let result = `## Skill: ${skillDef.name}\n\n`;
-    
+
     if (args) {
       result += `**Arguments provided:** ${args}\n\n`;
     }
-    
+
     // Resolve relative markdown links to absolute paths so the agent's
     // read_file tool can find referenced files (e.g., sector-wacc.md).
     const skillDir = dirname(skillDef.path);
     const resolved = skillDef.instructions.replace(
       /\[([^\]]+)\]\(([^)]+\.md)\)/g,
       (_match, label, relPath) => {
-        if (relPath.startsWith('/') || relPath.startsWith('http')) return _match;
+        if (relPath.startsWith('/') || relPath.startsWith('http')) {
+          return _match;
+        }
         return `[${label}](${resolve(skillDir, relPath)})`;
-      },
+      }
     );
 
     result += resolved;

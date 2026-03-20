@@ -40,7 +40,9 @@ export class LongTermChatHistory {
    * Creates the file and directories if they don't exist.
    */
   async load(): Promise<void> {
-    if (this.loaded) return;
+    if (this.loaded) {
+      return;
+    }
 
     try {
       if (existsSync(this.filePath)) {
@@ -66,7 +68,7 @@ export class LongTermChatHistory {
    */
   private async save(): Promise<void> {
     const dir = dirname(this.filePath);
-    
+
     if (!existsSync(dir)) {
       await mkdir(dir, { recursive: true });
     }

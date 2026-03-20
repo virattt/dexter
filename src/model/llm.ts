@@ -34,14 +34,16 @@ async function withRetry<T>(fn: () => Promise<T>, provider: string, maxAttempts 
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       const errorType = classifyError(message);
-      logger.error(`[${provider} API] ${errorType} error (attempt ${attempt + 1}/${maxAttempts}): ${message}`);
+      logger.error(
+        `[${provider} API] ${errorType} error (attempt ${attempt + 1}/${maxAttempts}): ${message}`
+      );
 
       if (isNonRetryableError(message)) {
-        throw new Error(`[${provider} API] ${message}`);
+        throw new Error(`[${provider} API] ${message}`, { cause: e });
       }
 
       if (attempt === maxAttempts - 1) {
-        throw new Error(`[${provider} API] ${message}`);
+        throw new Error(`[${provider} API] ${message}`, { cause: e });
       }
       await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
     }
@@ -153,7 +155,9 @@ export interface LlmResult {
 }
 
 function extractUsage(result: unknown): TokenUsage | undefined {
-  if (!result || typeof result !== 'object') return undefined;
+  if (!result || typeof result !== 'object') {
+    return undefined;
+  }
   const msg = result as Record<string, unknown>;
 
   const usageMetadata = msg.usage_metadata;

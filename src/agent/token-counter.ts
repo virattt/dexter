@@ -10,7 +10,9 @@ export class TokenCounter {
    * Add usage from an LLM call to the running total.
    */
   add(usage?: TokenUsage): void {
-    if (!usage) return;
+    if (!usage) {
+      return;
+    }
     this.usage.inputTokens += usage.inputTokens;
     this.usage.outputTokens += usage.outputTokens;
     this.usage.totalTokens += usage.totalTokens;
@@ -27,7 +29,9 @@ export class TokenCounter {
    * Calculate tokens per second given elapsed time in milliseconds.
    */
   getTokensPerSecond(elapsedMs: number): number | undefined {
-    if (this.usage.totalTokens === 0 || elapsedMs <= 0) return undefined;
+    if (this.usage.totalTokens === 0 || elapsedMs <= 0) {
+      return undefined;
+    }
     return this.usage.totalTokens / (elapsedMs / 1000);
   }
 }

@@ -28,10 +28,18 @@ export function isHeartbeatContentEmpty(content: string): boolean {
   for (const line of lines) {
     const trimmed = line.trim();
     // Skip empty lines, headers, and empty list items
-    if (!trimmed) continue;
-    if (/^#+\s*$/.test(trimmed)) continue;
-    if (/^#+\s/.test(trimmed)) continue;
-    if (/^[-*]\s*$/.test(trimmed)) continue;
+    if (!trimmed) {
+      continue;
+    }
+    if (/^#+\s*$/.test(trimmed)) {
+      continue;
+    }
+    if (/^#+\s/.test(trimmed)) {
+      continue;
+    }
+    if (/^[-*]\s*$/.test(trimmed)) {
+      continue;
+    }
     // Non-empty content found
     return false;
   }

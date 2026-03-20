@@ -53,13 +53,13 @@ export async function loadSoulDocument(): Promise<string | null> {
  */
 function buildSkillsSection(): string {
   const skills = discoverSkills();
-  
+
   if (skills.length === 0) {
     return '';
   }
 
   const skillList = buildSkillMetadataSection();
-  
+
   return `## Available Skills
 
 ${skillList}
@@ -73,9 +73,8 @@ ${skillList}
 }
 
 function buildMemorySection(memoryFiles: string[]): string {
-  const fileListSection = memoryFiles.length > 0
-    ? `\nMemory files on disk: ${memoryFiles.join(', ')}`
-    : '';
+  const fileListSection =
+    memoryFiles.length > 0 ? `\nMemory files on disk: ${memoryFiles.join(', ')}` : '';
 
   return `## Memory
 
@@ -194,13 +193,13 @@ export function buildSystemPrompt(
   soulContent?: string | null,
   channel?: string,
   groupContext?: GroupContext,
-  memoryFiles?: string[],
+  memoryFiles?: string[]
 ): string {
   const toolDescriptions = buildToolDescriptions(model);
   const profile = getChannelProfile(channel);
 
-  const behaviorBullets = profile.behavior.map(b => `- ${b}`).join('\n');
-  const formatBullets = profile.responseFormat.map(b => `- ${b}`).join('\n');
+  const behaviorBullets = profile.behavior.map((b) => `- ${b}`).join('\n');
+  const formatBullets = profile.responseFormat.map((b) => `- ${b}`).join('\n');
 
   const tablesSection = profile.tables
     ? `\n## Tables (for comparative/tabular data)\n\n${profile.tables}`
@@ -245,12 +244,16 @@ Example user requests: "watch NVDA for me", "add a market check to my heartbeat"
 
 ${behaviorBullets}
 
-${soulContent ? `## Identity
+${
+  soulContent
+    ? `## Identity
 
 ${soulContent}
 
 Embody the identity and investing philosophy described above. Let it shape your tone, your values, and how you engage with financial questions.
-` : ''}
+`
+    : ''
+}
 
 ## Response Format
 
@@ -265,7 +268,7 @@ ${formatBullets}${tablesSection}${groupContext ? '\n\n' + buildGroupSection(grou
  * Build user prompt for agent iteration with full tool results.
  * Anthropic-style: full results in context for accurate decision-making.
  * Context clearing happens at threshold, not inline summarization.
- * 
+ *
  * @param originalQuery - The user's original query
  * @param fullToolResults - Formatted full tool results (or placeholder for cleared)
  * @param toolUsageStatus - Optional tool usage status for graceful exit mechanism
@@ -295,4 +298,3 @@ Continue working toward answering the query. When you have gathered sufficient d
 
   return prompt;
 }
-

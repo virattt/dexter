@@ -16,12 +16,12 @@ Dexter is an autonomous financial research agent that thinks, plans, and learns 
 - [🤝 How to Contribute](#-how-to-contribute)
 - [📄 License](#-license)
 
-
 ## 👋 Overview
 
-Dexter takes complex financial questions and turns them into clear, step-by-step research plans. It runs those tasks using live market data, checks its own work, and refines the results until it has a confident, data-backed answer.  
+Dexter takes complex financial questions and turns them into clear, step-by-step research plans. It runs those tasks using live market data, checks its own work, and refines the results until it has a confident, data-backed answer.
 
 **Key Capabilities:**
+
 - **Intelligent Task Planning**: Automatically decomposes complex queries into structured research steps
 - **Autonomous Execution**: Selects and executes the right tools to gather financial data
 - **Self-Validation**: Checks its own work and iterates until tasks are complete
@@ -31,7 +31,6 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 [![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt) [![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=social&logo=discord)](https://discord.gg/jpGHv2XB6T)
 
 <img width="1042" height="638" alt="Screenshot 2026-02-18 at 12 21 25 PM" src="https://github.com/user-attachments/assets/2a6334f9-863f-4bd2-a56f-923e42f4711e" />
-
 
 ## ✅ Prerequisites
 
@@ -45,16 +44,19 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 If you don't have Bun installed, you can install it using curl:
 
 **macOS/Linux:**
+
 ```bash
 curl -fsSL https://bun.com/install | bash
 ```
 
 **Windows:**
+
 ```bash
 powershell -c "irm bun.sh/install.ps1|iex"
 ```
 
 After installation, restart your terminal and verify Bun is installed:
+
 ```bash
 bun --version
 ```
@@ -62,17 +64,20 @@ bun --version
 ## 💻 How to Install
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/virattt/dexter.git
 cd dexter
 ```
 
 2. Install dependencies with Bun:
+
 ```bash
 bun install
 ```
 
 3. Set up your environment variables:
+
 ```bash
 # Copy the example environment file
 cp env.example .env
@@ -98,11 +103,13 @@ cp env.example .env
 ## 🚀 How to Run
 
 Run Dexter in interactive mode:
+
 ```bash
 bun start
 ```
 
 Or with watch mode for development:
+
 ```bash
 bun dev
 ```
@@ -112,11 +119,13 @@ bun dev
 Dexter includes an evaluation suite that tests the agent against a dataset of financial questions. Evals use LangSmith for tracking and an LLM-as-judge approach for scoring correctness.
 
 **Run on all questions:**
+
 ```bash
 bun run src/evals/run.ts
 ```
 
 **Run on a random sample of data:**
+
 ```bash
 bun run src/evals/run.ts --sample 10
 ```
@@ -128,6 +137,7 @@ The eval runner displays a real-time UI showing progress, current question, and 
 Dexter logs all tool calls to a scratchpad file for debugging and history tracking. Each query creates a new JSONL file in `.dexter/scratchpad/`.
 
 **Scratchpad location:**
+
 ```
 .dexter/scratchpad/
 ├── 2026-01-30-111400_9a8f10723f79.jsonl
@@ -136,11 +146,13 @@ Dexter logs all tool calls to a scratchpad file for debugging and history tracki
 ```
 
 Each file contains newline-delimited JSON entries tracking:
+
 - **init**: The original query
 - **tool_result**: Each tool call with arguments, raw result, and LLM summary
 - **thinking**: Agent reasoning steps
 
 **Example scratchpad entry:**
+
 ```json
 {"type":"tool_result","timestamp":"2026-01-30T11:14:05.123Z","toolName":"get_income_statements","args":{"ticker":"AAPL","period":"annual","limit":5},"result":{...},"llmSummary":"Retrieved 5 years of Apple annual income statements showing revenue growth from $274B to $394B"}
 ```
@@ -152,6 +164,7 @@ This makes it easy to inspect exactly what data the agent gathered and how it in
 Chat with Dexter through WhatsApp by linking your phone to the gateway. Messages you send to yourself are processed by Dexter and responses are sent back to the same chat.
 
 **Quick start:**
+
 ```bash
 # Link your WhatsApp account (scan QR code)
 bun run gateway:login
@@ -172,8 +185,7 @@ For detailed setup instructions, configuration options, and troubleshooting, see
 4. Push to the branch
 5. Create a Pull Request
 
-**Important**: Please keep your pull requests small and focused.  This will make it easier to review and merge.
-
+**Important**: Please keep your pull requests small and focused. This will make it easier to review and merge.
 
 ## 📄 License
 

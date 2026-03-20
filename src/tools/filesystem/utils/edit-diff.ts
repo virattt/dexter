@@ -3,8 +3,12 @@ import * as Diff from 'diff';
 export function detectLineEnding(content: string): '\r\n' | '\n' {
   const crlfIdx = content.indexOf('\r\n');
   const lfIdx = content.indexOf('\n');
-  if (lfIdx === -1) return '\n';
-  if (crlfIdx === -1) return '\n';
+  if (lfIdx === -1) {
+    return '\n';
+  }
+  if (crlfIdx === -1) {
+    return '\n';
+  }
   return crlfIdx < lfIdx ? '\r\n' : '\n';
 }
 
@@ -71,13 +75,15 @@ export function fuzzyFindText(content: string, oldText: string): FuzzyMatchResul
 }
 
 export function stripBom(content: string): { bom: string; text: string } {
-  return content.startsWith('\uFEFF') ? { bom: '\uFEFF', text: content.slice(1) } : { bom: '', text: content };
+  return content.startsWith('\uFEFF')
+    ? { bom: '\uFEFF', text: content.slice(1) }
+    : { bom: '', text: content };
 }
 
 export function generateDiffString(
   oldContent: string,
   newContent: string,
-  contextLines = 4,
+  contextLines = 4
 ): { diff: string; firstChangedLine: number | undefined } {
   const parts = Diff.diffLines(oldContent, newContent);
   const output: string[] = [];
@@ -117,7 +123,8 @@ export function generateDiffString(
       }
       lastWasChange = true;
     } else {
-      const nextPartIsChange = i < parts.length - 1 && (parts[i + 1]?.added || parts[i + 1]?.removed);
+      const nextPartIsChange =
+        i < parts.length - 1 && (parts[i + 1]?.added || parts[i + 1]?.removed);
 
       if (lastWasChange || nextPartIsChange) {
         let linesToShow = raw;

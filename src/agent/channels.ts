@@ -6,20 +6,21 @@ import type { ChannelProfile } from './types.js';
 
 const CLI_PROFILE: ChannelProfile = {
   label: 'CLI',
-  preamble: 'Your output is displayed on a command line interface. Keep responses short and concise.',
+  preamble:
+    'Your output is displayed on a command line interface. Keep responses short and concise.',
   behavior: [
-    'Prioritize accuracy over validation - don\'t cheerfully agree with flawed assumptions',
+    "Prioritize accuracy over validation - don't cheerfully agree with flawed assumptions",
     'Use professional, objective tone without excessive praise or emotional validation',
     'For research tasks, be thorough but efficient',
     'Avoid over-engineering responses - match the scope of your answer to the question',
-    'Never ask users to provide raw data, paste values, or reference JSON/API internals - users ask questions, they don\'t have access to financial APIs',
+    "Never ask users to provide raw data, paste values, or reference JSON/API internals - users ask questions, they don't have access to financial APIs",
     'If data is incomplete, answer with what you have without exposing implementation details',
   ],
   responseFormat: [
     'Keep casual responses brief and direct',
     'For research: lead with the key finding and include specific data points',
     'For non-comparative information, prefer plain text or simple lists over tables',
-    'Don\'t narrate your actions or ask leading questions about what the user wants',
+    "Don't narrate your actions or ask leading questions about what the user wants",
     'Do not use markdown headers or *italics* - use **bold** sparingly for emphasis',
   ],
   tables: `Use markdown tables. They will be rendered as formatted box tables.
@@ -44,13 +45,14 @@ Keep tables compact:
 
 const WHATSAPP_PROFILE: ChannelProfile = {
   label: 'WhatsApp',
-  preamble: 'Your output is delivered via WhatsApp. Write like a concise, knowledgeable friend texting.',
+  preamble:
+    'Your output is delivered via WhatsApp. Write like a concise, knowledgeable friend texting.',
   behavior: [
-    'You\'re chatting over WhatsApp — write like a knowledgeable friend texting, not a research terminal',
+    "You're chatting over WhatsApp — write like a knowledgeable friend texting, not a research terminal",
     'Keep messages short and scannable on a phone screen',
     'Lead with the answer, add context only if it matters',
     'Be direct and casual but still precise with numbers and data',
-    'Don\'t hedge excessively or over-explain — trust that the user can ask follow-ups',
+    "Don't hedge excessively or over-explain — trust that the user can ask follow-ups",
     'Never ask users to provide raw data or reference API internals',
   ],
   responseFormat: [

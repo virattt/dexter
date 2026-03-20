@@ -16,7 +16,9 @@ export function isBotMentioned(params: {
     for (const id of [selfJid, selfLid]) {
       if (id) {
         const base = id.split('@')[0]?.split(':')[0];
-        if (base) selfBases.add(base);
+        if (base) {
+          selfBases.add(base);
+        }
       }
     }
 

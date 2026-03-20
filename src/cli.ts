@@ -65,12 +65,7 @@ function summarizeToolResult(tool: string, args: Record<string, unknown>, result
   return 'Received data';
 }
 
-function createScreen(
-  title: string,
-  description: string,
-  body: any,
-  footer?: string,
-): Container {
+function createScreen(title: string, description: string, body: any, footer?: string): Container {
   const container = new Container();
   if (title) {
     container.addChild(new Text(theme.bold(theme.primary(title)), 0, 0));
@@ -103,7 +98,7 @@ function renderHistory(chatLog: ChatLogComponent, history: AgentRunnerController
         const message = event.message.trim();
         if (message) {
           chatLog.addChild(
-            new Text(message.length > 200 ? `${message.slice(0, 200)}...` : message, 0, 0),
+            new Text(message.length > 200 ? `${message.slice(0, 200)}...` : message, 0, 0)
           );
         }
         continue;
@@ -116,7 +111,7 @@ function renderHistory(chatLog: ChatLogComponent, history: AgentRunnerController
           const done = display.endEvent as ToolEndEvent;
           component.setComplete(
             summarizeToolResult(done.tool, toolStart.args, done.result),
-            done.duration,
+            done.duration
           );
         } else if (display.completed && display.endEvent?.type === 'tool_error') {
           const toolError = display.endEvent as ToolErrorEvent;
@@ -185,7 +180,7 @@ export async function runCli() {
       workingIndicator.setState(agentRunner.workingState);
       renderSelectionOverlay();
       tui.requestRender();
-    },
+    }
   );
 
   const intro = new IntroComponent(modelSelection.model);
@@ -213,7 +208,11 @@ export async function runCli() {
       return;
     }
 
-    if (modelSelection.isInSelectionFlow() || agentRunner.pendingApproval || agentRunner.isProcessing) {
+    if (
+      modelSelection.isInSelectionFlow() ||
+      agentRunner.pendingApproval ||
+      agentRunner.isProcessing
+    ) {
       return;
     }
 
@@ -229,7 +228,9 @@ export async function runCli() {
 
   editor.onSubmit = (text) => {
     const value = text.trim();
-    if (!value) return;
+    if (!value) {
+      return;
+    }
     editor.setText('');
     editor.addToHistory(value);
     void handleSubmit(value);
@@ -280,7 +281,7 @@ export async function runCli() {
     description: string,
     body: any,
     footer?: string,
-    focusTarget?: any,
+    focusTarget?: any
   ) => {
     root.clear();
     root.addChild(createScreen(title, description, body, footer));
@@ -300,7 +301,7 @@ export async function runCli() {
     if (agentRunner.pendingApproval) {
       const prompt = new ApprovalPromptComponent(
         agentRunner.pendingApproval.tool,
-        agentRunner.pendingApproval.args,
+        agentRunner.pendingApproval.args
       );
       prompt.onSelect = (decision: ApprovalDecision) => {
         agentRunner.respondToApproval(decision);
@@ -318,7 +319,7 @@ export async function runCli() {
         'Switch between LLM providers. Applies to this session and future sessions.',
         selector,
         'Enter to confirm · esc to exit',
-        selector,
+        selector
       );
       return;
     }
@@ -328,14 +329,14 @@ export async function runCli() {
         state.pendingModels,
         modelSelection.provider === state.pendingProvider ? modelSelection.model : undefined,
         (modelId) => modelSelection.handleModelSelect(modelId),
-        state.pendingProvider,
+        state.pendingProvider
       );
       renderScreenView(
         `Select model for ${getProviderDisplayName(state.pendingProvider)}`,
         '',
         selector,
         'Enter to confirm · esc to go back',
-        selector,
+        selector
       );
       return;
     }
@@ -349,21 +350,21 @@ export async function runCli() {
         'Type or paste the model name from openrouter.ai/models',
         input,
         'Examples: anthropic/claude-3.5-sonnet, openai/gpt-4-turbo, meta-llama/llama-3-70b\nEnter to confirm · esc to go back',
-        input,
+        input
       );
       return;
     }
 
     if (state.appState === 'api_key_confirm' && state.pendingProvider) {
       const selector = createApiKeyConfirmSelector((wantsToSet) =>
-        modelSelection.handleApiKeyConfirm(wantsToSet),
+        modelSelection.handleApiKeyConfirm(wantsToSet)
       );
       renderScreenView(
         'Set API Key',
         `Would you like to set your ${getProviderDisplayName(state.pendingProvider)} API key?`,
         selector,
         'Enter to confirm · esc to decline',
-        selector,
+        selector
       );
       return;
     }
@@ -378,7 +379,7 @@ export async function runCli() {
         apiKeyName ? `(${apiKeyName})` : '',
         input,
         'Enter to confirm · Esc to cancel',
-        input,
+        input
       );
     }
   };

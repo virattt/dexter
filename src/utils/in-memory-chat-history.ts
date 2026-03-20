@@ -1,10 +1,6 @@
 import { createHash } from 'crypto';
 import { callLlm, DEFAULT_MODEL } from '../model/llm.js';
-import {
-  DEFAULT_HISTORY_LIMIT,
-  FULL_ANSWER_TURNS,
-  type HistoryEntry,
-} from './history-context.js';
+import { DEFAULT_HISTORY_LIMIT, FULL_ANSWER_TURNS, type HistoryEntry } from './history-context.js';
 import { z } from 'zod';
 
 /**
@@ -13,8 +9,8 @@ import { z } from 'zod';
 export interface Message {
   id: number;
   query: string;
-  answer: string | null;   // null until answer completes
-  summary: string | null;  // LLM-generated summary, null until answer arrives
+  answer: string | null; // null until answer completes
+  summary: string | null; // LLM-generated summary, null until answer arrives
 }
 
 /**
@@ -110,7 +106,7 @@ Generate a brief 1-2 sentence summary of this answer.`;
    */
   async saveAnswer(answer: string): Promise<void> {
     const lastMessage = this.messages[this.messages.length - 1];
-    if (!lastMessage || lastMessage.answer !== null) {
+    if (lastMessage?.answer !== null) {
       return; // No pending query or already has answer
     }
 
@@ -229,9 +225,7 @@ Select which previous messages are relevant to understanding or answering the cu
 
     return recentMessages.flatMap((message, index) => {
       const isRecentTurn = index >= recentMessages.length - FULL_ANSWER_TURNS;
-      const assistantContent = isRecentTurn
-        ? message.answer
-        : (message.summary ?? message.answer);
+      const assistantContent = isRecentTurn ? message.answer : (message.summary ?? message.answer);
 
       return [
         { role: 'user', content: message.query },
