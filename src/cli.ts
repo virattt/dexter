@@ -173,6 +173,7 @@ export async function runCli() {
 
   const modelSelection = new ModelSelectionController(onError, () => {
     intro.setModel(modelSelection.model);
+    agentRunner.setModelConfig(modelSelection.model, modelSelection.provider);
     renderSelectionOverlay();
     tui.requestRender();
   });
@@ -344,11 +345,18 @@ export async function runCli() {
       const input = new ApiKeyInputComponent();
       input.onSubmit = (value) => modelSelection.handleModelInputSubmit(value);
       input.onCancel = () => modelSelection.handleModelInputSubmit(null);
+      const isAzureProvider = state.pendingProvider === 'azure';
+      const description = isAzureProvider
+        ? 'Type your Azure model/deployment name from your Foundry project'
+        : 'Type or paste the model name from openrouter.ai/models';
+      const footer = isAzureProvider
+        ? 'Examples: gpt-4.1, gpt-4.1-mini, my-deployment-name\nEnter to confirm · esc to go back'
+        : 'Examples: anthropic/claude-3.5-sonnet, openai/gpt-4-turbo, meta-llama/llama-3-70b\nEnter to confirm · esc to go back';
       renderScreenView(
         `Enter model name for ${getProviderDisplayName(state.pendingProvider)}`,
-        'Type or paste the model name from openrouter.ai/models',
+        description,
         input,
-        'Examples: anthropic/claude-3.5-sonnet, openai/gpt-4-turbo, meta-llama/llama-3-70b\nEnter to confirm · esc to go back',
+        footer,
         input,
       );
       return;

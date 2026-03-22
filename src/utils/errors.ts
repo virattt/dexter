@@ -241,6 +241,11 @@ export function formatUserFacingError(raw: string, provider?: string): string {
       return `${providerLabel}API key has run out of credits or has an insufficient balance. ` +
         'Check your billing dashboard and top up, or switch to a different API key.';
     case 'auth':
+      if (provider?.toLowerCase().includes('azure')) {
+        return `${providerLabel}credentials are invalid or expired. ` +
+          'Run `az login` (or verify managed identity), confirm your Azure base URL, ' +
+          'and verify `AZURE_OPENAI_SCOPE` and RBAC role assignment (Azure AI User / Cognitive Services OpenAI User).';
+      }
       return `${providerLabel}API key is invalid or expired. ` +
         'Check that your API key is correct in your environment variables.';
     case 'timeout':

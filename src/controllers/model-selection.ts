@@ -94,7 +94,7 @@ export class ModelSelectionController {
     }
 
     this.pendingProviderValue = providerId;
-    if (providerId === 'openrouter') {
+    if (providerId === 'openrouter' || providerId === 'azure') {
       this.pendingModelsValue = [];
       this.appStateValue = 'model_input';
       this.emitChange();
@@ -149,7 +149,10 @@ export class ModelSelectionController {
       return;
     }
 
-    const fullModelId = `${this.pendingProviderValue}:${modelName}`;
+    const normalizedModelName = modelName.startsWith(`${this.pendingProviderValue}:`)
+      ? modelName.slice(this.pendingProviderValue.length + 1)
+      : modelName;
+    const fullModelId = `${this.pendingProviderValue}:${normalizedModelName}`;
     if (checkApiKeyExistsForProvider(this.pendingProviderValue)) {
       this.completeModelSwitch(this.pendingProviderValue, fullModelId);
       return;
