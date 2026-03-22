@@ -36,7 +36,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 ## ✅ Prerequisites
 
 - [Bun](https://bun.com) runtime (v1.0 or higher)
-- OpenAI API key (get [here](https://platform.openai.com/api-keys))
+- OpenAI API key (get [here](https://platform.openai.com/api-keys)) **or** Azure credential auth (`az login` / managed identity)
 - Financial Datasets API key (get [here](https://financialdatasets.ai))
 - Exa API key (get [here](https://exa.ai)) - optional, for web search
 
@@ -84,6 +84,12 @@ cp env.example .env
 # XAI_API_KEY=your-xai-api-key (optional)
 # OPENROUTER_API_KEY=your-openrouter-api-key (optional)
 
+# Azure Foundry / Azure OpenAI (credential auth via DefaultAzureCredential)
+# Use the OpenAI-compatible base URL (without trailing /responses)
+# AZURE_OPENAI_BASE_URL=https://your-resource.services.ai.azure.com/api/projects/your-project/openai/v1
+# Optional scope override if your tenant requires it:
+# AZURE_OPENAI_SCOPE=https://ai.azure.com/.default
+
 # Institutional-grade market data for agents; AAPL, NVDA, MSFT are free
 # FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
 
@@ -94,6 +100,8 @@ cp env.example .env
 # EXASEARCH_API_KEY=your-exa-api-key
 # TAVILY_API_KEY=your-tavily-api-key
 ```
+
+If you're using Azure credential auth, run `az login`, then in Dexter use `/model` and choose `Azure Foundry` with your model/deployment name. For project endpoints on `*.services.ai.azure.com`, `AZURE_OPENAI_SCOPE=https://ai.azure.com/.default` is commonly required.
 
 ## 🚀 How to Run
 

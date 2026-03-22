@@ -14,6 +14,7 @@ import type { TokenUsage } from '@/agent/types';
 import { logger } from '@/utils';
 import { classifyError, isNonRetryableError } from '@/utils/errors';
 import { resolveProvider, getProviderById } from '@/providers';
+import { getAzureAdTokenProvider, getAzureOpenAIBaseUrl } from './azure-auth.js';
 
 export const DEFAULT_PROVIDER = 'openai';
 export const DEFAULT_MODEL = 'gpt-5.4';
@@ -66,6 +67,15 @@ function getApiKey(envVar: string): string {
 
 // Factories keyed by provider id — prefix routing is handled by resolveProvider()
 const MODEL_FACTORIES: Record<string, ModelFactory> = {
+  azure: (name, opts) =>
+    new ChatOpenAI({
+      model: name.replace(/^azure:/, ''),
+      ...opts,
+      configuration: {
+        apiKey: getAzureAdTokenProvider(),
+        baseURL: getAzureOpenAIBaseUrl(),
+      },
+    }),
   anthropic: (name, opts) =>
     new ChatAnthropic({
       model: name,

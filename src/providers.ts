@@ -25,6 +25,12 @@ export const PROVIDERS: ProviderDef[] = [
     fastModel: 'gpt-4.1',
   },
   {
+    id: 'azure',
+    displayName: 'Azure Foundry',
+    modelPrefix: 'azure:',
+    fastModel: 'azure:gpt-4.1-mini',
+  },
+  {
     id: 'anthropic',
     displayName: 'Anthropic',
     modelPrefix: 'claude-',
