@@ -18,6 +18,7 @@ Screens for stocks matching financial criteria. Takes a natural language query d
 - Finding stocks by financial criteria (e.g., "P/E below 15 and revenue growth above 20%")
 - Screening for value, growth, dividend, or quality stocks
 - Filtering the market by valuation ratios, profitability metrics, or growth rates
+- Filtering by sector or industry (e.g., "health care stocks", "oil and gas companies")
 - Finding stocks matching a specific investment thesis
 
 ## When NOT to Use
@@ -35,16 +36,16 @@ Screens for stocks matching financial criteria. Takes a natural language query d
 - Supports operators: gt, gte, lt, lte, eq, between
 `.trim();
 
-// In-memory cache for screener metrics (static model fields, rarely change)
-let cachedMetrics: Record<string, unknown> | null = null;
+// In-memory cache for screener filters (static model fields, rarely change)
+let cachedFilters: Record<string, unknown> | null = null;
 
-async function getScreenerMetrics(): Promise<Record<string, unknown>> {
-  if (cachedMetrics) {
-    return cachedMetrics;
+async function getScreenerFilters(): Promise<Record<string, unknown>> {
+  if (cachedFilters) {
+    return cachedFilters;
   }
 
-  const { data } = await api.get('/financials/search/screener/metrics/', {});
-  cachedMetrics = data;
+  const { data } = await api.get('/financials/search/screener/filters/', {});
+  cachedFilters = data;
   return data;
 }
 
@@ -52,7 +53,7 @@ const ScreenerFilterSchema = z.object({
   filters: z.array(z.object({
     field: z.string().describe('Exact metric field name from the available metrics list'),
     operator: z.enum(['gt', 'gte', 'lt', 'lte', 'eq', 'between']).describe('Comparison operator'),
-    value: z.union([z.number(), z.array(z.number())]).describe('Threshold value, or [min, max] array for "between" operator'),
+    value: z.union([z.number(), z.string(), z.array(z.number()), z.array(z.string())]).describe('Numeric threshold, string for company fields (sector/industry), or [min, max] array for "between" operator'),
   })).describe('Array of screening filters to apply'),
   currency: z.string().default('USD').describe('Currency code (e.g., "USD")'),
   limit: z.number().default(5).describe('Maximum number of results to return'),
@@ -90,6 +91,7 @@ ${escapedMetrics}
    - If the user says "high growth" without a number, use a sensible threshold (e.g., gt 20)
 4. Set limit to 25 unless the user specifies otherwise
 5. Default currency to USD unless specified
+6. Company fields (sector, industry) use GICS classification and require string values with the "eq" or "in" operator (case-insensitive). Common GICS sectors: Communication Services, Consumer Discretionary, Consumer Staples, Energy, Financials, Health Care, Industrials, Information Technology, Materials, Real Estate, Utilities. Map user intent to the correct GICS value (e.g., "tech stocks" → sector eq "Information Technology", "oil and gas" → industry eq "Oil, Gas & Consumable Fuels")
 
 Return only the structured output fields.`;
 }
@@ -109,7 +111,8 @@ export function createScreenStocks(model: string): DynamicStructuredTool {
 - Finding stocks by valuation (P/E, P/B, EV/EBITDA)
 - Screening by profitability (margins, ROE, ROA)
 - Filtering by growth rates (revenue, earnings, EPS growth)
-- Dividend screening (yield, payout ratio)`,
+- Dividend screening (yield, payout ratio)
+- Filtering by sector or industry (e.g., "health care", "oil and gas")`,
     schema: ScreenStocksInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
       const onProgress = config?.metadata?.onProgress as ((msg: string) => void) | undefined;
@@ -118,7 +121,7 @@ export function createScreenStocks(model: string): DynamicStructuredTool {
       onProgress?.('Loading screener metrics...');
       let metrics: Record<string, unknown>;
       try {
-        metrics = await getScreenerMetrics();
+        metrics = await getScreenerFilters();
       } catch (error) {
         return formatToolResult(
           {
