@@ -1,5 +1,5 @@
 import { StructuredToolInterface } from '@langchain/core/tools';
-import { createGetFinancials, createGetMarketData, createReadFilings, createScreenStocks } from './finance/index.js';
+import { createGetFinancials, createGetMarketData, createReadFilings, createScreenStocks, createGetShariah, GET_SHARIAH_DESCRIPTION } from './finance/index.js';
 import { exaSearch, perplexitySearch, tavilySearch, WEB_SEARCH_DESCRIPTION, xSearchTool, X_SEARCH_DESCRIPTION } from './search/index.js';
 import { skillTool, SKILL_TOOL_DESCRIPTION } from './skill.js';
 import { webFetchTool, WEB_FETCH_DESCRIPTION } from './fetch/web-fetch.js';
@@ -130,6 +130,15 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'x_search',
       tool: xSearchTool,
       description: X_SEARCH_DESCRIPTION,
+    });
+  }
+
+  // Include get_shariah if Halal Terminal API key is configured
+  if (process.env.HALAL_TERMINAL_API_KEY) {
+    tools.push({
+      name: 'get_shariah',
+      tool: createGetShariah(model),
+      description: GET_SHARIAH_DESCRIPTION,
     });
   }
 
