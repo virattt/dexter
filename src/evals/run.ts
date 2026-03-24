@@ -17,6 +17,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { Agent } from '../agent/agent.js';
 import { EvalApp, type EvalProgressEvent } from './components/index.js';
+import { getSetting } from '@/utils/index.js';
+import { DEFAULT_MODEL, DEFAULT_PROVIDER, getChatModel } from '@/model/llm.js';
+import { getDefaultModelForProvider } from '@/utils/model.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -136,12 +139,17 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
+const providerValue = getSetting('provider', DEFAULT_PROVIDER);
+const savedModel = getSetting('modelId', null) as string | null;
+const model = savedModel ?? getDefaultModelForProvider(providerValue) ?? DEFAULT_MODEL;
+
+
 // ============================================================================
 // Target function - wraps Dexter agent
 // ============================================================================
 
 async function target(inputs: { question: string }): Promise<{ answer: string }> {
-  const agent = await Agent.create({ model: 'gpt-5.4', maxIterations: 10 });
+  const agent = await Agent.create({ model, maxIterations: 10 });
   let answer = '';
   
   for await (const event of agent.run(inputs.question)) {
@@ -162,12 +170,10 @@ const EvaluatorOutputSchema = z.object({
   comment: z.string(),
 });
 
-const llm = new ChatOpenAI({
-  model: 'gpt-5.4',
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const llm = getChatModel(model,false);
 
 const structuredLlm = llm.withStructuredOutput(EvaluatorOutputSchema);
+
 
 async function correctnessEvaluator({
   outputs,
