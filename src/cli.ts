@@ -9,6 +9,7 @@ import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js
 import { logger } from './utils/logger.js';
 import {
   AgentRunnerController,
+  HalalKeyController,
   InputHistoryController,
   ModelSelectionController,
 } from './controllers/index.js';
@@ -177,6 +178,11 @@ export async function runCli() {
     tui.requestRender();
   });
 
+  const halalKey = new HalalKeyController(() => {
+    renderSelectionOverlay();
+    tui.requestRender();
+  });
+
   const agentRunner = new AgentRunnerController(
     { model: modelSelection.model, modelProvider: modelSelection.provider, maxIterations: 10 },
     modelSelection.inMemoryChatHistory,
@@ -213,7 +219,7 @@ export async function runCli() {
       return;
     }
 
-    if (modelSelection.isInSelectionFlow() || agentRunner.pendingApproval || agentRunner.isProcessing) {
+    if (halalKey.isActive() || modelSelection.isInSelectionFlow() || agentRunner.pendingApproval || agentRunner.isProcessing) {
       return;
     }
 
@@ -236,6 +242,10 @@ export async function runCli() {
   };
 
   editor.onEscape = () => {
+    if (halalKey.isActive()) {
+      halalKey.dismiss();
+      return;
+    }
     if (modelSelection.isInSelectionFlow()) {
       modelSelection.cancelSelection();
       return;
@@ -290,6 +300,86 @@ export async function runCli() {
   };
 
   const renderSelectionOverlay = () => {
+    // --- Halal Terminal key setup wizard ---
+    const halalState = halalKey.state;
+
+    if (halalState.appState === 'confirm') {
+      const selector = createApiKeyConfirmSelector((wantsToSetUp) =>
+        halalKey.handleConfirm(wantsToSetUp),
+      );
+      renderScreenView(
+        'Halal Terminal API (free)',
+        'Generate a free API key to enable Shariah compliance screening,\nzakat calculations, ETF analysis, and Islamic finance news.',
+        selector,
+        'No credit card required  ·  50 free tokens to start  ·  Enter to confirm · Esc to skip',
+        selector,
+      );
+      return;
+    }
+
+    if (halalState.appState === 'email_input') {
+      const input = new ApiKeyInputComponent(false);
+      input.onSubmit = (email) => {
+        void halalKey.handleEmailSubmit(email);
+      };
+      input.onCancel = () => halalKey.handleConfirm(false);
+      renderScreenView(
+        'Enter your email',
+        'A free API key will be sent and saved automatically.',
+        input,
+        'Enter to confirm · Esc to skip',
+        input,
+      );
+      return;
+    }
+
+    if (halalState.appState === 'generating') {
+      const body = new Container();
+      body.addChild(new Text(theme.muted('Generating your API key...'), 0, 0));
+      renderScreenView('Halal Terminal API', '', body);
+      return;
+    }
+
+    if (halalState.appState === 'done') {
+      const body = new Container();
+      body.addChild(new Text(theme.success('API key generated and saved to .env'), 0, 0));
+      body.addChild(new Text(theme.muted(`Key: ${halalState.generatedKey ?? ''}`), 0, 0));
+      body.addChild(new Text('', 0, 0));
+      body.addChild(new Text(theme.muted('Press any key to continue...'), 0, 0));
+
+      // Dismiss on any keypress
+      const dismissOnKey = new class extends Container {
+        handleInput(_keyData: string): void {
+          halalKey.dismiss();
+        }
+      }();
+      dismissOnKey.addChild(body);
+      renderScreenView('Halal Terminal API', '', dismissOnKey, undefined, dismissOnKey);
+      return;
+    }
+
+    if (halalState.appState === 'error') {
+      const body = new Container();
+      body.addChild(new Text(theme.error(`Error: ${halalState.errorMessage ?? 'Unknown error'}`), 0, 0));
+      body.addChild(new Text('', 0, 0));
+      body.addChild(new Text(theme.muted('Press Enter to retry · Esc to skip'), 0, 0));
+
+      const retryOrSkip = new class extends Container {
+        handleInput(keyData: string): void {
+          if (keyData === '\r' || keyData === '\n') {
+            halalKey.retryFromError();
+          } else if (keyData === '\u001b') {
+            halalKey.dismiss();
+          }
+        }
+      }();
+      retryOrSkip.addChild(body);
+      renderScreenView('Halal Terminal API', '', retryOrSkip, undefined, retryOrSkip);
+      return;
+    }
+
+    // --- end Halal Terminal wizard ---
+
     const state = modelSelection.state;
     if (state.appState === 'idle' && !agentRunner.pendingApproval) {
       refreshError();
@@ -387,6 +477,7 @@ export async function runCli() {
   for (const msg of inputHistory.getMessages().reverse()) {
     editor.addToHistory(msg);
   }
+  halalKey.startIfNeeded();
   renderSelectionOverlay();
   refreshError();
 
