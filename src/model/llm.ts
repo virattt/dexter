@@ -3,7 +3,6 @@ import { ChatOpenAI } from '@langchain/openai';
 import { ChatAnthropic } from '@langchain/anthropic';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { ChatOllama } from '@langchain/ollama';
-import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { StructuredToolInterface } from '@langchain/core/tools';
@@ -219,19 +218,13 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
   const provider = resolveProvider(model);
   let result;
 
-  if (provider.id === 'anthropic') {
-    // Anthropic: use explicit messages with cache_control for prompt caching (~90% savings)
-    const messages = buildAnthropicMessages(finalSystemPrompt, prompt);
-    result = await withRetry(() => runnable.invoke(messages, invokeOpts), provider.displayName);
-  } else {
-    // Other providers: use ChatPromptTemplate (OpenAI/Gemini have automatic caching)
-    const promptTemplate = ChatPromptTemplate.fromMessages([
-      ['system', finalSystemPrompt],
-      ['user', '{prompt}'],
-    ]);
-    const chain = promptTemplate.pipe(runnable);
-    result = await withRetry(() => chain.invoke({ prompt }, invokeOpts), provider.displayName);
-  }
+  const messages =
+    provider.id === 'anthropic'
+      ? // Anthropic: use cache_control for prompt caching (~90% savings)
+        buildAnthropicMessages(finalSystemPrompt, prompt)
+      : [new SystemMessage(finalSystemPrompt), new HumanMessage(prompt)];
+
+  result = await withRetry(() => runnable.invoke(messages, invokeOpts), provider.displayName);
   const usage = extractUsage(result);
 
   // If no outputSchema and no tools, extract content from AIMessage
