@@ -12,7 +12,7 @@
         "@langchain/ollama": "^1.0.3",
         "@langchain/openai": "^1.1.3",
         "@langchain/tavily": "^1.0.1",
-        "@mariozechner/pi-tui": "^0.52.9",
+        "@mariozechner/pi-tui": "0.62.0",
         "@mozilla/readability": "^0.6.0",
         "@whiskeysockets/baileys": "7.0.0-rc.9",
         "better-sqlite3": "^12.6.2",
@@ -440,7 +440,7 @@
 
     "@langchain/tavily": ["@langchain/tavily@1.0.1", "", { "dependencies": { "zod": "^3.25.76 || ^4" }, "peerDependencies": { "@langchain/core": "^1.0.0" } }, "sha512-trpCFvp/6fChSzNr250i2/0ma0zu5nQvJuuMIRlOnv9mQWGuVeevVIWcI/ZXM9tDoRXWFqkeeldKAPS4QdFkAg=="],
 
-    "@mariozechner/pi-tui": ["@mariozechner/pi-tui@0.52.12", "", { "dependencies": { "@types/mime-types": "^2.1.4", "chalk": "^5.5.0", "get-east-asian-width": "^1.3.0", "marked": "^15.0.12", "mime-types": "^3.0.1" } }, "sha512-QQ4LUlAYKN2BvT3EMU63+kYLlIkyr706+rUFBGWvkiT8ZyMy5if3oaVJpO5qAndsMB+MaUnttIBPh3iHiaJ01g=="],
+    "@mariozechner/pi-tui": ["@mariozechner/pi-tui@0.62.0", "", { "dependencies": { "@types/mime-types": "^2.1.4", "chalk": "^5.5.0", "get-east-asian-width": "^1.3.0", "marked": "^15.0.12", "mime-types": "^3.0.1" }, "optionalDependencies": { "koffi": "^2.9.0" } }, "sha512-/At11PPe8l319MnUoK4wN5L/uVCU6bDdiIUzH8Ez0stOkjSF6isRXScZ+RMM+6iCKsD4muBTX8Cmcif+3/UWHA=="],
 
     "@mozilla/readability": ["@mozilla/readability@0.6.0", "", {}, "sha512-juG5VWh4qAivzTAeMzvY9xs9HY5rAcr2E4I7tiSSCokRFi7XIZCAu92ZkSTsIj1OPceCifL3cpfteP3pDT9/QQ=="],
 
@@ -863,6 +863,8 @@
     "kind-of": ["kind-of@6.0.3", "", {}, "sha512-dcS1ul+9tmeD95T+x28/ehLgd9mENa3LsvDTtzm3vyBEO7RPptvAD+t44WVXaUjTBRcrpFeFlC8WCruUR456hw=="],
 
     "kleur": ["kleur@3.0.3", "", {}, "sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w=="],
+
+    "koffi": ["koffi@2.15.2", "", {}, "sha512-r9tjJLVRSOhCRWdVyQlF3/Ugzeg13jlzS4czS82MAgLff4W+BcYOW7g8Y62t9O5JYjYOLAjAovAZDNlDfZNu+g=="],
 
     "langsmith": ["langsmith@0.4.10", "", { "dependencies": { "@types/uuid": "^10.0.0", "chalk": "^4.1.2", "console-table-printer": "^2.12.1", "p-queue": "^6.6.2", "semver": "^7.6.3", "uuid": "^10.0.0" }, "peerDependencies": { "@opentelemetry/api": "*", "@opentelemetry/exporter-trace-otlp-proto": "*", "@opentelemetry/sdk-trace-base": "*", "openai": "*" }, "optionalPeers": ["@opentelemetry/api", "@opentelemetry/exporter-trace-otlp-proto", "@opentelemetry/sdk-trace-base", "openai"] }, "sha512-l9QP/a7RXBXdaoAnNx99X+TK8aul8Qe4us1oCybdMgDmYMLT5PAwlJactvSdTlT8NOeSoFThYa2N7ijznBNe9w=="],
 

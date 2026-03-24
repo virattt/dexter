@@ -1,7 +1,7 @@
 /**
  * Source of a skill definition.
- * - builtin: Shipped with Dexter (src/skills/builtin/)
- * - project: Project-level skills (.dexter/skills/)
+ * - builtin: Shipped with Yassir (src/skills/builtin/)
+ * - project: Project-level skills (.yassir/skills/)
  */
 export type SkillSource = 'builtin' | 'user' | 'project';
 

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { dexterPath } from '../../utils/paths.js';
+import { yassirPath } from '../../utils/paths.js';
 
 export type SessionEntry = {
   sessionKey: string;
@@ -15,7 +15,7 @@ export type SessionEntry = {
 export type SessionStore = Record<string, SessionEntry>;
 
 export function resolveSessionStorePath(agentId: string): string {
-  const base = process.env.DEXTER_SESSIONS_DIR ?? dexterPath('sessions');
+  const base = process.env.YASSIR_SESSIONS_DIR ?? yassirPath('sessions');
   return join(base, agentId, 'sessions.json');
 }
 

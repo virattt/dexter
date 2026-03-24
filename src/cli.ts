@@ -9,6 +9,8 @@ import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js
 import { logger } from './utils/logger.js';
 import {
   AgentRunnerController,
+  ApiKeyManagerController,
+  HalalKeyController,
   InputHistoryController,
   ModelSelectionController,
 } from './controllers/index.js';
@@ -21,6 +23,7 @@ import {
   IntroComponent,
   WorkingIndicatorComponent,
   createApiKeyConfirmSelector,
+  createKeyManagerSelector,
   createModelSelector,
   createProviderSelector,
 } from './components/index.js';
@@ -171,8 +174,22 @@ export async function runCli() {
     tui.requestRender();
   };
 
+  const halalKey = new HalalKeyController(() => {
+    renderSelectionOverlay();
+    tui.requestRender();
+  });
+
   const modelSelection = new ModelSelectionController(onError, () => {
     intro.setModel(modelSelection.model);
+    // When LLM key setup completes (state returns to idle), start Halal wizard if needed
+    if (!modelSelection.isInSelectionFlow() && !halalKey.isActive()) {
+      halalKey.startIfNeeded();
+    }
+    renderSelectionOverlay();
+    tui.requestRender();
+  });
+
+  const apiKeyManager = new ApiKeyManagerController(() => {
     renderSelectionOverlay();
     tui.requestRender();
   });
@@ -213,7 +230,12 @@ export async function runCli() {
       return;
     }
 
-    if (modelSelection.isInSelectionFlow() || agentRunner.pendingApproval || agentRunner.isProcessing) {
+    if (query === '/keys') {
+      apiKeyManager.open();
+      return;
+    }
+
+    if (halalKey.isActive() || apiKeyManager.isActive() || modelSelection.isInSelectionFlow() || agentRunner.pendingApproval || agentRunner.isProcessing) {
       return;
     }
 
@@ -236,6 +258,14 @@ export async function runCli() {
   };
 
   editor.onEscape = () => {
+    if (halalKey.isActive()) {
+      halalKey.dismiss();
+      return;
+    }
+    if (apiKeyManager.isActive()) {
+      apiKeyManager.close();
+      return;
+    }
     if (modelSelection.isInSelectionFlow()) {
       modelSelection.cancelSelection();
       return;
@@ -247,6 +277,10 @@ export async function runCli() {
   };
 
   editor.onCtrlC = () => {
+    if (apiKeyManager.isActive()) {
+      apiKeyManager.close();
+      return;
+    }
     if (modelSelection.isInSelectionFlow()) {
       modelSelection.cancelSelection();
       return;
@@ -290,6 +324,133 @@ export async function runCli() {
   };
 
   const renderSelectionOverlay = () => {
+    // --- API Key Manager (/keys command) ---
+    const keyManagerState = apiKeyManager.state;
+
+    if (keyManagerState.appState === 'provider_select') {
+      const selector = createKeyManagerSelector(keyManagerState.keys, (envVar) =>
+        apiKeyManager.handleKeySelect(envVar),
+      );
+      renderScreenView(
+        'API Keys',
+        'Select a key to add or update. Keys are saved to your .env file.',
+        selector,
+        'Enter to edit · Esc to close',
+        selector,
+      );
+      return;
+    }
+
+    if (keyManagerState.appState === 'key_input' && keyManagerState.selectedKey) {
+      const { label, envVar } = keyManagerState.selectedKey;
+      const input = new ApiKeyInputComponent(true);
+      input.onSubmit = (value) => apiKeyManager.handleKeySubmit(value);
+      input.onCancel = () => apiKeyManager.handleKeySubmit(null);
+      renderScreenView(
+        `Set ${label} Key`,
+        `(${envVar})`,
+        input,
+        'Enter to save · Esc to go back',
+        input,
+      );
+      return;
+    }
+
+    if (keyManagerState.appState === 'done') {
+      const body = new Container();
+      body.addChild(new Text(theme.success(`✓ ${keyManagerState.savedKeyLabel ?? 'API'} key saved to .env`), 0, 0));
+      body.addChild(new Text('', 0, 0));
+      body.addChild(new Text(theme.muted('Press any key to continue...'), 0, 0));
+      const dismissOnKey = new class extends Container {
+        handleInput(_keyData: string): void {
+          apiKeyManager.dismissDone();
+        }
+      }();
+      dismissOnKey.addChild(body);
+      renderScreenView('API Keys', '', dismissOnKey, undefined, dismissOnKey);
+      return;
+    }
+
+    // --- Halal Terminal key setup wizard ---
+    const halalState = halalKey.state;
+
+    if (halalState.appState === 'confirm') {
+      const selector = createApiKeyConfirmSelector((wantsToSetUp) =>
+        halalKey.handleConfirm(wantsToSetUp),
+      );
+      renderScreenView(
+        'Halal Terminal API (free)',
+        'Generate a free API key to enable Shariah compliance screening,\nzakat calculations, ETF analysis, and Islamic finance news.',
+        selector,
+        'No credit card required  ·  50 free tokens to start  ·  Enter to confirm · Esc to skip',
+        selector,
+      );
+      return;
+    }
+
+    if (halalState.appState === 'email_input') {
+      const input = new ApiKeyInputComponent(false);
+      input.onSubmit = (email) => {
+        void halalKey.handleEmailSubmit(email);
+      };
+      input.onCancel = () => halalKey.handleConfirm(false);
+      renderScreenView(
+        'Enter your email',
+        'A free API key will be sent and saved automatically.',
+        input,
+        'Enter to confirm · Esc to skip',
+        input,
+      );
+      return;
+    }
+
+    if (halalState.appState === 'generating') {
+      const body = new Container();
+      body.addChild(new Text(theme.muted('Generating your API key...'), 0, 0));
+      renderScreenView('Halal Terminal API', '', body);
+      return;
+    }
+
+    if (halalState.appState === 'done') {
+      const body = new Container();
+      body.addChild(new Text(theme.success('API key generated and saved to .env'), 0, 0));
+      body.addChild(new Text(theme.muted(`Key: ${halalState.generatedKey ?? ''}`), 0, 0));
+      body.addChild(new Text('', 0, 0));
+      body.addChild(new Text(theme.muted('Press any key to continue...'), 0, 0));
+
+      // Dismiss on any keypress
+      const dismissOnKey = new class extends Container {
+        handleInput(_keyData: string): void {
+          halalKey.dismiss();
+        }
+      }();
+      dismissOnKey.addChild(body);
+      renderScreenView('Halal Terminal API', '', dismissOnKey, undefined, dismissOnKey);
+      return;
+    }
+
+    if (halalState.appState === 'error') {
+      const body = new Container();
+      body.addChild(new Text(theme.error(`Error: ${halalState.errorMessage ?? 'Unknown error'}`), 0, 0));
+      body.addChild(new Text('', 0, 0));
+      body.addChild(new Text(theme.muted('Press Enter to retry · Esc to skip'), 0, 0));
+
+      const retryOrSkip = new class extends Container {
+        handleInput(keyData: string): void {
+          if (keyData === '\r' || keyData === '\n') {
+            halalKey.retryFromError();
+          } else if (keyData === '\u001b') {
+            halalKey.dismiss();
+          }
+        }
+      }();
+      retryOrSkip.addChild(body);
+      renderScreenView('Halal Terminal API', '', retryOrSkip, undefined, retryOrSkip);
+      return;
+    }
+
+    // --- end Halal Terminal wizard ---
+
     const state = modelSelection.state;
     if (state.appState === 'idle' && !agentRunner.pendingApproval) {
       refreshError();
@@ -386,6 +547,10 @@ export async function runCli() {
   await inputHistory.init();
   for (const msg of inputHistory.getMessages().reverse()) {
     editor.addToHistory(msg);
+  }
+  // Show LLM key setup first if missing, then Halal Terminal wizard
+  if (!modelSelection.startKeySetupIfNeeded()) {
+    halalKey.startIfNeeded();
   }
   renderSelectionOverlay();
   refreshError();

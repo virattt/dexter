@@ -1,5 +1,5 @@
 /**
- * LangSmith Evaluation Runner for Dexter
+ * LangSmith Evaluation Runner for Yassir
  * 
  * Usage:
  *   bun run src/evals/run.ts              # Run on all questions
@@ -137,7 +137,7 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 // ============================================================================
-// Target function - wraps Dexter agent
+// Target function - wraps Yassir agent
 // ============================================================================
 
 async function target(inputs: { question: string }): Promise<{ answer: string }> {
@@ -232,8 +232,8 @@ function createEvaluationRunner(sampleSize?: number) {
 
     // Create a unique dataset name for this run (sampling creates different datasets)
     const datasetName = sampleSize 
-      ? `dexter-finance-eval-sample-${sampleSize}-${Date.now()}`
-      : 'dexter-finance-eval';
+      ? `yassir-finance-eval-sample-${sampleSize}-${Date.now()}`
+      : 'yassir-finance-eval';
 
     // Yield init event
     yield {
@@ -270,7 +270,7 @@ function createEvaluationRunner(sampleSize?: number) {
     }
 
     // Generate experiment name for tracking
-    const experimentName = `dexter-eval-${Date.now().toString(36)}`;
+    const experimentName = `yassir-eval-${Date.now().toString(36)}`;
 
     // Run evaluation manually - process each example one by one
     for (const example of examples) {
@@ -296,7 +296,7 @@ function createEvaluationRunner(sampleSize?: number) {
 
       // Log to LangSmith for tracking
       await client.createRun({
-        name: 'dexter-eval-run',
+        name: 'yassir-eval-run',
         run_type: 'chain',
         inputs: example.inputs,
         outputs,

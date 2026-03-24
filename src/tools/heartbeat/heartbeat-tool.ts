@@ -2,13 +2,13 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { z } from 'zod';
-import { dexterPath } from '../../utils/paths.js';
+import { yassirPath } from '../../utils/paths.js';
 import { loadGatewayConfig, saveGatewayConfig } from '../../gateway/config.js';
 
-const HEARTBEAT_MD_PATH = dexterPath('HEARTBEAT.md');
+const HEARTBEAT_MD_PATH = yassirPath('HEARTBEAT.md');
 
 export const HEARTBEAT_TOOL_DESCRIPTION = `
-Manage your periodic heartbeat checklist (.dexter/HEARTBEAT.md).
+Manage your periodic heartbeat checklist (.yassir/HEARTBEAT.md).
 The heartbeat runs on a schedule and uses this checklist to decide what to check.
 When you add items, the heartbeat is automatically enabled in the gateway config.
 
@@ -60,7 +60,7 @@ function ensureHeartbeatEnabled(): void {
 export const heartbeatTool = new DynamicStructuredTool({
   name: 'heartbeat',
   description:
-    'View or update the heartbeat checklist (.dexter/HEARTBEAT.md) that controls periodic monitoring.',
+    'View or update the heartbeat checklist (.yassir/HEARTBEAT.md) that controls periodic monitoring.',
   schema: heartbeatSchema,
   func: async (input) => {
     if (input.action === 'view') {

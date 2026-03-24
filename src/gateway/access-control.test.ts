@@ -14,9 +14,9 @@ describe('access control', () => {
   });
 
   test('records pairing request for unknown sender', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'dexter-pairing-'));
+    const dir = mkdtempSync(join(tmpdir(), 'yassir-pairing-'));
     const path = join(dir, 'whatsapp.json');
-    process.env.DEXTER_PAIRING_PATH = path;
+    process.env.YASSIR_PAIRING_PATH = path;
     try {
       const pairing = recordPairingRequest('+15550001111');
       expect(pairing.code.length).toBe(6);
@@ -24,7 +24,7 @@ describe('access control', () => {
       expect(saved['+15550001111']).toBeDefined();
       expect(saved['+15550001111'].code).toBe(pairing.code);
     } finally {
-      delete process.env.DEXTER_PAIRING_PATH;
+      delete process.env.YASSIR_PAIRING_PATH;
       rmSync(dir, { recursive: true, force: true });
     }
   });

@@ -5,25 +5,28 @@ import { z } from 'zod';
 import { callLlm } from '../../model/llm.js';
 import { formatToolResult } from '../types.js';
 import { getCurrentDate } from '../../agent/prompts.js';
+import {
+  getStockQuote,
+  getStockOhlc,
+  getStockQuotesBatch,
+  getTrendingStocks,
+  getMarketNews,
+} from './halal-market.js';
 
 /**
  * Rich description for the get_market_data tool.
  * Used in the system prompt to guide the LLM on when and how to use this tool.
  */
 export const GET_MARKET_DATA_DESCRIPTION = `
-Intelligent meta-tool for retrieving market data including prices, news, and insider activity. Takes a natural language query and automatically routes to appropriate market data sources.
+Intelligent meta-tool for retrieving market data including prices, news, and trends. Takes a natural language query and automatically routes to the appropriate Halal Terminal API tools.
 
 ## When to Use
 
 - Current stock price snapshots (price, market cap, volume, 52-week high/low)
-- Historical stock prices over date ranges
-- Available stock ticker lookup
-- Current cryptocurrency price snapshots
-- Historical cryptocurrency prices over date ranges
-- Available crypto ticker lookup
-- Multi-asset price comparisons
-- Company news and recent headlines
-- Insider trading activity
+- Historical stock OHLC prices over a time period
+- Batch price quotes for multiple stocks at once
+- Trending or most-active stocks today
+- Company news and recent market headlines
 - Price move explanations ("why did X go up/down" → combines price + news)
 
 ## When NOT to Use
@@ -33,108 +36,108 @@ Intelligent meta-tool for retrieving market data including prices, news, and ins
 - Analyst estimates (use get_financials)
 - SEC filings (use read_filings)
 - Stock screening by criteria (use stock_screener)
+- Shariah compliance, zakat, purification, or Islamic finance (use get_shariah)
 - General web searches (use web_search)
 
 ## Usage Notes
 
-- Call ONCE with the complete natural language query - the tool handles complexity internally
-- Handles ticker resolution automatically (Apple -> AAPL, Bitcoin -> BTC)
-- Handles date inference (e.g., "last month", "past year", "YTD")
-- For "what ticker is X?" queries, this tool can look up available tickers
-- Returns structured JSON data with source URLs for verification
+- Call ONCE with the complete natural language query - routes internally
+- Handles ticker resolution automatically (Apple → AAPL, Bitcoin → BTC)
+- Handles period inference ("last month" → period=1mo, "past year" → period=1y)
+- Returns structured JSON data with source URLs
 `.trim();
 
 /** Format snake_case tool name to Title Case for progress messages */
 function formatSubToolName(name: string): string {
-  return name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  return name
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }
-
-// Import market data tools directly (avoid circular deps with index.ts)
-import { getStockPrice, getStockPrices, getStockTickers } from './stock-price.js';
-import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
-import { getCompanyNews } from './news.js';
-import { getInsiderTrades } from './insider_trades.js';
 
 // All market data tools available for routing
 const MARKET_DATA_TOOLS: StructuredToolInterface[] = [
-  // Stock Prices
-  getStockPrice,
-  getStockPrices,
-  getStockTickers,
-  // Crypto Prices
-  getCryptoPriceSnapshot,
-  getCryptoPrices,
-  getCryptoTickers,
-  // News & Activity
-  getCompanyNews,
-  getInsiderTrades,
+  getStockQuote,
+  getStockOhlc,
+  getStockQuotesBatch,
+  getTrendingStocks,
+  getMarketNews,
 ];
 
-// Create a map for quick tool lookup by name
-const MARKET_DATA_TOOL_MAP = new Map(MARKET_DATA_TOOLS.map(t => [t.name, t]));
+const MARKET_DATA_TOOL_MAP = new Map(MARKET_DATA_TOOLS.map((t) => [t.name, t]));
 
-// Build the router system prompt for market data
 function buildRouterPrompt(): string {
-  return `You are a market data routing assistant.
+  return `You are a market data routing assistant powered by the Halal Terminal API.
 Current date: ${getCurrentDate()}
 
-Given a user's natural language query about market data, call the appropriate tool(s).
+Given a user's natural language query about market data, call the most appropriate tool(s).
 
-## Guidelines
+## Tool Selection Guide
 
-1. **Ticker Resolution**: Convert company/crypto names to ticker symbols:
-   - Apple → AAPL, Tesla → TSLA, Microsoft → MSFT, Amazon → AMZN
-   - Google/Alphabet → GOOGL, Meta/Facebook → META, Nvidia → NVDA
-   - Bitcoin → BTC, Ethereum → ETH, Solana → SOL
+### get_stock_quote
+Use for a real-time price snapshot of a single stock.
+- "What is the current price of Apple?" → get_stock_quote(symbol="AAPL")
+- "TSLA stock price" → get_stock_quote(symbol="TSLA")
+- "Latest MSFT quote" → get_stock_quote(symbol="MSFT")
 
-2. **Date Inference**: Use schema-supported filters for date ranges:
-   - "last month" → start_date 1 month ago, end_date today
-   - "past year" → start_date 1 year ago, end_date today
-   - "YTD" → start_date Jan 1 of current year, end_date today
-   - "2024" → start_date 2024-01-01, end_date 2024-12-31
+### get_stock_ohlc
+Use for historical price data or charts over a time range.
+- "AAPL price history last 6 months" → get_stock_ohlc(symbol="AAPL", period="6mo", interval="1d")
+- "Show me Tesla chart for the past year" → get_stock_ohlc(symbol="TSLA", period="1y", interval="1wk")
+- "MSFT daily prices YTD" → get_stock_ohlc(symbol="MSFT", period="ytd", interval="1d")
 
-3. **Tool Selection**:
-   - For a current stock quote/snapshot (price, market cap, volume) → get_stock_price
-   - For historical stock prices over a date range → get_stock_prices
-   - For "what stocks are available" or ticker lookup → get_stock_tickers
-   - For a current crypto price/snapshot → get_crypto_price_snapshot
-   - For historical crypto prices over a date range → get_crypto_prices
-   - For "what cryptos are available" or crypto ticker lookup → get_crypto_tickers
-   - For news, catalysts, recent announcements → get_company_news
-   - For insider buying/selling activity → get_insider_trades
-   - For "why did X go up/down" → combine get_stock_price + get_company_news
+Period options: '1d','5d','1mo','3mo','6mo','1y','2y','5y','ytd','max'
+Interval options: '1d','1wk','1mo' (use finer intervals like '1h' for short periods)
 
-4. **Efficiency**:
-   - For current/latest price, use snapshot tools (not historical with limit 1)
-   - For comparisons between assets, call the same tool for each ticker
-   - Use the smallest date range that answers the question
+### get_stock_quotes_batch
+Use when comparing prices of 2 or more stocks at once.
+- "Compare current prices of AAPL, MSFT, and GOOGL" → get_stock_quotes_batch(symbols=["AAPL","MSFT","GOOGL"])
+- "Prices for my portfolio: NVDA, AMD, INTC" → get_stock_quotes_batch(symbols=["NVDA","AMD","INTC"])
+
+### get_trending_stocks
+Use for "what's trending" or "top movers" type queries.
+- "What stocks are trending today?" → get_trending_stocks(limit=20)
+- "Top movers right now" → get_trending_stocks(limit=10)
+
+### get_market_news
+Use for news, catalysts, or "why did X move" queries.
+- "Latest news on Apple" → get_market_news(symbol="AAPL", limit=10)
+- "Why did Tesla drop today?" → get_stock_quote(symbol="TSLA") + get_market_news(symbol="TSLA")
+- "Market headlines today" → get_market_news(limit=15)
+- "News about AI stocks" → get_market_news(q="artificial intelligence", limit=10)
+
+## Ticker Resolution
+Apple → AAPL, Tesla → TSLA, Microsoft → MSFT, Amazon → AMZN
+Google/Alphabet → GOOGL, Meta/Facebook → META, Nvidia → NVDA
+Netflix → NFLX, Saudi Aramco → 2222.SR, Alibaba → BABA
 
 Call the appropriate tool(s) now.`;
 }
 
-// Input schema for the get_market_data tool
 const GetMarketDataInputSchema = z.object({
-  query: z.string().describe('Natural language query about market data, prices, news, or insider activity'),
+  query: z
+    .string()
+    .describe('Natural language query about market data, prices, news, or trending stocks'),
 });
 
 /**
  * Create a get_market_data tool configured with the specified model.
- * Uses native LLM tool calling for routing queries to market data tools.
+ * Uses native LLM tool calling to route queries to the appropriate market data tools.
  */
 export function createGetMarketData(model: string): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: 'get_market_data',
-    description: `Intelligent meta-tool for retrieving market data including prices, news, and insider activity. Takes a natural language query and automatically routes to appropriate market data tools. Use for:
+    description: `Intelligent meta-tool for retrieving market data including prices, news, and trends. Takes a natural language query and automatically routes to appropriate market data tools. Use for:
 - Current and historical stock prices
-- Current and historical cryptocurrency prices
-- Stock and crypto ticker lookup
-- Company news and recent headlines
-- Insider trading activity`,
+- Batch price quotes for multiple stocks
+- Trending or most-active stocks
+- Company news and recent market headlines
+- Price move explanations`,
     schema: GetMarketDataInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
       const onProgress = config?.metadata?.onProgress as ((msg: string) => void) | undefined;
 
-      // 1. Call LLM with market data tools bound (native tool calling)
+      // 1. LLM routes the query to the right sub-tool(s) via native tool calling
       onProgress?.('Fetching market data...');
       const { response } = await callLlm(input.query, {
         model,
@@ -143,22 +146,21 @@ export function createGetMarketData(model: string): DynamicStructuredTool {
       });
       const aiMessage = response as AIMessage;
 
-      // 2. Check for tool calls
+      // 2. Verify tool calls were generated
       const toolCalls = aiMessage.tool_calls as ToolCall[];
       if (!toolCalls || toolCalls.length === 0) {
         return formatToolResult({ error: 'No tools selected for query' }, []);
       }
 
       // 3. Execute tool calls in parallel
-      const toolNames = [...new Set(toolCalls.map(tc => formatSubToolName(tc.name)))];
+      const toolNames = [...new Set(toolCalls.map((tc) => formatSubToolName(tc.name)))];
       onProgress?.(`Fetching from ${toolNames.join(', ')}...`);
+
       const results = await Promise.all(
         toolCalls.map(async (tc) => {
           try {
             const tool = MARKET_DATA_TOOL_MAP.get(tc.name);
-            if (!tool) {
-              throw new Error(`Tool '${tc.name}' not found`);
-            }
+            if (!tool) throw new Error(`Tool '${tc.name}' not found`);
             const rawResult = await tool.invoke(tc.args);
             const result = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
             const parsed = JSON.parse(result);
@@ -178,27 +180,22 @@ export function createGetMarketData(model: string): DynamicStructuredTool {
               error: error instanceof Error ? error.message : String(error),
             };
           }
-        })
+        }),
       );
 
-      // 4. Combine results
-      const successfulResults = results.filter((r) => r.error === null);
-      const failedResults = results.filter((r) => r.error !== null);
-
-      // Collect all source URLs
+      // 4. Combine results into a single response
       const allUrls = results.flatMap((r) => r.sourceUrls);
-
-      // Build combined data structure
       const combinedData: Record<string, unknown> = {};
 
-      for (const result of successfulResults) {
-        // Use tool name as key, or tool_ticker for multiple calls to same tool
-        const ticker = (result.args as Record<string, unknown>).ticker as string | undefined;
-        const key = ticker ? `${result.tool}_${ticker}` : result.tool;
+      for (const result of results.filter((r) => r.error === null)) {
+        const args = result.args as Record<string, unknown>;
+        const symbol = (args.symbol as string | undefined) ||
+          (Array.isArray(args.symbols) ? (args.symbols as string[])[0] : undefined);
+        const key = symbol ? `${result.tool}_${symbol}` : result.tool;
         combinedData[key] = result.data;
       }
 
-      // Add errors if any
+      const failedResults = results.filter((r) => r.error !== null);
       if (failedResults.length > 0) {
         combinedData._errors = failedResults.map((r) => ({
           tool: r.tool,

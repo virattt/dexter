@@ -6,10 +6,10 @@ import { resolveSessionStorePath, loadSessionStore, type SessionEntry } from '..
 import { cleanMarkdownForWhatsApp } from '../utils.js';
 import { buildHeartbeatQuery } from './prompt.js';
 import { evaluateSuppression, type SuppressionState } from './suppression.js';
-import { dexterPath } from '../../utils/paths.js';
+import { yassirPath } from '../../utils/paths.js';
 import { getSetting } from '../../utils/config.js';
 
-const LOG_PATH = dexterPath('gateway-debug.log');
+const LOG_PATH = yassirPath('gateway-debug.log');
 
 function debugLog(msg: string) {
   appendFileSync(LOG_PATH, `${new Date().toISOString()} ${msg}\n`);

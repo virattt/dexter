@@ -1,6 +1,7 @@
-import { Container, Input, SelectList, Text, type SelectItem, getEditorKeybindings } from '@mariozechner/pi-tui';
+import { Container, Input, SelectList, Text, type SelectItem } from '@mariozechner/pi-tui';
 import { PROVIDERS, type Model } from '../utils/model.js';
 import type { ApprovalDecision } from '../agent/types.js';
+import type { ManagedKey } from '../controllers/index.js';
 import { selectListTheme, theme } from '../theme.js';
 
 class VimSelectList extends SelectList {
@@ -33,8 +34,7 @@ class EmptyModelSelector extends Container {
   }
 
   handleInput(keyData: string): void {
-    const kb = getEditorKeybindings();
-    if (kb.matches(keyData, 'selectCancel')) {
+    if (keyData === '\u001b' || keyData === '\u0003') {
       this.onCancel();
     }
   }
@@ -96,6 +96,20 @@ export function createApiKeyConfirmSelector(onConfirm: (wantsToSet: boolean) => 
   return list;
 }
 
+export function createKeyManagerSelector(
+  keys: ManagedKey[],
+  onSelect: (envVar: string | null) => void,
+) {
+  const items: SelectItem[] = keys.map((key, index) => ({
+    value: key.envVar,
+    label: `${index + 1}. ${key.label} (${key.envVar}) ${key.isSet ? theme.success('✓') : theme.error('✗')}`,
+  }));
+  const list = new VimSelectList(items, Math.min(keys.length + 2, 16), selectListTheme);
+  list.onSelect = (item) => onSelect(item.value);
+  list.onCancel = () => onSelect(null);
+  return list;
+}
+
 export class ApiKeyInputComponent {
   private readonly input = new Input();
   private readonly masked: boolean;
@@ -113,9 +127,10 @@ export class ApiKeyInputComponent {
   render(width: number): string[] {
     const lines = this.input.render(Math.max(10, width - 4));
     const raw = lines[0] ?? '';
+    const maxDisplay = Math.max(0, width - 2); // 2 for '> ' prefix
     const display = this.masked
-      ? `${'*'.repeat(this.input.getValue().length)}${this.input.getValue().length === 0 ? '█' : ''}`
-      : raw;
+      ? `${'*'.repeat(this.input.getValue().length)}${this.input.getValue().length === 0 ? '█' : ''}`.slice(0, maxDisplay)
+      : raw.slice(0, maxDisplay);
     return [
       `${theme.primary('> ')}${display}`,
       theme.muted('Enter to confirm · Esc to cancel'),
@@ -123,12 +138,11 @@ export class ApiKeyInputComponent {
   }
 
   handleInput(keyData: string): void {
-    const kb = getEditorKeybindings();
-    if (kb.matches(keyData, 'submit')) {
+    if (keyData === '\r' || keyData === '\n') {
       this.onSubmit?.(this.input.getValue().trim() || null);
       return;
     }
-    if (kb.matches(keyData, 'selectCancel')) {
+    if (keyData === '\u001b' || keyData === '\u0003') {
       this.onCancel?.();
       return;
     }

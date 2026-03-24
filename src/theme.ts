@@ -2,16 +2,16 @@ import type { EditorTheme, MarkdownTheme, SelectListTheme } from '@mariozechner/
 import chalk from 'chalk';
 
 const palette = {
-  primary: '#258bff',
-  primaryLight: '#a5cfff',
-  success: 'green',
+  primary: '#10b981',
+  primaryLight: '#6ee7b7',
+  success: '#10b981',
   error: 'red',
   warning: 'yellow',
   muted: '#a6a6a6',
   mutedDark: '#303030',
-  accent: 'cyan',
+  accent: '#34d399',
   white: '#ffffff',
-  info: '#6CB6FF',
+  info: '#6ee7b7',
   queryBg: '#3D3D3D',
   border: '#303030',
 };
