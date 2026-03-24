@@ -150,7 +150,7 @@ dexter/
 │   │   │   ├── segments.ts     # Revenue by segment
 │   │   │   ├── insider_trades.ts # Insider trading data
 │   │   │   ├── crypto.ts       # Cryptocurrency prices
-│   │   │   ├── api.ts          # Financial Datasets API client
+│   │   │   ├── api.ts          # Halal Terminal API client
 │   │   │   └── constants.ts    # API endpoints and constants
 │   │   └── search/             # Search tools
 │   │       ├── tavily.ts       # Web search via Tavily
@@ -225,7 +225,7 @@ dexter/
 - **ink-text-input**: Text input component
 
 ### APIs & Data Sources
-- **Financial Datasets API**: Primary financial data provider (stocks, crypto, filings)
+- **Halal Terminal API**: Primary financial data provider (market data, Shariah screening, Islamic finance)
 - **Tavily API**: Web search for news and research (optional)
 
 ### Development
@@ -377,7 +377,7 @@ cp env.example .env
 
 Required API keys:
 - `OPENAI_API_KEY`: OpenAI API (or other provider keys)
-- `FINANCIAL_DATASETS_API_KEY`: Financial data source
+- `HALAL_TERMINAL_API_KEY`: Halal Terminal API key (market data + Shariah screening)
 - `TAVILY_API_KEY`: Web search (optional)
 
 ### Running the Application
@@ -473,9 +473,9 @@ describe('MyFeature', () => {
 ## Common Tasks for AI Assistants
 
 ### When Asked to Add a Financial Data Source
-1. Check if Financial Datasets API already provides it (see `src/tools/finance/constants.ts`)
+1. Check if the Halal Terminal API already provides it (see `src/tools/finance/halal-market.ts` and `src/tools/finance/shariah.ts`)
 2. If yes: Add tool in `src/tools/finance/` following existing patterns
-3. If no: Discuss external API integration requirements
+3. If no: Discuss adding the endpoint to the Halal Terminal backend
 4. Always include sourceUrls in tool results
 
 ### When Asked to Improve Prompts
@@ -589,11 +589,11 @@ Tool Execution → ToolExecutor → ToolContextManager → .dexter/context/{file
 
 ## API Integration
 
-### Financial Datasets API
-- Base URL: `https://api.financialdatasets.ai`
-- Authentication: Bearer token in Authorization header
-- Endpoints defined in `src/tools/finance/constants.ts`
-- Client wrapper in `src/tools/finance/api.ts`
+### Halal Terminal API
+- Base URL: `https://api.halalterminal.com`
+- Authentication: `X-API-Key` header (`HALAL_TERMINAL_API_KEY` env var)
+- Market data tools: `src/tools/finance/halal-market.ts`
+- Shariah / Islamic finance tools: `src/tools/finance/shariah.ts`
 
 ### Tavily Search API
 - Optional web search capability
@@ -681,7 +681,7 @@ Potential areas for development:
 - [Zod Documentation](https://zod.dev/)
 
 ### APIs
-- [Financial Datasets API](https://financialdatasets.ai/docs)
+- [Halal Terminal API](https://api.halalterminal.com/docs)
 - [OpenAI API](https://platform.openai.com/docs)
 - [Anthropic API](https://docs.anthropic.com/)
 - [Tavily API](https://docs.tavily.com/)
