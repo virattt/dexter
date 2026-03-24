@@ -1,4 +1,4 @@
-import { Container, Input, SelectList, Text, type SelectItem, getEditorKeybindings } from '@mariozechner/pi-tui';
+import { Container, Input, SelectList, Text, type SelectItem, getKeybindings } from '@mariozechner/pi-tui';
 import { PROVIDERS, type Model } from '../utils/model.js';
 import type { ApprovalDecision } from '../agent/types.js';
 import { selectListTheme, theme } from '../theme.js';
@@ -33,8 +33,8 @@ class EmptyModelSelector extends Container {
   }
 
   handleInput(keyData: string): void {
-    const kb = getEditorKeybindings();
-    if (kb.matches(keyData, 'selectCancel')) {
+    const kb = getKeybindings();
+    if (kb.matches(keyData, 'tui.select.cancel')) {
       this.onCancel();
     }
   }
@@ -123,12 +123,12 @@ export class ApiKeyInputComponent {
   }
 
   handleInput(keyData: string): void {
-    const kb = getEditorKeybindings();
-    if (kb.matches(keyData, 'submit')) {
+    const kb = getKeybindings();
+    if (kb.matches(keyData, 'tui.input.submit')) {
       this.onSubmit?.(this.input.getValue().trim() || null);
       return;
     }
-    if (kb.matches(keyData, 'selectCancel')) {
+    if (kb.matches(keyData, 'tui.select.cancel')) {
       this.onCancel?.();
       return;
     }
