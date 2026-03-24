@@ -2,10 +2,12 @@ import { GoogleGenerativeAIEmbeddings } from '@langchain/google-genai';
 import { OllamaEmbeddings } from '@langchain/ollama';
 import { OpenAIEmbeddings } from '@langchain/openai';
 import type { EmbeddingProviderId, MemoryEmbeddingClient } from './types.js';
+import { BedrockEmbeddings } from 'node_modules/@langchain/aws/dist/embeddings.js';
 
 const DEFAULT_OPENAI_MODEL = 'text-embedding-3-small';
 const DEFAULT_GEMINI_MODEL = 'gemini-embedding-001';
 const DEFAULT_OLLAMA_MODEL = 'nomic-embed-text';
+const DEFAULT_BEDROCK_MODEL = 'amazon.titan-embed-text-v1';
 const EMBEDDING_BATCH_SIZE = 64;
 
 type ResolvedProvider = Exclude<EmbeddingProviderId, 'auto' | 'none'>;
@@ -19,6 +21,9 @@ function resolveProvider(preferred: EmbeddingProviderId): ResolvedProvider | nul
   }
   if (preferred === 'ollama') {
     return 'ollama';
+  }
+  if (preferred === 'bedrock') {
+    return 'bedrock';
   }
 
   if (preferred === 'auto') {
@@ -80,6 +85,19 @@ export function createEmbeddingClient(params: {
     });
     return {
       provider: 'gemini',
+      model,
+      embed: async (texts: string[]) =>
+        embedInBatches(texts, async (batch) => embeddings.embedDocuments(batch)),
+    };
+  }
+
+  if(resolved === 'bedrock'){
+    const model = params.model || DEFAULT_BEDROCK_MODEL;
+    const embeddings = new BedrockEmbeddings({
+      model,
+    });
+    return {
+      provider: 'bedrock',
       model,
       embed: async (texts: string[]) =>
         embedInBatches(texts, async (batch) => embeddings.embedDocuments(batch)),

@@ -12,6 +12,7 @@ import {
 import { getOllamaModels } from '../utils/ollama.js';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from '../model/llm.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
+import { getBedrockModels } from '@/utils/bedrock.js';
 
 const SELECTION_STATES = [
   'provider_select',
@@ -109,6 +110,14 @@ export class ModelSelectionController {
       return;
     }
 
+    if (providerId === 'bedrock') {
+      const bedrockModels = await getBedrockModels();
+      this.pendingModelsValue = bedrockModels;
+      this.appStateValue = 'model_select';
+      this.emitChange();
+      return;
+    }
+
     this.pendingModelsValue = getModelsForProvider(providerId);
     this.appStateValue = 'model_select';
     this.emitChange();
@@ -126,6 +135,11 @@ export class ModelSelectionController {
 
     if (this.pendingProviderValue === 'ollama') {
       this.completeModelSwitch(this.pendingProviderValue, `ollama:${modelId}`);
+      return;
+    }
+
+    if (this.pendingProviderValue === 'bedrock') {
+      this.completeModelSwitch(this.pendingProviderValue, `bedrock:${modelId}`);
       return;
     }
 

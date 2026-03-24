@@ -3,6 +3,7 @@ import { ChatOpenAI } from '@langchain/openai';
 import { ChatAnthropic } from '@langchain/anthropic';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { ChatOllama } from '@langchain/ollama';
+import { ChatBedrockConverse } from "@langchain/aws";
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
@@ -119,6 +120,11 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
       model: name.replace(/^ollama:/, ''),
       ...opts,
       ...(process.env.OLLAMA_BASE_URL ? { baseUrl: process.env.OLLAMA_BASE_URL } : {}),
+    }),
+  bedrock: (name, opts) =>
+    new ChatBedrockConverse({
+      model: name.replace(/^bedrock:/, ''),
+      ...opts,
     }),
 };
 
