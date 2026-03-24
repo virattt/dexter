@@ -88,7 +88,8 @@ export class ModelSelectionController {
     this.pendingProviderValue = this.providerValue;
     this.pendingSelectedModelId = this.modelValue;
     this.appStateValue = 'api_key_input';
-    this.emitChange();
+    // Do NOT call emitChange() here — caller is responsible for rendering,
+    // just like HalalKeyController.startIfNeeded() doesn't call onUpdate().
     return true;
   }
 
