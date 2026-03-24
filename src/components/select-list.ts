@@ -127,9 +127,10 @@ export class ApiKeyInputComponent {
   render(width: number): string[] {
     const lines = this.input.render(Math.max(10, width - 4));
     const raw = lines[0] ?? '';
+    const maxDisplay = Math.max(0, width - 2); // 2 for '> ' prefix
     const display = this.masked
-      ? `${'*'.repeat(this.input.getValue().length)}${this.input.getValue().length === 0 ? '█' : ''}`
-      : raw;
+      ? `${'*'.repeat(this.input.getValue().length)}${this.input.getValue().length === 0 ? '█' : ''}`.slice(0, maxDisplay)
+      : raw.slice(0, maxDisplay);
     return [
       `${theme.primary('> ')}${display}`,
       theme.muted('Enter to confirm · Esc to cancel'),
