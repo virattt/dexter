@@ -33,6 +33,7 @@ const PROVIDER_MODELS: Record<string, Model[]> = {
     { id: 'deepseek-chat', displayName: 'DeepSeek V3' },
     { id: 'deepseek-reasoner', displayName: 'DeepSeek R1' },
   ],
+  bedrock:[{ id: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0', displayName: 'Bedrock Claude Sonnet' }]
 };
 
 export const PROVIDERS: Provider[] = PROVIDER_DEFS.map((provider) => ({
