@@ -82,6 +82,16 @@ export class ModelSelectionController {
     this.emitChange();
   }
 
+  /** On startup: if the current provider has no API key, jump straight to key input. */
+  startKeySetupIfNeeded(): boolean {
+    if (checkApiKeyExistsForProvider(this.providerValue)) return false;
+    this.pendingProviderValue = this.providerValue;
+    this.pendingSelectedModelId = this.modelValue;
+    this.appStateValue = 'api_key_input';
+    this.emitChange();
+    return true;
+  }
+
   cancelSelection() {
     this.resetPendingState();
   }

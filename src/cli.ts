@@ -174,13 +174,17 @@ export async function runCli() {
     tui.requestRender();
   };
 
-  const modelSelection = new ModelSelectionController(onError, () => {
-    intro.setModel(modelSelection.model);
+  const halalKey = new HalalKeyController(() => {
     renderSelectionOverlay();
     tui.requestRender();
   });
 
-  const halalKey = new HalalKeyController(() => {
+  const modelSelection = new ModelSelectionController(onError, () => {
+    intro.setModel(modelSelection.model);
+    // When LLM key setup completes (state returns to idle), start Halal wizard if needed
+    if (!modelSelection.isInSelectionFlow() && !halalKey.isActive()) {
+      halalKey.startIfNeeded();
+    }
     renderSelectionOverlay();
     tui.requestRender();
   });
@@ -544,7 +548,10 @@ export async function runCli() {
   for (const msg of inputHistory.getMessages().reverse()) {
     editor.addToHistory(msg);
   }
-  halalKey.startIfNeeded();
+  // Show LLM key setup first if missing, then Halal Terminal wizard
+  if (!modelSelection.startKeySetupIfNeeded()) {
+    halalKey.startIfNeeded();
+  }
   renderSelectionOverlay();
   refreshError();
 
