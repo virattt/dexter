@@ -44,6 +44,7 @@ yarn-error.log*
 *.swo
 *~
 .DS_Store
+.release-notes-*.md
 
 # UV
 .uv/
@@ -52,5 +53,8 @@ yarn-error.log*
 .cursor/
 
 # Dexter context files (offloaded tool outputs)
-.dexter/context/
-.dexter/settings.json
+.dexter/*
+
+
+logs/
+coverage.json

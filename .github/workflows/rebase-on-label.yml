@@ -1,0 +1,116 @@
+name: Rebase PR on main
+
+on:
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  rebase:
+    if: github.event.label.name == 'rebase' && github.event.pull_request.state == 'open'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Collect PR metadata
+        id: meta
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const sameRepo = pr.head.repo.full_name === context.repo.owner + "/" + context.repo.repo;
+            core.setOutput("same_repo", String(sameRepo));
+            core.setOutput("head_repo", pr.head.repo.full_name);
+            core.setOutput("head_ref", pr.head.ref);
+            core.setOutput("can_maintainer_modify", String(pr.maintainer_can_modify));
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Validate fork edit permissions
+        id: fork_guard
+        if: steps.meta.outputs.same_repo != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const canModify = "${{ steps.meta.outputs.can_maintainer_modify }}" === "true";
+            core.setOutput("can_rebase_fork", String(canModify));
+            if (!canModify) {
+              const body = [
+                "Could not apply `rebase` on this fork PR.",
+                "The contributor has disabled `Allow edits by maintainers`, so automation cannot push rebased commits back to the branch.",
+              ].join("\n");
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Rebase branch onto main
+        if: steps.meta.outputs.same_repo == 'true' || steps.fork_guard.outputs.can_rebase_fork == 'true'
+        id: rebase
+        continue-on-error: true
+        env:
+          REBASE_PUSH_TOKEN: ${{ secrets.REBASE_PUSH_TOKEN }}
+          DEFAULT_GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          HEAD_REPO="${{ steps.meta.outputs.head_repo }}"
+          HEAD_REF="${{ steps.meta.outputs.head_ref }}"
+          PUSH_TOKEN="${REBASE_PUSH_TOKEN:-$DEFAULT_GITHUB_TOKEN}"
+
+          git fetch origin main
+          git remote add pr-head "https://x-access-token:${PUSH_TOKEN}@github.com/${HEAD_REPO}.git"
+          git fetch pr-head "${HEAD_REF}"
+          git checkout -B rebase-target FETCH_HEAD
+          git rebase origin/main
+          git push pr-head HEAD:"${HEAD_REF}" --force-with-lease
+
+      - name: Comment rebase result
+        if: steps.meta.outputs.same_repo == 'true' || steps.fork_guard.outputs.can_rebase_fork == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ok = "${{ steps.rebase.outcome }}" === "success";
+            const body = ok
+              ? "Applied `rebase`: rebased this PR branch onto `main`."
+              : [
+                  "Tried to apply `rebase`, but it failed.",
+                  "If this is a fork PR, ensure `Allow edits by maintainers` is enabled and `REBASE_PUSH_TOKEN` has permission to push, then re-apply the label.",
+                  "Otherwise resolve conflicts locally, push, then add the label again.",
+                ].join("\n");
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Remove rebase label
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: "rebase",
+              });
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+            }

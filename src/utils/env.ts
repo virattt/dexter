@@ -1,45 +1,21 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { config } from 'dotenv';
+import { getProviderById } from '@/providers';
 
 // Load .env on module import
 config({ quiet: true });
 
-// Map provider IDs to their required API key environment variable names
-const PROVIDER_API_KEY_MAP: Record<string, string> = {
-  'openai': 'OPENAI_API_KEY',
-  'anthropic': 'ANTHROPIC_API_KEY',
-  'google': 'GOOGLE_API_KEY',
-};
-
-// Map model IDs to their required API key environment variable names (for backwards compatibility)
-const MODEL_API_KEY_MAP: Record<string, string> = {
-  'gpt-5.2': 'OPENAI_API_KEY',
-  'claude-sonnet-4-5': 'ANTHROPIC_API_KEY',
-  'gemini-3': 'GOOGLE_API_KEY',
-};
-
-// Map provider IDs to user-friendly display names
-const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
-  'openai': 'OpenAI',
-  'anthropic': 'Anthropic',
-  'google': 'Google',
-};
-
 export function getApiKeyNameForProvider(providerId: string): string | undefined {
-  return PROVIDER_API_KEY_MAP[providerId];
+  return getProviderById(providerId)?.apiKeyEnvVar;
 }
 
 export function getProviderDisplayName(providerId: string): string {
-  return PROVIDER_DISPLAY_NAMES[providerId] || providerId;
-}
-
-export function getApiKeyName(modelId: string): string | undefined {
-  return MODEL_API_KEY_MAP[modelId];
+  return getProviderById(providerId)?.displayName ?? providerId;
 }
 
 export function checkApiKeyExistsForProvider(providerId: string): boolean {
   const apiKeyName = getApiKeyNameForProvider(providerId);
-  if (!apiKeyName) return false;
+  if (!apiKeyName) return true;
   return checkApiKeyExists(apiKeyName);
 }
 

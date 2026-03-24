@@ -1,69 +1,15 @@
-import { StructuredToolInterface } from '@langchain/core/tools';
-import {
-  getIncomeStatements,
-  getBalanceSheets,
-  getCashFlowStatements,
-  getAllFinancialStatements,
-  getFilings,
-  get10KFilingItems,
-  get10QFilingItems,
-  get8KFilingItems,
-  getPriceSnapshot,
-  getPrices,
-  getFinancialMetricsSnapshot,
-  getFinancialMetrics,
-  getNews,
-  getAnalystEstimates,
-  getSegmentedRevenues,
-  getCryptoPriceSnapshot,
-  getCryptoPrices,
-  getCryptoTickers,
-  getInsiderTrades,
-} from './finance/index.js';
-import { tavilySearch } from './search/index.js';
+// Tool registry - the primary way to access tools and their descriptions
+export { getToolRegistry, getTools, buildToolDescriptions } from './registry.js';
+export type { RegisteredTool } from './registry.js';
 
-export const TOOLS: StructuredToolInterface[] = [
-  getIncomeStatements,
-  getBalanceSheets,
-  getCashFlowStatements,
-  getAllFinancialStatements,
-  get10KFilingItems,
-  get10QFilingItems,
-  get8KFilingItems,
-  getFilings,
-  getPriceSnapshot,
-  getPrices,
-  getCryptoPriceSnapshot,
-  getCryptoPrices,
-  getCryptoTickers,
-  getFinancialMetricsSnapshot,
-  getFinancialMetrics,
-  getNews,
-  getAnalystEstimates,
-  getSegmentedRevenues,
-  getInsiderTrades,
-  ...(process.env.TAVILY_API_KEY ? [tavilySearch] : []),
-];
+// Individual tool exports (for backward compatibility and direct access)
+export { createGetFinancials } from './finance/index.js';
+export { tavilySearch } from './search/index.js';
 
+// Tool descriptions
 export {
-  getIncomeStatements,
-  getBalanceSheets,
-  getCashFlowStatements,
-  getAllFinancialStatements,
-  getFilings,
-  get10KFilingItems,
-  get10QFilingItems,
-  get8KFilingItems,
-  getPriceSnapshot,
-  getPrices,
-  getCryptoPriceSnapshot,
-  getCryptoPrices,
-  getCryptoTickers,
-  getFinancialMetricsSnapshot,
-  getFinancialMetrics,
-  getNews,
-  getAnalystEstimates,
-  getSegmentedRevenues,
-  getInsiderTrades,
-  tavilySearch,
-};
+  GET_FINANCIALS_DESCRIPTION,
+} from './finance/get-financials.js';
+export {
+  WEB_SEARCH_DESCRIPTION,
+} from './search/index.js';

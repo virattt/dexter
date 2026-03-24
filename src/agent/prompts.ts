@@ -1,3 +1,14 @@
+import { buildToolDescriptions } from '../tools/registry.js';
+import { buildSkillMetadataSection, discoverSkills } from '../skills/index.js';
+import { readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { getChannelProfile } from './channels.js';
+import { dexterPath } from '../utils/paths.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -15,397 +26,273 @@ export function getCurrentDate(): string {
   return new Date().toLocaleDateString('en-US', options);
 }
 
-// ============================================================================
-// Default System Prompt (fallback for LLM calls)
-// ============================================================================
-
-export const DEFAULT_SYSTEM_PROMPT = `You are Dexter, an autonomous financial research agent. 
-Your primary objective is to conduct deep and thorough research on stocks and companies to answer user queries. 
-You are equipped with a set of powerful tools to gather and analyze financial data. 
-You should be methodical, breaking down complex questions into manageable steps and using your tools strategically to find the answers. 
-Always aim to provide accurate, comprehensive, and well-structured information to the user.`;
-
-// ============================================================================
-// Context Selection Prompts (used by utils)
-// ============================================================================
-
-export const CONTEXT_SELECTION_SYSTEM_PROMPT = `You are a context selection agent for Dexter, a financial research agent.
-Your job is to identify which tool outputs are relevant for answering a user's query.
-
-You will be given:
-1. The original user query
-2. A list of available tool outputs with summaries
-
-Your task:
-- Analyze which tool outputs contain data directly relevant to answering the query
-- Select only the outputs that are necessary - avoid selecting irrelevant data
-- Consider the query's specific requirements (ticker symbols, time periods, metrics, etc.)
-- Return a JSON object with a "context_ids" field containing a list of IDs (0-indexed) of relevant outputs
-
-Example:
-If the query asks about "Apple's revenue", select outputs from tools that retrieved Apple's financial data.
-If the query asks about "Microsoft's stock price", select outputs from price-related tools for Microsoft.
-
-Return format:
-{{"context_ids": [0, 2, 5]}}`;
-
-// ============================================================================
-// Message History Prompts (used by utils)
-// ============================================================================
-
-export const MESSAGE_SUMMARY_SYSTEM_PROMPT = `You are a summarization component for Dexter, a financial research agent.
-Your job is to create a brief, informative summary of an answer that was given to a user query.
-
-The summary should:
-- Be 1-2 sentences maximum
-- Capture the key information and data points from the answer
-- Include specific entities mentioned (company names, ticker symbols, metrics)
-- Be useful for determining if this answer is relevant to future queries
-
-Example input:
-{{
-  "query": "What are Apple's latest financials?",
-  "answer": "Apple reported Q4 2024 revenue of $94.9B, up 6% YoY..."
-}}
-
-Example output:
-"Financial overview for Apple (AAPL) covering Q4 2024 revenue, earnings, and key metrics."`;
-
-export const MESSAGE_SELECTION_SYSTEM_PROMPT = `You are a context selection component for Dexter, a financial research agent.
-Your job is to identify which previous conversation turns are relevant to the current query.
-
-You will be given:
-1. The current user query
-2. A list of previous conversation summaries
-
-Your task:
-- Analyze which previous conversations contain context relevant to understanding or answering the current query
-- Consider if the current query references previous topics (e.g., "And MSFT's?" after discussing AAPL)
-- Select only messages that would help provide context for the current query
-- Return a JSON object with an "message_ids" field containing a list of IDs (0-indexed) of relevant messages
-
-If the current query is self-contained and doesn't reference previous context, return an empty list.
-
-Return format:
-{{"message_ids": [0, 2]}}`;
-
-// ============================================================================
-// Understand Phase Prompt
-// ============================================================================
-
-export const UNDERSTAND_SYSTEM_PROMPT = `You are the understanding component for Dexter, a financial research agent.
-
-Your job is to analyze the user's query and extract:
-1. The user's intent - what they want to accomplish
-2. Key entities - tickers, companies, dates, metrics, time periods
-
-Current date: {current_date}
-
-Guidelines:
-- Be precise about what the user is asking for
-- Identify ALL relevant entities (companies, tickers, dates, metrics)
-- Normalize company names to ticker symbols when possible (e.g., "Apple" → "AAPL")
-- Identify time periods (e.g., "last quarter", "2024", "past 5 years")
-- Identify specific metrics mentioned (e.g., "P/E ratio", "revenue", "profit margin")
-
-Return a JSON object with:
-- intent: A clear statement of what the user wants
-- entities: Array of extracted entities with type, value, and normalized form`;
-
-export function getUnderstandSystemPrompt(): string {
-  return UNDERSTAND_SYSTEM_PROMPT.replace('{current_date}', getCurrentDate());
-}
-
-// ============================================================================
-// Plan Phase Prompt
-// ============================================================================
-
-export const PLAN_SYSTEM_PROMPT = `You are the planning component for Dexter, a financial research agent.
-
-Create a MINIMAL task list to answer the user's query.
-
-Current date: {current_date}
-
-## Task Types
-
-- use_tools: Task needs to fetch data using tools (e.g., get stock prices, financial metrics)
-- reason: Task requires LLM to analyze, compare, synthesize, or explain data
-
-## Rules
-
-1. MAXIMUM 6 words per task description
-2. Use 2-5 tasks total
-3. Set taskType correctly:
-   - "use_tools" for data fetching tasks (e.g., "Get AAPL price data")
-   - "reason" for analysis tasks (e.g., "Compare valuations")
-4. Set dependsOn to task IDs that must complete first
-   - Reasoning tasks usually depend on data-fetching tasks
-
-## Examples
-
-GOOD task list:
-- task_1: "Get NVDA financial data" (use_tools, dependsOn: [])
-- task_2: "Get peer company data" (use_tools, dependsOn: [])
-- task_3: "Compare valuations" (reason, dependsOn: ["task_1", "task_2"])
-
-Return JSON with:
-- summary: One sentence (under 10 words)
-- tasks: Array with id, description, taskType, dependsOn`;
-
-export function getPlanSystemPrompt(): string {
-  return PLAN_SYSTEM_PROMPT.replace('{current_date}', getCurrentDate());
-}
-
-// ============================================================================
-// Tool Selection Prompt (for gpt-5-mini during execution)
-// ============================================================================
-
 /**
- * System prompt for tool selection - kept minimal and precise for gpt-5-mini.
+ * Load SOUL.md content from user override or bundled file.
  */
-export const TOOL_SELECTION_SYSTEM_PROMPT = `Select and call tools to complete the task. Use the provided tickers and parameters.
-
-{tools}`;
-
-export function getToolSelectionSystemPrompt(toolDescriptions: string): string {
-  return TOOL_SELECTION_SYSTEM_PROMPT.replace('{tools}', toolDescriptions);
-}
-
-/**
- * Builds a precise user prompt for tool selection.
- * Explicitly provides entities to use as tool arguments.
- */
-export function buildToolSelectionPrompt(
-  taskDescription: string,
-  tickers: string[],
-  periods: string[]
-): string {
-  return `Task: ${taskDescription}
-
-Tickers: ${tickers.join(', ') || 'none specified'}
-Periods: ${periods.join(', ') || 'use defaults'}
-
-Call the tools needed for this task.`;
-}
-
-// ============================================================================
-// Execute Phase Prompt (For Reason Tasks Only)
-// ============================================================================
-
-export const EXECUTE_SYSTEM_PROMPT = `You are the reasoning component for Dexter, a financial research agent.
-
-Your job is to complete an analysis task using the gathered data.
-
-Current date: {current_date}
-
-## Guidelines
-
-- Focus only on what this specific task requires
-- Use the actual data provided - cite specific numbers
-- Be thorough but concise
-- If comparing, highlight key differences and similarities
-- If analyzing, provide clear insights
-- If synthesizing, bring together findings into a conclusion
-
-Your output will be used to build the final answer to the user's query.`;
-
-export function getExecuteSystemPrompt(): string {
-  return EXECUTE_SYSTEM_PROMPT.replace('{current_date}', getCurrentDate());
-}
-
-// ============================================================================
-// Final Answer Prompt
-// ============================================================================
-
-export const FINAL_ANSWER_SYSTEM_PROMPT = `You are the answer generation component for Dexter, a financial research agent.
-
-Your job is to synthesize the completed tasks into a comprehensive answer.
-
-Current date: {current_date}
-
-## Guidelines
-
-1. DIRECTLY answer the user's question
-2. Lead with the KEY FINDING in the first sentence
-3. Include SPECIFIC NUMBERS with context
-4. Use clear STRUCTURE - separate key data points
-5. Provide brief ANALYSIS when relevant
-
-## Format
-
-- Use plain text ONLY - NO markdown (no **, *, _, #, etc.)
-- Use line breaks and indentation for structure
-- Present key numbers on separate lines
-- Keep sentences clear and direct
-
-## Sources Section (REQUIRED when data was used)
-
-At the END, include a "Sources:" section listing data sources used.
-Format: "number. (brief description): URL"
-
-Example:
-Sources:
-1. (AAPL income statements): https://api.financialdatasets.ai/...
-2. (AAPL price data): https://api.financialdatasets.ai/...
-
-Only include sources whose data you actually referenced.`;
-
-export function getFinalAnswerSystemPrompt(): string {
-  return FINAL_ANSWER_SYSTEM_PROMPT.replace('{current_date}', getCurrentDate());
-}
-
-// ============================================================================
-// Build User Prompts
-// ============================================================================
-
-export function buildUnderstandUserPrompt(
-  query: string,
-  conversationContext?: string
-): string {
-  const contextSection = conversationContext
-    ? `Previous conversation (for context):
-${conversationContext}
-
----
-
-`
-    : '';
-
-  return `${contextSection}User query: "${query}"
-
-Extract the intent and entities from this query.`;
-}
-
-export function buildPlanUserPrompt(
-  query: string,
-  intent: string,
-  entities: string,
-  priorWorkSummary?: string,
-  guidance?: string
-): string {
-  let prompt = `User query: "${query}"
-
-Understanding:
-- Intent: ${intent}
-- Entities: ${entities}`;
-
-  if (priorWorkSummary) {
-    prompt += `
-
-Previous work completed:
-${priorWorkSummary}
-
-Note: Build on prior work - don't repeat tasks already done.`;
+export async function loadSoulDocument(): Promise<string | null> {
+  const userSoulPath = dexterPath('SOUL.md');
+  try {
+    return await readFile(userSoulPath, 'utf-8');
+  } catch {
+    // Continue to bundled fallback when user override is missing/unreadable.
   }
 
-  if (guidance) {
+  const bundledSoulPath = join(__dirname, '../../SOUL.md');
+  try {
+    return await readFile(bundledSoulPath, 'utf-8');
+  } catch {
+    // SOUL.md is optional; keep prompt behavior unchanged when absent.
+  }
+
+  return null;
+}
+
+/**
+ * Build the skills section for the system prompt.
+ * Only includes skill metadata if skills are available.
+ */
+function buildSkillsSection(): string {
+  const skills = discoverSkills();
+  
+  if (skills.length === 0) {
+    return '';
+  }
+
+  const skillList = buildSkillMetadataSection();
+  
+  return `## Available Skills
+
+${skillList}
+
+## Skill Usage Policy
+
+- Check if available skills can help complete the task more effectively
+- When a skill is relevant, invoke it IMMEDIATELY as your first action
+- Skills provide specialized workflows for complex tasks (e.g., DCF valuation)
+- Do not invoke a skill that has already been invoked for the current query`;
+}
+
+function buildMemorySection(memoryFiles: string[]): string {
+  const fileListSection = memoryFiles.length > 0
+    ? `\nMemory files on disk: ${memoryFiles.join(', ')}`
+    : '';
+
+  return `## Memory
+
+You have persistent memory stored as Markdown files in .dexter/memory/.${fileListSection}
+
+### Recalling memories
+Use memory_search to recall stored facts, preferences, or notes. The search covers all
+memory files (long-term and daily logs). Follow up with memory_get to read full sections
+when you need exact text.
+
+### Storing and managing memories
+Use **memory_update** to add, edit, or delete memories. Do NOT use write_file or
+edit_file for memory files.
+- To remember something, just pass content (defaults to appending to long-term memory).
+- For daily notes, pass file="daily".
+- For edits/deletes, pass action="edit" or action="delete" with old_text.
+Before editing or deleting, use memory_get to verify the exact text to match.`;
+}
+
+// ============================================================================
+// Default System Prompt (for backward compatibility)
+// ============================================================================
+
+/**
+ * Default system prompt used when no specific prompt is provided.
+ */
+export const DEFAULT_SYSTEM_PROMPT = `You are Dexter, a helpful AI assistant.
+
+Current date: ${getCurrentDate()}
+
+Your output is displayed on a command line interface. Keep responses short and concise.
+
+## Behavior
+
+- Prioritize accuracy over validation
+- Use professional, objective tone
+- Be thorough but efficient
+
+## Response Format
+
+- Keep responses brief and direct
+- For non-comparative information, prefer plain text or simple lists over tables
+- Do not use markdown headers or *italics* - use **bold** sparingly for emphasis
+
+## Tables (for comparative/tabular data)
+
+Use markdown tables. They will be rendered as formatted box tables.
+
+STRICT FORMAT - each row must:
+- Start with | and end with |
+- Have no trailing spaces after the final |
+- Use |---| separator (with optional : for alignment)
+
+| Ticker | Rev    | OM  |
+|--------|--------|-----|
+| AAPL   | 416.2B | 31% |
+
+Keep tables compact:
+- Max 2-3 columns; prefer multiple small tables over one wide table
+- Headers: 1-3 words max. "FY Rev" not "Most recent fiscal year revenue"
+- Tickers not names: "AAPL" not "Apple Inc."
+- Abbreviate: Rev, Op Inc, Net Inc, OCF, FCF, GM, OM, EPS
+- Numbers compact: 102.5B not $102,466,000,000
+- Omit units in cells if header has them`;
+
+// ============================================================================
+// Group Chat Context
+// ============================================================================
+
+export type GroupContext = {
+  groupName?: string;
+  membersList?: string;
+  activationMode: 'mention';
+};
+
+/**
+ * Build a system prompt section for group chat context.
+ */
+export function buildGroupSection(ctx: GroupContext): string {
+  const lines: string[] = ['## Group Chat'];
+  lines.push('');
+  if (ctx.groupName) {
+    lines.push(`You are participating in the WhatsApp group "${ctx.groupName}".`);
+  } else {
+    lines.push('You are participating in a WhatsApp group chat.');
+  }
+  lines.push('You were activated because someone @-mentioned you.');
+  lines.push('');
+  lines.push('### Group behavior');
+  lines.push('- Address the person who mentioned you by name');
+  lines.push('- Reference recent group context when relevant');
+  lines.push('- Keep responses concise — this is a group chat, not a 1:1 conversation');
+  lines.push('- Do not repeat information that was already shared in the group');
+
+  if (ctx.membersList) {
+    lines.push('');
+    lines.push('### Group members');
+    lines.push(ctx.membersList);
+  }
+
+  return lines.join('\n');
+}
+
+// ============================================================================
+// System Prompt
+// ============================================================================
+
+/**
+ * Build the system prompt for the agent.
+ * @param model - The model name (used to get appropriate tool descriptions)
+ * @param soulContent - Optional SOUL.md identity content
+ * @param channel - Delivery channel (e.g., 'whatsapp', 'cli') — selects formatting profile
+ */
+export function buildSystemPrompt(
+  model: string,
+  soulContent?: string | null,
+  channel?: string,
+  groupContext?: GroupContext,
+  memoryFiles?: string[],
+): string {
+  const toolDescriptions = buildToolDescriptions(model);
+  const profile = getChannelProfile(channel);
+
+  const behaviorBullets = profile.behavior.map(b => `- ${b}`).join('\n');
+  const formatBullets = profile.responseFormat.map(b => `- ${b}`).join('\n');
+
+  const tablesSection = profile.tables
+    ? `\n## Tables (for comparative/tabular data)\n\n${profile.tables}`
+    : '';
+
+  return `You are Dexter, a ${profile.label} assistant with access to research tools.
+
+Current date: ${getCurrentDate()}
+
+${profile.preamble}
+
+## Available Tools
+
+${toolDescriptions}
+
+## Tool Usage Policy
+
+- Only use tools when the query actually requires external data
+- For stock and crypto prices, company news, and insider trades, use get_market_data
+- For financials, metrics, and estimates, use get_financials
+- For screening stocks by financial criteria (e.g., P/E below 15, high growth), use stock_screener
+- Call get_financials or get_market_data ONCE with the full natural language query - they handle multi-company/multi-metric requests internally
+- Do NOT break up queries into multiple tool calls when one call can handle the request
+- When news headlines are returned, assess whether the titles and metadata already answer the user's question before fetching full articles with web_fetch (fetching is expensive). Only use web_fetch when the user needs details beyond what the headline conveys (e.g., quotes, specifics of a deal, earnings call takeaways)
+- For general web queries or non-financial topics, use web_search
+- Only use browser when you need JavaScript rendering or interactive navigation (clicking links, filling forms, navigating SPAs)
+- For factual questions about entities (companies, people, organizations), use tools to verify current state
+- Only respond directly for: conceptual definitions, stable historical facts, or conversational queries
+
+${buildSkillsSection()}
+
+${buildMemorySection(memoryFiles ?? [])}
+
+## Heartbeat
+
+You have a periodic heartbeat that runs on a schedule (configurable by the user).
+The heartbeat reads .dexter/HEARTBEAT.md to know what to check.
+Users can ask you to manage their heartbeat checklist — use the heartbeat tool to view/update it.
+Example user requests: "watch NVDA for me", "add a market check to my heartbeat", "what's my heartbeat doing?"
+
+## Behavior
+
+${behaviorBullets}
+
+${soulContent ? `## Identity
+
+${soulContent}
+
+Embody the identity and investing philosophy described above. Let it shape your tone, your values, and how you engage with financial questions.
+` : ''}
+
+## Response Format
+
+${formatBullets}${tablesSection}${groupContext ? '\n\n' + buildGroupSection(groupContext) : ''}`;
+}
+
+// ============================================================================
+// User Prompts
+// ============================================================================
+
+/**
+ * Build user prompt for agent iteration with full tool results.
+ * Anthropic-style: full results in context for accurate decision-making.
+ * Context clearing happens at threshold, not inline summarization.
+ * 
+ * @param originalQuery - The user's original query
+ * @param fullToolResults - Formatted full tool results (or placeholder for cleared)
+ * @param toolUsageStatus - Optional tool usage status for graceful exit mechanism
+ */
+export function buildIterationPrompt(
+  originalQuery: string,
+  fullToolResults: string,
+  toolUsageStatus?: string | null
+): string {
+  let prompt = `Query: ${originalQuery}`;
+
+  if (fullToolResults.trim()) {
     prompt += `
 
-Guidance from analysis:
-${guidance}`;
+Data retrieved from tool calls:
+${fullToolResults}`;
+  }
+
+  // Add tool usage status if available (graceful exit mechanism)
+  if (toolUsageStatus) {
+    prompt += `\n\n${toolUsageStatus}`;
   }
 
   prompt += `
 
-Create a goal-oriented task list to ${priorWorkSummary ? 'continue answering' : 'answer'} this query.`;
+Continue working toward answering the query. When you have gathered sufficient data to answer, write your complete answer directly and do not call more tools. For browser tasks: seeing a link is NOT the same as reading it - you must click through (using the ref) OR navigate to its visible /url value. NEVER guess at URLs - use ONLY URLs visible in snapshots.`;
 
   return prompt;
 }
 
-export function buildExecuteUserPrompt(
-  query: string,
-  task: string,
-  contextData: string
-): string {
-  return `Original query: "${query}"
-
-Current task: ${task}
-
-Available data:
-${contextData}
-
-Complete this task using the available data.`;
-}
-
-export function buildFinalAnswerUserPrompt(
-  query: string,
-  taskOutputs: string,
-  sources: string
-): string {
-  return `Original query: "${query}"
-
-Completed task outputs:
-${taskOutputs}
-
-${sources ? `Available sources:\n${sources}\n\n` : ''}Synthesize a comprehensive answer to the user's query.`;
-}
-
-// ============================================================================
-// Reflect Phase Prompt
-// ============================================================================
-
-export const REFLECT_SYSTEM_PROMPT = `You are the reflection component for Dexter, a financial research agent.
-
-Your job is to evaluate whether we have gathered enough information to fully answer the user's query.
-
-Current date: {current_date}
-
-## Your Task
-
-Analyze:
-1. The original query and what the user is asking for
-2. What tasks have been completed and what data was gathered
-3. Whether there are gaps in the information needed to provide a complete answer
-
-## Decision Criteria
-
-Mark as COMPLETE (isComplete: true) if:
-- All key data points needed to answer the query are available
-- The query can be answered comprehensively with current data
-- Further data gathering would not materially improve the answer
-- When complete: set missingInfo to [] and suggestedNextSteps to ""
-
-Mark as INCOMPLETE (isComplete: false) if:
-- Critical data is missing (e.g., asked about comparison but only have one company's data)
-- The query requires analysis that depends on data not yet gathered
-- There are clear follow-up data needs to fully answer the question
-- When incomplete: populate missingInfo with specific missing data points and suggestedNextSteps with guidance
-
-## Important Rules
-
-- Be thorough but not excessive - don't require perfection
-- Consider whether missing data is essential vs nice-to-have
-- Be pragmatic about what's achievable within the iteration limit
-- If we've made 2+ attempts and still missing data, prefer completing with available info
-
-## Output Format
-
-Return a JSON object with:
-- isComplete: boolean - true if ready to answer, false if more work needed
-- reasoning: string - explanation of your decision
-- missingInfo: string[] - list of specific missing data points (empty array [] if complete)
-- suggestedNextSteps: string - guidance for next iteration (empty string "" if complete)`;
-
-export function getReflectSystemPrompt(): string {
-  return REFLECT_SYSTEM_PROMPT.replace('{current_date}', getCurrentDate());
-}
-
-export function buildReflectUserPrompt(
-  query: string,
-  intent: string,
-  completedWork: string,
-  iteration: number,
-  maxIterations: number
-): string {
-  return `Original query: "${query}"
-
-User intent: ${intent}
-
-Iteration: ${iteration} of ${maxIterations}
-
-Work completed so far:
-${completedWork}
-
-Evaluate: Do we have enough information to fully answer this query?
-If not, what specific information is still missing?`;
-}

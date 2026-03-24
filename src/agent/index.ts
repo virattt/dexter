@@ -1,72 +1,31 @@
-// ============================================================================
-// Agent - Planning with just-in-time tool selection
-// ============================================================================
+export { Agent } from './agent.js';
 
-// Main orchestrator
-export { Agent } from './orchestrator.js';
-export type { AgentOptions, AgentCallbacks } from './orchestrator.js';
+export { Scratchpad } from './scratchpad.js';
 
-// State types
-export type {
-  Phase,
-  TaskStatus,
-  TaskType,
-  EntityType,
-  Entity,
-  UnderstandInput,
-  Understanding,
-  ToolCall,
-  ToolCallStatus,
-  PlanInput,
-  Task,
-  Plan,
-  ExecuteInput,
-  TaskResult,
-  ToolSummary,
-  AgentState,
-} from './state.js';
+export { getCurrentDate, buildSystemPrompt, buildIterationPrompt, DEFAULT_SYSTEM_PROMPT } from './prompts.js';
 
-export { createInitialState } from './state.js';
+export type { 
+  ApprovalDecision,
+  AgentConfig, 
+  Message,
+  AgentEvent,
+  ThinkingEvent,
+  ToolStartEvent,
+  ToolProgressEvent,
+  ToolEndEvent,
+  ToolErrorEvent,
+  ToolApprovalEvent,
+  ToolDeniedEvent,
+  ToolLimitEvent,
+  ContextClearedEvent,
+  MemoryRecalledEvent,
+  MemoryFlushEvent,
+  DoneEvent,
+} from './types.js';
 
-// Schemas
-export {
-  EntitySchema,
-  UnderstandingSchema,
-  PlanTaskSchema,
-  PlanSchema,
-  SelectedContextsSchema,
-} from './schemas.js';
-
-export type {
-  UnderstandingOutput,
-  PlanOutput,
-  SelectedContextsOutput,
-} from './schemas.js';
-
-// Phases
-export {
-  UnderstandPhase,
-  PlanPhase,
-  ExecutePhase,
-} from './phases/index.js';
-
-export type {
-  UnderstandPhaseOptions,
-  PlanPhaseOptions,
-  ExecutePhaseOptions,
-} from './phases/index.js';
-
-// Prompts
-export {
-  getCurrentDate,
-  getUnderstandSystemPrompt,
-  getPlanSystemPrompt,
-  getToolSelectionSystemPrompt,
-  getExecuteSystemPrompt,
-  getFinalAnswerSystemPrompt,
-  buildUnderstandUserPrompt,
-  buildPlanUserPrompt,
-  buildToolSelectionPrompt,
-  buildExecuteUserPrompt,
-  buildFinalAnswerUserPrompt,
-} from './prompts.js';
+export type { 
+  ToolCallRecord, 
+  ScratchpadEntry,
+  ToolLimitConfig,
+  ToolUsageStatus,
+} from './scratchpad.js';
