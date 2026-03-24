@@ -1,6 +1,7 @@
 import { Container, Input, SelectList, Text, type SelectItem, getKeybindings } from '@mariozechner/pi-tui';
 import { PROVIDERS, type Model } from '../utils/model.js';
 import type { ApprovalDecision } from '../agent/types.js';
+import type { ManagedKey } from '../controllers/index.js';
 import { selectListTheme, theme } from '../theme.js';
 
 class VimSelectList extends SelectList {
@@ -93,6 +94,20 @@ export function createApiKeyConfirmSelector(onConfirm: (wantsToSet: boolean) => 
   const list = new VimSelectList(items, 4, selectListTheme);
   list.onSelect = (item) => onConfirm(item.value === 'yes');
   list.onCancel = () => onConfirm(false);
+  return list;
+}
+
+export function createKeyManagerSelector(
+  keys: ManagedKey[],
+  onSelect: (envVar: string | null) => void,
+) {
+  const items: SelectItem[] = keys.map((key, index) => ({
+    value: key.envVar,
+    label: `${index + 1}. ${key.label} (${key.envVar}) ${key.isSet ? theme.success('✓') : theme.error('✗')}`,
+  }));
+  const list = new VimSelectList(items, Math.min(keys.length + 2, 16), selectListTheme);
+  list.onSelect = (item) => onSelect(item.value);
+  list.onCancel = () => onSelect(null);
   return list;
 }
 

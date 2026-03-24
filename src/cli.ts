@@ -9,6 +9,7 @@ import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js
 import { logger } from './utils/logger.js';
 import {
   AgentRunnerController,
+  ApiKeyManagerController,
   HalalKeyController,
   InputHistoryController,
   ModelSelectionController,
@@ -22,6 +23,7 @@ import {
   IntroComponent,
   WorkingIndicatorComponent,
   createApiKeyConfirmSelector,
+  createKeyManagerSelector,
   createModelSelector,
   createProviderSelector,
 } from './components/index.js';
@@ -183,6 +185,11 @@ export async function runCli() {
     tui.requestRender();
   });
 
+  const apiKeyManager = new ApiKeyManagerController(() => {
+    renderSelectionOverlay();
+    tui.requestRender();
+  });
+
   const agentRunner = new AgentRunnerController(
     { model: modelSelection.model, modelProvider: modelSelection.provider, maxIterations: 10 },
     modelSelection.inMemoryChatHistory,
@@ -219,7 +226,12 @@ export async function runCli() {
       return;
     }
 
-    if (halalKey.isActive() || modelSelection.isInSelectionFlow() || agentRunner.pendingApproval || agentRunner.isProcessing) {
+    if (query === '/keys') {
+      apiKeyManager.open();
+      return;
+    }
+
+    if (halalKey.isActive() || apiKeyManager.isActive() || modelSelection.isInSelectionFlow() || agentRunner.pendingApproval || agentRunner.isProcessing) {
       return;
     }
 
@@ -246,6 +258,10 @@ export async function runCli() {
       halalKey.dismiss();
       return;
     }
+    if (apiKeyManager.isActive()) {
+      apiKeyManager.close();
+      return;
+    }
     if (modelSelection.isInSelectionFlow()) {
       modelSelection.cancelSelection();
       return;
@@ -257,6 +273,10 @@ export async function runCli() {
   };
 
   editor.onCtrlC = () => {
+    if (apiKeyManager.isActive()) {
+      apiKeyManager.close();
+      return;
+    }
     if (modelSelection.isInSelectionFlow()) {
       modelSelection.cancelSelection();
       return;
@@ -300,6 +320,53 @@ export async function runCli() {
   };
 
   const renderSelectionOverlay = () => {
+    // --- API Key Manager (/keys command) ---
+    const keyManagerState = apiKeyManager.state;
+
+    if (keyManagerState.appState === 'provider_select') {
+      const selector = createKeyManagerSelector(keyManagerState.keys, (envVar) =>
+        apiKeyManager.handleKeySelect(envVar),
+      );
+      renderScreenView(
+        'API Keys',
+        'Select a key to add or update. Keys are saved to your .env file.',
+        selector,
+        'Enter to edit · Esc to close',
+        selector,
+      );
+      return;
+    }
+
+    if (keyManagerState.appState === 'key_input' && keyManagerState.selectedKey) {
+      const { label, envVar } = keyManagerState.selectedKey;
+      const input = new ApiKeyInputComponent(true);
+      input.onSubmit = (value) => apiKeyManager.handleKeySubmit(value);
+      input.onCancel = () => apiKeyManager.handleKeySubmit(null);
+      renderScreenView(
+        `Set ${label} Key`,
+        `(${envVar})`,
+        input,
+        'Enter to save · Esc to go back',
+        input,
+      );
+      return;
+    }
+
+    if (keyManagerState.appState === 'done') {
+      const body = new Container();
+      body.addChild(new Text(theme.success(`✓ ${keyManagerState.savedKeyLabel ?? 'API'} key saved to .env`), 0, 0));
+      body.addChild(new Text('', 0, 0));
+      body.addChild(new Text(theme.muted('Press any key to continue...'), 0, 0));
+      const dismissOnKey = new class extends Container {
+        handleInput(_keyData: string): void {
+          apiKeyManager.dismissDone();
+        }
+      }();
+      dismissOnKey.addChild(body);
+      renderScreenView('API Keys', '', dismissOnKey, undefined, dismissOnKey);
+      return;
+    }
+
     // --- Halal Terminal key setup wizard ---
     const halalState = halalKey.state;
 
