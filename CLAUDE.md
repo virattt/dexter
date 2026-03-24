@@ -1,10 +1,10 @@
 # CLAUDE.md - Developer Guide for AI Assistants
 
-This document provides comprehensive context about the Dexter codebase for AI assistants working on this project.
+This document provides comprehensive context about the Yassir codebase for AI assistants working on this project.
 
 ## Project Overview
 
-**Dexter** is an autonomous financial research agent that performs deep analysis using task planning, self-reflection, and real-time market data. Think "Claude Code for financial research."
+**Yassir** is an autonomous financial research agent that performs deep analysis using task planning, self-reflection, and real-time market data. Think "Claude Code for financial research."
 
 ### Core Purpose
 - Take complex financial questions and decompose them into structured research plans
@@ -77,7 +77,7 @@ The agent follows a sophisticated pipeline with an iterative core loop:
    - For 'use_tools' tasks: Uses just-in-time tool selection (gpt-5-mini)
    - For 'reason' tasks: Runs LLM-based analysis on gathered data
    - Executes tasks in parallel when possible (respects dependencies)
-   - Saves all tool results to `.dexter/context/` for future use
+   - Saves all tool results to `.yassir/context/` for future use
    - Output: Updates `TaskResult` map
 
 4. **Reflect Phase** (`src/agent/phases/reflect.ts`)
@@ -98,7 +98,7 @@ The agent follows a sophisticated pipeline with an iterative core loop:
 
 #### Context Management
 - **Location**: `src/utils/context.ts`
-- Tool results are cached in `.dexter/context/` with deterministic filenames
+- Tool results are cached in `.yassir/context/` with deterministic filenames
 - Each file named: `{TICKER}_{TOOL_NAME}_{ARGS_HASH}.json`
 - Context includes: tool name, args, description, result, sourceUrls, timestamp
 - Intelligent context selection using LLM to pick relevant cached data
@@ -121,7 +121,7 @@ The agent follows a sophisticated pipeline with an iterative core loop:
 ## Directory Structure
 
 ```
-dexter/
+yassir/
 ├── src/
 │   ├── agent/                    # Core agent implementation
 │   │   ├── orchestrator.ts       # Main agent coordinator (entry point)
@@ -190,7 +190,7 @@ dexter/
 │   ├── index.tsx               # Application entry point
 │   └── theme.ts                # UI theme configuration
 │
-├── .dexter/                    # Runtime data (gitignored)
+├── .yassir/                    # Runtime data (gitignored)
 │   └── context/                # Cached tool results
 │       └── *.json             # Individual tool result files
 │
@@ -365,7 +365,7 @@ curl -fsSL https://bun.com/install | bash
 2. **Clone and install dependencies**:
 ```bash
 git clone <repo-url>
-cd dexter
+cd yassir
 bun install
 ```
 
@@ -487,7 +487,7 @@ describe('MyFeature', () => {
 ### When Asked to Debug Agent Behavior
 1. Check callback logs from `AgentCallbacks` in `orchestrator.ts`
 2. Review phase inputs/outputs in execution flow
-3. Verify tool results in `.dexter/context/` files
+3. Verify tool results in `.yassir/context/` files
 4. Check prompt construction in `prompts.ts`
 
 ### When Asked to Add UI Features
@@ -537,7 +537,7 @@ bun test <file>           # Run specific test
 bun --inspect start       # Run with debugger
 
 # Cleanup
-rm -rf .dexter/context/*  # Clear cached tool results
+rm -rf .yassir/context/*  # Clear cached tool results
 rm -rf node_modules/      # Clean dependencies
 bun install               # Reinstall dependencies
 ```
@@ -566,7 +566,7 @@ See `src/model/llm.ts`:
 
 ### Tool Context Flow
 ```
-Tool Execution → ToolExecutor → ToolContextManager → .dexter/context/{file}.json
+Tool Execution → ToolExecutor → ToolContextManager → .yassir/context/{file}.json
                                         ↓
                                   ToolSummary → Agent State
                                         ↓
@@ -604,7 +604,7 @@ Tool Execution → ToolExecutor → ToolContextManager → .dexter/context/{file
 
 ### Optimization Strategies
 1. **Parallel Execution**: Tasks without dependencies run in parallel
-2. **Context Caching**: Avoid redundant API calls via `.dexter/context/`
+2. **Context Caching**: Avoid redundant API calls via `.yassir/context/`
 3. **Lightweight Summaries**: Store full results on disk, pass summaries in memory
 4. **Streaming Answers**: Stream final answer to improve perceived latency
 5. **Fast Model for Tools**: Use GPT-5.2-mini for tool selection
@@ -634,7 +634,7 @@ Tool Execution → ToolExecutor → ToolContextManager → .dexter/context/{file
 - Review reflection prompt for clarity
 
 #### Tool results not cached
-- Check `.dexter/context/` directory exists and is writable
+- Check `.yassir/context/` directory exists and is writable
 - Verify `ToolContextManager` is being used correctly
 - Check tool args are consistent (affects hash)
 

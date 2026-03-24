@@ -1,11 +1,11 @@
 {
-  "name": "dexter-ts",
+  "name": "yassir",
   "version": "2026.3.21",
-  "description": "Dexter - AI agent for deep financial research.",
+  "description": "Yassir - AI agent for deep financial research.",
   "type": "module",
   "main": "src/index.tsx",
   "bin": {
-    "dexter-ts": "./src/index.tsx"
+    "yassir": "./src/index.tsx"
   },
   "scripts": {
     "start": "bun run src/index.tsx",

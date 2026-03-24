@@ -1,6 +1,6 @@
-# Dexter 🤖
+# Yassir 🤖
 
-Dexter is an autonomous financial research agent that thinks, plans, and learns as it works. It performs analysis using task planning, self-reflection, and real-time market data. Think Claude Code, but built specifically for financial research.
+Yassir is an autonomous financial research agent that thinks, plans, and learns as it works. It performs analysis using task planning, self-reflection, and real-time market data. Think Claude Code, but built specifically for financial research.
 
 <img width="1098" height="659" alt="Screenshot 2026-01-21 at 5 25 10 PM" src="https://github.com/user-attachments/assets/3bcc3a7f-b68a-4f5e-8735-9d22196ff76e" />
 
@@ -19,7 +19,7 @@ Dexter is an autonomous financial research agent that thinks, plans, and learns 
 
 ## 👋 Overview
 
-Dexter takes complex financial questions and turns them into clear, step-by-step research plans. It runs those tasks using live market data, checks its own work, and refines the results until it has a confident, data-backed answer.  
+Yassir takes complex financial questions and turns them into clear, step-by-step research plans. It runs those tasks using live market data, checks its own work, and refines the results until it has a confident, data-backed answer.  
 
 **Key Capabilities:**
 - **Intelligent Task Planning**: Automatically decomposes complex queries into structured research steps
@@ -63,8 +63,8 @@ bun --version
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/virattt/dexter.git
-cd dexter
+git clone https://github.com/virattt/yassir.git
+cd yassir
 ```
 
 2. Install dependencies with Bun:
@@ -97,7 +97,7 @@ cp env.example .env
 
 ## 🚀 How to Run
 
-Run Dexter in interactive mode:
+Run Yassir in interactive mode:
 ```bash
 bun start
 ```
@@ -109,7 +109,7 @@ bun dev
 
 ## 📊 How to Evaluate
 
-Dexter includes an evaluation suite that tests the agent against a dataset of financial questions. Evals use LangSmith for tracking and an LLM-as-judge approach for scoring correctness.
+Yassir includes an evaluation suite that tests the agent against a dataset of financial questions. Evals use LangSmith for tracking and an LLM-as-judge approach for scoring correctness.
 
 **Run on all questions:**
 ```bash
@@ -125,11 +125,11 @@ The eval runner displays a real-time UI showing progress, current question, and 
 
 ## 🐛 How to Debug
 
-Dexter logs all tool calls to a scratchpad file for debugging and history tracking. Each query creates a new JSONL file in `.dexter/scratchpad/`.
+Yassir logs all tool calls to a scratchpad file for debugging and history tracking. Each query creates a new JSONL file in `.yassir/scratchpad/`.
 
 **Scratchpad location:**
 ```
-.dexter/scratchpad/
+.yassir/scratchpad/
 ├── 2026-01-30-111400_9a8f10723f79.jsonl
 ├── 2026-01-30-143022_a1b2c3d4e5f6.jsonl
 └── ...
@@ -149,7 +149,7 @@ This makes it easy to inspect exactly what data the agent gathered and how it in
 
 ## 📱 How to Use with WhatsApp
 
-Chat with Dexter through WhatsApp by linking your phone to the gateway. Messages you send to yourself are processed by Dexter and responses are sent back to the same chat.
+Chat with Yassir through WhatsApp by linking your phone to the gateway. Messages you send to yourself are processed by Yassir and responses are sent back to the same chat.
 
 **Quick start:**
 ```bash
@@ -160,7 +160,7 @@ bun run gateway:login
 bun run gateway
 ```
 
-Then open WhatsApp, go to your own chat (message yourself), and ask Dexter a question.
+Then open WhatsApp, go to your own chat (message yourself), and ask Yassir a question.
 
 For detailed setup instructions, configuration options, and troubleshooting, see the [WhatsApp Gateway README](src/gateway/channels/whatsapp/README.md).
 

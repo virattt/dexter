@@ -1,7 +1,7 @@
 # Repository Guidelines
 
-- Repo: https://github.com/virattt/dexter
-- Dexter is a CLI-based AI agent for deep financial research, built with TypeScript, Ink (React for CLI), and LangChain.
+- Repo: https://github.com/virattt/yassir
+- Yassir is a CLI-based AI agent for deep financial research, built with TypeScript, Ink (React for CLI), and LangChain.
 
 ## Project Structure
 
@@ -19,7 +19,7 @@
   - Skills: `src/skills/` (SKILL.md-based extensible workflows, e.g. DCF valuation)
   - Utils: `src/utils/` (env, config, caching, token estimation, markdown tables)
   - Evals: `src/evals/` (LangSmith evaluation runner with Ink UI)
-- Config: `.dexter/settings.json` (persisted model/provider selection)
+- Config: `.yassir/settings.json` (persisted model/provider selection)
 - Environment: `.env` (API keys; see `env.example`)
 - Scripts: `scripts/release.sh`
 
@@ -101,5 +101,5 @@
 ## Security
 
 - API keys stored in `.env` (gitignored). Users can also enter keys interactively via the CLI.
-- Config stored in `.dexter/settings.json` (gitignored).
+- Config stored in `.yassir/settings.json` (gitignored).
 - Never commit or expose real API keys, tokens, or credentials.
