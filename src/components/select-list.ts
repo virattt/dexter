@@ -1,4 +1,4 @@
-import { Container, Input, SelectList, Text, type SelectItem, getKeybindings } from '@mariozechner/pi-tui';
+import { Container, Input, SelectList, Text, type SelectItem } from '@mariozechner/pi-tui';
 import { PROVIDERS, type Model } from '../utils/model.js';
 import type { ApprovalDecision } from '../agent/types.js';
 import type { ManagedKey } from '../controllers/index.js';
@@ -34,8 +34,7 @@ class EmptyModelSelector extends Container {
   }
 
   handleInput(keyData: string): void {
-    const kb = getKeybindings();
-    if (kb.matches(keyData, 'tui.select.cancel')) {
+    if (keyData === '\u001b' || keyData === '\u0003') {
       this.onCancel();
     }
   }
@@ -138,12 +137,11 @@ export class ApiKeyInputComponent {
   }
 
   handleInput(keyData: string): void {
-    const kb = getKeybindings();
-    if (kb.matches(keyData, 'tui.input.submit')) {
+    if (keyData === '\r' || keyData === '\n') {
       this.onSubmit?.(this.input.getValue().trim() || null);
       return;
     }
-    if (kb.matches(keyData, 'tui.select.cancel')) {
+    if (keyData === '\u001b' || keyData === '\u0003') {
       this.onCancel?.();
       return;
     }
