@@ -2,8 +2,8 @@ import type { EditorTheme, MarkdownTheme, SelectListTheme } from '@mariozechner/
 import chalk from 'chalk';
 
 const palette = {
-  primary: '#258bff',
-  primaryLight: '#a5cfff',
+  primary: '#10b981',
+  primaryLight: '#6ee7b7',
   success: 'green',
   error: 'red',
   warning: 'yellow',
