@@ -52,7 +52,7 @@ export class IntroComponent extends Container {
     );
 
     this.addChild(new Spacer(1));
-    this.addChild(new Text('Your AI assistant for deep financial research.', 0, 0));
+    this.addChild(new Text(theme.muted('Your AI agent for deep financial research.'), 0, 0));
     this.modelText = new Text('', 0, 0);
     this.addChild(this.modelText);
     this.setModel(model);
