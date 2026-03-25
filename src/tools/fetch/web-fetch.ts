@@ -9,9 +9,11 @@
  * - Firecrawl fallback removed (falls back to htmlToMarkdown instead)
  * - Config resolution replaced with hardcoded defaults
  * - Tool wrapper uses LangChain DynamicStructuredTool + Zod (not AnyAgentTool + TypeBox)
+ * - PDF content-type support added via unpdf (extracts text from annual/interim reports)
  */
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
+import { extractText as extractPdfText } from 'unpdf';
 import { formatToolResult } from '../types.js';
 import { wrapExternalContent, wrapWebContent } from './external-content.js';
 import {
@@ -41,14 +43,15 @@ import {
 export const WEB_FETCH_DESCRIPTION = `
 Fetch and extract readable content from a URL (HTML -> markdown/text). Returns the page content directly in a single call.
 
-## This is the DEFAULT tool for reading web pages
+## This is the DEFAULT tool for reading web pages and PDFs
 
-Use web_fetch as your FIRST choice whenever you need to read the content of a web page. It is faster and simpler than the browser tool.
+Use web_fetch as your FIRST choice whenever you need to read the content of a web page or a PDF file. It is faster and simpler than the browser tool.
 
 ## When to Use
 
 - Reading earnings reports, press releases, or investor relations pages
-- Reading articles from news sites (CNBC, Bloomberg, Reuters, etc.)
+- **Reading PDF annual reports, interim reports, or investor presentations** (fetches and extracts full text automatically)
+- Reading articles from news sites (CNBC, Bloomberg open articles, Reuters, etc.)
 - Accessing any URL discovered via web_search
 - Reading documentation, blog posts, or any static web content
 - When you need the full text content of a known URL
@@ -65,8 +68,8 @@ Use web_fetch as your FIRST choice whenever you need to read the content of a we
 
 ## Schema
 
-- **url** (required): The HTTP or HTTPS URL to fetch
-- **extractMode** (optional): "markdown" (default) or "text" - controls output format
+- **url** (required): The HTTP or HTTPS URL to fetch (HTML page or PDF file)
+- **extractMode** (optional): "markdown" (default) or "text" - controls output format for HTML pages
 - **maxChars** (optional): Maximum characters to return (default 20,000)
 
 ## Returns
@@ -77,12 +80,13 @@ Response includes: url, finalUrl, title, text, extractMode, extractor, truncated
 
 ## Usage Notes
 
+- **PDF support**: automatically detects application/pdf content-type or .pdf URLs, extracts all text pages
 - Returns content in a single call - no need for navigate/snapshot/read steps
 - Results are cached for 15 minutes - repeated fetches of the same URL are instant
 - Handles redirects automatically (up to 3 hops)
 - Extracts readable content using Mozilla Readability (same as Firefox Reader View)
 - Falls back to raw HTML-to-markdown conversion if Readability extraction fails
-- Works with HTML pages, JSON responses, and plain text
+- Works with HTML pages, PDF documents, JSON responses, and plain text
 `.trim();
 
 // ============================================================================
@@ -367,35 +371,50 @@ async function runWebFetch(params: {
 
   const contentType = res.headers.get("content-type") ?? "application/octet-stream";
   const normalizedContentType = normalizeContentType(contentType) ?? "application/octet-stream";
-  const body = await readResponseText(res);
 
   let title: string | undefined;
   let extractor = "raw";
-  let text = body;
-  if (contentType.includes("text/html")) {
-    const readable = await extractReadableContent({
-      html: body,
-      url: finalUrl,
-      extractMode: params.extractMode,
-    });
-    if (readable?.text) {
-      text = readable.text;
-      title = readable.title;
-      extractor = "readability";
-    } else {
-      // Fallback to htmlToMarkdown (OpenClaw falls to Firecrawl here)
-      const rendered = htmlToMarkdown(body);
-      text = params.extractMode === "text" ? markdownToText(rendered.text) : rendered.text;
-      title = rendered.title;
-      extractor = "htmlToMarkdown";
-    }
-  } else if (contentType.includes("application/json")) {
+  let text: string;
+
+  if (contentType.includes("application/pdf") || params.url.toLowerCase().endsWith(".pdf")) {
+    // PDF: read as binary and extract text with unpdf (pdfjs-dist wrapper)
+    const buffer = await res.arrayBuffer();
     try {
-      text = JSON.stringify(JSON.parse(body), null, 2);
-      extractor = "json";
-    } catch {
-      text = body;
-      extractor = "raw";
+      const { text: pdfText, totalPages } = await extractPdfText(new Uint8Array(buffer), { mergePages: true });
+      text = pdfText ?? '';
+      title = `PDF document (${totalPages} page${totalPages !== 1 ? 's' : ''})`;
+      extractor = "pdf";
+    } catch (e) {
+      throw new Error(`[Web Fetch] PDF extraction failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  } else {
+    const body = await readResponseText(res);
+    text = body;
+    if (contentType.includes("text/html")) {
+      const readable = await extractReadableContent({
+        html: body,
+        url: finalUrl,
+        extractMode: params.extractMode,
+      });
+      if (readable?.text) {
+        text = readable.text;
+        title = readable.title;
+        extractor = "readability";
+      } else {
+        // Fallback to htmlToMarkdown (OpenClaw falls to Firecrawl here)
+        const rendered = htmlToMarkdown(body);
+        text = params.extractMode === "text" ? markdownToText(rendered.text) : rendered.text;
+        title = rendered.title;
+        extractor = "htmlToMarkdown";
+      }
+    } else if (contentType.includes("application/json")) {
+      try {
+        text = JSON.stringify(JSON.parse(body), null, 2);
+        extractor = "json";
+      } catch {
+        text = body;
+        extractor = "raw";
+      }
     }
   }
 
