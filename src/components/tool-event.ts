@@ -23,6 +23,13 @@ function truncateAtWord(str: string, maxLength: number): string {
 }
 
 function formatArgs(tool: string, args: Record<string, unknown>): string {
+  if (tool === 'sequential_thinking') {
+    const thought = String(args.thought ?? '').replace(/\n/g, ' ');
+    const num = args.thoughtNumber ?? '?';
+    const total = args.totalThoughts ?? '?';
+    const prefix = args.isRevision ? '🔄' : args.branchFromThought ? '🌿' : '💭';
+    return theme.muted(`${prefix} ${num}/${total} "${truncateAtWord(thought, 60)}"`);
+  }
   if ('query' in args) {
     const query = String(args.query);
     return theme.muted(`"${truncateAtWord(query, 60)}"`);

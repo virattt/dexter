@@ -180,11 +180,6 @@ export const sequentialThinkingTool = new DynamicStructuredTool({
   schema: ThoughtSchema,
   func: async (input: ThoughtData): Promise<string> => {
     const result = sequentialThinkingEngine.processThought(input);
-
-    // Print formatted thought to stderr so it appears in the CLI without
-    // polluting the tool result that goes back to the LLM
-    process.stderr.write(SequentialThinkingEngine.formatThought(input) + '\n');
-
     return JSON.stringify(result, null, 2);
   },
 });
