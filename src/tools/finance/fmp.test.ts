@@ -6,7 +6,7 @@ import { describe, test, expect, beforeEach, spyOn } from 'bun:test';
 // ---------------------------------------------------------------------------
 process.env.FMP_API_KEY = 'test-fmp-key';
 
-const { fmpApi, getFmpIncomeStatements, getFmpBalanceSheets, getFmpCashFlowStatements } =
+const { fmpApi, getFmpIncomeStatements, getFmpBalanceSheets, getFmpCashFlowStatements, FMP_PREMIUM_REQUIRED } =
   await import('./fmp.js');
 
 // ---------------------------------------------------------------------------
@@ -31,11 +31,11 @@ const INCOME_STUB = [
     netIncome: 528_000_000,
     eps: 1.43,
     ebitda: 1_485_000_000,
-    // Redundant fields that should be stripped:
+    // Redundant fields that should be stripped (stable API uses 'filingDate', fixed typo from v3):
     cik: '0001234567',
     link: 'https://sec.gov/...',
     finalLink: 'https://sec.gov/.../final',
-    fillingDate: '2025-02-28',
+    filingDate: '2025-02-28',
     acceptedDate: '2025-02-28 06:00:00',
   },
 ];
@@ -51,7 +51,7 @@ const BALANCE_STUB = [
     link: 'https://sec.gov/...',
     finalLink: 'https://sec.gov/.../final',
     cik: '0001234567',
-    fillingDate: '2025-02-28',
+    filingDate: '2025-02-28',
     acceptedDate: '2025-02-28 06:00:00',
   },
 ];
@@ -66,7 +66,7 @@ const CASHFLOW_STUB = [
     link: 'https://sec.gov/...',
     finalLink: 'https://sec.gov/.../final',
     cik: '0001234567',
-    fillingDate: '2025-02-28',
+    filingDate: '2025-02-28',
     acceptedDate: '2025-02-28 06:00:00',
   },
 ];
@@ -99,19 +99,19 @@ describe('getFmpIncomeStatements', () => {
     expect(first.cik).toBeUndefined();
     expect(first.link).toBeUndefined();
     expect(first.finalLink).toBeUndefined();
-    expect(first.fillingDate).toBeUndefined();
+    expect(first.filingDate).toBeUndefined();
     expect(first.acceptedDate).toBeUndefined();
     // Useful fields must survive
     expect(first.revenue).toBe(16_500_000_000);
     expect(first.eps).toBe(1.43);
   });
 
-  test('calls /income-statement/{ticker} with correct period=annual', async () => {
+  test('calls /income-statement with symbol param and correct period=annual', async () => {
     await getFmpIncomeStatements.invoke({ ticker: 'AAPL', period: 'annual', limit: 4 });
 
     expect(mockGet).toHaveBeenCalledWith(
-      '/income-statement/AAPL',
-      expect.objectContaining({ period: 'annual', limit: 4 }),
+      '/income-statement',
+      expect.objectContaining({ symbol: 'AAPL', period: 'annual', limit: 4 }),
     );
   });
 
@@ -119,15 +119,15 @@ describe('getFmpIncomeStatements', () => {
     await getFmpIncomeStatements.invoke({ ticker: 'AAPL', period: 'quarterly', limit: 2 });
 
     expect(mockGet).toHaveBeenCalledWith(
-      '/income-statement/AAPL',
+      '/income-statement',
       expect.objectContaining({ period: 'quarter' }),
     );
   });
 
-  test('passes international ticker (VWS.CO) unchanged to fmpApi', async () => {
+  test('passes international ticker (VWS.CO) as symbol param', async () => {
     await getFmpIncomeStatements.invoke({ ticker: 'VWS.CO', period: 'annual', limit: 4 });
 
-    expect(mockGet).toHaveBeenCalledWith('/income-statement/VWS.CO', expect.any(Object));
+    expect(mockGet).toHaveBeenCalledWith('/income-statement', expect.objectContaining({ symbol: 'VWS.CO' }));
   });
 
   test('sourceUrls contain financialmodelingprep.com', async () => {
@@ -176,10 +176,10 @@ describe('getFmpBalanceSheets', () => {
     expect(first.totalAssets).toBe(24_000_000_000);
   });
 
-  test('calls /balance-sheet-statement/{ticker}', async () => {
+  test('calls /balance-sheet-statement with symbol param', async () => {
     await getFmpBalanceSheets.invoke({ ticker: 'VWS.CO', period: 'annual', limit: 4 });
 
-    expect(mockGet).toHaveBeenCalledWith('/balance-sheet-statement/VWS.CO', expect.any(Object));
+    expect(mockGet).toHaveBeenCalledWith('/balance-sheet-statement', expect.objectContaining({ symbol: 'VWS.CO' }));
   });
 
   test('strips redundant fields', async () => {
@@ -231,10 +231,10 @@ describe('getFmpCashFlowStatements', () => {
     expect(first.freeCashFlow).toBe(400_000_000);
   });
 
-  test('calls /cash-flow-statement/{ticker}', async () => {
+  test('calls /cash-flow-statement with symbol param', async () => {
     await getFmpCashFlowStatements.invoke({ ticker: 'VWS.CO', period: 'annual', limit: 4 });
 
-    expect(mockGet).toHaveBeenCalledWith('/cash-flow-statement/VWS.CO', expect.any(Object));
+    expect(mockGet).toHaveBeenCalledWith('/cash-flow-statement', expect.objectContaining({ symbol: 'VWS.CO' }));
   });
 
   test('strips redundant fields', async () => {
@@ -259,8 +259,37 @@ describe('getFmpCashFlowStatements', () => {
     await getFmpCashFlowStatements.invoke({ ticker: 'AAPL', period: 'quarterly', limit: 4 });
 
     expect(mockGet).toHaveBeenCalledWith(
-      '/cash-flow-statement/AAPL',
-      expect.objectContaining({ period: 'quarter' }),
+      '/cash-flow-statement',
+      expect.objectContaining({ period: 'quarter', symbol: 'AAPL' }),
     );
+  });
+});
+
+// ===========================================================================
+// FMP Premium Error Detection (HTTP 402)
+// ===========================================================================
+
+describe('fmpApi premium detection', () => {
+  let mockGet: ReturnType<typeof spyOn>;
+
+  beforeEach(() => {
+    // Throw the premium error (simulates HTTP 402 in the real fmpApi.get)
+    mockGet = spyOn(fmpApi, 'get').mockRejectedValue(
+      new Error(`${FMP_PREMIUM_REQUIRED}: This ticker requires a paid FMP subscription.`),
+    );
+  });
+
+  test('fmpApi.get throws FMP_PREMIUM_REQUIRED for a premium-only ticker', async () => {
+    await expect(
+      fmpApi.get('/income-statement', { symbol: 'VWS.CO', period: 'annual', limit: 1 }),
+    ).rejects.toThrow(FMP_PREMIUM_REQUIRED);
+  });
+
+  test('getFmpIncomeStatements returns error containing FMP_PREMIUM_REQUIRED for premium-only ticker', async () => {
+    const raw = await getFmpIncomeStatements.invoke({ ticker: 'VWS.CO', period: 'annual', limit: 1 });
+    const result = JSON.parse(raw) as { data: Record<string, unknown> };
+
+    expect(typeof result.data.error).toBe('string');
+    expect((result.data.error as string)).toContain(FMP_PREMIUM_REQUIRED);
   });
 });

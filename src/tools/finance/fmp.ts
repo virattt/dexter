@@ -3,13 +3,21 @@ import { z } from 'zod';
 import { stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
 
-const FMP_BASE_URL = 'https://financialmodelingprep.com/api/v3';
+const FMP_BASE_URL = 'https://financialmodelingprep.com/stable';
 
 const FMP_SOURCE_URL = (symbol: string) =>
   `https://financialmodelingprep.com/financial-statements/${symbol}`;
 
-// Metadata-only fields that add noise without analytical value
-const FMP_STRIP_FIELDS = ['cik', 'link', 'finalLink', 'fillingDate', 'acceptedDate'] as const;
+/**
+ * Marker included in thrown errors when FMP returns HTTP 402 (ticker is
+ * premium-only on the free plan).  Downstream callers check for this string
+ * to decide whether to attempt a Yahoo Finance / Tavily fallback.
+ */
+export const FMP_PREMIUM_REQUIRED = 'FMP_PREMIUM_REQUIRED';
+
+// Metadata-only fields that add noise without analytical value.
+// Note: the new stable API uses 'filingDate' (fixed typo from legacy v3 'fillingDate').
+const FMP_STRIP_FIELDS = ['cik', 'link', 'finalLink', 'filingDate', 'acceptedDate'] as const;
 
 /** Map our period enum to the value FMP expects in its query param. */
 function toFmpPeriod(period: 'annual' | 'quarterly'): 'annual' | 'quarter' {
@@ -40,6 +48,12 @@ export const fmpApi = {
     const timeout = setTimeout(() => controller.abort(), 30_000);
     try {
       const response = await fetch(url.toString(), { signal: controller.signal });
+      if (response.status === 402) {
+        throw new Error(
+          `${FMP_PREMIUM_REQUIRED}: This ticker is not available under the free FMP plan. ` +
+            'Upgrade at https://site.financialmodelingprep.com.',
+        );
+      }
       if (!response.ok) {
         throw new Error(`[FMP API] ${response.status} ${response.statusText}`);
       }
@@ -90,7 +104,8 @@ export const getFmpIncomeStatements = new DynamicStructuredTool({
   func: async (input) => {
     const ticker = input.ticker.trim();
     try {
-      const data = await fmpApi.get<unknown[]>(`/income-statement/${ticker}`, {
+      const data = await fmpApi.get<unknown[]>(`/income-statement`, {
+        symbol: ticker,
         period: toFmpPeriod(input.period as 'annual' | 'quarterly'),
         limit: input.limit,
       });
@@ -125,7 +140,8 @@ export const getFmpBalanceSheets = new DynamicStructuredTool({
   func: async (input) => {
     const ticker = input.ticker.trim();
     try {
-      const data = await fmpApi.get<unknown[]>(`/balance-sheet-statement/${ticker}`, {
+      const data = await fmpApi.get<unknown[]>(`/balance-sheet-statement`, {
+        symbol: ticker,
         period: toFmpPeriod(input.period as 'annual' | 'quarterly'),
         limit: input.limit,
       });
@@ -160,7 +176,8 @@ export const getFmpCashFlowStatements = new DynamicStructuredTool({
   func: async (input) => {
     const ticker = input.ticker.trim();
     try {
-      const data = await fmpApi.get<unknown[]>(`/cash-flow-statement/${ticker}`, {
+      const data = await fmpApi.get<unknown[]>(`/cash-flow-statement`, {
+        symbol: ticker,
         period: toFmpPeriod(input.period as 'annual' | 'quarterly'),
         limit: input.limit,
       });

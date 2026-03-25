@@ -7,7 +7,7 @@ export { getStockPrice, getStockPrices, getStockTickers, STOCK_PRICE_DESCRIPTION
 export { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
 export { getInsiderTrades } from './insider_trades.js';
 export { getEarnings } from './earnings.js';
-export { getYahooAnalystTargets, getYahooAnalystRecommendations, getYahooUpgradeDowngradeHistory } from './yahoo-finance.js';
+export { getYahooAnalystTargets, getYahooAnalystRecommendations, getYahooUpgradeDowngradeHistory, getYahooIncomeStatements } from './yahoo-finance.js';
 export { getFmpIncomeStatements, getFmpBalanceSheets, getFmpCashFlowStatements } from './fmp.js';
 export { createGetFinancials } from './get-financials.js';
 export { createGetMarketData } from './get-market-data.js';

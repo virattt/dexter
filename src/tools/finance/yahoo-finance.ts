@@ -106,3 +106,54 @@ export const getYahooUpgradeDowngradeHistory = new DynamicStructuredTool({
     }
   },
 });
+
+// ---------------------------------------------------------------------------
+// getYahooIncomeStatements
+// ---------------------------------------------------------------------------
+
+export const getYahooIncomeStatements = new DynamicStructuredTool({
+  name: 'get_yahoo_income_statements',
+  description:
+    'Fetches historical income statements from Yahoo Finance. Free, no API key required. ' +
+    'Works for international tickers (e.g. VWS.CO, AZN.L, SAP.DE). ' +
+    'Returns totalRevenue, netIncome, grossProfit, operatingIncome, ebit per annual period. ' +
+    'Used as a fallback when Financial Modeling Prep is unavailable or requires a paid plan.',
+  schema: z.object({
+    ticker: z.string().describe(
+      "Stock ticker symbol, including exchange suffix for international stocks (e.g. 'VWS.CO', 'AZN.L', 'AAPL').",
+    ),
+    limit: z.number().default(4).describe('Number of periods to return (default: 4).'),
+  }),
+  func: async (input) => {
+    const ticker = input.ticker.trim();
+    try {
+      const result = await yf.quoteSummary(ticker, { modules: ['incomeStatementHistory'] });
+      const records = result.incomeStatementHistory?.incomeStatementHistory ?? [];
+
+      const data = records.slice(0, input.limit).reduce<Record<string, unknown>[]>((acc, r) => {
+        const entry: Record<string, unknown> = { date: r.endDate };
+        // Only include fields that carry real values for this ticker
+        if (r.totalRevenue) entry.totalRevenue = r.totalRevenue;
+        if (r.grossProfit) entry.grossProfit = r.grossProfit;
+        if (r.operatingIncome) entry.operatingIncome = r.operatingIncome;
+        if (r.netIncome !== null && r.netIncome !== undefined) entry.netIncome = r.netIncome;
+        if (r.ebit) entry.ebit = r.ebit;
+        // Keep record only if it has at least one meaningful metric
+        if (entry.totalRevenue !== undefined || entry.netIncome !== undefined) acc.push(entry);
+        return acc;
+      }, []);
+
+      if (data.length === 0) {
+        return formatToolResult(
+          { error: `No income statement data available for ${ticker} on Yahoo Finance.` },
+          [],
+        );
+      }
+
+      return formatToolResult(data, [`https://finance.yahoo.com/quote/${ticker}/financials`]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return formatToolResult({ error: message }, []);
+    }
+  },
+});

@@ -2,7 +2,9 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { api, stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
-import { getFmpIncomeStatements, getFmpBalanceSheets, getFmpCashFlowStatements } from './fmp.js';
+import { getFmpIncomeStatements, getFmpBalanceSheets, getFmpCashFlowStatements, FMP_PREMIUM_REQUIRED } from './fmp.js';
+import { getYahooIncomeStatements } from './yahoo-finance.js';
+import { tavilySearch } from '../search/tavily.js';
 
 const REDUNDANT_FINANCIAL_FIELDS = ['accession_number', 'currency', 'period'] as const;
 
@@ -65,22 +67,49 @@ function fmpPeriod(period: string): 'annual' | 'quarterly' {
   return period === 'quarterly' ? 'quarterly' : 'annual';
 }
 
+type FmpCallResult = { kind: 'ok'; result: string } | { kind: 'premium' } | { kind: 'error' };
+
 /**
- * Try the FMP fallback tool and return its result only when it contains real
- * data (not an error object).  Returns null when FMP also comes up empty so
- * the caller can continue to a final error response.
+ * Try the FMP fallback tool.  Returns:
+ * - `{ kind: 'ok', result }` when FMP returns real data
+ * - `{ kind: 'premium' }` when FMP signals the ticker requires a paid plan (HTTP 402)
+ * - `{ kind: 'error' }` for any other failure (empty data, API key missing, network error)
  */
 async function tryFmp(
   fmpTool: { invoke: (input: { ticker: string; period: 'annual' | 'quarterly'; limit: number }) => Promise<string> },
   ticker: string,
   period: string,
   limit: number,
-): Promise<string | null> {
-  if (!process.env.FMP_API_KEY) return null;
-  const raw = await fmpTool.invoke({ ticker, period: fmpPeriod(period), limit });
-  const parsed = JSON.parse(raw) as { data: unknown };
-  if ((parsed.data as Record<string, unknown>)?.error) return null;
-  return raw;
+): Promise<FmpCallResult> {
+  if (!process.env.FMP_API_KEY) return { kind: 'error' };
+  try {
+    const raw = await fmpTool.invoke({ ticker, period: fmpPeriod(period), limit });
+    const parsed = JSON.parse(raw) as { data: unknown };
+    if (!parsed.data) return { kind: 'error' };
+    const error = (parsed.data as Record<string, unknown>)?.error;
+    if (typeof error === 'string' && error.includes(FMP_PREMIUM_REQUIRED)) return { kind: 'premium' };
+    if (error) return { kind: 'error' };
+    return { kind: 'ok', result: raw };
+  } catch {
+    return { kind: 'error' };
+  }
+}
+
+/**
+ * Search for financial data via Tavily as a last resort.
+ * Returns null if TAVILY_API_KEY is not set or the search fails.
+ */
+async function tryTavilySearch(ticker: string, statementType: string): Promise<string | null> {
+  if (!process.env.TAVILY_API_KEY) return null;
+  try {
+    const query = `${ticker} ${statementType} annual financial data 2024 2023`;
+    const result = await tavilySearch.invoke({ query });
+    const parsed = JSON.parse(result) as { data: unknown };
+    if (!Array.isArray(parsed.data) || parsed.data.length === 0) return null;
+    return result;
+  } catch {
+    return null;
+  }
 }
 
 export const getIncomeStatements = new DynamicStructuredTool({
@@ -88,6 +117,7 @@ export const getIncomeStatements = new DynamicStructuredTool({
   description: `Fetches a company's income statements, detailing its revenues, expenses, net income, etc. over a reporting period. Falls back to Financial Modeling Prep for international tickers (e.g. VWS.CO). Useful for evaluating a company's profitability and operational efficiency.`,
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
+    const ticker = input.ticker.trim();
     const params = createParams(input);
     try {
       const { data, url } = await api.get('/financials/income-statements/', params);
@@ -99,11 +129,24 @@ export const getIncomeStatements = new DynamicStructuredTool({
       // Fall through to FMP
     }
 
-    const fmpResult = await tryFmp(getFmpIncomeStatements, input.ticker.trim(), input.period, input.limit);
-    if (fmpResult) return fmpResult;
+    const fmpResult = await tryFmp(getFmpIncomeStatements, ticker, input.period, input.limit);
+    if (fmpResult.kind === 'ok') return fmpResult.result;
+
+    // FMP premium or error — try Yahoo Finance (has totalRevenue + netIncome for intl tickers)
+    const yahooRaw = await getYahooIncomeStatements.invoke({ ticker, limit: input.limit });
+    const yahooParsed = JSON.parse(yahooRaw) as { data: unknown };
+    const yahooHasData =
+      yahooParsed.data !== undefined &&
+      yahooParsed.data !== null &&
+      !(yahooParsed.data as Record<string, unknown>)?.error;
+    if (yahooHasData) return yahooRaw;
+
+    // Last resort: Tavily web search
+    const tavilyRaw = await tryTavilySearch(ticker, 'income statement revenue earnings');
+    if (tavilyRaw) return tavilyRaw;
 
     return formatToolResult(
-      { error: `No income statement data available for ${input.ticker}. Configure FMP_API_KEY for international ticker support (https://site.financialmodelingprep.com).` },
+      { error: `No income statement data available for ${ticker}. FMP free plan only covers US stocks — upgrade at https://site.financialmodelingprep.com for full international coverage.` },
       [],
     );
   },
@@ -114,6 +157,7 @@ export const getBalanceSheets = new DynamicStructuredTool({
   description: `Retrieves a company's balance sheets, providing a snapshot of its assets, liabilities, shareholders' equity, etc. at a specific point in time. Falls back to Financial Modeling Prep for international tickers. Useful for assessing a company's financial position.`,
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
+    const ticker = input.ticker.trim();
     const params = createParams(input);
     try {
       const { data, url } = await api.get('/financials/balance-sheets/', params);
@@ -125,11 +169,15 @@ export const getBalanceSheets = new DynamicStructuredTool({
       // Fall through to FMP
     }
 
-    const fmpResult = await tryFmp(getFmpBalanceSheets, input.ticker.trim(), input.period, input.limit);
-    if (fmpResult) return fmpResult;
+    const fmpResult = await tryFmp(getFmpBalanceSheets, ticker, input.period, input.limit);
+    if (fmpResult.kind === 'ok') return fmpResult.result;
+
+    // FMP premium or error — use Tavily web search (Yahoo Finance balance sheet is nearly empty)
+    const tavilyRaw = await tryTavilySearch(ticker, 'balance sheet total assets shareholders equity');
+    if (tavilyRaw) return tavilyRaw;
 
     return formatToolResult(
-      { error: `No balance sheet data available for ${input.ticker}. Configure FMP_API_KEY for international ticker support (https://site.financialmodelingprep.com).` },
+      { error: `No balance sheet data available for ${ticker}. FMP free plan only covers US stocks — upgrade at https://site.financialmodelingprep.com for full international coverage.` },
       [],
     );
   },
@@ -140,6 +188,7 @@ export const getCashFlowStatements = new DynamicStructuredTool({
   description: `Retrieves a company's cash flow statements, showing how cash is generated and used across operating, investing, and financing activities. Falls back to Financial Modeling Prep for international tickers. Useful for understanding a company's liquidity and solvency.`,
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
+    const ticker = input.ticker.trim();
     const params = createParams(input);
     try {
       const { data, url } = await api.get('/financials/cash-flow-statements/', params);
@@ -151,11 +200,15 @@ export const getCashFlowStatements = new DynamicStructuredTool({
       // Fall through to FMP
     }
 
-    const fmpResult = await tryFmp(getFmpCashFlowStatements, input.ticker.trim(), input.period, input.limit);
-    if (fmpResult) return fmpResult;
+    const fmpResult = await tryFmp(getFmpCashFlowStatements, ticker, input.period, input.limit);
+    if (fmpResult.kind === 'ok') return fmpResult.result;
+
+    // FMP premium or error — use Tavily web search (Yahoo Finance cashflow is nearly empty)
+    const tavilyRaw = await tryTavilySearch(ticker, 'cash flow statement operating investing free cash flow');
+    if (tavilyRaw) return tavilyRaw;
 
     return formatToolResult(
-      { error: `No cash flow data available for ${input.ticker}. Configure FMP_API_KEY for international ticker support (https://site.financialmodelingprep.com).` },
+      { error: `No cash flow data available for ${ticker}. FMP free plan only covers US stocks — upgrade at https://site.financialmodelingprep.com for full international coverage.` },
       [],
     );
   },

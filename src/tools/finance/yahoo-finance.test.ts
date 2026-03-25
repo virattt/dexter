@@ -16,7 +16,7 @@ mock.module('yahoo-finance2', () => ({
 }));
 
 // Import after mocking
-const { getYahooAnalystTargets, getYahooAnalystRecommendations, getYahooUpgradeDowngradeHistory } =
+const { getYahooAnalystTargets, getYahooAnalystRecommendations, getYahooUpgradeDowngradeHistory, getYahooIncomeStatements } =
   await import('./yahoo-finance.js');
 
 // ---------------------------------------------------------------------------
@@ -194,6 +194,105 @@ describe('getYahooUpgradeDowngradeHistory', () => {
     mockQuoteSummary.mockRejectedValueOnce(new Error('Rate limited'));
 
     const raw = await getYahooUpgradeDowngradeHistory.invoke({ ticker: 'TSLA' });
+    const result = parseResult(raw);
+
+    expect((result.data as Record<string, unknown>).error).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getYahooIncomeStatements
+// ---------------------------------------------------------------------------
+
+const INCOME_HISTORY_STUB = {
+  incomeStatementHistory: [
+    {
+      endDate: new Date('2024-12-31'),
+      totalRevenue: 17_295_000_000,
+      grossProfit: 2_000_000_000,
+      operatingIncome: 800_000_000,
+      netIncome: 499_000_000,
+      ebit: 900_000_000,
+    },
+    {
+      endDate: new Date('2023-12-31'),
+      totalRevenue: 15_382_000_000,
+      grossProfit: null,
+      operatingIncome: null,
+      netIncome: 77_000_000,
+      ebit: null,
+    },
+  ],
+};
+
+describe('getYahooIncomeStatements', () => {
+  beforeEach(() => mockQuoteSummary.mockReset());
+
+  test('returns totalRevenue and netIncome for a valid ticker', async () => {
+    mockQuoteSummary.mockResolvedValueOnce({ incomeStatementHistory: INCOME_HISTORY_STUB });
+
+    const raw = await getYahooIncomeStatements.invoke({ ticker: 'VWS.CO', limit: 4 });
+    const result = parseResult(raw);
+
+    expect(Array.isArray(result.data)).toBe(true);
+    const first = (result.data as Record<string, unknown>[])[0];
+    expect(first.totalRevenue).toBe(17_295_000_000);
+    expect(first.netIncome).toBe(499_000_000);
+  });
+
+  test('requests the incomeStatementHistory module', async () => {
+    mockQuoteSummary.mockResolvedValueOnce({ incomeStatementHistory: INCOME_HISTORY_STUB });
+
+    await getYahooIncomeStatements.invoke({ ticker: 'VWS.CO', limit: 4 });
+
+    const [, opts] = mockQuoteSummary.mock.calls[0] as [string, { modules: string[] }];
+    expect(opts.modules).toContain('incomeStatementHistory');
+  });
+
+  test('passes international ticker unchanged (VWS.CO)', async () => {
+    mockQuoteSummary.mockResolvedValueOnce({ incomeStatementHistory: INCOME_HISTORY_STUB });
+
+    await getYahooIncomeStatements.invoke({ ticker: 'VWS.CO', limit: 4 });
+
+    const [calledTicker] = mockQuoteSummary.mock.calls[0] as [string, unknown];
+    expect(calledTicker).toBe('VWS.CO');
+  });
+
+  test('sourceUrls contain finance.yahoo.com/quote/{ticker}/financials', async () => {
+    mockQuoteSummary.mockResolvedValueOnce({ incomeStatementHistory: INCOME_HISTORY_STUB });
+
+    const raw = await getYahooIncomeStatements.invoke({ ticker: 'VWS.CO', limit: 4 });
+    const result = parseResult(raw);
+
+    expect(result.sourceUrls?.some((u) => u.includes('VWS.CO') && u.includes('financials'))).toBe(true);
+  });
+
+  test('respects limit parameter', async () => {
+    mockQuoteSummary.mockResolvedValueOnce({ incomeStatementHistory: INCOME_HISTORY_STUB });
+
+    const raw = await getYahooIncomeStatements.invoke({ ticker: 'VWS.CO', limit: 1 });
+    const result = parseResult(raw);
+
+    expect((result.data as unknown[]).length).toBe(1);
+  });
+
+  test('returns error when quoteSummary throws', async () => {
+    mockQuoteSummary.mockRejectedValueOnce(new Error('Network timeout'));
+
+    const raw = await getYahooIncomeStatements.invoke({ ticker: 'VWS.CO', limit: 4 });
+    const result = parseResult(raw);
+
+    expect((result.data as Record<string, unknown>).error).toBeDefined();
+  });
+
+  test('returns error when incomeStatementHistory has no usable data', async () => {
+    mockQuoteSummary.mockResolvedValueOnce({
+      incomeStatementHistory: {
+        incomeStatementHistory: [{ endDate: new Date(), totalRevenue: null, netIncome: null }],
+      },
+    });
+
+    const raw = await getYahooIncomeStatements.invoke({ ticker: 'EMPTY', limit: 4 });
     const result = parseResult(raw);
 
     expect((result.data as Record<string, unknown>).error).toBeDefined();
