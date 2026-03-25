@@ -4,8 +4,11 @@ import { dirname } from 'node:path';
 import { z } from 'zod';
 import { dexterPath } from '../../utils/paths.js';
 import { loadGatewayConfig, saveGatewayConfig } from '../../gateway/config.js';
+import { buildHeartbeatQuery } from '../../gateway/heartbeat/prompt.js';
+import { loadCronStore, saveCronStore } from '../../cron/store.js';
 
 const HEARTBEAT_MD_PATH = dexterPath('HEARTBEAT.md');
+const HEARTBEAT_JOB_NAME = 'Heartbeat';
 
 export const HEARTBEAT_TOOL_DESCRIPTION = `
 Manage your periodic heartbeat checklist (.dexter/HEARTBEAT.md).
@@ -57,6 +60,26 @@ function ensureHeartbeatEnabled(): void {
   saveGatewayConfig(cfg);
 }
 
+/**
+ * Sync the heartbeat cron job's message with the current HEARTBEAT.md content.
+ */
+async function syncHeartbeatCronJob(): Promise<void> {
+  const store = loadCronStore();
+  const job = store.jobs.find((j) => j.name === HEARTBEAT_JOB_NAME);
+  if (!job) return;
+
+  const query = await buildHeartbeatQuery();
+  if (query === null) {
+    // HEARTBEAT.md is empty — disable the cron job
+    job.enabled = false;
+    job.updatedAtMs = Date.now();
+  } else {
+    job.payload.message = query;
+    job.updatedAtMs = Date.now();
+  }
+  saveCronStore(store);
+}
+
 export const heartbeatTool = new DynamicStructuredTool({
   name: 'heartbeat',
   description:
@@ -87,6 +110,9 @@ export const heartbeatTool = new DynamicStructuredTool({
       if (hasItems) {
         ensureHeartbeatEnabled();
       }
+
+      // Sync the cron job with updated content
+      await syncHeartbeatCronJob();
 
       const summary = hasItems
         ? `Updated heartbeat checklist (${lines.length} item${lines.length === 1 ? '' : 's'}).`

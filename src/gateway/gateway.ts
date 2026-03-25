@@ -11,7 +11,8 @@ import { resolveSessionStorePath, upsertSessionMeta } from './sessions/store.js'
 import { loadGatewayConfig, type GatewayConfig } from './config.js';
 import { runAgentForMessage } from './agent-runner.js';
 import { cleanMarkdownForWhatsApp } from './utils.js';
-import { startHeartbeatRunner } from './heartbeat/index.js';
+import { startCronRunner } from '../cron/runner.js';
+import { ensureHeartbeatCronJob } from '../cron/heartbeat-migration.js';
 import {
   isBotMentioned,
   recordGroupMessage,
@@ -218,11 +219,12 @@ export async function startGateway(params: { configPath?: string } = {}): Promis
   });
   await manager.startAll();
 
-  const heartbeat = startHeartbeatRunner({ configPath: params.configPath });
+  ensureHeartbeatCronJob(params.configPath);
+  const cron = startCronRunner({ configPath: params.configPath });
 
   return {
     stop: async () => {
-      heartbeat.stop();
+      cron.stop();
       await manager.stopAll();
     },
     snapshot: () => manager.getSnapshot(),
