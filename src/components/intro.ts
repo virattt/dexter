@@ -9,6 +9,8 @@ export class IntroComponent extends Container {
   private readonly modelText: Text;
   private readonly fullChildren: Component[] = [];
   private isCompact = false;
+  private currentModel = '';
+  private thinkOn = true;
 
   constructor(model: string) {
     super();
@@ -85,10 +87,23 @@ export class IntroComponent extends Container {
   }
 
   setModel(model: string) {
-    const modelLabel = getModelDisplayName(model);
+    this.currentModel = model;
+    this.rebuildModelText();
+  }
+
+  /** Update the think indicator shown in the compact status bar. */
+  setThinkState(on: boolean) {
+    this.thinkOn = on;
+    this.rebuildModelText();
+  }
+
+  private rebuildModelText() {
+    const modelLabel = getModelDisplayName(this.currentModel);
     if (this.isCompact) {
+      const sep = theme.muted(' │ ');
+      const thinkPart = this.thinkOn ? theme.primary('💭 on') : theme.muted('💭 off');
       this.modelText.setText(
-        `${theme.muted('⬡ Dexter · ')}${theme.primary(modelLabel)}${theme.muted(' · /model to change')}`,
+        `${theme.muted('⬡ Dexter')}${sep}${theme.primary(modelLabel)}${sep}${thinkPart}`,
       );
     } else {
       this.modelText.setText(

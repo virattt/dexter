@@ -444,6 +444,8 @@ export async function runCli() {
     // Collapse the 15-line ASCII intro to a single header line once the user
     // has started a conversation, freeing vertical space for the chat log.
     intro.setCompact(agentRunner.history.length > 0);
+    // Sync think state into the status bar (auto = on for thinking-capable models).
+    intro.setThinkState(thinkEnabled !== false && isThinkingModel(modelSelection.model));
     root.addChild(intro);
     root.addChild(chatLog);
     if (lastError ?? agentRunner.error) {
@@ -452,7 +454,11 @@ export async function runCli() {
     if (agentRunner.workingState.status !== 'idle') {
       root.addChild(workingIndicator);
     }
-    root.addChild(new Spacer(1));
+    // Hint footer: keyboard shortcuts when idle, cancel hint while running.
+    const hintLine = agentRunner.isProcessing
+      ? theme.muted('  esc · cancel query')
+      : theme.muted('  ↑↓ history  ·  /model  /think  /help  ·  ctrl+c exit');
+    root.addChild(new Text(hintLine, 0, 0));
     root.addChild(editor);
     root.addChild(debugPanel);
     tui.setFocus(editor);

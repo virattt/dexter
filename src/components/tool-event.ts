@@ -65,18 +65,24 @@ function approvalLabel(decision: ApprovalDecision): string {
 
 export class ToolEventComponent extends Container {
   private readonly header: Text;
+  private readonly titleText: string;
   private completedDetails: Text[] = [];
   private activeDetail: Text | null = null;
 
   constructor(_tui: unknown, tool: string, args: Record<string, unknown>) {
     super();
     this.addChild(new Spacer(1));
-    const title = `${formatToolName(tool)}${args ? `${theme.muted('(')}${formatArgs(tool, args)}${theme.muted(')')}` : ''}`;
-    this.header = new Text(`⏺ ${title}`, 0, 0);
+    this.titleText = `${formatToolName(tool)}${args ? `${theme.muted('(')}${formatArgs(tool, args)}${theme.muted(')')}` : ''}`;
+    this.header = new Text(`${theme.muted('⏺')} ${this.titleText}`, 0, 0);
     this.addChild(this.header);
   }
 
+  private setHeaderBullet(bullet: string, color: (s: string) => string) {
+    this.header.setText(`${color(bullet)} ${this.titleText}`);
+  }
+
   setActive(progressMessage?: string) {
+    this.setHeaderBullet('⚡', theme.warning);
     this.clearDetail();
     const message = progressMessage || 'Searching...';
     this.activeDetail = new Text(`${theme.muted('⎿  ')}${message}`, 0, 0);
@@ -84,6 +90,7 @@ export class ToolEventComponent extends Container {
   }
 
   setComplete(summary: string, duration: number) {
+    this.setHeaderBullet('✓', theme.success);
     this.clearDetail();
     const detail = new Text(
       `${theme.muted('⎿  ')}${summary}${theme.muted(` in ${formatDuration(duration)}`)}`,
@@ -95,6 +102,7 @@ export class ToolEventComponent extends Container {
   }
 
   setError(error: string) {
+    this.setHeaderBullet('✗', theme.error);
     this.clearDetail();
     const detail = new Text(`${theme.muted('⎿  ')}${theme.error(`Error: ${truncateAtWord(error, 80)}`)}`, 0, 0);
     this.completedDetails.push(detail);
@@ -102,6 +110,7 @@ export class ToolEventComponent extends Container {
   }
 
   setLimitWarning(warning?: string) {
+    this.setHeaderBullet('⚠', theme.warning);
     this.clearDetail();
     this.activeDetail = new Text(
       `${theme.muted('⎿  ')}${theme.warning(truncateAtWord(warning || 'Approaching suggested limit', 100))}`,
@@ -112,6 +121,7 @@ export class ToolEventComponent extends Container {
   }
 
   setDenied(path: string, tool: string) {
+    this.setHeaderBullet('⊘', theme.muted);
     this.clearDetail();
     const action = tool === 'write_file' ? 'write to' : tool === 'edit_file' ? 'edit of' : tool;
     const detail = new Text(`${theme.muted('⎿  ')}${theme.warning(`User denied ${action} ${path}`)}`, 0, 0);
@@ -120,6 +130,11 @@ export class ToolEventComponent extends Container {
   }
 
   setApproval(decision: ApprovalDecision) {
+    if (decision === 'deny') {
+      this.setHeaderBullet('⊘', theme.muted);
+    } else {
+      this.setHeaderBullet('✓', theme.success);
+    }
     this.clearDetail();
     const color = decision !== 'deny' ? theme.primary : theme.warning;
     const detail = new Text(`${theme.muted('⎿  ')}${color(approvalLabel(decision))}`, 0, 0);
