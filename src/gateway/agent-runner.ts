@@ -33,16 +33,19 @@ export type AgentRunRequest = {
   signal?: AbortSignal;
   onEvent?: (event: AgentEvent) => void | Promise<void>;
   isHeartbeat?: boolean;
+  /** Run without persistent session history or memory (minimal context, ~95% token savings). */
+  isolatedSession?: boolean;
   channel?: string;
   groupContext?: GroupContext;
 };
 
 export async function runAgentForMessage(req: AgentRunRequest): Promise<string> {
-  const session = getSession(req.sessionKey, req.model);
+  const isolated = req.isolatedSession ?? false;
+  const session = isolated ? null : getSession(req.sessionKey, req.model);
   let finalAnswer = '';
 
   const run = async () => {
-    session.history.saveUserQuery(req.query);
+    if (session) session.history.saveUserQuery(req.query);
     const agent = await Agent.create({
       model: req.model,
       modelProvider: req.modelProvider,
@@ -50,26 +53,31 @@ export async function runAgentForMessage(req: AgentRunRequest): Promise<string> 
       signal: req.signal,
       channel: req.channel,
       groupContext: req.groupContext,
+      memoryEnabled: !isolated,
     });
-    for await (const event of agent.run(req.query, session.history)) {
+    for await (const event of agent.run(req.query, session?.history)) {
       await req.onEvent?.(event);
       if (event.type === 'done') {
         finalAnswer = event.answer;
       }
     }
-    if (finalAnswer) {
+    if (finalAnswer && session) {
       await session.history.saveAnswer(finalAnswer);
     }
 
     // Prune HEARTBEAT_OK turns to avoid context pollution
-    if (req.isHeartbeat && finalAnswer.trim().toUpperCase().includes(HEARTBEAT_OK_TOKEN)) {
+    if (session && req.isHeartbeat && finalAnswer.trim().toUpperCase().includes(HEARTBEAT_OK_TOKEN)) {
       session.history.pruneLastTurn();
     }
   };
 
-  // Serialize per-session turns while allowing cross-session concurrency.
-  session.tail = session.tail.then(run, run);
-  await session.tail;
+  if (session) {
+    // Serialize per-session turns while allowing cross-session concurrency.
+    session.tail = session.tail.then(run, run);
+    await session.tail;
+  } else {
+    await run();
+  }
   return finalAnswer;
 }
 

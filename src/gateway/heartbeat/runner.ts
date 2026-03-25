@@ -142,6 +142,7 @@ export function startHeartbeatRunner(params: { configPath?: string }): Heartbeat
         modelProvider,
         maxIterations: heartbeatCfg.maxIterations,
         isHeartbeat: true,
+        isolatedSession: true,
         channel: 'whatsapp',
       });
       debugLog(`[heartbeat] agent answer length=${answer.length}`);
