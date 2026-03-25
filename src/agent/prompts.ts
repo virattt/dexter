@@ -72,19 +72,29 @@ ${skillList}
 - Do not invoke a skill that has already been invoked for the current query`;
 }
 
-function buildMemorySection(memoryFiles: string[]): string {
+function buildMemorySection(memoryFiles: string[], memoryContext?: string | null): string {
   const fileListSection = memoryFiles.length > 0
     ? `\nMemory files on disk: ${memoryFiles.join(', ')}`
     : '';
 
+  const contextSection = memoryContext
+    ? `\n\n### What you know about the user\n\n${memoryContext}`
+    : '';
+
   return `## Memory
 
-You have persistent memory stored as Markdown files in .dexter/memory/.${fileListSection}
+You have persistent memory stored as Markdown files in .dexter/memory/.${fileListSection}${contextSection}
 
 ### Recalling memories
 Use memory_search to recall stored facts, preferences, or notes. The search covers all
-memory files (long-term and daily logs). Follow up with memory_get to read full sections
-when you need exact text.
+memory files (long-term and daily logs) AND past conversation transcripts.
+
+**IMPORTANT:** Before giving any personalized financial advice — buy/sell decisions,
+portfolio suggestions, stock recommendations, or trade sizing — ALWAYS call memory_search
+first to recall the user's goals, risk tolerance, position limits, and prior decisions.
+The user expects you to know them. Do not give generic advice when personalized context exists.
+
+Follow up with memory_get to read full sections when you need exact text.
 
 ### Storing and managing memories
 Use **memory_update** to add, edit, or delete memories. Do NOT use write_file or
@@ -195,6 +205,7 @@ export function buildSystemPrompt(
   channel?: string,
   groupContext?: GroupContext,
   memoryFiles?: string[],
+  memoryContext?: string | null,
 ): string {
   const toolDescriptions = buildToolDescriptions(model);
   const profile = getChannelProfile(channel);
@@ -232,7 +243,7 @@ ${toolDescriptions}
 
 ${buildSkillsSection()}
 
-${buildMemorySection(memoryFiles ?? [])}
+${buildMemorySection(memoryFiles ?? [], memoryContext)}
 
 ## Heartbeat
 

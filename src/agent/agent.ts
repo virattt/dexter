@@ -57,10 +57,15 @@ export class Agent {
     const tools = getTools(model);
     const soulContent = await loadSoulDocument();
     let memoryFiles: string[] = [];
+    let memoryContext: string | null = null;
 
     if (config.memoryEnabled !== false) {
       const memoryManager = await MemoryManager.get();
       memoryFiles = await memoryManager.listFiles();
+      const session = await memoryManager.loadSessionContext();
+      if (session.text.trim()) {
+        memoryContext = session.text;
+      }
     }
 
     const systemPrompt = buildSystemPrompt(
@@ -69,6 +74,7 @@ export class Agent {
       config.channel,
       config.groupContext,
       memoryFiles,
+      memoryContext,
     );
     return new Agent(config, tools, systemPrompt);
   }
