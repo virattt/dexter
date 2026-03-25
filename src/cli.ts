@@ -1,4 +1,4 @@
-import { Container, ProcessTerminal, Spacer, Text, TUI } from '@mariozechner/pi-tui';
+import { CombinedAutocompleteProvider, Container, ProcessTerminal, Spacer, Text, TUI, type SlashCommand } from '@mariozechner/pi-tui';
 import type {
   ApprovalDecision,
   ReasoningEvent,
@@ -85,6 +85,51 @@ function createScreen(
     container.addChild(new Spacer(1));
     container.addChild(new Text(theme.muted(footer), 0, 0));
   }
+  return container;
+}
+
+// ─── Slash command registry ───────────────────────────────────────────────────
+// Keep this in sync with the handleSubmit switch below so /help always reflects
+// the real set of available commands.
+
+const SLASH_COMMANDS: SlashCommand[] = [
+  { name: 'help',  description: 'Show available commands and keyboard shortcuts' },
+  { name: 'model', description: 'Switch the LLM model or provider' },
+];
+
+function buildHelpPanel(): Container {
+  const container = new Container();
+  const COL = 10; // fixed width for the left (command/key) column
+
+  const row = (label: string, desc: string) =>
+    new Text(`  ${theme.primary(label.padEnd(COL))} ${theme.muted(desc)}`, 0, 0);
+
+  container.addChild(new Text(theme.bold('Slash Commands'), 0, 0));
+  container.addChild(new Spacer(1));
+  for (const cmd of SLASH_COMMANDS) {
+    container.addChild(row(`/${cmd.name}`, cmd.description ?? ''));
+  }
+
+  container.addChild(new Spacer(1));
+  container.addChild(new Text(theme.bold('Keyboard Shortcuts'), 0, 0));
+  container.addChild(new Spacer(1));
+
+  const shortcuts: [string, string][] = [
+    ['↑ / ↓',   'Browse input history'],
+    ['Tab',      'Accept autocomplete suggestion'],
+    ['Esc',      'Cancel current operation'],
+    ['Ctrl+C',   'Exit Dexter'],
+  ];
+  for (const [key, desc] of shortcuts) {
+    container.addChild(row(key, desc));
+  }
+
+  container.addChild(new Spacer(1));
+  container.addChild(new Text(theme.bold('Tips'), 0, 0));
+  container.addChild(new Spacer(1));
+  container.addChild(row('/', 'Type / to see available commands'));
+  container.addChild(row('Fallback', 'Dexter uses web search when financial APIs fail'));
+
   return container;
 }
 
@@ -176,6 +221,7 @@ export async function runCli() {
   const chatLog = new ChatLogComponent(tui);
   const inputHistory = new InputHistoryController(() => tui.requestRender());
   let lastError: string | null = null;
+  let helpVisible = false;
 
   const onError = (message: string) => {
     lastError = message;
@@ -206,6 +252,9 @@ export async function runCli() {
   const editor = new CustomEditor(tui, editorTheme);
   const debugPanel = new DebugPanelComponent(8, true);
 
+  // Register slash command autocomplete so typing / shows a completion dropdown.
+  editor.setAutocompleteProvider(new CombinedAutocompleteProvider(SLASH_COMMANDS));
+
   tui.addChild(root);
 
   const refreshError = () => {
@@ -214,9 +263,21 @@ export async function runCli() {
   };
 
   const handleSubmit = async (query: string) => {
+    // Dismiss help overlay before processing; re-show below only if /help typed again.
+    if (helpVisible) {
+      helpVisible = false;
+      renderSelectionOverlay();
+    }
+
     if (query.toLowerCase() === 'exit' || query.toLowerCase() === 'quit') {
       tui.stop();
       process.exit(0);
+      return;
+    }
+
+    if (query === '/help') {
+      helpVisible = true;
+      renderSelectionOverlay();
       return;
     }
 
@@ -248,6 +309,11 @@ export async function runCli() {
   };
 
   editor.onEscape = () => {
+    if (helpVisible) {
+      helpVisible = false;
+      renderSelectionOverlay();
+      return;
+    }
     if (modelSelection.isInSelectionFlow()) {
       modelSelection.cancelSelection();
       return;
@@ -306,6 +372,18 @@ export async function runCli() {
 
   const renderSelectionOverlay = () => {
     const state = modelSelection.state;
+
+    if (helpVisible) {
+      renderScreenView(
+        '⬡ Dexter — Help',
+        '',
+        buildHelpPanel(),
+        'Esc to close · type a question to close and ask',
+        editor,
+      );
+      return;
+    }
+
     if (state.appState === 'idle' && !agentRunner.pendingApproval) {
       refreshError();
       renderMainView();
