@@ -16,6 +16,14 @@ Rules:
   - Portfolio decisions and allocation changes
   - Trade history and the reasoning behind buy/sell decisions
   - Account details mentioned (brokerage, 401k, IRA specifics)
+- Also capture financial research findings:
+  - **Ticker routing**: which data source worked for each ticker researched
+    (e.g., "VWS.CO: FMP premium-only, use web_search"; "AAPL: FMP ok")
+  - **Company profiles**: key metrics, business model notes, last-known financials
+  - **Investment theses**: buy/sell/hold thesis and supporting rationale
+  - **Analyst consensus**: price targets, recommendations, and their dates
+  - **Risk flags**: red flags, concerns, or reasons to avoid a stock
+  - **Market patterns**: sector correlations, seasonal effects, macro observations
 - Also capture personal context that affects financial advice:
   - Life events (job changes, home purchase, family changes)
   - Tax situation or jurisdiction

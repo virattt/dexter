@@ -3,6 +3,8 @@ import { createEmbeddingClient } from './embeddings.js';
 import { MemoryIndexer } from './indexer.js';
 import { hybridSearch } from './search.js';
 import { MemoryStore } from './store.js';
+import { FinancialMemoryStore } from './financial-store.js';
+import { estimateTokens } from '../utils/tokens.js';
 import type {
   MemoryReadOptions,
   MemoryReadResult,
@@ -68,6 +70,7 @@ export class MemoryManager {
   private db: MemoryDatabase | null = null;
   private indexer: MemoryIndexer | null = null;
   private initError: string | null = null;
+  private financialStore: FinancialMemoryStore | null = null;
 
   private constructor(private readonly config: MemoryRuntimeConfig) {}
 
@@ -102,6 +105,7 @@ export class MemoryManager {
       });
       this.indexer.startWatching();
       await this.indexer.sync({ force: false });
+      this.financialStore = new FinancialMemoryStore(this.db);
     } catch (error) {
       this.initError = error instanceof Error ? error.message : String(error);
       this.db = null;
@@ -208,7 +212,32 @@ export class MemoryManager {
 
   async loadSessionContext(): Promise<MemorySessionContext> {
     await this.initialize();
-    return this.store.loadSessionContext(this.config.maxSessionContextTokens);
+    const base = await this.store.loadSessionContext(this.config.maxSessionContextTokens);
+
+    if (!this.db) return base;
+
+    const recentInsights = this.db.loadRecentInsights(10);
+    if (recentInsights.length === 0) return base;
+
+    const lines = recentInsights.map((r) => {
+      const routing = r.routing ? ` [${r.routing}]` : '';
+      const excerpt = r.content.length > 120 ? `${r.content.slice(0, 120)}…` : r.content;
+      return `- **${r.ticker}**${routing}: ${excerpt}`;
+    });
+    const section = `### Recent Financial Context\n\n${lines.join('\n')}`;
+    const sectionTokens = estimateTokens(section);
+
+    const remaining = this.config.maxSessionContextTokens - base.tokenEstimate;
+    if (remaining < 50) return base;
+
+    const truncatedLines = lines.slice(0, Math.max(1, Math.floor(lines.length * (remaining / sectionTokens))));
+    const finalSection = `### Recent Financial Context\n\n${truncatedLines.join('\n')}`;
+
+    return {
+      filesLoaded: base.filesLoaded,
+      tokenEstimate: base.tokenEstimate + estimateTokens(finalSection),
+      text: base.text ? `${base.text}\n\n${finalSection}` : finalSection,
+    };
   }
 
   private resolveFileAlias(file: string): string {
@@ -223,5 +252,10 @@ export class MemoryManager {
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}.md`;
+  }
+
+  /** Returns the financial memory store, or null if the database is not available. */
+  getFinancialStore(): FinancialMemoryStore | null {
+    return this.financialStore;
   }
 }

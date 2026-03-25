@@ -6,6 +6,7 @@ import { getDexterDir } from '../utils/paths.js';
 
 const MEMORY_DIRNAME = 'memory';
 const LONG_TERM_FILE = 'MEMORY.md';
+const FINANCE_FILE = 'FINANCE.md';
 const DAILY_FILE_RE = /^\d{4}-\d{2}-\d{2}\.md$/;
 
 function pad2(value: number): string {
@@ -109,7 +110,12 @@ export class MemoryStore {
   async loadSessionContext(maxTokens: number): Promise<MemorySessionContext> {
     const filesLoaded: string[] = [];
     const sections: string[] = [];
-    const candidates = [LONG_TERM_FILE, formatDailyFileName(), formatDailyFileName(new Date(Date.now() - 86_400_000))];
+    const candidates = [
+      LONG_TERM_FILE,
+      FINANCE_FILE,
+      formatDailyFileName(),
+      formatDailyFileName(new Date(Date.now() - 86_400_000)),
+    ];
 
     let tokenEstimate = 0;
     for (const file of candidates) {

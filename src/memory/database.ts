@@ -19,6 +19,33 @@ type SqliteDatabase = {
   close(): void;
 };
 
+type FinancialInsightRow = {
+  id: number;
+  ticker: string;
+  exchange: string | null;
+  sector: string | null;
+  tags: string;
+  content: string;
+  content_hash: string;
+  routing: string | null;
+  source: string | null;
+  created_at: number;
+  updated_at: number;
+  decay_weight: number;
+};
+
+type KnowledgeGraphEdgeRow = {
+  id: number;
+  source_id: number;
+  target_id: number;
+  relation: string;
+  confidence: number;
+  created_at: number;
+};
+
+export type FinancialInsightRecord = FinancialInsightRow;
+export type KnowledgeGraphEdgeRecord = KnowledgeGraphEdgeRow;
+
 type ChunkRow = {
   id: number;
   file_path: string;
@@ -34,6 +61,41 @@ type ChunkRow = {
 type CacheRow = {
   embedding: Uint8Array;
 };
+
+const FINANCIAL_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS financial_insights (
+  id           INTEGER PRIMARY KEY,
+  ticker       TEXT NOT NULL,
+  exchange     TEXT,
+  sector       TEXT,
+  tags         TEXT NOT NULL DEFAULT '[]',
+  content      TEXT NOT NULL,
+  content_hash TEXT NOT NULL,
+  routing      TEXT,
+  source       TEXT,
+  created_at   INTEGER NOT NULL,
+  updated_at   INTEGER NOT NULL,
+  decay_weight REAL NOT NULL DEFAULT 1.0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_fi_hash   ON financial_insights(content_hash);
+CREATE INDEX        IF NOT EXISTS idx_fi_ticker ON financial_insights(ticker);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS financial_insights_fts USING fts5(
+  content,
+  ticker,
+  tags,
+  insight_id UNINDEXED
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_graph_edges (
+  id         INTEGER PRIMARY KEY,
+  source_id  INTEGER NOT NULL REFERENCES financial_insights(id),
+  target_id  INTEGER NOT NULL REFERENCES financial_insights(id),
+  relation   TEXT NOT NULL,
+  confidence REAL NOT NULL DEFAULT 1.0,
+  created_at INTEGER NOT NULL
+);
+`;
 
 const CREATE_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS chunks (
@@ -121,6 +183,7 @@ export class MemoryDatabase {
     const db = await MemoryDatabase.openSqlite(path);
     const memoryDb = new MemoryDatabase(db);
     memoryDb.db.exec(CREATE_SCHEMA_SQL);
+    memoryDb.db.exec(FINANCIAL_SCHEMA_SQL);
     memoryDb.runMigrations();
     return memoryDb;
   }
@@ -164,6 +227,128 @@ export class MemoryDatabase {
 
   close(): void {
     this.db.close();
+  }
+
+  // ── Financial Insights ─────────────────────────────────────────────────────
+
+  upsertInsight(params: {
+    ticker: string;
+    exchange?: string;
+    sector?: string;
+    tags: string;
+    content: string;
+    contentHash: string;
+    routing?: string;
+    source?: string;
+  }): number {
+    const existing = this.db
+      .query<{ id: number }>('SELECT id FROM financial_insights WHERE content_hash = ?')
+      .get(params.contentHash);
+
+    const now = Date.now();
+
+    if (existing) {
+      this.db
+        .query(
+          'UPDATE financial_insights SET ticker=?, exchange=?, sector=?, tags=?, content=?, routing=?, source=?, updated_at=? WHERE id=?',
+        )
+        .run(
+          params.ticker,
+          params.exchange ?? null,
+          params.sector ?? null,
+          params.tags,
+          params.content,
+          params.routing ?? null,
+          params.source ?? null,
+          now,
+          existing.id,
+        );
+      this.db.query('DELETE FROM financial_insights_fts WHERE insight_id = ?').run(existing.id);
+      this.db
+        .query('INSERT INTO financial_insights_fts (content, ticker, tags, insight_id) VALUES (?,?,?,?)')
+        .run(params.content, params.ticker, params.tags, existing.id);
+      return existing.id;
+    }
+
+    this.db
+      .query(
+        'INSERT INTO financial_insights (ticker, exchange, sector, tags, content, content_hash, routing, source, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
+      )
+      .run(
+        params.ticker,
+        params.exchange ?? null,
+        params.sector ?? null,
+        params.tags,
+        params.content,
+        params.contentHash,
+        params.routing ?? null,
+        params.source ?? null,
+        now,
+        now,
+      );
+
+    const inserted = this.db
+      .query<{ id: number }>('SELECT id FROM financial_insights WHERE content_hash = ?')
+      .get(params.contentHash);
+    if (!inserted) throw new Error('Failed to resolve inserted financial insight id.');
+
+    this.db
+      .query('INSERT INTO financial_insights_fts (content, ticker, tags, insight_id) VALUES (?,?,?,?)')
+      .run(params.content, params.ticker, params.tags, inserted.id);
+
+    return inserted.id;
+  }
+
+  getInsightById(id: number): FinancialInsightRecord | null {
+    return this.db.query<FinancialInsightRecord>('SELECT * FROM financial_insights WHERE id = ?').get(id);
+  }
+
+  searchInsightsByTicker(ticker: string): FinancialInsightRecord[] {
+    return this.db
+      .query<FinancialInsightRecord>(
+        'SELECT * FROM financial_insights WHERE UPPER(ticker) = UPPER(?) ORDER BY updated_at DESC',
+      )
+      .all(ticker);
+  }
+
+  searchInsightsFts(query: string, maxResults: number): FinancialInsightRecord[] {
+    const sanitized = buildFtsQuery(query);
+    if (!sanitized) return [];
+    const rows = this.db
+      .query<{ insight_id: number; rank: number }>(
+        'SELECT insight_id, bm25(financial_insights_fts) AS rank FROM financial_insights_fts WHERE financial_insights_fts MATCH ? ORDER BY rank LIMIT ?',
+      )
+      .all(sanitized, maxResults);
+    const ids = rows.map((r) => r.insight_id);
+    if (ids.length === 0) return [];
+    const placeholders = ids.map(() => '?').join(',');
+    return this.db
+      .query<FinancialInsightRecord>(`SELECT * FROM financial_insights WHERE id IN (${placeholders})`)
+      .all(...ids);
+  }
+
+  loadRecentInsights(limit: number): FinancialInsightRecord[] {
+    return this.db
+      .query<FinancialInsightRecord>('SELECT * FROM financial_insights ORDER BY updated_at DESC LIMIT ?')
+      .all(limit);
+  }
+
+  // ── Knowledge Graph ─────────────────────────────────────────────────────────
+
+  addEdge(sourceId: number, targetId: number, relation: string, confidence = 1.0): void {
+    this.db
+      .query(
+        'INSERT INTO knowledge_graph_edges (source_id, target_id, relation, confidence, created_at) VALUES (?,?,?,?,?)',
+      )
+      .run(sourceId, targetId, relation, confidence, Date.now());
+  }
+
+  getEdgesForInsight(insightId: number): KnowledgeGraphEdgeRecord[] {
+    return this.db
+      .query<KnowledgeGraphEdgeRecord>(
+        'SELECT * FROM knowledge_graph_edges WHERE source_id = ? OR target_id = ? ORDER BY created_at DESC',
+      )
+      .all(insightId, insightId);
   }
 
   getProviderFingerprint(): string | null {
