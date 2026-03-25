@@ -55,6 +55,51 @@ import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './cry
 import { getCompanyNews } from './news.js';
 import { getInsiderTrades } from './insider_trades.js';
 
+// ---------------------------------------------------------------------------
+// Keyword fallback: used when the router LLM produces no tool calls (e.g.
+// models with unreliable tool-calling support such as local Ollama models).
+// ---------------------------------------------------------------------------
+
+/** Common company/crypto name → ticker mapping for fallback resolution. */
+const COMPANY_TICKERS: Record<string, string> = {
+  apple: 'AAPL', microsoft: 'MSFT', google: 'GOOGL', alphabet: 'GOOGL',
+  amazon: 'AMZN', meta: 'META', facebook: 'META', nvidia: 'NVDA',
+  tesla: 'TSLA', netflix: 'NFLX', adobe: 'ADBE', salesforce: 'CRM',
+  intel: 'INTC', amd: 'AMD', qualcomm: 'QCOM', broadcom: 'AVGO',
+  bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL', dogecoin: 'DOGE',
+  cardano: 'ADA', ripple: 'XRP', polkadot: 'DOT', chainlink: 'LINK',
+};
+
+/** Extract the first resolvable ticker from a natural language query. */
+function extractFirstTicker(query: string): string | null {
+  const q = query.toLowerCase();
+  for (const [name, ticker] of Object.entries(COMPANY_TICKERS)) {
+    if (q.includes(name)) return ticker;
+  }
+  // Match explicit uppercase ticker tokens (1–5 capital letters at word boundary)
+  const match = query.match(/\b([A-Z]{1,5})\b/);
+  return match ? match[1] : null;
+}
+
+/** Deterministic keyword routing used when the LLM router produces no tool calls. */
+function keywordFallback(query: string): ToolCall[] | null {
+  const q = query.toLowerCase();
+  const ticker = extractFirstTicker(query);
+  if (!ticker) return null;
+
+  if (q.includes('insider') || q.includes('bought') || q.includes('sold') || q.includes('purchase')) {
+    return [{ name: 'get_insider_trades', args: { ticker }, id: 'kw-fallback', type: 'tool_call' as const }];
+  }
+  if (q.includes('news') || q.includes('announcement') || q.includes('headline') || q.includes('catalyst')) {
+    return [{ name: 'get_company_news', args: { ticker, limit: 5 }, id: 'kw-fallback', type: 'tool_call' as const }];
+  }
+  if (q.includes('crypto') || q.includes('bitcoin') || q.includes('ethereum') || q.includes('coin')) {
+    return [{ name: 'get_crypto_price_snapshot', args: { ticker }, id: 'kw-fallback', type: 'tool_call' as const }];
+  }
+  // Default: current stock price snapshot
+  return [{ name: 'get_stock_price', args: { ticker }, id: 'kw-fallback', type: 'tool_call' as const }];
+}
+
 // All market data tools available for routing
 const MARKET_DATA_TOOLS: StructuredToolInterface[] = [
   // Stock Prices
@@ -143,10 +188,26 @@ export function createGetMarketData(model: string): DynamicStructuredTool {
       });
       const aiMessage = response as AIMessage;
 
-      // 2. Check for tool calls
-      const toolCalls = aiMessage.tool_calls as ToolCall[];
+      // 2. Check for tool calls — retry once then fall back to keyword routing
+      //    to handle models with unreliable tool-calling (e.g. local Ollama models).
+      let toolCalls = aiMessage.tool_calls as ToolCall[];
       if (!toolCalls || toolCalls.length === 0) {
-        return formatToolResult({ error: 'No tools selected for query' }, []);
+        // Retry with a more directive phrasing that nudges the model to call a tool
+        onProgress?.('Retrying market data routing...');
+        const { response: retryResponse } = await callLlm(
+          `Use the available tools to answer: "${input.query}"`,
+          { model, systemPrompt: buildRouterPrompt(), tools: MARKET_DATA_TOOLS },
+        );
+        toolCalls = (retryResponse as AIMessage).tool_calls as ToolCall[];
+
+        // If still no tool calls, fall back to deterministic keyword routing
+        if (!toolCalls || toolCalls.length === 0) {
+          const fallback = keywordFallback(input.query);
+          if (!fallback) {
+            return formatToolResult({ error: 'No tools selected for query' }, []);
+          }
+          toolCalls = fallback;
+        }
       }
 
       // 3. Execute tool calls in parallel

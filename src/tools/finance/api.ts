@@ -41,7 +41,14 @@ export function stripFieldsDeep(value: unknown, fields: readonly string[]): unkn
 }
 
 function getApiKey(): string {
-  return process.env.FINANCIAL_DATASETS_API_KEY || '';
+  const key = process.env.FINANCIAL_DATASETS_API_KEY || '';
+  if (!key) {
+    throw new Error(
+      '[Financial Datasets API] FINANCIAL_DATASETS_API_KEY is not set. ' +
+      'Add it to your .env file to use financial data tools.',
+    );
+  }
+  return key;
 }
 
 /**
@@ -54,20 +61,27 @@ async function executeRequest(
 ): Promise<Record<string, unknown>> {
   const apiKey = getApiKey();
 
-  if (!apiKey) {
-    logger.warn(`[Financial Datasets API] call without key: ${label}`);
-  }
-
   let response: Response;
   try {
-    response = await fetch(url, {
-      ...init,
-      headers: {
-        'x-api-key': apiKey,
-        ...init.headers,
-      },
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+    try {
+      response = await fetch(url, {
+        ...init,
+        headers: {
+          'x-api-key': apiKey,
+          ...init.headers,
+        },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      logger.error(`[Financial Datasets API] timeout: ${label}`);
+      throw new Error(`[Financial Datasets API] request timed out after 30s: ${label}`);
+    }
     const message = error instanceof Error ? error.message : String(error);
     logger.error(`[Financial Datasets API] network error: ${label} — ${message}`);
     throw new Error(`[Financial Datasets API] request failed for ${label}: ${message}`);
