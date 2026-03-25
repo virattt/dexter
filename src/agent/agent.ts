@@ -98,6 +98,9 @@ export class Agent {
     // Build initial prompt with conversation history context
     let currentPrompt = this.buildInitialPrompt(query, inMemoryHistory);
 
+    // Track whether sequential_thinking has been used at least once this session
+    let sequentialThinkingUsed = false;
+
     // Main agent loop
     let overflowRetries = 0;
     while (ctx.iteration < this.maxIterations) {
@@ -169,6 +172,27 @@ export class Agent {
       if (typeof response === 'string' || !hasToolCalls(response)) {
         yield* this.handleDirectResponse(responseText ?? '', ctx);
         return;
+      }
+
+      // Enforce sequential_thinking as the mandatory first tool call.
+      // If the model's first tool call this session is not sequential_thinking,
+      // inject a reminder into the prompt and let it retry without counting
+      // the non-compliant response as an iteration.
+      if (!sequentialThinkingUsed) {
+        const firstTool = (response as AIMessage).tool_calls?.[0]?.name;
+        if (firstTool && firstTool !== 'sequential_thinking') {
+          ctx.iteration--; // don't charge iteration for the non-compliant call
+          currentPrompt = `${currentPrompt}\n\nIMPORTANT REMINDER: You MUST call sequential_thinking FIRST before calling any other tool. Start with sequential_thinking to plan your approach, then proceed.`;
+          continue;
+        }
+      }
+
+      // Mark sequential_thinking as satisfied once it appears in any tool call
+      if (!sequentialThinkingUsed) {
+        const tools = (response as AIMessage).tool_calls ?? [];
+        if (tools.some((tc) => tc.name === 'sequential_thinking')) {
+          sequentialThinkingUsed = true;
+        }
       }
 
       // Execute tools and add results to scratchpad (response is AIMessage here)

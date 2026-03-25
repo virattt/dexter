@@ -229,6 +229,7 @@ ${toolDescriptions}
 
 ## Tool Usage Policy
 
+- **ALWAYS call sequential_thinking FIRST** — before calling ANY other tool, use sequential_thinking to break the problem into numbered steps. Keep calling it (nextThoughtNeeded: true) until your plan is complete, then proceed with data tools. This applies to every query without exception.
 - Only use tools when the query actually requires external data
 - For stock and crypto prices, company news, and insider trades, use get_market_data
 - For financials, metrics, and estimates, use get_financials
