@@ -76,7 +76,23 @@ When presenting price targets, fair values, or forecasts, always include:
 2. **Confidence**: High = multiple consistent data points; Medium = limited or mixed data; Low = inferred/estimated
 3. **Key assumption**: the single variable most likely to change the outcome
 
-Example: *"Fair value ~\$145 (confidence: high — FMP FY2024 actuals). Key risk: if operating margin reverts below 20%, fair value drops to ~\$120."*`;
+Example: *"Fair value ~\$145 (confidence: high — FMP FY2024 actuals). Key risk: if operating margin reverts below 20%, fair value drops to ~\$120."*
+
+### Peer & Comparable Analysis
+When assessing any stock's valuation, **always** fetch at least 2–3 direct competitors or sector peers and compare them side-by-side. Do not rely on absolute multiples alone.
+
+**Peer selection rules:**
+- Same sector and business model (e.g. pure-play wind OEM peers for Vestas: Siemens Energy, GE Vernova)
+- Prefer listed peers with traded multiples (P/E, EV/EBITDA, EV/Revenue, P/FCF)
+- For niche sectors, extend to closest analogues in adjacent verticals
+
+**Always compare:**
+- Valuation multiples: P/E TTM, P/E fwd, EV/EBITDA, P/Sales, P/FCF
+- Growth: Revenue CAGR (3yr), EPS CAGR (3yr)
+- Profitability: Gross Margin, Operating Margin, ROE
+- Premium/discount: whether the subject trades above or below the sector median on each multiple
+
+**Present peer data as a compact comparison table**, then explicitly state whether the subject trades at a justified premium, a discount, or is fairly valued relative to peers — and why.`;
 }
 
 /**
