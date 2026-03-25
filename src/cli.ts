@@ -27,6 +27,8 @@ import {
   createProviderSelector,
 } from './components/index.js';
 import { editorTheme, theme } from './theme.js';
+import type { HistoryItem } from './types.js';
+import { formatResponse } from './utils/markdown-table.js';
 
 function truncateAtWord(str: string, maxLength: number): string {
   if (str.length <= maxLength) {
@@ -136,86 +138,178 @@ function buildHelpPanel(): Container {
   return container;
 }
 
-function renderHistory(chatLog: ChatLogComponent, history: AgentRunnerController['history']) {
+/**
+ * Render only the most recent history item (currently executing or just completed).
+ * Completed exchanges are flushed to the terminal scrollback buffer so the TUI
+ * stays lean — only the active query lives in the TUI viewport.
+ */
+function renderCurrentQuery(chatLog: ChatLogComponent, history: AgentRunnerController['history']) {
   chatLog.clearAll();
-  for (const item of history) {
-    chatLog.addQuery(item.query);
-    chatLog.resetToolGrouping();
+  const item = history[history.length - 1];
+  if (!item) return;
 
-    if (item.status === 'interrupted') {
-      chatLog.addInterrupted();
+  chatLog.addQuery(item.query);
+  chatLog.resetToolGrouping();
+
+  if (item.status === 'interrupted') {
+    chatLog.addInterrupted();
+  }
+
+  for (const display of item.events) {
+    const event = display.event;
+    if (event.type === 'thinking') {
+      const message = event.message.trim();
+      if (message) {
+        const preview = message.length > 120 ? `${message.slice(0, 120)}…` : message;
+        chatLog.addChild(new Text(theme.muted(`  💭 ${preview}`), 0, 0));
+      }
+      continue;
     }
 
-    for (const display of item.events) {
-      const event = display.event;
-      if (event.type === 'thinking') {
-        const message = event.message.trim();
-        if (message) {
-          // Show pre-tool planning text in muted style so it's clearly distinct from answers.
-          const preview = message.length > 120 ? `${message.slice(0, 120)}…` : message;
-          chatLog.addChild(new Text(theme.muted(`  💭 ${preview}`), 0, 0));
-        }
-        continue;
+    if (event.type === 'reasoning') {
+      const reasoning = (event as ReasoningEvent).content.trim();
+      if (reasoning) {
+        const preview = reasoning.length > 300 ? `${reasoning.slice(0, 300)}...` : reasoning;
+        chatLog.addChild(new Spacer(1));
+        chatLog.addChild(new Text(theme.muted(`💭 Reasoning (${reasoning.length} chars)`), 0, 0));
+        chatLog.addChild(new Text(theme.muted(preview), 0, 0));
       }
-
-      if (event.type === 'reasoning') {
-        const reasoning = (event as ReasoningEvent).content.trim();
-        if (reasoning) {
-          const preview = reasoning.length > 300 ? `${reasoning.slice(0, 300)}...` : reasoning;
-          chatLog.addChild(new Spacer(1));
-          chatLog.addChild(new Text(theme.muted(`💭 Reasoning (${reasoning.length} chars)`), 0, 0));
-          chatLog.addChild(new Text(theme.muted(preview), 0, 0));
-        }
-        continue;
-      }
-
-      if (event.type === 'tool_start') {
-        const toolStart = event as ToolStartEvent;
-        const component = chatLog.startTool(display.id, toolStart.tool, toolStart.args);
-        if (display.completed && display.endEvent?.type === 'tool_end') {
-          const done = display.endEvent as ToolEndEvent;
-          component.setComplete(
-            summarizeToolResult(done.tool, toolStart.args, done.result),
-            done.duration,
-          );
-        } else if (display.completed && display.endEvent?.type === 'tool_error') {
-          const toolError = display.endEvent as ToolErrorEvent;
-          component.setError(toolError.error);
-        } else if (display.progressMessage) {
-          component.setActive(display.progressMessage);
-        }
-        continue;
-      }
-
-      if (event.type === 'tool_approval') {
-        const approval = chatLog.startTool(display.id, event.tool, event.args);
-        approval.setApproval(event.approved);
-        continue;
-      }
-
-      if (event.type === 'tool_denied') {
-        const denied = chatLog.startTool(display.id, event.tool, event.args);
-        const path = (event.args.path as string) ?? '';
-        denied.setDenied(path, event.tool);
-        continue;
-      }
-
-      if (event.type === 'tool_limit') {
-        continue;
-      }
-
-      if (event.type === 'context_cleared') {
-        chatLog.addContextCleared(event.clearedCount, event.keptCount);
-      }
+      continue;
     }
 
-    if (item.answer) {
-      chatLog.finalizeAnswer(item.answer);
+    if (event.type === 'tool_start') {
+      const toolStart = event as ToolStartEvent;
+      const component = chatLog.startTool(display.id, toolStart.tool, toolStart.args);
+      if (display.completed && display.endEvent?.type === 'tool_end') {
+        const done = display.endEvent as ToolEndEvent;
+        component.setComplete(
+          summarizeToolResult(done.tool, toolStart.args, done.result),
+          done.duration,
+        );
+      } else if (display.completed && display.endEvent?.type === 'tool_error') {
+        const toolError = display.endEvent as ToolErrorEvent;
+        component.setError(toolError.error);
+      } else if (display.progressMessage) {
+        component.setActive(display.progressMessage);
+      }
+      continue;
     }
-    if (item.status === 'complete') {
-      chatLog.addPerformanceStats(item.duration ?? 0, item.tokenUsage, item.tokensPerSecond);
+
+    if (event.type === 'tool_approval') {
+      const approval = chatLog.startTool(display.id, event.tool, event.args);
+      approval.setApproval(event.approved);
+      continue;
+    }
+
+    if (event.type === 'tool_denied') {
+      const denied = chatLog.startTool(display.id, event.tool, event.args);
+      const path = (event.args.path as string) ?? '';
+      denied.setDenied(path, event.tool);
+      continue;
+    }
+
+    if (event.type === 'tool_limit') {
+      continue;
+    }
+
+    if (event.type === 'context_cleared') {
+      chatLog.addContextCleared(event.clearedCount, event.keptCount);
     }
   }
+
+  if (item.answer) {
+    chatLog.finalizeAnswer(item.answer);
+  }
+  if (item.status === 'complete') {
+    chatLog.addPerformanceStats(item.duration ?? 0, item.tokenUsage, item.tokensPerSecond);
+  }
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  const s = Math.round(ms / 1000);
+  const m = Math.floor(s / 60);
+  return m === 0 ? `${s}s` : `${m}m ${s % 60}s`;
+}
+
+/**
+ * Format a completed exchange as plain ANSI text for the terminal scrollback buffer.
+ * Renders the user query, full answer (with markdown tables / bold), and timing stats.
+ */
+function formatExchangeForScrollback(item: HistoryItem): string {
+  const lines: string[] = [];
+
+  // User query — match UserQueryComponent styling
+  lines.push('');
+  lines.push(theme.queryBg(theme.white(`❯ ${item.query} `)));
+  lines.push('');
+
+  // Answer
+  if (item.answer?.trim()) {
+    const formatted = formatResponse(item.answer.trim());
+    lines.push(`${theme.primary('⏺ ')}${formatted}`);
+  } else if (item.status === 'interrupted') {
+    lines.push(theme.muted('  ⎿  Interrupted'));
+  } else if (item.status === 'error') {
+    lines.push(theme.error('  ⎿  Error — see above for details'));
+  }
+
+  // Performance footer
+  if (item.duration != null) {
+    lines.push('');
+    lines.push(theme.muted(`✻ ${formatDuration(item.duration)}`));
+  }
+
+  lines.push('');
+  return lines.join('\n');
+}
+
+/**
+ * Flush a completed exchange to the terminal's native scrollback buffer.
+ *
+ * How it works:
+ *  1. Capture how many lines the TUI is currently rendering (before stop).
+ *  2. Stop the TUI — this positions the hardware cursor at the end of all
+ *     rendered content and briefly disables raw mode.
+ *  3. Move the cursor back to the top of the TUI area and clear downward so
+ *     the "live processing" view doesn't litter the scrollback.
+ *  4. Write the formatted exchange — it lands in the terminal's scroll buffer.
+ *  5. Clear the TUI component tree (chatLog) so the next render starts fresh.
+ *  6. Restart the TUI — re-enables raw mode, resets rendering state, re-renders
+ *     the now-empty chatLog + editor from the current cursor position.
+ */
+function flushExchangeToScrollback(
+  tui: TUI,
+  chatLog: ChatLogComponent,
+  item: HistoryItem,
+): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tuiInternal = tui as any;
+  // Snapshot BEFORE stop() moves the cursor.
+  const prevLineCount: number = tuiInternal.previousLines?.length ?? 0;
+
+  // Stop TUI: moves cursor to end of rendered content (+\r\n), disables raw mode.
+  tui.stop();
+
+  // Move cursor back to the top of the TUI's rendered area and clear to end of
+  // screen so the live processing trail doesn't appear above the clean output.
+  if (prevLineCount > 0) {
+    // After stop(), cursor is prevLineCount lines below TUI start (+1 for the \r\n).
+    process.stdout.write(`\x1b[${prevLineCount + 1}A`); // move up
+    process.stdout.write('\x1b[J');                     // clear to end of screen
+  }
+
+  // Write the formatted exchange — this is what lands in the scroll buffer.
+  process.stdout.write(formatExchangeForScrollback(item));
+
+  // Clear TUI component state.
+  chatLog.clearAll();
+
+  // Restart TUI: re-enable raw mode, hide cursor.
+  // requestRender(true) resets all cursor-tracking state so the first render
+  // starts cleanly from the current cursor position (below our written content).
+  tui.start();
+  tui.requestRender(true);
 }
 
 export async function runCli() {
@@ -248,7 +342,7 @@ export async function runCli() {
     { model: modelSelection.model, modelProvider: modelSelection.provider, maxIterations: 15 },
     modelSelection.inMemoryChatHistory,
     () => {
-      renderHistory(chatLog, agentRunner.history);
+      renderCurrentQuery(chatLog, agentRunner.history);
       workingIndicator.setState(agentRunner.workingState);
       renderSelectionOverlay();
       tui.requestRender();
@@ -333,6 +427,15 @@ export async function runCli() {
     if (result?.answer) {
       await inputHistory.updateAgentResponse(result.answer);
     }
+
+    // Flush the completed exchange to the terminal's native scrollback buffer so
+    // the user can scroll up to read it at any time.  The TUI viewport is then
+    // cleared, ready for the next query.
+    const lastItem = agentRunner.history[agentRunner.history.length - 1];
+    if (lastItem && (lastItem.status === 'complete' || lastItem.status === 'interrupted')) {
+      flushExchangeToScrollback(tui, chatLog, lastItem);
+    }
+
     refreshError();
     tui.requestRender();
   };

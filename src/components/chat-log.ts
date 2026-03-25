@@ -5,10 +5,6 @@ import { AnswerBoxComponent } from './answer-box.js';
 import { ToolEventComponent } from './tool-event.js';
 import { UserQueryComponent } from './user-query.js';
 
-// Rows to reserve for the compact header (1), working indicator (1), spacer (1),
-// editor (~3), and a comfortable bottom margin (4). Total: ~10.
-const FOOTER_RESERVED_ROWS = 10;
-
 function formatDuration(ms: number): string {
   if (ms < 1000) {
     return `${Math.round(ms)}ms`;
@@ -146,21 +142,6 @@ export class ChatLogComponent extends Container {
   constructor(tui: TUI) {
     super();
     this.tui = tui;
-  }
-
-  /**
-   * Clamp rendered output to the visible terminal viewport so the editor
-   * stays anchored at the bottom and typing never goes off-screen.
-   * Always shows the most recent (bottom) content.
-   */
-  override render(width: number): string[] {
-    const allLines = super.render(width);
-    const termRows = process.stdout.rows ?? 40;
-    const maxLines = Math.max(8, termRows - FOOTER_RESERVED_ROWS);
-    if (allLines.length <= maxLines) return allLines;
-    const skipped = allLines.length - maxLines + 1;
-    const visibleLines = allLines.slice(allLines.length - maxLines + 1);
-    return [theme.muted(`  ↑ ${skipped} line${skipped !== 1 ? 's' : ''} above`), ...visibleLines];
   }
 
   clearAll() {

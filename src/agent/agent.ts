@@ -18,6 +18,18 @@ import { resolveProvider } from '../providers.js';
 
 const DEFAULT_MODEL = 'gpt-5.4';
 const DEFAULT_MAX_ITERATIONS = 15;
+
+/**
+ * Remove <think>...</think> blocks that Ollama thinking models sometimes embed
+ * directly in response text rather than separating into reasoning_content.
+ * Also handles orphan </think> tags (e.g. the model output was: <think>…</think>\nAnswer).
+ */
+function stripThinkingTags(text: string): string {
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '') // full <think>…</think> blocks
+    .replace(/^[\s\S]*?<\/think>\s*/i, '')      // orphan </think>: strip everything up to and including it
+    .trim();
+}
 const MAX_OVERFLOW_RETRIES = 2;
 const OVERFLOW_KEEP_TOOL_USES = 3;
 
@@ -273,7 +285,7 @@ export class Agent {
     const totalTime = Date.now() - ctx.startTime;
     yield {
       type: 'done',
-      answer: responseText,
+      answer: stripThinkingTags(responseText),
       toolCalls: ctx.scratchpad.getToolCallRecords(),
       iterations: ctx.iteration,
       totalTime,
