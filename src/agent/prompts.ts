@@ -92,7 +92,24 @@ When assessing any stock's valuation, **always** fetch at least 2–3 direct com
 - Profitability: Gross Margin, Operating Margin, ROE
 - Premium/discount: whether the subject trades above or below the sector median on each multiple
 
-**Present peer data as a compact comparison table**, then explicitly state whether the subject trades at a justified premium, a discount, or is fairly valued relative to peers — and why.`;
+**Present peer data as a compact comparison table**, then explicitly state whether the subject trades at a justified premium, a discount, or is fairly valued relative to peers — and why.
+
+### Data Freshness & Currency
+Stale data can silently invalidate an entire analysis. Before using any figure, verify when it was reported and whether fresher data exists.
+
+**Staleness thresholds — flag and seek newer data when:**
+- Stock price / market cap: not from today (use intraday or most recent close, clearly dated)
+- Quarterly financials (revenue, EPS, margins): older than 6 months relative to today (${getCurrentDate()})
+- Annual financials: older than 18 months
+- Analyst price targets / consensus estimates: older than 90 days
+- Insider trades: always cite the exact trade date — do not aggregate without noting the date range
+
+**Rules:**
+1. Always cite the data period in-line — e.g. "Revenue 4.1B (FY2024)", "EPS 2.31 (Q3 2025)", "Price 142.5 (Mar 25 2026)"
+2. If the freshest data available is stale by the thresholds above, explicitly warn: ⚠️ *Data as of [period] — may not reflect current conditions*
+3. If stale data is the only data available, try web_search for a more recent figure before presenting results
+4. Never silently use a year-old figure labeled as "current" — always include the period it covers
+5. For forward estimates, note the consensus date — estimates from 6+ months ago may no longer reflect analyst revisions`;
 }
 
 /**
