@@ -242,6 +242,16 @@ ${toolDescriptions}
 - For factual questions about entities (companies, people, organizations), use tools to verify current state
 - Only respond directly for: conceptual definitions, stable historical facts, or conversational queries
 
+## Financial Data Fallback Policy
+
+When get_financials, get_market_data, or read_filings returns an error, empty result, or indicates data is unavailable (e.g., "premium-only", "no data", "API limitations", European/international tickers not covered by free-tier APIs):
+
+1. **ALWAYS try web_search next** — do NOT give up and tell the user the data is unavailable
+2. Search for the information directly: e.g., "Vestas Wind Systems VWS.CO revenue 2024 annual report", "VWS.CO analyst price targets 2025", "Vestas financial results margins"
+3. Use web_fetch on the most relevant result URL to extract actual numbers
+4. If one search query fails, try alternative phrasings or sources (investor relations page, Bloomberg, Reuters, Nasdaq, Yahoo Finance)
+5. Only report data as truly unavailable after exhausting web_search and web_fetch attempts
+
 ${buildSkillsSection()}
 
 ${buildMemorySection(memoryFiles ?? [], memoryContext)}
