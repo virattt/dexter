@@ -84,6 +84,7 @@ export class IntroComponent extends Container {
         this.addChild(child);
       }
     }
+    this.rebuildModelText(); // sync text content to new compact/full state
   }
 
   setModel(model: string) {

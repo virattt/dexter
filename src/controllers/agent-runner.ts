@@ -26,6 +26,38 @@ export class AgentRunnerController {
   private abortController: AbortController | null = null;
   private approvalResolve: ((decision: ApprovalDecision) => void) | null = null;
   private sessionApprovedTools = new Set<string>();
+  /**
+   * Set by cancelExecution(); survives abortController being nulled.
+   * Checked at every yield point in runQuery() so cancellation is respected
+   * even when it fires before Agent.create() completes.
+   */
+  private queryWasCancelled = false;
+  /**
+   * When set, calling this rejects the currently-awaited cancellable promise,
+   * immediately unblocking runQuery() from whatever async operation it is in —
+   * including Agent.create(), stream.next(), and handleEvent().
+   */
+  private triggerCancellation: (() => void) | null = null;
+
+  /**
+   * Wraps a promise so it can be instantly rejected by triggerCancellation.
+   * Registers `triggerCancellation` and immediately fires it if already cancelled.
+   */
+  private makeCancellable<T>(promise: Promise<T>): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        this.triggerCancellation = () => {
+          const err = new Error('Query cancelled');
+          err.name = 'AbortError';
+          reject(err);
+        };
+        if (this.queryWasCancelled) {
+          this.triggerCancellation();
+        }
+      }),
+    ]);
+  }
 
   constructor(
     agentConfig: AgentConfig,
@@ -87,10 +119,15 @@ export class AgentRunnerController {
   }
 
   cancelExecution() {
+    this.queryWasCancelled = true;
     if (this.abortController) {
       this.abortController.abort();
       this.abortController = null;
     }
+    // Unblock whatever async operation runQuery() is currently awaiting —
+    // Agent.create(), stream.next(), or handleEvent().  Works even when the
+    // underlying HTTP stream (e.g. Ollama cloud) ignores the AbortSignal.
+    this.triggerCancellation?.();
     if (this.approvalResolve) {
       this.approvalResolve('deny');
       this.approvalResolve = null;
@@ -102,6 +139,8 @@ export class AgentRunnerController {
   }
 
   async runQuery(query: string): Promise<RunQueryResult | undefined> {
+    this.queryWasCancelled = false;
+    this.triggerCancellation = null;
     this.abortController = new AbortController();
     let finalAnswer: string | undefined;
 
@@ -121,28 +160,38 @@ export class AgentRunnerController {
     this.emitChange();
 
     try {
-      const agent = await Agent.create({
-        ...this.agentConfig,
-        signal: this.abortController.signal,
-        requestToolApproval: this.requestToolApproval,
-        sessionApprovedTools: this.sessionApprovedTools,
-      });
+      // makeCancellable() races Agent.create() against triggerCancellation so
+      // that pressing Escape during the (potentially slow) memory-indexer sync
+      // inside Agent.create() still returns immediately.
+      const agent = await this.makeCancellable(
+        Agent.create({
+          ...this.agentConfig,
+          signal: this.abortController?.signal,
+          requestToolApproval: this.requestToolApproval,
+          sessionApprovedTools: this.sessionApprovedTools,
+        }),
+      );
+
+      // Drive the stream manually so each next() can be raced against
+      // triggerCancellation — Ollama cloud endpoints don't honour AbortSignal.
       const stream = agent.run(query, this.inMemoryChatHistory);
-      for await (const event of stream) {
+      while (true) {
+        const nextResult = await this.makeCancellable(stream.next());
+        if (nextResult.done) break;
+        const event = nextResult.value;
         if (event.type === 'done') {
           finalAnswer = (event as DoneEvent).answer;
         }
-        await this.handleEvent(event);
+        await this.makeCancellable(this.handleEvent(event));
       }
+
       if (finalAnswer) {
         return { answer: finalAnswer };
       }
       return undefined;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        this.markLastProcessing('interrupted');
-        this.workingStateValue = { status: 'idle' };
-        this.emitChange();
+        // cancelExecution() already called markLastProcessing('interrupted')
         return undefined;
       }
       const message = error instanceof Error ? error.message : String(error);
@@ -153,6 +202,7 @@ export class AgentRunnerController {
       return undefined;
     } finally {
       this.abortController = null;
+      this.triggerCancellation = null;
     }
   }
 

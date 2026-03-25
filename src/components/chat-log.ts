@@ -145,6 +145,7 @@ export class ChatLogComponent extends Container {
   }
 
   clearAll() {
+    this.clear(); // remove all rendered children from the Container
     this.toolById.clear();
     this.currentBrowserSession = null;
     this.activeAnswer = null;
