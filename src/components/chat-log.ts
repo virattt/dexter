@@ -1,13 +1,13 @@
 import { Container, Spacer, Text, type TUI } from '@mariozechner/pi-tui';
-
-// Rows to reserve for the compact header (1), working indicator (1), spacer (1),
-// editor (~3), and a comfortable bottom margin (4). Total: ~10.
-const FOOTER_RESERVED_ROWS = 10;
 import type { TokenUsage } from '../agent/types.js';
 import { theme } from '../theme.js';
 import { AnswerBoxComponent } from './answer-box.js';
 import { ToolEventComponent } from './tool-event.js';
 import { UserQueryComponent } from './user-query.js';
+
+// Rows to reserve for the compact header (1), working indicator (1), spacer (1),
+// editor (~3), and a comfortable bottom margin (4). Total: ~10.
+const FOOTER_RESERVED_ROWS = 10;
 
 function formatDuration(ms: number): string {
   if (ms < 1000) {

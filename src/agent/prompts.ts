@@ -110,9 +110,12 @@ Before editing or deleting, use memory_get to verify the exact text to match.`;
 // ============================================================================
 
 /**
- * Default system prompt used when no specific prompt is provided.
+ * Returns the default system prompt with a fresh current-date stamp.
+ * Using a function ensures the date is never frozen at module-import time,
+ * which would become stale in long-running sessions crossing midnight.
  */
-export const DEFAULT_SYSTEM_PROMPT = `You are Dexter, a helpful AI assistant.
+export function getDefaultSystemPrompt(): string {
+  return `You are Dexter, a helpful AI assistant.
 
 Current date: ${getCurrentDate()}
 
@@ -150,6 +153,10 @@ Keep tables compact:
 - Abbreviate: Rev, Op Inc, Net Inc, OCF, FCF, GM, OM, EPS
 - Numbers compact: 102.5B not $102,466,000,000
 - Omit units in cells if header has them`;
+}
+
+/** @deprecated Use getDefaultSystemPrompt() to get a fresh date on each call. */
+export const DEFAULT_SYSTEM_PROMPT = getDefaultSystemPrompt();
 
 // ============================================================================
 // Group Chat Context
@@ -268,7 +275,7 @@ When get_financials, get_market_data, or read_filings returns an error, empty re
 
 ${buildSkillsSection()}
 
-${buildMemorySection(memoryFiles ?? [], memoryContext)}
+${(memoryFiles && memoryFiles.length > 0) || memoryContext ? buildMemorySection(memoryFiles ?? [], memoryContext) : ''}
 
 ## Heartbeat
 
@@ -327,11 +334,13 @@ ${fullToolResults}`;
 
   // Detect tool failure patterns and inject a hard fallback reminder so the
   // model calls web_search instead of writing a "sorry I can't find it" answer.
+  // IMPORTANT: keep patterns narrow and anchored to structured JSON fields only.
+  // Free-text phrases like "not found" or "unavailable" produce false positives
+  // when they appear inside legitimate web_search result titles/snippets.
   const hasToolErrors =
     /"error":\s*"[^"]+"/i.test(fullToolResults) ||
-    /premium.only|no data|unavailable|not found|api.limit|free.tier|not supported/i.test(
-      fullToolResults,
-    );
+    /"status":\s*4\d{2}/.test(fullToolResults) ||
+    /"(premium[-\s]only|fmp[-\s]premium|free[-\s]tier[-\s]only)"/i.test(fullToolResults);
 
   if (hasToolErrors) {
     prompt += `

@@ -17,7 +17,7 @@ import { resolveProvider } from '../providers.js';
 
 
 const DEFAULT_MODEL = 'gpt-5.4';
-const DEFAULT_MAX_ITERATIONS = 10;
+const DEFAULT_MAX_ITERATIONS = 15;
 const MAX_OVERFLOW_RETRIES = 2;
 const OVERFLOW_KEEP_TOOL_USES = 3;
 
@@ -100,6 +100,10 @@ export class Agent {
 
     // Track whether sequential_thinking has been used at least once this session
     let sequentialThinkingUsed = false;
+    // Cap retries for the sequential_thinking compliance reminder to avoid
+    // an infinite loop when a model persistently ignores the instruction.
+    let sequentialThinkingRetries = 0;
+    const MAX_ST_RETRIES = 3;
 
     // Main agent loop
     let overflowRetries = 0;
@@ -176,14 +180,20 @@ export class Agent {
 
       // Enforce sequential_thinking as the mandatory first tool call.
       // If the model's first tool call this session is not sequential_thinking,
-      // inject a reminder into the prompt and let it retry without counting
-      // the non-compliant response as an iteration.
+      // inject a reminder and retry — but only up to MAX_ST_RETRIES times to
+      // prevent an infinite loop when a model persistently ignores the reminder.
       if (!sequentialThinkingUsed) {
         const firstTool = (response as AIMessage).tool_calls?.[0]?.name;
         if (firstTool && firstTool !== 'sequential_thinking') {
-          ctx.iteration--; // don't charge iteration for the non-compliant call
-          currentPrompt = `${currentPrompt}\n\nIMPORTANT REMINDER: You MUST call sequential_thinking FIRST before calling any other tool. Start with sequential_thinking to plan your approach, then proceed.`;
-          continue;
+          if (sequentialThinkingRetries < MAX_ST_RETRIES) {
+            sequentialThinkingRetries++;
+            ctx.iteration--; // don't charge this iteration
+            currentPrompt = `${currentPrompt}\n\nIMPORTANT REMINDER: You MUST call sequential_thinking FIRST before calling any other tool. Start with sequential_thinking to plan your approach, then proceed.`;
+            continue;
+          }
+          // Retries exhausted — proceed without sequential_thinking rather than
+          // looping forever. Mark as satisfied so we stop checking.
+          sequentialThinkingUsed = true;
         }
       }
 

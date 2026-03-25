@@ -17,10 +17,7 @@ const CLI_PROFILE: ChannelProfile = {
   ],
   responseFormat: [
     'Simple or conversational questions: plain text, 1-3 sentences maximum',
-    'Analysis, research, or multi-topic answers: use markdown structure',
-    '  - ## Section headers to organise major topics (e.g. ## Bottom Line, ## Valuation, ## Risks)',
-    '  - Bullet points (- item) for lists of 3+ facts, metrics, or considerations',
-    '  - **bold** for tickers, key numbers, and critical terms',
+    'Analysis, research, or multi-topic answers: use markdown structure — ## section headers, bullet points (- item) for lists, **bold** for tickers and key numbers',
     'Always open with the key finding or bottom line — most important insight first',
     'Present FINDINGS not methodology — "Revenue grew 40%" not "I analyzed revenue trends"',
     'No *italics*; no process narration ("Based on my research...", "I have gathered...")',

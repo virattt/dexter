@@ -9,7 +9,7 @@ import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { Runnable } from '@langchain/core/runnables';
 import { z } from 'zod';
-import { DEFAULT_SYSTEM_PROMPT } from '@/agent/prompts';
+import { getDefaultSystemPrompt } from '@/agent/prompts';
 import type { TokenUsage } from '@/agent/types';
 import { logger } from '@/utils';
 import { classifyError, isNonRetryableError } from '@/utils/errors';
@@ -215,7 +215,7 @@ function buildAnthropicMessages(systemPrompt: string, userPrompt: string) {
 
 export async function callLlm(prompt: string, options: CallLlmOptions = {}): Promise<LlmResult> {
   const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools, signal } = options;
-  const finalSystemPrompt = systemPrompt || DEFAULT_SYSTEM_PROMPT;
+  const finalSystemPrompt = systemPrompt || getDefaultSystemPrompt();
 
   const llm = getChatModel(model, false);
 
