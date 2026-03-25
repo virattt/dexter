@@ -16,11 +16,15 @@ const CLI_PROFILE: ChannelProfile = {
     'If data is incomplete, answer with what you have without exposing implementation details',
   ],
   responseFormat: [
-    'Keep casual responses brief and direct',
-    'For research: lead with the key finding and include specific data points',
-    'For non-comparative information, prefer plain text or simple lists over tables',
-    'Don\'t narrate your actions or ask leading questions about what the user wants',
-    'Do not use markdown headers or *italics* - use **bold** sparingly for emphasis',
+    'Simple or conversational questions: plain text, 1-3 sentences maximum',
+    'Analysis, research, or multi-topic answers: use markdown structure',
+    '  - ## Section headers to organise major topics (e.g. ## Bottom Line, ## Valuation, ## Risks)',
+    '  - Bullet points (- item) for lists of 3+ facts, metrics, or considerations',
+    '  - **bold** for tickers, key numbers, and critical terms',
+    'Always open with the key finding or bottom line — most important insight first',
+    'Present FINDINGS not methodology — "Revenue grew 40%" not "I analyzed revenue trends"',
+    'No *italics*; no process narration ("Based on my research...", "I have gathered...")',
+    'Be direct and precise — name tickers, cite specific numbers, give clear verdicts',
   ],
   tables: `Use markdown tables. They will be rendered as formatted box tables.
 

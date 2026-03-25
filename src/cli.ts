@@ -103,9 +103,9 @@ function renderHistory(chatLog: ChatLogComponent, history: AgentRunnerController
       if (event.type === 'thinking') {
         const message = event.message.trim();
         if (message) {
-          chatLog.addChild(
-            new Text(message.length > 200 ? `${message.slice(0, 200)}...` : message, 0, 0),
-          );
+          // Show pre-tool planning text in muted style so it's clearly distinct from answers.
+          const preview = message.length > 120 ? `${message.slice(0, 120)}…` : message;
+          chatLog.addChild(new Text(theme.muted(`  💭 ${preview}`), 0, 0));
         }
         continue;
       }
