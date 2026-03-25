@@ -60,6 +60,8 @@ Use web_fetch as your FIRST choice whenever you need to read the content of a we
 - Stock or crypto prices (use get_market_data instead)
 - SEC filings content (use read_filings instead)
 - When you need to navigate through multiple pages by clicking links (use browser instead)
+- **finance.yahoo.com** URLs — Yahoo Finance blocks scraping; use financial_search or get_financials instead
+- **bloomberg.com** or **wsj.com** URLs — these are paywalled and will not return useful content
 
 ## Schema
 
@@ -92,6 +94,42 @@ const DEFAULT_FETCH_MAX_REDIRECTS = 3;
 const DEFAULT_ERROR_MAX_CHARS = 4_000;
 const DEFAULT_FETCH_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+
+// ============================================================================
+// Blocked-domain guard
+// ============================================================================
+
+/**
+ * Domains known to block server-side HTTP scraping.
+ * Returns a helpful message so the LLM can immediately switch to the right tool
+ * instead of burning a retry on a doomed request.
+ */
+const BLOCKED_DOMAIN_HINTS: Array<{ pattern: RegExp; hint: string }> = [
+  {
+    pattern: /finance\.yahoo\.com/i,
+    hint:
+      'Yahoo Finance blocks direct HTTP scraping. Use the financial_search or get_financials tool instead to retrieve stock data, metrics, or financials for this ticker.',
+  },
+  {
+    pattern: /bloomberg\.com/i,
+    hint:
+      'Bloomberg.com is paywalled and blocks scraping. Use web_search to find the article summary, or use financial_search for structured financial data.',
+  },
+  {
+    pattern: /wsj\.com/i,
+    hint:
+      'The Wall Street Journal is paywalled and blocks scraping. Use web_search to find the article summary, or try a news aggregator URL instead.',
+  },
+];
+
+function checkBlockedDomain(url: string): string | null {
+  for (const { pattern, hint } of BLOCKED_DOMAIN_HINTS) {
+    if (pattern.test(url)) {
+      return `[Web Fetch] Blocked domain — this URL will not return useful content. ${hint}`;
+    }
+  }
+  return null;
+}
 
 // ============================================================================
 // Cache (identical to OpenClaw)
@@ -404,6 +442,13 @@ export const webFetchTool = new DynamicStructuredTool({
       .describe('Maximum characters to return (truncates when exceeded).'),
   }),
   func: async (input) => {
+    // Fast-fail for domains known to block scraping — saves a wasted network
+    // round-trip and gives the LLM an actionable redirect message immediately.
+    const blocked = checkBlockedDomain(input.url);
+    if (blocked) {
+      return blocked;
+    }
+
     const extractMode: ExtractMode = input.extractMode === 'text' ? 'text' : 'markdown';
     const maxChars = resolveMaxChars(input.maxChars, DEFAULT_FETCH_MAX_CHARS, DEFAULT_FETCH_MAX_CHARS);
     const result = await runWebFetch({
