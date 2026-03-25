@@ -17,7 +17,7 @@ const CLI_PROFILE: ChannelProfile = {
     'For valuations and price targets, always state: the data source, approximate date, and the single biggest assumption that could change the outcome',
     'Always distinguish TTM (trailing, fact-based) from Forward (estimate-based) when presenting valuation multiples — e.g. "P/E 22× TTM, 18× fwd"',
     'For any stock valuation or price target, always compare the subject against 2–3 direct sector peers — present a peer table and state explicitly whether the stock trades at a premium, discount, or fair value relative to peers',
-    'Always cite the period for every financial figure (e.g. "Revenue 4.1B FY2024", "EPS 2.31 Q3 2025") — never present a figure as "current" without a date; flag stale data (>6 months for quarterly, >18 months for annual) with a ⚠️ warning and attempt to find a fresher figure via web_search first',
+    'Always compute the age of every financial figure relative to today\'s date and state it inline (e.g. "Revenue 4.1B FY2024, ~15 months old"); flag figures exceeding staleness thresholds with ⚠️ and attempt a web_search for fresher data before presenting',
   ],
   responseFormat: [
     'Simple or conversational questions: plain text, 1-3 sentences maximum',

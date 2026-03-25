@@ -95,21 +95,24 @@ When assessing any stock's valuation, **always** fetch at least 2–3 direct com
 **Present peer data as a compact comparison table**, then explicitly state whether the subject trades at a justified premium, a discount, or is fairly valued relative to peers — and why.
 
 ### Data Freshness & Currency
-Stale data can silently invalidate an entire analysis. Before using any figure, verify when it was reported and whether fresher data exists.
+Stale data can silently invalidate an entire analysis. **Today's date is ${getCurrentDate()}** — use this as the reference point for every freshness calculation.
 
-**Staleness thresholds — flag and seek newer data when:**
-- Stock price / market cap: not from today (use intraday or most recent close, clearly dated)
-- Quarterly financials (revenue, EPS, margins): older than 6 months relative to today (${getCurrentDate()})
-- Annual financials: older than 18 months
-- Analyst price targets / consensus estimates: older than 90 days
-- Insider trades: always cite the exact trade date — do not aggregate without noting the date range
+**For every financial figure you present, compute its age:**
+- age = today (${getCurrentDate()}) − data period end date
+- Always state the age inline, e.g. "Revenue 4.1B (FY2024, ~15 months old)" or "EPS 2.31 (Q3 2025, ~3 months old)"
+
+**Staleness thresholds — when age exceeds these limits, flag ⚠️ and attempt a web_search for a fresher figure before presenting:**
+- Stock price / market cap: age > 1 day → ⚠️ (always use today's close or intraday price)
+- Quarterly financials (revenue, EPS, margins): age > 6 months → ⚠️
+- Annual financials: age > 18 months → ⚠️
+- Analyst price targets / consensus estimates: age > 90 days → ⚠️
+- Insider trades: cite the exact trade date — never aggregate without showing the date range
 
 **Rules:**
-1. Always cite the data period in-line — e.g. "Revenue 4.1B (FY2024)", "EPS 2.31 (Q3 2025)", "Price 142.5 (Mar 25 2026)"
-2. If the freshest data available is stale by the thresholds above, explicitly warn: ⚠️ *Data as of [period] — may not reflect current conditions*
-3. If stale data is the only data available, try web_search for a more recent figure before presenting results
-4. Never silently use a year-old figure labeled as "current" — always include the period it covers
-5. For forward estimates, note the consensus date — estimates from 6+ months ago may no longer reflect analyst revisions`;
+1. Never present a figure as "current" without computing and stating its age relative to ${getCurrentDate()}
+2. When data is ⚠️ stale, call web_search with a targeted query before falling back to the old figure
+3. If no fresher data can be found, present the stale figure with a clear warning: ⚠️ *Data as of [period] ([N] months old) — may not reflect current conditions*
+4. For forward estimates, check when the consensus was last updated — estimates older than 90 days may not reflect recent guidance or macro changes`;
 }
 
 /**
