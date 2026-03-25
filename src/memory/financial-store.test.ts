@@ -147,7 +147,7 @@ describe('FinancialMemoryStore', () => {
 
   it('formatForContext produces compact bullet lines', async () => {
     const insights = [
-      { ticker: 'VWS.CO', routing: RoutingResults.FMP_PREMIUM as const, content: 'Some insight', tags: [] },
+      { ticker: 'VWS.CO', routing: RoutingResults.FMP_PREMIUM, content: 'Some insight', tags: [] },
     ];
     const text = FinancialMemoryStore.formatForContext(insights);
     expect(text).toContain('VWS.CO');

@@ -273,6 +273,9 @@ export async function runCli() {
 
   const renderMainView = () => {
     root.clear();
+    // Collapse the 15-line ASCII intro to a single header line once the user
+    // has started a conversation, freeing vertical space for the chat log.
+    intro.setCompact(agentRunner.history.length > 0);
     root.addChild(intro);
     root.addChild(chatLog);
     if (lastError ?? agentRunner.error) {
