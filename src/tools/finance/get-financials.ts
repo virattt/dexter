@@ -55,6 +55,61 @@ import { getKeyRatios, getHistoricalKeyRatios } from './key-ratios.js';
 import { getAnalystEstimates } from './estimates.js';
 import { getSegmentedRevenues } from './segments.js';
 import { getEarnings } from './earnings.js';
+import { getYahooAnalystTargets, getYahooAnalystRecommendations } from './yahoo-finance.js';
+
+// ---------------------------------------------------------------------------
+// Keyword fallback: used when the router LLM produces no tool calls (e.g.
+// models with unreliable tool-calling such as Ollama).
+// ---------------------------------------------------------------------------
+
+const COMPANY_TICKERS_FINANCIALS: Record<string, string> = {
+  apple: 'AAPL', microsoft: 'MSFT', google: 'GOOGL', alphabet: 'GOOGL',
+  amazon: 'AMZN', meta: 'META', facebook: 'META', nvidia: 'NVDA',
+  tesla: 'TSLA', netflix: 'NFLX', adobe: 'ADBE', salesforce: 'CRM',
+  intel: 'INTC', amd: 'AMD', qualcomm: 'QCOM', broadcom: 'AVGO',
+  vestas: 'VWS.CO', 'vestas wind': 'VWS.CO',
+};
+
+function extractTicker(query: string): string | null {
+  const q = query.toLowerCase();
+  for (const [name, ticker] of Object.entries(COMPANY_TICKERS_FINANCIALS)) {
+    if (q.includes(name)) return ticker;
+  }
+  // International ticker with exchange suffix (e.g. VWS.CO, AZN.L, SAP.DE)
+  const intl = query.match(/\b([A-Z]{1,5}\.[A-Z]{1,3})\b/);
+  if (intl) return intl[1];
+  // Plain US ticker
+  const us = query.match(/\b([A-Z]{1,5})\b/);
+  return us ? us[1] : null;
+}
+
+function keywordFallbackFinancials(query: string): ToolCall[] | null {
+  const q = query.toLowerCase();
+  const ticker = extractTicker(query);
+  if (!ticker) return null;
+
+  // Analyst price targets / recommendations — prefer Yahoo for international tickers
+  if (q.includes('target') || q.includes('price target') || q.includes('recommendation')) {
+    return [{ name: 'get_yahoo_analyst_targets', args: { ticker }, id: 'kw-fb', type: 'tool_call' as const }];
+  }
+  if (q.includes('analyst') || q.includes('estimate') || q.includes('consensus')) {
+    return [{ name: 'get_analyst_estimates', args: { ticker, period: 'annual' }, id: 'kw-fb', type: 'tool_call' as const }];
+  }
+  if (q.includes('income') || q.includes('revenue') || q.includes('profit') || q.includes('eps') || q.includes('earnings')) {
+    return [{ name: 'get_income_statements', args: { ticker, period: 'annual', limit: 3 }, id: 'kw-fb', type: 'tool_call' as const }];
+  }
+  if (q.includes('balance') || q.includes('debt') || q.includes('asset') || q.includes('equity')) {
+    return [{ name: 'get_balance_sheets', args: { ticker, period: 'annual', limit: 3 }, id: 'kw-fb', type: 'tool_call' as const }];
+  }
+  if (q.includes('cash flow') || q.includes('free cash') || q.includes('capex')) {
+    return [{ name: 'get_cash_flow_statements', args: { ticker, period: 'annual', limit: 3 }, id: 'kw-fb', type: 'tool_call' as const }];
+  }
+  if (q.includes('p/e') || q.includes('ratio') || q.includes('valuation') || q.includes('metric')) {
+    return [{ name: 'get_financial_metrics_snapshot', args: { ticker }, id: 'kw-fb', type: 'tool_call' as const }];
+  }
+  // Default: key ratios snapshot
+  return [{ name: 'get_financial_metrics_snapshot', args: { ticker }, id: 'kw-fb', type: 'tool_call' as const }];
+}
 
 // All finance tools available for routing
 const FINANCE_TOOLS: StructuredToolInterface[] = [
@@ -71,6 +126,9 @@ const FINANCE_TOOLS: StructuredToolInterface[] = [
   getAnalystEstimates,
   // Other Data
   getSegmentedRevenues,
+  // Yahoo Finance — analyst data for international & US tickers
+  getYahooAnalystTargets,
+  getYahooAnalystRecommendations,
 ];
 
 // Create a map for quick tool lookup by name
@@ -103,6 +161,9 @@ Given a user's natural language query about financial data, call the appropriate
    - For debt, assets, equity → get_balance_sheets
    - For cash flow, free cash flow → get_cash_flow_statements
    - For comprehensive analysis → get_all_financial_statements
+   - For analyst price targets, recommendation ratings (especially international tickers like VWS.CO, AZN.L, SAP.DE) → get_yahoo_analyst_targets
+   - For analyst buy/sell/hold breakdown by month → get_yahoo_analyst_recommendations
+   - For analyst EPS/revenue estimates (US stocks) → get_analyst_estimates
 
 4. **Efficiency**:
    - Prefer specific tools over general ones when possible
@@ -148,10 +209,24 @@ export function createGetFinancials(model: string): DynamicStructuredTool {
       });
       const aiMessage = response as AIMessage;
 
-      // 2. Check for tool calls
-      const toolCalls = aiMessage.tool_calls as ToolCall[];
+      // 2. Check for tool calls — retry once then fall back to keyword routing
+      //    to handle models with unreliable tool-calling (e.g. local Ollama models).
+      let toolCalls = aiMessage.tool_calls as ToolCall[];
       if (!toolCalls || toolCalls.length === 0) {
-        return formatToolResult({ error: 'No tools selected for query' }, []);
+        onProgress?.('Retrying financial data routing...');
+        const { response: retryResponse } = await callLlm(
+          `Use the available tools to answer: "${input.query}"`,
+          { model, systemPrompt: buildRouterPrompt(), tools: FINANCE_TOOLS },
+        );
+        toolCalls = (retryResponse as AIMessage).tool_calls as ToolCall[];
+
+        if (!toolCalls || toolCalls.length === 0) {
+          const fallback = keywordFallbackFinancials(input.query);
+          if (!fallback) {
+            return formatToolResult({ error: 'No tools selected for query' }, []);
+          }
+          toolCalls = fallback;
+        }
       }
 
       // 3. Execute tool calls in parallel
