@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { api } from './api.js';
 import { formatToolResult } from '../types.js';
+import { tavilySearch } from '../search/tavily.js';
 
 export const STOCK_PRICE_DESCRIPTION = `
 Fetches current stock price snapshots for equities, including open, high, low, close prices, volume, and market cap. Powered by Financial Datasets.
@@ -16,13 +17,29 @@ const StockPriceInputSchema = z.object({
 export const getStockPrice = new DynamicStructuredTool({
   name: 'get_stock_price',
   description:
-    'Fetches the current stock price snapshot for an equity ticker, including open, high, low, close prices, volume, and market cap.',
+    'Fetches the current stock price snapshot for an equity ticker, including open, high, low, close prices, volume, and market cap. Falls back to web search if the primary API is unavailable.',
   schema: StockPriceInputSchema,
   func: async (input) => {
     const ticker = input.ticker.trim().toUpperCase();
-    const params = { ticker };
-    const { data, url } = await api.get('/prices/snapshot/', params);
-    return formatToolResult(data.snapshot || {}, [url]);
+    try {
+      const { data, url } = await api.get('/prices/snapshot/', { ticker });
+      return formatToolResult(data.snapshot || {}, [url]);
+    } catch {
+      // Primary API failed — fall back to Tavily web search for current price
+      if (process.env.TAVILY_API_KEY) {
+        try {
+          return await tavilySearch.invoke({
+            query: `${ticker} stock price today current share price market cap`,
+          });
+        } catch {
+          // Tavily also failed
+        }
+      }
+      return formatToolResult(
+        { error: `Stock price unavailable for ${ticker}. Use web_search to find the current share price.` },
+        [],
+      );
+    }
   },
 });
 

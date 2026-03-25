@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { api, stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
+import { tavilySearch } from '../search/tavily.js';
 
 const REDUNDANT_FINANCIAL_FIELDS = ['accession_number', 'currency', 'period'] as const;
 
@@ -14,13 +15,29 @@ const KeyRatiosInputSchema = z.object({
 export const getKeyRatios = new DynamicStructuredTool({
   name: 'get_key_ratios',
   description:
-    'Fetches the latest financial metrics snapshot for a company, including valuation ratios (P/E, P/B, P/S, EV/EBITDA, PEG), profitability (margins, ROE, ROA, ROIC), liquidity (current/quick/cash ratios), leverage (debt/equity, debt/assets), per-share metrics (EPS, book value, FCF), and growth rates (revenue, earnings, EPS, FCF, EBITDA).',
+    'Fetches the latest financial metrics snapshot for a company, including valuation ratios (P/E, P/B, P/S, EV/EBITDA, PEG), profitability (margins, ROE, ROA, ROIC), liquidity (current/quick/cash ratios), leverage (debt/equity, debt/assets), per-share metrics (EPS, book value, FCF), and growth rates (revenue, earnings, EPS, FCF, EBITDA). Falls back to web search if the primary API is unavailable.',
   schema: KeyRatiosInputSchema,
   func: async (input) => {
     const ticker = input.ticker.trim().toUpperCase();
-    const params = { ticker };
-    const { data, url } = await api.get('/financial-metrics/snapshot/', params);
-    return formatToolResult(data.snapshot || {}, [url]);
+    try {
+      const { data, url } = await api.get('/financial-metrics/snapshot/', { ticker });
+      return formatToolResult(data.snapshot || {}, [url]);
+    } catch {
+      // Primary API failed (402 or network) — fall back to Tavily web search
+      if (process.env.TAVILY_API_KEY) {
+        try {
+          return await tavilySearch.invoke({
+            query: `${ticker} key financial ratios P/E EV/EBITDA profit margins ROE return on equity 2024 2025`,
+          });
+        } catch {
+          // Tavily also failed — fall through to structured error
+        }
+      }
+      return formatToolResult(
+        { error: `Key ratios unavailable for ${ticker}. Use web_search to find current P/E, EV/EBITDA, and margin data.` },
+        [],
+      );
+    }
   },
 });
 
@@ -81,10 +98,28 @@ export const getHistoricalKeyRatios = new DynamicStructuredTool({
       report_period_lt: input.report_period_lt,
       report_period_lte: input.report_period_lte,
     };
-    const { data, url } = await api.get('/financial-metrics/', params);
-    return formatToolResult(
-      stripFieldsDeep(data.financial_metrics || [], REDUNDANT_FINANCIAL_FIELDS),
-      [url]
-    );
+    try {
+      const { data, url } = await api.get('/financial-metrics/', params);
+      return formatToolResult(
+        stripFieldsDeep(data.financial_metrics || [], REDUNDANT_FINANCIAL_FIELDS),
+        [url],
+      );
+    } catch {
+      // Primary API failed — fall back to Tavily web search
+      const ticker = input.ticker.trim().toUpperCase();
+      if (process.env.TAVILY_API_KEY) {
+        try {
+          return await tavilySearch.invoke({
+            query: `${ticker} historical P/E ratio EV/EBITDA margins valuation trend 2022 2023 2024`,
+          });
+        } catch {
+          // Tavily also failed
+        }
+      }
+      return formatToolResult(
+        { error: `Historical key ratios unavailable for ${ticker}. Use web_search to find historical valuation trends.` },
+        [],
+      );
+    }
   },
 });

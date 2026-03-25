@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { callLlm } from '../../model/llm.js';
 import { formatToolResult } from '../types.js';
 import { getCurrentDate } from '../../agent/prompts.js';
+import { tavilySearch } from '../search/tavily.js';
 
 /**
  * Rich description for the get_financials tool.
@@ -67,6 +68,8 @@ const COMPANY_TICKERS_FINANCIALS: Record<string, string> = {
   amazon: 'AMZN', meta: 'META', facebook: 'META', nvidia: 'NVDA',
   tesla: 'TSLA', netflix: 'NFLX', adobe: 'ADBE', salesforce: 'CRM',
   intel: 'INTC', amd: 'AMD', qualcomm: 'QCOM', broadcom: 'AVGO',
+  chevron: 'CVX', exxon: 'XOM', 'exxon mobil': 'XOM', shell: 'SHEL',
+  bp: 'BP', totalenergies: 'TTE', conocophillips: 'COP',
   vestas: 'VWS.CO', 'vestas wind': 'VWS.CO',
 };
 
@@ -285,6 +288,21 @@ export function createGetFinancials(model: string): DynamicStructuredTool {
           args: r.args,
           error: r.error,
         }));
+      }
+
+      // When ALL API sub-tools failed, automatically try a web search before giving up.
+      // This prevents the agent from having to explicitly call web_search on 402 errors.
+      if (successfulResults.length === 0 && failedResults.length > 0 && process.env.TAVILY_API_KEY) {
+        try {
+          const ticker = extractTicker(input.query);
+          const searchQuery = ticker
+            ? `${ticker} financial data revenue earnings P/E ratio annual results 2024 2025`
+            : `${input.query} financial data annual results 2024`;
+          onProgress?.('API unavailable — falling back to web search...');
+          return await tavilySearch.invoke({ query: searchQuery });
+        } catch {
+          // Web fallback also failed — return the errors so the LLM can decide
+        }
       }
 
       return formatToolResult(combinedData, allUrls);

@@ -3,6 +3,12 @@ import { logger } from '../../utils/logger.js';
 
 const BASE_URL = 'https://api.financialdatasets.ai';
 
+/**
+ * Marker thrown when Financial Datasets API returns HTTP 402 (endpoint requires
+ * a paid plan). Downstream callers check for this string to trigger fallback logic.
+ */
+export const FINANCIAL_DATASETS_PREMIUM = 'FINANCIAL_DATASETS_PREMIUM_REQUIRED';
+
 export interface ApiResponse {
   data: Record<string, unknown>;
   url: string;
@@ -90,6 +96,12 @@ async function executeRequest(
   if (!response.ok) {
     const detail = `${response.status} ${response.statusText}`;
     logger.error(`[Financial Datasets API] error: ${label} — ${detail}`);
+    if (response.status === 402) {
+      throw new Error(
+        `${FINANCIAL_DATASETS_PREMIUM}: This endpoint requires a paid Financial Datasets plan. ` +
+          'Upgrade at https://financialdatasets.ai or use web_search as a fallback.',
+      );
+    }
     throw new Error(`[Financial Datasets API] request failed: ${detail}`);
   }
 

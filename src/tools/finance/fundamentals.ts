@@ -216,14 +216,52 @@ export const getCashFlowStatements = new DynamicStructuredTool({
 
 export const getAllFinancialStatements = new DynamicStructuredTool({
   name: 'get_all_financial_statements',
-  description: `Retrieves all three financial statements (income statements, balance sheets, and cash flow statements) for a company in a single API call. This is more efficient than calling each statement type separately when you need all three for comprehensive financial analysis.`,
+  description: `Retrieves all three financial statements (income statements, balance sheets, and cash flow statements) for a company in a single API call. This is more efficient than calling each statement type separately when you need all three for comprehensive financial analysis. Falls back to FMP and web search if the primary API is unavailable.`,
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
+    const ticker = input.ticker.trim();
     const params = createParams(input);
-    const { data, url } = await api.get('/financials/', params);
+    try {
+      const { data, url } = await api.get('/financials/', params);
+      if (data.financials && Object.keys(data.financials as object).length > 0) {
+        return formatToolResult(
+          stripFieldsDeep(data.financials, REDUNDANT_FINANCIAL_FIELDS),
+          [url],
+        );
+      }
+    } catch {
+      // Fall through to FMP
+    }
+
+    // FMP fallback — try all three statements individually
+    const [incomeResult, balanceResult, cashResult] = await Promise.allSettled([
+      tryFmp(getFmpIncomeStatements, ticker, input.period, input.limit),
+      tryFmp(getFmpBalanceSheets, ticker, input.period, input.limit),
+      tryFmp(getFmpCashFlowStatements, ticker, input.period, input.limit),
+    ]);
+
+    const fmpData: Record<string, unknown> = {};
+    for (const [key, settled] of [
+      ['income_statements', incomeResult],
+      ['balance_sheets', balanceResult],
+      ['cash_flow_statements', cashResult],
+    ] as [string, PromiseSettledResult<FmpCallResult>][]) {
+      if (settled.status === 'fulfilled' && settled.value.kind === 'ok') {
+        const parsed = JSON.parse(settled.value.result) as { data: unknown };
+        fmpData[key] = parsed.data;
+      }
+    }
+    if (Object.keys(fmpData).length > 0) {
+      return formatToolResult(fmpData, []);
+    }
+
+    // Tavily last resort
+    const tavilyRaw = await tryTavilySearch(ticker, 'income statement balance sheet cash flow annual results');
+    if (tavilyRaw) return tavilyRaw;
+
     return formatToolResult(
-      stripFieldsDeep(data.financials || {}, REDUNDANT_FINANCIAL_FIELDS),
-      [url]
+      { error: `No financial statements available for ${ticker}. API access may require an upgrade — use web_search to find recent annual results.` },
+      [],
     );
   },
 });
