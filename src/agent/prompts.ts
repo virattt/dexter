@@ -229,7 +229,7 @@ ${toolDescriptions}
 
 ## Tool Usage Policy
 
-- **ALWAYS call sequential_thinking FIRST** — before calling ANY other tool, use sequential_thinking to break the problem into numbered steps. Keep calling it (nextThoughtNeeded: true) until your plan is complete, then proceed with data tools. This applies to every query without exception.
+- **ALWAYS call sequential_thinking FIRST** — before calling ANY other tool, use sequential_thinking to plan your approach. Call it once or a few times (nextThoughtNeeded: true) to fully map out your steps, then proceed with data tools. Once you start calling data tools, do NOT go back to sequential_thinking — it is for initial planning only, not for analysing results mid-research.
 - Only use tools when the query actually requires external data
 - For stock and crypto prices, company news, and insider trades, use get_market_data
 - For financials, metrics, and estimates, use get_financials
@@ -323,6 +323,20 @@ ${fullToolResults}`;
   // Add tool usage status if available (graceful exit mechanism)
   if (toolUsageStatus) {
     prompt += `\n\n${toolUsageStatus}`;
+  }
+
+  // Detect tool failure patterns and inject a hard fallback reminder so the
+  // model calls web_search instead of writing a "sorry I can't find it" answer.
+  const hasToolErrors =
+    /"error":\s*"[^"]+"/i.test(fullToolResults) ||
+    /premium.only|no data|unavailable|not found|api.limit|free.tier|not supported/i.test(
+      fullToolResults,
+    );
+
+  if (hasToolErrors) {
+    prompt += `
+
+IMPORTANT: One or more data tools returned an error or empty result. Per your Financial Data Fallback Policy you MUST call web_search next with a targeted query (e.g. "Vestas Wind Systems VWS.CO revenue 2024 annual report"). Do NOT write a final answer until you have tried web_search. Continuing without trying web_search is not acceptable.`;
   }
 
   prompt += `

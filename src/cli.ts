@@ -190,7 +190,7 @@ export async function runCli() {
   });
 
   const agentRunner = new AgentRunnerController(
-    { model: modelSelection.model, modelProvider: modelSelection.provider, maxIterations: 10 },
+    { model: modelSelection.model, modelProvider: modelSelection.provider, maxIterations: 15 },
     modelSelection.inMemoryChatHistory,
     () => {
       renderHistory(chatLog, agentRunner.history);

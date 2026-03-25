@@ -20,7 +20,7 @@ describe('System prompt — sequential_thinking enforcement', () => {
 
   test('sequential_thinking rule covers every query', () => {
     const prompt = buildSystemPrompt('gpt-5.4');
-    expect(prompt).toContain('This applies to every query without exception');
+    expect(prompt).toContain('initial planning only');
   });
 });
 
