@@ -3,7 +3,7 @@ import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlm } from '../model/llm.js';
 import { getTools } from '../tools/registry.js';
 import { buildSystemPrompt, buildIterationPrompt, loadSoulDocument } from './prompts.js';
-import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
+import { extractTextContent, hasToolCalls, extractReasoningContent } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { buildHistoryContext } from '../utils/history-context.js';
 import { estimateTokens, CONTEXT_THRESHOLD, KEEP_TOOL_USES } from '../utils/tokens.js';
@@ -147,6 +147,15 @@ export class Agent {
       }
 
       ctx.tokenCounter.add(usage);
+
+      // Emit reasoning block from Ollama thinking models (qwen3, deepseek-r1, qwq)
+      if (typeof response !== 'string') {
+        const reasoning = extractReasoningContent(response as AIMessage);
+        if (reasoning) {
+          yield { type: 'reasoning', content: reasoning };
+        }
+      }
+
       const responseText = typeof response === 'string' ? response : extractTextContent(response);
 
       // Emit thinking if there are also tool calls (skip whitespace-only responses)

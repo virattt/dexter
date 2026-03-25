@@ -1,6 +1,7 @@
 import { Container, ProcessTerminal, Spacer, Text, TUI } from '@mariozechner/pi-tui';
 import type {
   ApprovalDecision,
+  ReasoningEvent,
   ToolEndEvent,
   ToolErrorEvent,
   ToolStartEvent,
@@ -105,6 +106,17 @@ function renderHistory(chatLog: ChatLogComponent, history: AgentRunnerController
           chatLog.addChild(
             new Text(message.length > 200 ? `${message.slice(0, 200)}...` : message, 0, 0),
           );
+        }
+        continue;
+      }
+
+      if (event.type === 'reasoning') {
+        const reasoning = (event as ReasoningEvent).content.trim();
+        if (reasoning) {
+          const preview = reasoning.length > 300 ? `${reasoning.slice(0, 300)}...` : reasoning;
+          chatLog.addChild(new Spacer(1));
+          chatLog.addChild(new Text(theme.muted(`💭 Reasoning (${reasoning.length} chars)`), 0, 0));
+          chatLog.addChild(new Text(theme.muted(preview), 0, 0));
         }
         continue;
       }

@@ -24,3 +24,15 @@ export function extractTextContent(message: AIMessage): string {
 export function hasToolCalls(message: AIMessage): boolean {
   return Array.isArray(message.tool_calls) && message.tool_calls.length > 0;
 }
+
+/**
+ * Extract the chain-of-thought reasoning block from an Ollama thinking model response.
+ * Ollama stores it in `additional_kwargs.reasoning_content` when `think: true` is enabled.
+ * Returns null if absent, empty, or not a string.
+ */
+export function extractReasoningContent(message: AIMessage): string | null {
+  const rc = message.additional_kwargs?.reasoning_content;
+  if (typeof rc !== 'string') return null;
+  const trimmed = rc.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}

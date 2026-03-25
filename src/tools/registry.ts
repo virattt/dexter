@@ -14,6 +14,7 @@ import { SCREEN_STOCKS_DESCRIPTION } from './finance/screen-stocks.js';
 import { heartbeatTool, HEARTBEAT_TOOL_DESCRIPTION } from './heartbeat/heartbeat-tool.js';
 import { memoryGetTool, MEMORY_GET_DESCRIPTION, memorySearchTool, MEMORY_SEARCH_DESCRIPTION, memoryUpdateTool, MEMORY_UPDATE_DESCRIPTION } from './memory/index.js';
 import { discoverSkills } from '../skills/index.js';
+import { sequentialThinkingTool, sequentialThinkingEngine, SEQUENTIAL_THINKING_DESCRIPTION } from './thinking/sequential.js';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -35,7 +36,15 @@ export interface RegisteredTool {
  * @returns Array of registered tools
  */
 export function getToolRegistry(model: string): RegisteredTool[] {
+  // Reset sequential thinking state for each new agent session
+  sequentialThinkingEngine.reset();
+
   const tools: RegisteredTool[] = [
+    {
+      name: 'sequential_thinking',
+      tool: sequentialThinkingTool,
+      description: SEQUENTIAL_THINKING_DESCRIPTION,
+    },
     {
       name: 'get_financials',
       tool: createGetFinancials(model),

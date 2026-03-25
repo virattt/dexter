@@ -78,6 +78,16 @@ export interface ThinkingEvent {
 }
 
 /**
+ * Ollama extended thinking — chain-of-thought reasoning block emitted before
+ * the final answer for thinking-capable models (qwen3, deepseek-r1, qwq).
+ */
+export interface ReasoningEvent {
+  type: 'reasoning';
+  /** Full chain-of-thought content from the model's internal reasoning pass. */
+  content: string;
+}
+
+/**
  * Tool execution started
  */
 export interface ToolStartEvent {
@@ -202,6 +212,7 @@ export interface DoneEvent {
  */
 export type AgentEvent =
   | ThinkingEvent
+  | ReasoningEvent
   | ToolStartEvent
   | ToolProgressEvent
   | ToolEndEvent

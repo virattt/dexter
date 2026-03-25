@@ -18,6 +18,18 @@ import { resolveProvider, getProviderById } from '@/providers';
 export const DEFAULT_PROVIDER = 'openai';
 export const DEFAULT_MODEL = 'gpt-5.4';
 
+/** Ollama model name patterns that support extended thinking via `think: true`. */
+const THINKING_MODEL_PATTERNS = [/qwen3/, /deepseek-r1/, /qwq/];
+
+/**
+ * Returns true when the given model name is an Ollama thinking-capable model
+ * (e.g. qwen3, deepseek-r1, qwq). Case-insensitive; strips `ollama:` prefix.
+ */
+export function isThinkingModel(name: string): boolean {
+  const bare = name.replace(/^ollama:/i, '').toLowerCase();
+  return THINKING_MODEL_PATTERNS.some((p) => p.test(bare));
+}
+
 /**
  * Gets the fast model variant for the given provider.
  * Falls back to the provided model if no fast variant is configured (e.g., Ollama).
@@ -116,8 +128,9 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
     }),
   ollama: (name, opts) =>
     new ChatOllama({
-      model: name.replace(/^ollama:/, ''),
+      model: name.replace(/^ollama:/i, ''),
       ...opts,
+      ...(isThinkingModel(name) ? { think: true } : {}),
       ...(process.env.OLLAMA_BASE_URL ? { baseUrl: process.env.OLLAMA_BASE_URL } : {}),
     }),
 };
