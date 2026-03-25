@@ -103,6 +103,14 @@ export class ModelSelectionController {
 
     if (providerId === 'ollama') {
       const ollamaModelIds = await getOllamaModels();
+      if (ollamaModelIds.length === 0) {
+        // No local models found — fall back to manual input so users can type a model name
+        // (e.g. when pointing OLLAMA_BASE_URL at a remote/cloud Ollama endpoint)
+        this.pendingModelsValue = [];
+        this.appStateValue = 'model_input';
+        this.emitChange();
+        return;
+      }
       this.pendingModelsValue = ollamaModelIds.map((id) => ({ id, displayName: id }));
       this.appStateValue = 'model_select';
       this.emitChange();
