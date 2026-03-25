@@ -33,6 +33,7 @@ export class Agent {
   private readonly systemPrompt: string;
   private readonly signal?: AbortSignal;
   private readonly memoryEnabled: boolean;
+  private readonly thinkEnabled: boolean | undefined;
 
   private constructor(
     config: AgentConfig,
@@ -47,6 +48,7 @@ export class Agent {
     this.systemPrompt = systemPrompt;
     this.signal = config.signal;
     this.memoryEnabled = config.memoryEnabled ?? true;
+    this.thinkEnabled = config.thinkEnabled;
   }
 
   /**
@@ -256,6 +258,7 @@ export class Agent {
       systemPrompt: this.systemPrompt,
       tools: useTools ? this.tools : undefined,
       signal: this.signal,
+      thinkOverride: this.thinkEnabled,
     });
     return { response: result.response, usage: result.usage };
   }

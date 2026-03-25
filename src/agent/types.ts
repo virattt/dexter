@@ -55,6 +55,13 @@ export interface AgentConfig {
   sessionApprovedTools?: Set<string>;
   /** Enable/disable persistent memory integration for this run */
   memoryEnabled?: boolean;
+  /**
+   * Override Ollama extended thinking (`think` flag).
+   * - `true`  → force thinking on (only applies to Ollama models)
+   * - `false` → force thinking off
+   * - `undefined` → auto-detect from model name (default: on for qwen3/deepseek-r1/qwq)
+   */
+  thinkEnabled?: boolean;
 }
 
 /**

@@ -20,7 +20,7 @@ export class AgentRunnerController {
   private workingStateValue: WorkingState = { status: 'idle' };
   private errorValue: string | null = null;
   private pendingApprovalValue: { tool: string; args: Record<string, unknown> } | null = null;
-  private readonly agentConfig: AgentConfig;
+  private agentConfig: AgentConfig;
   private readonly inMemoryChatHistory: InMemoryChatHistory;
   private readonly onChange?: ChangeListener;
   private abortController: AbortController | null = null;
@@ -35,6 +35,15 @@ export class AgentRunnerController {
     this.agentConfig = agentConfig;
     this.inMemoryChatHistory = inMemoryChatHistory;
     this.onChange = onChange;
+  }
+
+  /**
+   * Override the Ollama thinking flag.
+   * `true` → force on, `false` → force off, `undefined` → auto-detect from model name.
+   * Takes effect on the next query (Agent is created fresh per query).
+   */
+  setThinkEnabled(value: boolean | undefined): void {
+    this.agentConfig = { ...this.agentConfig, thinkEnabled: value };
   }
 
   get history(): HistoryItem[] {

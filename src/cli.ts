@@ -8,6 +8,7 @@ import type {
 } from './agent/index.js';
 import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js';
 import { logger } from './utils/logger.js';
+import { isThinkingModel } from './model/llm.js';
 import {
   AgentRunnerController,
   InputHistoryController,
@@ -95,6 +96,7 @@ function createScreen(
 const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'help',  description: 'Show available commands and keyboard shortcuts' },
   { name: 'model', description: 'Switch the LLM model or provider' },
+  { name: 'think', description: 'Toggle Ollama extended thinking on/off (thinking models only)' },
 ];
 
 function buildHelpPanel(): Container {
@@ -128,6 +130,7 @@ function buildHelpPanel(): Container {
   container.addChild(new Text(theme.bold('Tips'), 0, 0));
   container.addChild(new Spacer(1));
   container.addChild(row('/', 'Type / to see available commands'));
+  container.addChild(row('Thinking', 'Enabled automatically for qwen3, deepseek-r1, qwq models'));
   container.addChild(row('Fallback', 'Dexter uses web search when financial APIs fail'));
 
   return container;
@@ -222,6 +225,8 @@ export async function runCli() {
   const inputHistory = new InputHistoryController(() => tui.requestRender());
   let lastError: string | null = null;
   let helpVisible = false;
+  // null = auto-detect from model name; true/false = explicit override
+  let thinkEnabled: boolean | null = null;
 
   const onError = (message: string) => {
     lastError = message;
@@ -230,6 +235,10 @@ export async function runCli() {
   };
 
   const modelSelection = new ModelSelectionController(onError, () => {
+    // Reset thinking override when the user switches models — the new model may
+    // or may not support thinking, so auto-detect is the correct default.
+    thinkEnabled = null;
+    agentRunner.setThinkEnabled(undefined);
     intro.setModel(modelSelection.model);
     renderSelectionOverlay();
     tui.requestRender();
@@ -278,6 +287,34 @@ export async function runCli() {
     if (query === '/help') {
       helpVisible = true;
       renderSelectionOverlay();
+      return;
+    }
+
+    if (query === '/think') {
+      const model = modelSelection.model;
+      if (!isThinkingModel(model)) {
+        lastError = `${model} does not support extended thinking (supported: qwen3, deepseek-r1, qwq)`;
+        refreshError();
+        tui.requestRender();
+      } else {
+        // Cycle: auto(on) → off → auto(on)
+        // null  = auto (effective: on for thinking models)
+        // false = forced off
+        const wasOff = thinkEnabled === false;
+        thinkEnabled = wasOff ? null : false;
+        agentRunner.setThinkEnabled(thinkEnabled ?? undefined);
+        const label = thinkEnabled === false ? '🔕 Thinking OFF' : '🧠 Thinking ON (auto)';
+        lastError = null;
+        // Show brief status via the intro line (reuses existing text component path)
+        intro.setModel(`${model}  ${label}`);
+        renderSelectionOverlay();
+        tui.requestRender();
+        // Restore normal model label after 3 s
+        setTimeout(() => {
+          intro.setModel(model);
+          tui.requestRender();
+        }, 3000);
+      }
       return;
     }
 

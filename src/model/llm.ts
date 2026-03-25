@@ -66,7 +66,7 @@ interface ModelOpts {
   streaming: boolean;
 }
 
-type ModelFactory = (name: string, opts: ModelOpts) => BaseChatModel;
+type ModelFactory = (name: string, opts: ModelOpts, thinkOverride?: boolean) => BaseChatModel;
 
 function getApiKey(envVar: string): string {
   const apiKey = process.env[envVar];
@@ -126,13 +126,16 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
         baseURL: 'https://api.deepseek.com',
       },
     }),
-  ollama: (name, opts) =>
-    new ChatOllama({
+  ollama: (name, opts, thinkOverride) => {
+    // Use explicit override when provided; fall back to model-name auto-detect.
+    const useThink = thinkOverride !== undefined ? thinkOverride : isThinkingModel(name);
+    return new ChatOllama({
       model: name.replace(/^ollama:/i, ''),
       ...opts,
-      ...(isThinkingModel(name) ? { think: true } : {}),
+      ...(useThink ? { think: true } : {}),
       ...(process.env.OLLAMA_BASE_URL ? { baseUrl: process.env.OLLAMA_BASE_URL } : {}),
-    }),
+    });
+  },
 };
 
 const DEFAULT_FACTORY: ModelFactory = (name, opts) =>
@@ -144,12 +147,13 @@ const DEFAULT_FACTORY: ModelFactory = (name, opts) =>
 
 export function getChatModel(
   modelName: string = DEFAULT_MODEL,
-  streaming: boolean = false
+  streaming: boolean = false,
+  thinkOverride?: boolean,
 ): BaseChatModel {
   const opts: ModelOpts = { streaming };
   const provider = resolveProvider(modelName);
   const factory = MODEL_FACTORIES[provider.id] ?? DEFAULT_FACTORY;
-  return factory(modelName, opts);
+  return factory(modelName, opts, thinkOverride);
 }
 
 interface CallLlmOptions {
@@ -158,6 +162,8 @@ interface CallLlmOptions {
   outputSchema?: z.ZodType<unknown>;
   tools?: StructuredToolInterface[];
   signal?: AbortSignal;
+  /** Override Ollama think flag. Passed directly to getChatModel(). */
+  thinkOverride?: boolean;
 }
 
 export interface LlmResult {
@@ -214,10 +220,10 @@ function buildAnthropicMessages(systemPrompt: string, userPrompt: string) {
 }
 
 export async function callLlm(prompt: string, options: CallLlmOptions = {}): Promise<LlmResult> {
-  const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools, signal } = options;
+  const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools, signal, thinkOverride } = options;
   const finalSystemPrompt = systemPrompt || getDefaultSystemPrompt();
 
-  const llm = getChatModel(model, false);
+  const llm = getChatModel(model, false, thinkOverride);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let runnable: Runnable<any, any> = llm;
