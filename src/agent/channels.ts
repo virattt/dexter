@@ -14,6 +14,8 @@ const CLI_PROFILE: ChannelProfile = {
     'Avoid over-engineering responses - match the scope of your answer to the question',
     'Never ask users to provide raw data, paste values, or reference JSON/API internals - users ask questions, they don\'t have access to financial APIs',
     'If data is incomplete, answer with what you have without exposing implementation details',
+    'For valuations and price targets, always state: the data source, approximate date, and the single biggest assumption that could change the outcome',
+    'Always distinguish TTM (trailing, fact-based) from Forward (estimate-based) when presenting valuation multiples — e.g. "P/E 22× TTM, 18× fwd"',
   ],
   responseFormat: [
     'Simple or conversational questions: plain text, 1-3 sentences maximum',
@@ -40,7 +42,14 @@ Keep tables compact:
 - Tickers not names: "AAPL" not "Apple Inc."
 - Abbreviate: Rev, Op Inc, Net Inc, OCF, FCF, GM, OM, EPS
 - Numbers compact: 102.5B not $102,466,000,000
-- Omit units in cells if header has them`,
+- Omit units in cells if header has them
+
+Financial number conventions:
+- Percentages: always one decimal — 22.5%, not 22% or 22.53%
+- Negative values: minus sign — −5.2%, NOT (5.2%)
+- Ratios (P/E, EV/EBITDA): one decimal, no × unit unless header is generic — 18.5
+- Basis-point changes: use bp — +75bp, not +0.75%
+- Currency amounts: compact with B/M/K suffix — 4.2B, 850M, 12.5K`,
 };
 
 const WHATSAPP_PROFILE: ChannelProfile = {

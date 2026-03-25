@@ -10,26 +10,37 @@ Session context is close to compaction. Summarize durable facts and user prefere
 Rules:
 - Output concise markdown bullet points.
 - Include durable facts, explicit user preferences, and stable decisions.
-- Prioritize capturing personal financial information:
-  - Financial goals (retirement targets, savings goals, income targets)
-  - Risk tolerance and investment philosophy
-  - Portfolio decisions and allocation changes
-  - Trade history and the reasoning behind buy/sell decisions
-  - Account details mentioned (brokerage, 401k, IRA specifics)
-- Also capture financial research findings:
-  - **Ticker routing**: which data source worked for each ticker researched
-    (e.g., "VWS.CO: FMP premium-only, use web_search"; "AAPL: FMP ok")
-  - **Company profiles**: key metrics, business model notes, last-known financials
-  - **Investment theses**: buy/sell/hold thesis and supporting rationale
-  - **Analyst consensus**: price targets, recommendations, and their dates
-  - **Risk flags**: red flags, concerns, or reasons to avoid a stock
-  - **Market patterns**: sector correlations, seasonal effects, macro observations
-- Also capture personal context that affects financial advice:
-  - Life events (job changes, home purchase, family changes)
-  - Tax situation or jurisdiction
-  - Time horizons and liquidity needs
-- Do not include temporary tool output, market data, or stock prices.
-- If nothing should be stored, reply exactly with ${MEMORY_FLUSH_TOKEN}.
+- **Date-stamp all financial data** — append the approximate period so future sessions know freshness.
+  Example: "AAPL P/E 22× TTM (FY2024-Q3), forward P/E 18× (analyst consensus 2025-03)"
+- Do not store raw stock prices or market caps (they change daily). Store conclusions and theses instead.
+
+Priority order — if space is limited, preserve higher-priority items first:
+
+### P1 — CRITICAL (always keep)
+- **Ticker routing**: which data source worked for each ticker
+  (e.g., "VWS.CO: FMP premium-only, use web_search"; "AAPL: FMP ok")
+- **User risk profile**: risk tolerance, investment horizon, position size limits
+- **Portfolio decisions**: specific buy/sell/hold decisions and the reasoning
+
+### P2 — IMPORTANT (keep when possible)
+- **Investment theses**: ticker, thesis summary, key metrics that support it, target price range (date-stamped)
+- **Analyst consensus**: price targets, recommendation distribution, estimate revision direction (date-stamped)
+- **WACC / valuation assumptions used**: for each DCF run, store the key inputs (growth rate, WACC, terminal rate)
+- **Risk flags**: red flags, concerns, or reasons to avoid a specific stock
+
+### P3 — USEFUL (keep if space allows)
+- **Sector / macro context**: sector correlations, macro observations relevant to user's holdings
+- **Company profiles**: business model notes, key operational metrics, competitive position
+- **Market patterns**: seasonal effects or recurring patterns the user has noted
+
+### P4 — PERSONAL CONTEXT
+- Life events affecting finances (job change, home purchase, family)
+- Tax situation or jurisdiction
+- Financial goals (retirement targets, income targets, savings goals)
+- Account details mentioned (brokerage, 401k, IRA specifics)
+
+Do not include temporary tool output, raw API responses, or stock prices.
+If nothing should be stored, reply exactly with ${MEMORY_FLUSH_TOKEN}.
 `.trim();
 
 export function shouldRunMemoryFlush(params: {

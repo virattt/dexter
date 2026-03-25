@@ -66,6 +66,29 @@ Call the `get_financials` tool:
 
 **Use:** Determine appropriate WACC range from [sector-wacc.md](sector-wacc.md)
 
+### 1.7 Effective Tax Rate
+Call the `get_financials` tool:
+
+**Query:** `"[TICKER] effective tax rate income tax expense"`
+
+**Extract:** `effective_tax_rate` or `income_tax_rate` (as a decimal, e.g. 0.21 = 21%)
+
+**Fallback sector medians (use when unavailable):**
+
+| Sector | Median Effective Rate |
+|--------|-----------------------|
+| Technology / Software | 18–22% |
+| Healthcare | 20–23% |
+| Industrials / Materials | 22–25% |
+| Energy | 20–25% |
+| Financials | 20–24% |
+| Consumer Staples | 22–25% |
+| Utilities | 24–26% |
+
+**Default if still unavailable:** 21% (US statutory rate). **Do NOT use 30% — it overstates the tax shield and understates WACC.**
+
+**Use in Step 3:** After-tax cost of debt = Pre-tax rate × (1 − effective_tax_rate)
+
 ## Step 2: Calculate FCF Growth Rate
 
 Calculate 5-year FCF CAGR from cash flow history.
@@ -77,30 +100,77 @@ Calculate 5-year FCF CAGR from cash flow history.
 - Volatile FCF → Weight analyst estimates more heavily
 - **Cap at 15%** (sustained higher growth is rare)
 
+### FCF Consistency Check
+
+Before using FCF figures, validate the data:
+
+1. **Manual calculation:** `FCF_manual = operating_cash_flow − capital_expenditure`
+2. **Compare to reported:** `free_cash_flow` field from API
+3. If they differ by **>10%**, use the manual calculation and note the discrepancy in caveats
+4. **Stock-based compensation (SBC):** For software/tech companies, check if SBC is already excluded from FCF. If a company strips SBC out, add it back for apples-to-apples peer comparison
+5. **One-time items:** Check if large one-off items (asset sales, litigation settlements) inflate/deflate OCF — exclude them from the base FCF for projection purposes
+
 ## Step 3: Estimate Discount Rate (WACC)
 
 **Use the `sector` from company facts** to select the appropriate base WACC range from [sector-wacc.md](sector-wacc.md).
 
 **Default assumptions:**
-- Risk-free rate: 4%
-- Equity risk premium: 5-6%
-- Cost of debt: 5-6% pre-tax (~4% after-tax at 30% tax rate)
+- Risk-free rate: current 10-year Treasury yield (fetch via web_search if needed; default 4.0-4.5%)
+- Equity risk premium: 5–6%
+- Cost of debt: 5–6% pre-tax
+- **After-tax cost of debt = Pre-tax rate × (1 − effective_tax_rate from Step 1.7)**
+  - Example at 21% tax rate: 5.5% × (1 − 0.21) = **4.3%** (NOT 4% at the old 30% assumption)
 
 Calculate WACC using `debt_to_equity` for capital structure weights.
 
-**Reasonableness check:** WACC should be 2-4% below `return_on_invested_capital` for value-creating companies.
+**Reasonableness check:** WACC should be 2–4% below `return_on_invested_capital` for value-creating companies.
 
 **Sector adjustments:** Apply adjustment factors from [sector-wacc.md](sector-wacc.md) based on company-specific characteristics.
 
 ## Step 4: Project Future Cash Flows
 
-**Years 1-5:** Apply growth rate with 5% annual decay (multiply growth rate by 0.95, 0.90, 0.85, 0.80 for years 2-5). This reflects competitive dynamics.
+**Years 1–5:** Apply growth rate with 5% annual decay (multiply growth rate by 0.95, 0.90, 0.85, 0.80 for years 2–5). This reflects competitive dynamics.
 
-**Terminal value:** Use Gordon Growth Model with 2.5% terminal growth (GDP proxy).
+**Terminal value:** Use Gordon Growth Model. Select terminal growth rate from the table below:
+
+### Terminal Growth Rate Selection
+
+| Company Profile | Terminal Rate |
+|-----------------|---------------|
+| Utility / REIT / Telecom (regulated) | 1.5–2.0% |
+| Mature industrial / Consumer Staples | 2.0–2.5% |
+| Diversified tech / Healthcare / Financials | 2.5–3.0% |
+| Emerging-market headquartered | local long-run GDP (≤ 4.0%) |
+
+**Hard constraints:**
+- Terminal growth **must not exceed** the risk-free rate (≈ current 10Y Treasury yield)
+- Terminal growth **must not exceed 3.5%** for any developed-market company
+- If terminal value > **85% of total DCF Enterprise Value**: your growth rate is too high — reduce it
+
+**Default when unsure:** 2.5% (nominal long-run US GDP proxy)
 
 ## Step 5: Calculate Present Value
 
-Discount all FCFs → sum for Enterprise Value → subtract Net Debt → divide by `outstanding_shares` for fair value per share.
+Discount all FCFs and terminal value → sum for **DCF Enterprise Value**.
+
+### Net Debt Formula (exact)
+
+```
+Net Debt = Total Debt
+         + Operating Lease Liabilities     ← from balance sheet (IFRS 16 / ASC 842)
+         − Cash and Cash Equivalents
+         − Short-term Investments
+         − Restricted Cash                 ← only if accessible for debt repayment
+```
+
+**Fair Value Per Share = (DCF Enterprise Value − Net Debt) ÷ Diluted Shares Outstanding**
+
+**Edge cases:**
+- **Net cash company** (Net Debt < 0): Subtract the negative value → Fair Value is *higher* than EV/share
+- **Lease-heavy companies** (airlines, retailers, restaurants): Operating lease liabilities can equal 30–80% of total "debt" — always include them
+- **Preferred stock**: Treat as debt; subtract face value from EV before dividing by common shares
+- **Convertible notes**: Add at face value; ignore conversion premium for base-case simplicity
+- **Pension deficit**: Add net pension liability (pension obligation minus pension assets) to Net Debt
 
 ## Step 6: Sensitivity Analysis
 

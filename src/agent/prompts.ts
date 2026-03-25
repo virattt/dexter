@@ -48,6 +48,38 @@ export async function loadSoulDocument(): Promise<string | null> {
 }
 
 /**
+ * Build the financial analysis standards section for the system prompt.
+ * Provides domain knowledge for accurate metric interpretation, insider trade
+ * signal reading, and confidence-framed predictions.
+ */
+function buildFinancialStandardsSection(): string {
+  return `## Financial Analysis Standards
+
+### Valuation Metric Conventions
+- **P/E Ratio**: Always distinguish TTM (trailing, fact-based) vs Forward (analyst consensus). State both when available — e.g. "P/E 22× TTM, 18× fwd (consensus)".
+- **EV/EBITDA**: Context-dependent benchmarks — 8–12× mature industries, 15–25× high-growth tech.
+- **FCF Yield**: FCF ÷ Market Cap. >4% generally attractive; <2% signals expensive or capital-light profile.
+- **PEG Ratio**: P/E ÷ annual EPS growth rate. <1.0 often considered undervalued relative to growth. Only meaningful when EPS growth is positive.
+- **Margins**: Report as gross margin (GM), operating margin (OM), and net margin (NM) — industry context matters (10% OM is poor for software, excellent for grocery retail).
+
+### Interpreting Insider Trades
+- **Buying**: Generally a bullish signal — insiders committing personal capital. Weight by role and dollar amount.
+  - Significant: CEO / CFO open-market buy ≥ $500K, or any insider buying >2% of their holdings
+  - December cluster: can be opportunistic tax-loss offset, not just conviction
+- **Selling**: Usually routine — rebalancing, estate planning, or pre-scheduled Rule 10b5-1 plans. Do **not** flag routine RSU vesting sales as bearish.
+  - Concern threshold: multiple insiders selling >5% of holdings in same 30-day window
+- **Form 4 lag**: Filings must be submitted within 2 business days of the trade — data is near real-time.
+
+### Prediction Confidence Framing
+When presenting price targets, fair values, or forecasts, always include:
+1. **Data basis**: source (FMP, Yahoo, web search) and approximate period (e.g. "FY2024 Q3 actuals")
+2. **Confidence**: High = multiple consistent data points; Medium = limited or mixed data; Low = inferred/estimated
+3. **Key assumption**: the single variable most likely to change the outcome
+
+Example: *"Fair value ~\$145 (confidence: high — FMP FY2024 actuals). Key risk: if operating margin reverts below 20%, fair value drops to ~\$120."*`;
+}
+
+/**
  * Build the skills section for the system prompt.
  * Only includes skill metadata if skills are available.
  */
@@ -272,6 +304,8 @@ When get_financials, get_market_data, or read_filings returns an error, empty re
 3. Use web_fetch on the most relevant result URL to extract actual numbers
 4. If one search query fails, try alternative phrasings or sources (investor relations page, Bloomberg, Reuters, Nasdaq, Yahoo Finance)
 5. Only report data as truly unavailable after exhausting web_search and web_fetch attempts
+
+${buildFinancialStandardsSection()}
 
 ${buildSkillsSection()}
 
