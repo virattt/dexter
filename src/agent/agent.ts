@@ -118,6 +118,11 @@ export class Agent {
     // an infinite loop when a model persistently ignores the instruction.
     let sequentialThinkingRetries = 0;
     const MAX_ST_RETRIES = 3;
+    // Hard cap on total sequential_thinking calls so planning never burns all
+    // iterations before any research tool runs. Models sometimes loop through
+    // 10-15 thoughts on complex queries, leaving no budget for actual research.
+    let sequentialThinkingCallCount = 0;
+    const MAX_SEQUENTIAL_THOUGHTS = 6;
 
     // Main agent loop
     let overflowRetries = 0;
@@ -213,11 +218,16 @@ export class Agent {
 
       // Mark sequential_thinking as satisfied once it appears in any tool call
       if (!sequentialThinkingUsed) {
-        const tools = (response as AIMessage).tool_calls ?? [];
-        if (tools.some((tc) => tc.name === 'sequential_thinking')) {
+        const stToolCalls = (response as AIMessage).tool_calls ?? [];
+        if (stToolCalls.some((tc) => tc.name === 'sequential_thinking')) {
           sequentialThinkingUsed = true;
         }
       }
+
+      // Count sequential_thinking calls before executing tools (needed for nudge below).
+      const toolCalls = (response as AIMessage).tool_calls ?? [];
+      const stCallsThisIteration = toolCalls.filter((tc) => tc.name === 'sequential_thinking').length;
+      sequentialThinkingCallCount += stCallsThisIteration;
 
       // Execute tools and add results to scratchpad (response is AIMessage here)
       for await (const event of this.toolExecutor.executeAll(response, ctx)) {
@@ -240,10 +250,16 @@ export class Agent {
 
       // Build iteration prompt with full tool results (Anthropic-style)
       currentPrompt = buildIterationPrompt(
-        query, 
+        query,
         ctx.scratchpad.getToolResults(),
         ctx.scratchpad.formatToolUsageForPrompt()
       );
+
+      // After the cap is hit, redirect the model to stop planning and start
+      // using research tools. Only inject the nudge once (at the boundary).
+      if (stCallsThisIteration > 0 && sequentialThinkingCallCount >= MAX_SEQUENTIAL_THOUGHTS) {
+        currentPrompt += '\n\n[SYSTEM NOTE: Planning phase complete. You have used the maximum number of sequential_thinking steps allowed. You MUST now proceed directly to research tools (financial_search, web_search, read_filings, etc.) to gather data and answer the question. Do not call sequential_thinking again.]';
+      }
     }
 
     // Max iterations reached with no final response

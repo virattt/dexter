@@ -61,6 +61,29 @@ async function withRetry<T>(fn: () => Promise<T>, provider: string, maxAttempts 
   throw new Error('Unreachable');
 }
 
+/**
+ * Race an LLM call against a hard wall-clock timeout.
+ * Default: 120 s (configurable via LLM_CALL_TIMEOUT_MS env var).
+ * When the timeout fires the AbortController is signalled so the
+ * underlying HTTP connection is also torn down.
+ */
+const LLM_CALL_TIMEOUT_MS = parseInt(process.env.LLM_CALL_TIMEOUT_MS ?? '120000', 10);
+
+async function withTimeout<T>(fn: (signal: AbortSignal) => Promise<T>, timeoutMs: number): Promise<T> {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), timeoutMs);
+  try {
+    return await fn(ac.signal);
+  } catch (e) {
+    if (ac.signal.aborted) {
+      throw new Error(`LLM call timed out after ${timeoutMs / 1000}s. The model may be slow or unavailable.`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Model provider configuration
 interface ModelOpts {
   streaming: boolean;
@@ -234,23 +257,29 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
     runnable = llm.bindTools(tools);
   }
 
-  const invokeOpts = signal ? { signal } : undefined;
   const provider = resolveProvider(model);
   let result;
 
-  if (provider.id === 'anthropic') {
-    // Anthropic: use explicit messages with cache_control for prompt caching (~90% savings)
-    const messages = buildAnthropicMessages(finalSystemPrompt, prompt);
-    result = await withRetry(() => runnable.invoke(messages, invokeOpts), provider.displayName);
-  } else {
-    // Other providers: use ChatPromptTemplate (OpenAI/Gemini have automatic caching)
-    const promptTemplate = ChatPromptTemplate.fromMessages([
-      ['system', finalSystemPrompt],
-      ['user', '{prompt}'],
-    ]);
-    const chain = promptTemplate.pipe(runnable);
-    result = await withRetry(() => chain.invoke({ prompt }, invokeOpts), provider.displayName);
-  }
+  result = await withTimeout(async (timeoutSignal) => {
+    // Combine the caller's abort signal with our hard timeout signal so either
+    // source can cancel the underlying HTTP request.
+    const combinedSignal = signal
+      ? AbortSignal.any([signal, timeoutSignal])
+      : timeoutSignal;
+    const invokeOpts = { signal: combinedSignal };
+
+    if (provider.id === 'anthropic') {
+      const messages = buildAnthropicMessages(finalSystemPrompt, prompt);
+      return withRetry(() => runnable.invoke(messages, invokeOpts), provider.displayName);
+    } else {
+      const promptTemplate = ChatPromptTemplate.fromMessages([
+        ['system', finalSystemPrompt],
+        ['user', '{prompt}'],
+      ]);
+      const chain = promptTemplate.pipe(runnable);
+      return withRetry(() => chain.invoke({ prompt }, invokeOpts), provider.displayName);
+    }
+  }, LLM_CALL_TIMEOUT_MS);
   const usage = extractUsage(result);
 
   // If no outputSchema and no tools, extract content from AIMessage

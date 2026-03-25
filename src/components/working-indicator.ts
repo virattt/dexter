@@ -9,6 +9,8 @@ export class WorkingIndicatorComponent extends Container {
   private state: WorkingState = { status: 'idle' };
   private thinkingVerb = getRandomThinkingVerb();
   private prevStatus: WorkingState['status'] = 'idle';
+  private startTime: number | null = null;
+  private tickInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(tui: TUI) {
     super();
@@ -23,11 +25,21 @@ export class WorkingIndicatorComponent extends Container {
       this.prevStatus === 'thinking' ||
       this.prevStatus === 'tool' ||
       this.prevStatus === 'approval';
+
     if (isThinking && !wasThinking) {
       this.thinkingVerb = getRandomThinkingVerb();
+      this.startTime = Date.now();
+      this.startTick();
     }
+
+    if (!isThinking && wasThinking) {
+      this.stopTick();
+      this.startTime = null;
+    }
+
     this.prevStatus = state.status;
     this.state = state;
+
     if (state.status === 'idle') {
       this.stopLoader();
       this.renderIdle();
@@ -37,7 +49,31 @@ export class WorkingIndicatorComponent extends Container {
   }
 
   dispose() {
+    this.stopTick();
     this.stopLoader();
+  }
+
+  private startTick() {
+    this.stopTick();
+    this.tickInterval = setInterval(() => {
+      this.updateMessage();
+      this.tui.requestRender();
+    }, 1000);
+  }
+
+  private stopTick() {
+    if (this.tickInterval !== null) {
+      clearInterval(this.tickInterval);
+      this.tickInterval = null;
+    }
+  }
+
+  private elapsedLabel(): string {
+    if (this.startTime === null) return '';
+    const secs = Math.floor((Date.now() - this.startTime) / 1000);
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return ` ${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
 
   private renderIdle() {
@@ -80,6 +116,6 @@ export class WorkingIndicatorComponent extends Container {
       this.loader.setMessage('Waiting for approval... (esc to interrupt)');
       return;
     }
-    this.loader.setMessage(`${this.thinkingVerb}... (esc to interrupt)`);
+    this.loader.setMessage(`${this.thinkingVerb}${this.elapsedLabel()}… (esc to interrupt)`);
   }
 }
