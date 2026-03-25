@@ -8,6 +8,7 @@ export { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './cry
 export { getInsiderTrades } from './insider_trades.js';
 export { getEarnings } from './earnings.js';
 export { getYahooAnalystTargets, getYahooAnalystRecommendations, getYahooUpgradeDowngradeHistory } from './yahoo-finance.js';
+export { getFmpIncomeStatements, getFmpBalanceSheets, getFmpCashFlowStatements } from './fmp.js';
 export { createGetFinancials } from './get-financials.js';
 export { createGetMarketData } from './get-market-data.js';
 export { createReadFilings } from './read-filings.js';
