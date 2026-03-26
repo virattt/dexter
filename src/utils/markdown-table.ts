@@ -23,10 +23,47 @@ const BOX = {
 };
 
 /**
+ * Strip markdown formatting markers (**bold**, *italic*, _italic_) from a string
+ * to get its visible display width.
+ *
+ * `transformBold` later converts **...** to invisible ANSI escape sequences, so
+ * column widths and padding MUST be computed against the stripped content, not
+ * the raw markdown string.  Otherwise bold-formatted cells (e.g. **HON**) get
+ * measured as 7 chars but display as 3 — causing misaligned data rows.
+ */
+function stripMarkdownFormatting(text: string): string {
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')   // **bold** → content
+    .replace(/\*([^*]+)\*/g, '$1')        // *italic* → content
+    .replace(/_([^_\s][^_]*)_/g, '$1');   // _italic_ → content
+}
+
+/**
+ * Visible width of a cell value for layout purposes (strips markdown markers).
+ */
+function cellDisplayWidth(text: string): number {
+  return stripMarkdownFormatting(text).length;
+}
+
+/**
+ * Pad a cell to a target visible width, accounting for markdown formatting
+ * markers that will later be converted to invisible ANSI escape sequences.
+ * Uses visible width (not raw .length) for correct alignment after conversion.
+ */
+function padCellAware(value: string, targetWidth: number, rightAlign: boolean): string {
+  const visWidth = cellDisplayWidth(value);
+  const padding = Math.max(0, targetWidth - visWidth);
+  if (rightAlign) {
+    return ' '.repeat(padding) + value;
+  }
+  return value + ' '.repeat(padding);
+}
+
+/**
  * Check if a string looks like a number (for right-alignment).
  */
 function isNumeric(value: string): boolean {
-  const trimmed = value.trim();
+  const trimmed = stripMarkdownFormatting(value).trim();
   // Match numbers with optional $, %, B/M/K suffixes
   return /^[$]?[-+]?[\d,]+\.?\d*[%BMK]?$/.test(trimmed);
 }
@@ -88,13 +125,14 @@ export function parseMarkdownTable(tableText: string): { headers: string[]; rows
  * Render a parsed table as a Unicode box-drawing table.
  */
 export function renderBoxTable(headers: string[], rows: string[][]): string {
-  // Calculate column widths
-  const colWidths: number[] = headers.map(h => h.length);
+  // Calculate column widths using visible display width (strips **bold** etc. markers
+  // that will later be converted to invisible ANSI codes by transformBold).
+  const colWidths: number[] = headers.map(h => cellDisplayWidth(h));
   
   for (const row of rows) {
     for (let i = 0; i < row.length; i++) {
       if (i < colWidths.length) {
-        colWidths[i] = Math.max(colWidths[i], row[i].length);
+        colWidths[i] = Math.max(colWidths[i], cellDisplayWidth(row[i]));
       }
     }
   }
@@ -111,14 +149,6 @@ export function renderBoxTable(headers: string[], rows: string[][]): string {
     return numericCount > rows.length / 2;
   });
   
-  // Helper to pad a cell
-  const padCell = (value: string, width: number, rightAlign: boolean): string => {
-    if (rightAlign) {
-      return value.padStart(width);
-    }
-    return value.padEnd(width);
-  };
-  
   // Build the table
   const lines: string[] = [];
   
@@ -128,9 +158,9 @@ export function renderBoxTable(headers: string[], rows: string[][]): string {
     BOX.topRight;
   lines.push(topBorder);
   
-  // Header row
+  // Header row — padCellAware accounts for markdown markers in header text
   const headerRow = BOX.vertical + 
-    headers.map((h, i) => ` ${padCell(h, colWidths[i], false)} `).join(BOX.vertical) + 
+    headers.map((h, i) => ` ${padCellAware(h, colWidths[i], false)} `).join(BOX.vertical) + 
     BOX.vertical;
   lines.push(headerRow);
   
@@ -140,12 +170,12 @@ export function renderBoxTable(headers: string[], rows: string[][]): string {
     BOX.rightT;
   lines.push(headerSep);
   
-  // Data rows
+  // Data rows — padCellAware handles bold/italic markers in cell values
   for (const row of rows) {
     const dataRow = BOX.vertical + 
       colWidths.map((w, i) => {
         const value = row[i] || '';
-        return ` ${padCell(value, w, alignRight[i])} `;
+        return ` ${padCellAware(value, w, alignRight[i])} `;
       }).join(BOX.vertical) + 
       BOX.vertical;
     lines.push(dataRow);
