@@ -1,8 +1,8 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, normalize, relative } from 'node:path';
-import type { MemoryReadOptions, MemoryReadResult, MemorySessionContext } from './types.js';
-import { estimateTokens } from '../utils/tokens.js';
 import { getDexterDir } from '../utils/paths.js';
+import { estimateTokens } from '../utils/tokens.js';
+import type { MemoryReadOptions, MemoryReadResult, MemorySessionContext } from './types.js';
 
 const MEMORY_DIRNAME = 'memory';
 const LONG_TERM_FILE = 'MEMORY.md';

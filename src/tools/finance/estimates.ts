@@ -1,31 +1,30 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { api } from './api.js';
+import { fmp } from './api.js';
 import { formatToolResult } from '../types.js';
-
-const AnalystEstimatesInputSchema = z.object({
-  ticker: z
-    .string()
-    .describe(
-      "The stock ticker symbol to fetch analyst estimates for. For example, 'AAPL' for Apple."
-    ),
-  period: z
-    .enum(['annual', 'quarterly'])
-    .default('annual')
-    .describe("The period for the estimates, either 'annual' or 'quarterly'."),
-});
 
 export const getAnalystEstimates = new DynamicStructuredTool({
   name: 'get_analyst_estimates',
-  description: `Retrieves analyst estimates for a given company ticker, including metrics like estimated EPS. Useful for understanding consensus expectations, assessing future growth prospects, and performing valuation analysis.`,
-  schema: AnalystEstimatesInputSchema,
+  description: `Retrieves analyst consensus estimates via FMP, including estimated revenue, EPS, EBITDA, SGA, and net income. Useful for understanding consensus expectations and future growth prospects.`,
+  schema: z.object({
+    ticker: z
+      .string()
+      .describe("The stock ticker symbol. For example, 'AAPL' for Apple."),
+    period: z
+      .enum(['annual', 'quarter'])
+      .default('annual')
+      .describe("Period for estimates: 'annual' or 'quarter'."),
+    limit: z
+      .number()
+      .default(4)
+      .describe('Number of estimate periods to return (default: 4).'),
+  }),
   func: async (input) => {
-    const params = {
-      ticker: input.ticker,
+    const ticker = input.ticker.trim().toUpperCase();
+    const { data, url } = await fmp.get(`/analyst-estimates/${ticker}`, {
       period: input.period,
-    };
-    const { data, url } = await api.get('/analyst-estimates/', params);
-    return formatToolResult(data.analyst_estimates || [], [url]);
+      limit: input.limit,
+    });
+    return formatToolResult(Array.isArray(data) ? data : [], [url]);
   },
 });
-

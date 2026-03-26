@@ -1,6 +1,6 @@
 import { Container, Markdown, Spacer } from '@mariozechner/pi-tui';
-import { formatResponse } from '../utils/markdown-table.js';
 import { markdownTheme, theme } from '../theme.js';
+import { formatResponse } from '../utils/markdown-table.js';
 
 export class AnswerBoxComponent extends Container {
   private readonly body: Markdown;

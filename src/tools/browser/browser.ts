@@ -1,8 +1,8 @@
+import { logger } from '@/utils';
 import { DynamicStructuredTool } from '@langchain/core/tools';
-import { chromium, Browser, Page } from 'playwright';
+import { Browser, chromium, Page } from 'playwright';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
-import { logger } from '@/utils';
 
 let browser: Browser | null = null;
 let page: Page | null = null;

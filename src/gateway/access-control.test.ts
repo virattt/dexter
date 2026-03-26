@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { checkInboundAccessControl, isAllowedPhone, recordPairingRequest } from './access-control.js';
 
 describe('access control', () => {

@@ -1,19 +1,19 @@
 import { AIMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
-import { callLlm } from '../model/llm.js';
-import { getTools } from '../tools/registry.js';
-import { buildSystemPrompt, buildIterationPrompt, loadSoulDocument, loadSearchDocument } from './prompts.js';
-import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
-import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
-import { buildHistoryContext } from '../utils/history-context.js';
-import { estimateTokens, CONTEXT_THRESHOLD, KEEP_TOOL_USES } from '../utils/tokens.js';
-import { formatUserFacingError, isContextOverflowError } from '../utils/errors.js';
 import type { AgentConfig, AgentEvent, ContextClearedEvent, TokenUsage } from '../agent/types.js';
+import { runMemoryFlush, shouldRunMemoryFlush } from '../memory/flush.js';
+import { MemoryManager } from '../memory/index.js';
+import { callLlm } from '../model/llm.js';
+import { resolveProvider } from '../providers.js';
+import { getTools } from '../tools/registry.js';
+import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
+import { formatUserFacingError, isContextOverflowError } from '../utils/errors.js';
+import { buildHistoryContext } from '../utils/history-context.js';
+import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
+import { CONTEXT_THRESHOLD, estimateTokens, KEEP_TOOL_USES } from '../utils/tokens.js';
+import { buildIterationPrompt, buildSystemPrompt, loadSearchDocument, loadSoulDocument } from './prompts.js';
 import { createRunContext, type RunContext } from './run-context.js';
 import { AgentToolExecutor } from './tool-executor.js';
-import { MemoryManager } from '../memory/index.js';
-import { runMemoryFlush, shouldRunMemoryFlush } from '../memory/flush.js';
-import { resolveProvider } from '../providers.js';
 
 
 const DEFAULT_MODEL = 'gpt-5.4';

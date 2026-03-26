@@ -1,4 +1,4 @@
-import { existsSync, statSync, readFileSync, copyFileSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, readFileSync, statSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 

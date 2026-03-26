@@ -6,7 +6,7 @@
  */
 import 'dotenv/config';
 import { PROVIDERS } from '../providers.js';
-import { loadConfig, getSearchConfig } from '../utils/config.js';
+import { getSearchConfig, loadConfig } from '../utils/config.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -69,30 +69,75 @@ async function checkLlmProvider(): Promise<CheckResult> {
   };
 }
 
-async function checkFinancialDatasets(): Promise<CheckResult> {
-  const envVar = 'FINANCIAL_DATASETS_API_KEY';
+async function checkPolygon(): Promise<CheckResult> {
+  const envVar = 'POLYGON_API_KEY';
   if (!keyPresent(envVar)) {
     return {
-      name: 'Financial Datasets API',
+      name: 'Polygon.io (prices, financials, news, filings)',
       status: 'fail',
-      detail: `${envVar} not set — get_financials, get_market_data, stock_screener will return 0 data sources`,
+      detail: `${envVar} not set — get a free key at https://polygon.io`,
     };
   }
 
-  // Smoke-test with a lightweight request
   try {
     const { ms } = await timed(() =>
-      fetch('https://api.financialdatasets.ai/prices/snapshot/?ticker=AAPL', {
-        headers: { 'x-api-key': process.env[envVar]! },
-      }).then((r) => {
+      fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/AAPL?apiKey=${process.env[envVar]}`).then((r) => {
         if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
         return r;
       }),
     );
-    return { name: 'Financial Datasets API', status: 'pass', detail: `Key valid, AAPL snapshot OK`, latencyMs: ms };
+    return { name: 'Polygon.io', status: 'pass', detail: 'Key valid, AAPL snapshot OK', latencyMs: ms };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { name: 'Financial Datasets API', status: 'fail', detail: `Key set but request failed: ${msg}` };
+    return { name: 'Polygon.io', status: 'fail', detail: `Key set but request failed: ${msg}` };
+  }
+}
+
+async function checkFinnhub(): Promise<CheckResult> {
+  const envVar = 'FINNHUB_API_KEY';
+  if (!keyPresent(envVar)) {
+    return {
+      name: 'Finnhub (insider trades)',
+      status: 'skip',
+      detail: `${envVar} not set — get a free key at https://finnhub.io (optional)`,
+    };
+  }
+
+  try {
+    const { ms } = await timed(() =>
+      fetch(`https://finnhub.io/api/v1/stock/insider-transactions?symbol=AAPL&token=${process.env[envVar]}`).then((r) => {
+        if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+        return r;
+      }),
+    );
+    return { name: 'Finnhub', status: 'pass', detail: 'Key valid, insider trades OK', latencyMs: ms };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { name: 'Finnhub', status: 'fail', detail: `Key set but request failed: ${msg}` };
+  }
+}
+
+async function checkFmp(): Promise<CheckResult> {
+  const envVar = 'FMP_API_KEY';
+  if (!keyPresent(envVar)) {
+    return {
+      name: 'FMP (ratios, earnings, screener)',
+      status: 'skip',
+      detail: `${envVar} not set — get a free key at https://financialmodelingprep.com (optional)`,
+    };
+  }
+
+  try {
+    const { ms } = await timed(() =>
+      fetch(`https://financialmodelingprep.com/api/v3/key-metrics-ttm/AAPL?apikey=${process.env[envVar]}`).then((r) => {
+        if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+        return r;
+      }),
+    );
+    return { name: 'FMP', status: 'pass', detail: 'Key valid, AAPL metrics OK', latencyMs: ms };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { name: 'FMP', status: 'fail', detail: `Key set but request failed: ${msg}` };
   }
 }
 
@@ -107,10 +152,10 @@ async function checkSecEdgar(): Promise<CheckResult> {
         return r;
       }),
     );
-    return { name: 'SEC EDGAR (read_filings)', status: 'pass', detail: 'Reachable', latencyMs: ms };
+    return { name: 'SEC EDGAR', status: 'pass', detail: 'Reachable', latencyMs: ms };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { name: 'SEC EDGAR (read_filings)', status: 'fail', detail: msg };
+    return { name: 'SEC EDGAR', status: 'fail', detail: msg };
   }
 }
 
@@ -191,7 +236,9 @@ async function main() {
 
   const checks = await Promise.all([
     checkLlmProvider(),
-    checkFinancialDatasets(),
+    checkPolygon(),
+    checkFinnhub(),
+    checkFmp(),
     checkSecEdgar(),
     checkSearchProvider(),
     checkXSearch(),

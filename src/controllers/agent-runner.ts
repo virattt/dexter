@@ -1,13 +1,13 @@
 import { Agent } from '../agent/agent.js';
-import type { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import type {
-  AgentConfig,
-  AgentEvent,
-  ApprovalDecision,
-  DoneEvent,
+    AgentConfig,
+    AgentEvent,
+    ApprovalDecision,
+    DoneEvent
 } from '../agent/index.js';
 import type { DisplayEvent } from '../agent/types.js';
 import type { HistoryItem, HistoryItemStatus, WorkingState } from '../types.js';
+import type { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 
 type ChangeListener = () => void;
 

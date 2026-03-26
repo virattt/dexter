@@ -1,8 +1,8 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { TavilySearch } from '@langchain/tavily';
 import { z } from 'zod';
-import { formatToolResult, parseSearchResults } from '../types.js';
 import { logger } from '../../utils/logger.js';
+import { formatToolResult, parseSearchResults } from '../types.js';
 
 // Lazily initialized to avoid errors when API key is not set
 let tavilyClient: TavilySearch | null = null;

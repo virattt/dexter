@@ -1,11 +1,11 @@
 import { createHash } from 'crypto';
+import { z } from 'zod';
 import { callLlm, DEFAULT_MODEL } from '../model/llm.js';
 import {
-  DEFAULT_HISTORY_LIMIT,
-  FULL_ANSWER_TURNS,
-  type HistoryEntry,
+    DEFAULT_HISTORY_LIMIT,
+    FULL_ANSWER_TURNS,
+    type HistoryEntry
 } from './history-context.js';
-import { z } from 'zod';
 
 /**
  * Represents a single conversation turn (query + answer + summary)

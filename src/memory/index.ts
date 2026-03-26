@@ -1,17 +1,17 @@
+import { getSetting } from '../utils/config.js';
 import { MemoryDatabase } from './database.js';
 import { createEmbeddingClient } from './embeddings.js';
 import { MemoryIndexer } from './indexer.js';
 import { hybridSearch } from './search.js';
 import { MemoryStore } from './store.js';
 import type {
-  MemoryReadOptions,
-  MemoryReadResult,
-  MemoryRuntimeConfig,
-  MemorySearchOptions,
-  MemorySearchResult,
-  MemorySessionContext,
+    MemoryReadOptions,
+    MemoryReadResult,
+    MemoryRuntimeConfig,
+    MemorySearchOptions,
+    MemorySearchResult,
+    MemorySessionContext
 } from './types.js';
-import { getSetting } from '../utils/config.js';
 
 const DEFAULT_CONFIG: MemoryRuntimeConfig = {
   enabled: true,

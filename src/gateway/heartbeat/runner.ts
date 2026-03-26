@@ -1,13 +1,13 @@
 import { appendFileSync } from 'node:fs';
-import { loadGatewayConfig } from '../config.js';
+import { getSetting } from '../../utils/config.js';
+import { dexterPath } from '../../utils/paths.js';
 import { runAgentForMessage } from '../agent-runner.js';
 import { assertOutboundAllowed, sendMessageWhatsApp } from '../channels/whatsapp/index.js';
-import { resolveSessionStorePath, loadSessionStore, type SessionEntry } from '../sessions/store.js';
+import { loadGatewayConfig } from '../config.js';
+import { loadSessionStore, resolveSessionStorePath, type SessionEntry } from '../sessions/store.js';
 import { cleanMarkdownForWhatsApp } from '../utils.js';
 import { buildHeartbeatQuery } from './prompt.js';
 import { evaluateSuppression, type SuppressionState } from './suppression.js';
-import { dexterPath } from '../../utils/paths.js';
-import { getSetting } from '../../utils/config.js';
 
 const LOG_PATH = dexterPath('gateway-debug.log');
 

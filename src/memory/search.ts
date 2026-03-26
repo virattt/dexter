@@ -1,6 +1,6 @@
 import { buildSnippet } from './chunker.js';
-import { embedSingleQuery } from './embeddings.js';
 import type { MemoryDatabase } from './database.js';
+import { embedSingleQuery } from './embeddings.js';
 import type { MemoryEmbeddingClient, MemorySearchOptions, MemorySearchResult } from './types.js';
 
 type CombinedScore = {

@@ -1,14 +1,14 @@
 import {
-  DisconnectReason,
-  fetchLatestBaileysVersion,
-  makeCacheableSignalKeyStore,
-  makeWASocket,
-  useMultiFileAuthState,
-  type ConnectionState,
+    DisconnectReason,
+    fetchLatestBaileysVersion,
+    makeCacheableSignalKeyStore,
+    makeWASocket,
+    useMultiFileAuthState,
+    type ConnectionState
 } from '@whiskeysockets/baileys';
 import { mkdirSync } from 'node:fs';
+import { backupCredsBeforeSave, maybeRestoreCredsFromBackup } from './auth-store.js';
 import { createSilentLogger } from './logger.js';
-import { maybeRestoreCredsFromBackup, backupCredsBeforeSave } from './auth-store.js';
 
 export type WaSocket = ReturnType<typeof makeWASocket>;
 

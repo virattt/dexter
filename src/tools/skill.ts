@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { dirname, resolve } from 'path';
 import { z } from 'zod';
-import { getSkill, discoverSkills } from '../skills/index.js';
+import { discoverSkills, getSkill } from '../skills/index.js';
 
 /**
  * Rich description for the skill tool.

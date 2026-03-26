@@ -1,10 +1,10 @@
 import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type {
-  MemoryChunk,
-  MemoryKeywordCandidate,
-  MemorySearchResult,
-  MemoryVectorCandidate,
+    MemoryChunk,
+    MemoryKeywordCandidate,
+    MemorySearchResult,
+    MemoryVectorCandidate
 } from './types.js';
 
 type SqliteQuery<T> = {

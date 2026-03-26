@@ -1,7 +1,7 @@
 import { Container, Spacer, Text } from '@mariozechner/pi-tui';
 import packageJson from '../../package.json';
-import { getModelDisplayName } from '../utils/model.js';
 import { theme } from '../theme.js';
+import { getModelDisplayName } from '../utils/model.js';
 
 const INTRO_WIDTH = 50;
 

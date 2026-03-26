@@ -1,22 +1,20 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { api } from './api.js';
+import { fmp } from './api.js';
 import { formatToolResult } from '../types.js';
-
-const EarningsInputSchema = z.object({
-  ticker: z
-    .string()
-    .describe("The stock ticker symbol to fetch the latest earnings for. For example, 'AAPL' for Apple."),
-});
 
 export const getEarnings = new DynamicStructuredTool({
   name: 'get_earnings',
   description:
-    'Fetches the most recent earnings snapshot for a company, including key income statement, balance sheet, and cash flow figures from the 8-K earnings release, plus analyst estimate comparisons (revenue and EPS surprise) when available.',
-  schema: EarningsInputSchema,
+    'Fetches earnings surprises for a company via FMP, including actual vs estimated EPS and revenue, surprise percentages, and reporting dates. Useful for evaluating earnings performance and beat/miss history.',
+  schema: z.object({
+    ticker: z
+      .string()
+      .describe("The stock ticker symbol. For example, 'AAPL' for Apple."),
+  }),
   func: async (input) => {
     const ticker = input.ticker.trim().toUpperCase();
-    const { data, url } = await api.get('/earnings', { ticker });
-    return formatToolResult(data.earnings || {}, [url]);
+    const { data, url } = await fmp.get(`/earnings-surprises/${ticker}`);
+    return formatToolResult(Array.isArray(data) ? data : [], [url]);
   },
 });

@@ -1,8 +1,8 @@
 import { watch, type FSWatcher } from 'node:fs';
-import type { MemoryDatabase } from './database.js';
 import { chunkMemoryText } from './chunker.js';
-import type { MemoryEmbeddingClient, MemorySyncStats } from './types.js';
+import type { MemoryDatabase } from './database.js';
 import { MemoryStore } from './store.js';
+import type { MemoryEmbeddingClient, MemorySyncStats } from './types.js';
 
 export class MemoryIndexer {
   private watcher: FSWatcher | null = null;

@@ -1,8 +1,8 @@
+import { randomInt } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { randomInt } from 'node:crypto';
-import { isSelfChatMode, normalizeE164 } from './utils.js';
 import { dexterPath } from '../utils/paths.js';
+import { isSelfChatMode, normalizeE164 } from './utils.js';
 
 const PAIRING_REPLY_HISTORY_GRACE_MS = 30_000;
 

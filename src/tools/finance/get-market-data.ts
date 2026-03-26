@@ -1,10 +1,10 @@
-import { DynamicStructuredTool, StructuredToolInterface } from '@langchain/core/tools';
-import type { RunnableConfig } from '@langchain/core/runnables';
 import { AIMessage, ToolCall } from '@langchain/core/messages';
+import type { RunnableConfig } from '@langchain/core/runnables';
+import { DynamicStructuredTool, StructuredToolInterface } from '@langchain/core/tools';
 import { z } from 'zod';
+import { getCurrentDate } from '../../agent/prompts.js';
 import { callLlm } from '../../model/llm.js';
 import { formatToolResult } from '../types.js';
-import { getCurrentDate } from '../../agent/prompts.js';
 
 /**
  * Rich description for the get_market_data tool.
@@ -50,10 +50,10 @@ function formatSubToolName(name: string): string {
 }
 
 // Import market data tools directly (avoid circular deps with index.ts)
-import { getStockPrice, getStockPrices, getStockTickers } from './stock-price.js';
-import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
-import { getCompanyNews } from './news.js';
+import { getCryptoPrices, getCryptoPriceSnapshot, getCryptoTickers } from './crypto.js';
 import { getInsiderTrades } from './insider_trades.js';
+import { getCompanyNews } from './news.js';
+import { getStockPrice, getStockPrices, getStockTickers } from './stock-price.js';
 
 // All market data tools available for routing
 const MARKET_DATA_TOOLS: StructuredToolInterface[] = [

@@ -1,20 +1,17 @@
 import {
-  isJidGroup,
-  normalizeMessageContent,
-  extractMessageContent,
-  type ConnectionState,
-  type WAMessage,
-  type proto,
+    extractMessageContent, isJidGroup,
+    normalizeMessageContent, type ConnectionState,
+    type WAMessage
 } from '@whiskeysockets/baileys';
-import { createWaSocket, getStatusCode, isLoggedOutReason, waitForWaConnection } from './session.js';
-import type { WhatsAppCloseReason, WhatsAppInboundMessage } from './types.js';
-import { setActiveWebListener } from './outbound.js';
-import { isRecentInboundMessage } from './dedupe.js';
-import { readSelfId } from './auth-store.js';
-import { checkInboundAccessControl } from '../../access-control.js';
-import { resolveJidToPhoneJid, type LidLookup } from './lid.js';
 import { appendFileSync } from 'node:fs';
 import { dexterPath } from '../../../utils/paths.js';
+import { checkInboundAccessControl } from '../../access-control.js';
+import { readSelfId } from './auth-store.js';
+import { isRecentInboundMessage } from './dedupe.js';
+import { resolveJidToPhoneJid, type LidLookup } from './lid.js';
+import { setActiveWebListener } from './outbound.js';
+import { createWaSocket, getStatusCode, isLoggedOutReason, waitForWaConnection } from './session.js';
+import type { WhatsAppCloseReason, WhatsAppInboundMessage } from './types.js';
 
 const LOG_PATH = dexterPath('gateway-debug.log');
 function debugLog(msg: string) {

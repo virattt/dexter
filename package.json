@@ -14,6 +14,8 @@
     "gateway:login": "tsx src/gateway/index.ts login",
     "typecheck": "tsc --noEmit",
     "diagnose": "bun run src/tools/diagnostics.ts",
+    "test:finance": "bun run src/tools/finance/test-integration.ts",
+    "test:finance:verbose": "bun run src/tools/finance/test-integration.ts --verbose",
     "test": "bun test",
     "test:watch": "bun test --watch",
     "postinstall": "playwright install chromium"

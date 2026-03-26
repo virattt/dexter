@@ -1,8 +1,8 @@
 import { Agent } from '../agent/agent.js';
+import type { GroupContext } from '../agent/prompts.js';
+import type { AgentEvent } from '../agent/types.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { HEARTBEAT_OK_TOKEN } from './heartbeat/suppression.js';
-import type { AgentEvent } from '../agent/types.js';
-import type { GroupContext } from '../agent/prompts.js';
 
 type SessionState = {
   history: InMemoryChatHistory;

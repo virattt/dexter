@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { HEARTBEAT_OK_TOKEN } from './suppression.js';
 import { dexterPath } from '../../utils/paths.js';
+import { HEARTBEAT_OK_TOKEN } from './suppression.js';
 
 const HEARTBEAT_MD_PATH = dexterPath('HEARTBEAT.md');
 

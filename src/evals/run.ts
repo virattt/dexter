@@ -6,18 +6,18 @@
  *   bun run src/evals/run.ts --sample 10  # Run on random sample of 10 questions
  */
 
-import 'dotenv/config';
 import { ProcessTerminal, TUI } from '@mariozechner/pi-tui';
+import 'dotenv/config';
+import fs from 'fs';
 import { Client } from 'langsmith';
 import type { EvaluationResult } from 'langsmith/evaluation';
-import { z } from 'zod';
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { z } from 'zod';
 import { Agent } from '../agent/agent.js';
-import { EvalApp, type EvalProgressEvent } from './components/index.js';
 import { getChatModel } from '../model/llm.js';
 import { getEvalConfig, getSetting } from '../utils/config.js';
+import { EvalApp, type EvalProgressEvent } from './components/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

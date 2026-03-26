@@ -1,6 +1,6 @@
 import qrcode from 'qrcode-terminal';
-import { createWaSocket, getStatusCode, waitForWaConnection } from './session.js';
 import { formatError } from './error.js';
+import { createWaSocket, getStatusCode, waitForWaConnection } from './session.js';
 
 export type LoginResult = {
   phone: string | null;

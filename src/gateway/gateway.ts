@@ -1,29 +1,24 @@
+import { appendFileSync } from 'node:fs';
+import type { GroupContext } from '../agent/prompts.js';
+import { getSetting } from '../utils/config.js';
+import { dexterPath } from '../utils/paths.js';
+import { runAgentForMessage } from './agent-runner.js';
 import { createChannelManager } from './channels/manager.js';
-import { createWhatsAppPlugin } from './channels/whatsapp/plugin.js';
 import {
-  assertOutboundAllowed,
-  sendComposing,
-  sendMessageWhatsApp,
-  type WhatsAppInboundMessage,
+    assertOutboundAllowed,
+    sendComposing,
+    sendMessageWhatsApp,
+    type WhatsAppInboundMessage
 } from './channels/whatsapp/index.js';
+import { createWhatsAppPlugin } from './channels/whatsapp/plugin.js';
+import { loadGatewayConfig, type GatewayConfig } from './config.js';
+import {
+    formatGroupHistoryContext, formatGroupMembersList, getAndClearGroupHistory, isBotMentioned, noteGroupMember, recordGroupMessage
+} from './group/index.js';
+import { startHeartbeatRunner } from './heartbeat/index.js';
 import { resolveRoute } from './routing/resolve-route.js';
 import { resolveSessionStorePath, upsertSessionMeta } from './sessions/store.js';
-import { loadGatewayConfig, type GatewayConfig } from './config.js';
-import { runAgentForMessage } from './agent-runner.js';
 import { cleanMarkdownForWhatsApp } from './utils.js';
-import { startHeartbeatRunner } from './heartbeat/index.js';
-import {
-  isBotMentioned,
-  recordGroupMessage,
-  getAndClearGroupHistory,
-  formatGroupHistoryContext,
-  noteGroupMember,
-  formatGroupMembersList,
-} from './group/index.js';
-import type { GroupContext } from '../agent/prompts.js';
-import { appendFileSync } from 'node:fs';
-import { dexterPath } from '../utils/paths.js';
-import { getSetting } from '../utils/config.js';
 
 const LOG_PATH = dexterPath('gateway-debug.log');
 function debugLog(msg: string) {

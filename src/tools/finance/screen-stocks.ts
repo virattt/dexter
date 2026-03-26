@@ -1,10 +1,10 @@
-import { DynamicStructuredTool } from '@langchain/core/tools';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
+import { getCurrentDate } from '../../agent/prompts.js';
 import { callLlm } from '../../model/llm.js';
 import { formatToolResult } from '../types.js';
-import { getCurrentDate } from '../../agent/prompts.js';
-import { api } from './api.js';
+import { fmp } from './api.js';
 
 /**
  * Rich description for the screen_stocks tool.
@@ -30,66 +30,65 @@ Screens for stocks matching financial criteria. Takes a natural language query d
 ## Usage Notes
 
 - Call ONCE with the complete natural language query describing your screening criteria
-- The tool translates your criteria into exact API filters automatically
-- Returns matching tickers with the metric values used for screening
-- Supports operators: gt, gte, lt, lte, eq, between
+- The tool translates your criteria into FMP stock screener parameters automatically
+- Returns matching tickers with key financial data
 `.trim();
 
-// In-memory cache for screener metrics (static model fields, rarely change)
-let cachedMetrics: Record<string, unknown> | null = null;
-
-async function getScreenerMetrics(): Promise<Record<string, unknown>> {
-  if (cachedMetrics) {
-    return cachedMetrics;
-  }
-
-  const { data } = await api.get('/financials/search/screener/metrics/', {});
-  cachedMetrics = data;
-  return data;
-}
-
-const ScreenerFilterSchema = z.object({
-  filters: z.array(z.object({
-    field: z.string().describe('Exact metric field name from the available metrics list'),
-    operator: z.enum(['gt', 'gte', 'lt', 'lte', 'eq', 'between']).describe('Comparison operator'),
-    value: z.union([z.number(), z.array(z.number())]).describe('Threshold value, or [min, max] array for "between" operator'),
-  })).describe('Array of screening filters to apply'),
-  currency: z.string().default('USD').describe('Currency code (e.g., "USD")'),
-  limit: z.number().default(5).describe('Maximum number of results to return'),
+// FMP stock screener query params
+const FmpScreenerParamsSchema = z.object({
+  marketCapMoreThan: z.number().optional().describe('Minimum market cap in USD'),
+  marketCapLowerThan: z.number().optional().describe('Maximum market cap in USD'),
+  priceMoreThan: z.number().optional().describe('Minimum stock price'),
+  priceLowerThan: z.number().optional().describe('Maximum stock price'),
+  betaMoreThan: z.number().optional().describe('Minimum beta'),
+  betaLowerThan: z.number().optional().describe('Maximum beta'),
+  volumeMoreThan: z.number().optional().describe('Minimum average volume'),
+  volumeLowerThan: z.number().optional().describe('Maximum average volume'),
+  dividendMoreThan: z.number().optional().describe('Minimum dividend yield'),
+  dividendLowerThan: z.number().optional().describe('Maximum dividend yield'),
+  sector: z.string().optional().describe('Sector filter (e.g., "Technology", "Healthcare")'),
+  industry: z.string().optional().describe('Industry filter'),
+  country: z.string().optional().describe('Country filter (e.g., "US", "GB")'),
+  exchange: z.string().optional().describe('Exchange filter (e.g., "NYSE", "NASDAQ")'),
+  isEtf: z.boolean().optional().describe('Filter for ETFs only'),
+  isActivelyTrading: z.boolean().optional().describe('Filter for actively trading stocks'),
+  limit: z.number().default(25).describe('Maximum results to return'),
 });
 
-type ScreenerFilters = z.infer<typeof ScreenerFilterSchema>;
+type FmpScreenerParams = z.infer<typeof FmpScreenerParamsSchema>;
 
-// Escape curly braces for LangChain template interpolation
-function escapeTemplateVars(str: string): string {
-  return str.replace(/\{/g, '{{').replace(/\}/g, '}}');
-}
-
-function buildScreenerPrompt(metrics: Record<string, unknown>): string {
-  const escapedMetrics = escapeTemplateVars(JSON.stringify(metrics, null, 2));
-
+function buildScreenerPrompt(): string {
   return `You are a stock screening assistant.
 Current date: ${getCurrentDate()}
 
-Given a user's natural language query about stock screening criteria, produce the structured filter payload.
+Given a user's natural language query about stock screening criteria, produce the structured FMP screener parameters.
 
-## Available Screener Metrics
+## Available Parameters
 
-${escapedMetrics}
+- marketCapMoreThan / marketCapLowerThan: Market cap bounds in USD (e.g., 1000000000 for $1B)
+- priceMoreThan / priceLowerThan: Stock price bounds
+- betaMoreThan / betaLowerThan: Beta bounds
+- volumeMoreThan / volumeLowerThan: Average volume bounds
+- dividendMoreThan / dividendLowerThan: Dividend yield bounds (as percentage, e.g., 3 for 3%)
+- sector: One of "Technology", "Healthcare", "Financial Services", "Consumer Cyclical", "Industrials", "Communication Services", "Consumer Defensive", "Energy", "Basic Materials", "Real Estate", "Utilities"
+- industry: Specific industry within sector
+- country: Country code (e.g., "US", "GB", "JP")
+- exchange: "NYSE", "NASDAQ", "AMEX", "EURONEXT", "TSX", "LSE"
+- isEtf: true to include only ETFs, false to exclude ETFs
+- isActivelyTrading: true for actively traded stocks only
+- limit: Number of results (default 25)
 
 ## Guidelines
 
-1. Map user criteria to exact field names from the metrics list above
-2. Choose the correct operator:
-   - "below", "under", "less than" → lt or lte
-   - "above", "over", "greater than", "more than" → gt or gte
-   - "equal to", "exactly" → eq
-   - "between X and Y" → between (value as [min, max])
-3. Use reasonable defaults:
-   - If the user says "low P/E" without a number, use a sensible threshold (e.g., lt 15)
-   - If the user says "high growth" without a number, use a sensible threshold (e.g., gt 20)
-4. Set limit to 25 unless the user specifies otherwise
-5. Default currency to USD unless specified
+1. Map user criteria to the available parameters above
+2. Use reasonable defaults:
+   - "large cap" → marketCapMoreThan: 10000000000
+   - "mid cap" → marketCapMoreThan: 2000000000, marketCapLowerThan: 10000000000
+   - "small cap" → marketCapLowerThan: 2000000000
+   - "high dividend" → dividendMoreThan: 3
+   - "penny stocks" → priceLowerThan: 5
+3. Set limit to 25 unless the user specifies otherwise
+4. Default isActivelyTrading to true
 
 Return only the structured output fields.`;
 }
@@ -100,45 +99,30 @@ const ScreenStocksInputSchema = z.object({
 
 /**
  * Create a screen_stocks tool configured with the specified model.
- * Single LLM call: structured output translates natural language → screener filters.
+ * LLM translates natural language → FMP screener params.
  */
 export function createScreenStocks(model: string): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: 'stock_screener',
-    description: `Screens for stocks matching financial criteria. Takes a natural language query and returns matching tickers with metric values. Use for:
-- Finding stocks by valuation (P/E, P/B, EV/EBITDA)
-- Screening by profitability (margins, ROE, ROA)
-- Filtering by growth rates (revenue, earnings, EPS growth)
-- Dividend screening (yield, payout ratio)`,
+    description: `Screens for stocks matching financial criteria via FMP. Takes a natural language query and returns matching tickers with key data. Use for:
+- Finding stocks by valuation (P/E, market cap)
+- Screening by sector, industry, or exchange
+- Filtering by dividend yield, beta, or volume
+- Finding large/mid/small cap stocks`,
     schema: ScreenStocksInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
       const onProgress = config?.metadata?.onProgress as ((msg: string) => void) | undefined;
 
-      // Step 1: Fetch screener metrics (cached after first call)
-      onProgress?.('Loading screener metrics...');
-      let metrics: Record<string, unknown>;
-      try {
-        metrics = await getScreenerMetrics();
-      } catch (error) {
-        return formatToolResult(
-          {
-            error: 'Failed to fetch screener metrics',
-            details: error instanceof Error ? error.message : String(error),
-          },
-          [],
-        );
-      }
-
-      // Step 2: LLM structured output — translate natural language → filters
+      // LLM structured output — translate natural language → FMP params
       onProgress?.('Building screening criteria...');
-      let filters: ScreenerFilters;
+      let params: FmpScreenerParams;
       try {
         const { response } = await callLlm(input.query, {
           model,
-          systemPrompt: buildScreenerPrompt(metrics),
-          outputSchema: ScreenerFilterSchema,
+          systemPrompt: buildScreenerPrompt(),
+          outputSchema: FmpScreenerParamsSchema,
         });
-        filters = ScreenerFilterSchema.parse(response);
+        params = FmpScreenerParamsSchema.parse(response);
       } catch (error) {
         return formatToolResult(
           {
@@ -149,21 +133,22 @@ export function createScreenStocks(model: string): DynamicStructuredTool {
         );
       }
 
-      // Step 3: POST to screener API
+      // Call FMP stock screener
       onProgress?.('Screening stocks...');
       try {
-        const { data, url } = await api.post('/financials/search/screener/', {
-          filters: filters.filters,
-          currency: filters.currency,
-          limit: filters.limit,
-        });
-        return formatToolResult(data, [url]);
+        const queryParams: Record<string, string | number | undefined> = {};
+        for (const [key, value] of Object.entries(params)) {
+          if (value !== undefined && value !== null) {
+            queryParams[key] = typeof value === 'boolean' ? String(value) : (value as string | number);
+          }
+        }
+        const { data, url } = await fmp.get('/stock-screener', queryParams);
+        return formatToolResult(Array.isArray(data) ? data : [], [url]);
       } catch (error) {
         return formatToolResult(
           {
             error: 'Screener request failed',
             details: error instanceof Error ? error.message : String(error),
-            filters: filters.filters,
           },
           [],
         );

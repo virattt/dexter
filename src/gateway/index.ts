@@ -2,14 +2,10 @@
 import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import util from 'node:util';
-import {
-  resolveWhatsAppAccount,
-  loadGatewayConfig,
-  saveGatewayConfig,
-  getGatewayConfigPath,
-  type GatewayConfig,
-} from './config.js';
 import { loginWhatsApp } from './channels/whatsapp/login.js';
+import {
+    getGatewayConfigPath, loadGatewayConfig, resolveWhatsAppAccount, saveGatewayConfig, type GatewayConfig
+} from './config.js';
 import { startGateway } from './gateway.js';
 
 // Suppress noisy Baileys Signal protocol session logs

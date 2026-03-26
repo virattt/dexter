@@ -1,11 +1,5 @@
 import {
-  findPrevWordStart,
-  findNextWordEnd,
-  getLineAndColumn,
-  getCursorPosition,
-  getLineStart,
-  getLineEnd,
-  getLineCount,
+    findNextWordEnd, findPrevWordStart, getCursorPosition, getLineAndColumn, getLineCount, getLineEnd, getLineStart
 } from './text-navigation.js';
 
 /**

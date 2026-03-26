@@ -1,10 +1,10 @@
-import { buildToolDescriptions } from '../tools/registry.js';
-import { buildSkillMetadataSection, discoverSkills } from '../skills/index.js';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getChannelProfile } from './channels.js';
+import { buildSkillMetadataSection, discoverSkills } from '../skills/index.js';
+import { buildToolDescriptions } from '../tools/registry.js';
 import { dexterPath } from '../utils/paths.js';
+import { getChannelProfile } from './channels.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

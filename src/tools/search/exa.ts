@@ -1,10 +1,10 @@
+import { logger } from '@/utils';
+import { getSearchConfig } from '@/utils/config.js';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { ExaSearchResults } from '@langchain/exa';
 import Exa from 'exa-js';
 import { z } from 'zod';
 import { formatToolResult, parseSearchResults } from '../types.js';
-import { logger } from '@/utils';
-import { getSearchConfig } from '@/utils/config.js';
 
 // Lazily initialized to avoid errors when API key is not set
 let exaTool: { invoke: (query: string) => Promise<unknown> } | null = null;

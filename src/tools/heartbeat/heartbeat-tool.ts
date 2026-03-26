@@ -2,8 +2,8 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { z } from 'zod';
-import { dexterPath } from '../../utils/paths.js';
 import { loadGatewayConfig, saveGatewayConfig } from '../../gateway/config.js';
+import { dexterPath } from '../../utils/paths.js';
 
 const HEARTBEAT_MD_PATH = dexterPath('HEARTBEAT.md');
 

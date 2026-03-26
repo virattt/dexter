@@ -1,7 +1,12 @@
-import { readCache, writeCache, describeRequest } from '../../utils/cache.js';
+import { describeRequest, readCache, writeCache } from '../../utils/cache.js';
 import { logger } from '../../utils/logger.js';
 
-const BASE_URL = 'https://api.financialdatasets.ai';
+// ── Provider base URLs ─────────────────────────────────────────────────────
+
+const POLYGON_BASE = 'https://api.polygon.io';
+const FINNHUB_BASE = 'https://finnhub.io/api/v1';
+const FMP_BASE = 'https://financialmodelingprep.com/api/v3';
+const SEC_EDGAR_BASE = 'https://data.sec.gov';
 
 export interface ApiResponse {
   data: Record<string, unknown>;
@@ -40,63 +45,70 @@ export function stripFieldsDeep(value: unknown, fields: readonly string[]): unkn
   return walk(value);
 }
 
-function getApiKey(): string {
-  return process.env.FINANCIAL_DATASETS_API_KEY || '';
-}
+// ── Shared request execution ───────────────────────────────────────────────
 
-/**
- * Shared request execution: handles API key, error handling, logging, and response parsing.
- */
 async function executeRequest(
+  provider: string,
   url: string,
   label: string,
-  init: RequestInit,
+  init: RequestInit = {},
 ): Promise<Record<string, unknown>> {
-  const apiKey = getApiKey();
-
-  if (!apiKey) {
-    logger.warn(`[Financial Datasets API] call without key: ${label}`);
-  }
-
   let response: Response;
   try {
-    response = await fetch(url, {
-      ...init,
-      headers: {
-        'x-api-key': apiKey,
-        ...init.headers,
-      },
-    });
+    response = await fetch(url, init);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error(`[Financial Datasets API] network error: ${label} — ${message}`);
-    throw new Error(`[Financial Datasets API] request failed for ${label}: ${message}`);
+    logger.error(`[${provider}] network error: ${label} — ${message}`);
+    throw new Error(`[${provider}] request failed for ${label}: ${message}`);
   }
 
   if (!response.ok) {
     const detail = `${response.status} ${response.statusText}`;
-    logger.error(`[Financial Datasets API] error: ${label} — ${detail}`);
-    throw new Error(`[Financial Datasets API] request failed: ${detail}`);
+    logger.error(`[${provider}] error: ${label} — ${detail}`);
+    throw new Error(`[${provider}] request failed: ${detail}`);
   }
 
   const data = await response.json().catch(() => {
     const detail = `invalid JSON (${response.status} ${response.statusText})`;
-    logger.error(`[Financial Datasets API] parse error: ${label} — ${detail}`);
-    throw new Error(`[Financial Datasets API] request failed: ${detail}`);
+    logger.error(`[${provider}] parse error: ${label} — ${detail}`);
+    throw new Error(`[${provider}] request failed: ${detail}`);
   });
 
   return data as Record<string, unknown>;
 }
 
+// ── Polygon API (primary — prices, financials, news, filings, earnings) ────
+
+function buildUrl(
+  base: string,
+  endpoint: string,
+  params: Record<string, string | number | string[] | undefined>,
+  authParam?: { key: string; value: string },
+): URL {
+  const url = new URL(`${base}${endpoint}`);
+  if (authParam) {
+    url.searchParams.set(authParam.key, authParam.value);
+  }
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null) {
+      if (Array.isArray(value)) {
+        url.searchParams.set(key, value.join(','));
+      } else {
+        url.searchParams.set(key, String(value));
+      }
+    }
+  }
+  return url;
+}
+
 export const api = {
   async get(
     endpoint: string,
-    params: Record<string, string | number | string[] | undefined>,
+    params: Record<string, string | number | string[] | undefined> = {},
     options?: { cacheable?: boolean },
   ): Promise<ApiResponse> {
     const label = describeRequest(endpoint, params);
 
-    // Check local cache first — avoids redundant network calls for immutable data
     if (options?.cacheable) {
       const cached = readCache(endpoint, params);
       if (cached) {
@@ -104,22 +116,14 @@ export const api = {
       }
     }
 
-    const url = new URL(`${BASE_URL}${endpoint}`);
-
-    // Add params to URL, handling arrays
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined && value !== null) {
-        if (Array.isArray(value)) {
-          value.forEach((v) => url.searchParams.append(key, v));
-        } else {
-          url.searchParams.append(key, String(value));
-        }
-      }
+    const apiKey = process.env.POLYGON_API_KEY || '';
+    if (!apiKey) {
+      throw new Error('POLYGON_API_KEY not set. Get a free key at https://polygon.io');
     }
 
-    const data = await executeRequest(url.toString(), label, {});
+    const url = buildUrl(POLYGON_BASE, endpoint, params, { key: 'apiKey', value: apiKey });
+    const data = await executeRequest('Polygon', url.toString(), label);
 
-    // Persist for future requests when the caller marked the response as cacheable
     if (options?.cacheable) {
       writeCache(endpoint, params, data, url.toString());
     }
@@ -132,12 +136,75 @@ export const api = {
     body: Record<string, unknown>,
   ): Promise<ApiResponse> {
     const label = `POST ${endpoint}`;
-    const url = `${BASE_URL}${endpoint}`;
+    const apiKey = process.env.POLYGON_API_KEY || '';
+    if (!apiKey) {
+      throw new Error('POLYGON_API_KEY not set. Get a free key at https://polygon.io');
+    }
+    const url = `${POLYGON_BASE}${endpoint}?apiKey=${apiKey}`;
 
-    const data = await executeRequest(url, label, {
+    const data = await executeRequest('Polygon', url, label, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+    });
+
+    return { data, url };
+  },
+};
+
+// ── Finnhub API (insider trades) ───────────────────────────────────────────
+
+export const finnhub = {
+  async get(
+    endpoint: string,
+    params: Record<string, string | number | undefined> = {},
+  ): Promise<ApiResponse> {
+    const label = describeRequest(endpoint, params);
+    const apiKey = process.env.FINNHUB_API_KEY || '';
+    if (!apiKey) {
+      throw new Error('FINNHUB_API_KEY not set. Get a free key at https://finnhub.io');
+    }
+
+    const url = buildUrl(FINNHUB_BASE, endpoint, params, { key: 'token', value: apiKey });
+    const data = await executeRequest('Finnhub', url.toString(), label);
+    return { data, url: url.toString() };
+  },
+};
+
+// ── FMP API (stock screener) ───────────────────────────────────────────────
+
+export const fmp = {
+  async get(
+    endpoint: string,
+    params: Record<string, string | number | undefined> = {},
+  ): Promise<ApiResponse> {
+    const label = describeRequest(endpoint, params);
+    const apiKey = process.env.FMP_API_KEY || '';
+    if (!apiKey) {
+      throw new Error('FMP_API_KEY not set. Get a free key at https://financialmodelingprep.com');
+    }
+
+    const url = buildUrl(FMP_BASE, endpoint, params, { key: 'apikey', value: apiKey });
+    const data = await executeRequest('FMP', url.toString(), label);
+    return { data, url: url.toString() };
+  },
+};
+
+// ── SEC EDGAR API (free, no key — segmented revenues via XBRL) ─────────────
+
+export const edgar = {
+  async get(
+    endpoint: string,
+    label?: string,
+  ): Promise<ApiResponse> {
+    const url = `${SEC_EDGAR_BASE}${endpoint}`;
+    const requestLabel = label || endpoint;
+
+    const data = await executeRequest('SEC EDGAR', url, requestLabel, {
+      headers: {
+        'User-Agent': 'Dexter/1.0 support@dexter.ai',
+        'Accept': 'application/json',
+      },
     });
 
     return { data, url };

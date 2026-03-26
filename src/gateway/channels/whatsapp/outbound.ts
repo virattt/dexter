@@ -1,9 +1,9 @@
 import type { AnyMessageContent } from '@whiskeysockets/baileys';
 import fs from 'node:fs';
-import type { WaSocket } from './session.js';
+import { dexterPath } from '../../../utils/paths.js';
 import { loadGatewayConfig, resolveWhatsAppAccount } from '../../config.js';
 import { normalizeE164, toWhatsappJid } from '../../utils.js';
-import { dexterPath } from '../../../utils/paths.js';
+import type { WaSocket } from './session.js';
 
 function debugLog(msg: string) {
   try {

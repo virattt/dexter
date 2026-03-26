@@ -1,30 +1,28 @@
 import { Container, ProcessTerminal, Spacer, Text, TUI } from '@mariozechner/pi-tui';
 import type {
-  ApprovalDecision,
-  ToolEndEvent,
-  ToolErrorEvent,
-  ToolStartEvent,
+    ApprovalDecision,
+    ToolEndEvent,
+    ToolErrorEvent,
+    ToolStartEvent
 } from './agent/index.js';
+import {
+    ApiKeyInputComponent,
+    ApprovalPromptComponent,
+    ChatLogComponent, createApiKeyConfirmSelector,
+    createModelSelector,
+    createProviderSelector, CustomEditor,
+    DebugPanelComponent,
+    IntroComponent,
+    WorkingIndicatorComponent
+} from './components/index.js';
+import {
+    AgentRunnerController,
+    InputHistoryController,
+    ModelSelectionController
+} from './controllers/index.js';
+import { editorTheme, theme } from './theme.js';
 import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js';
 import { logger } from './utils/logger.js';
-import {
-  AgentRunnerController,
-  InputHistoryController,
-  ModelSelectionController,
-} from './controllers/index.js';
-import {
-  ApiKeyInputComponent,
-  ApprovalPromptComponent,
-  ChatLogComponent,
-  CustomEditor,
-  DebugPanelComponent,
-  IntroComponent,
-  WorkingIndicatorComponent,
-  createApiKeyConfirmSelector,
-  createModelSelector,
-  createProviderSelector,
-} from './components/index.js';
-import { editorTheme, theme } from './theme.js';
 
 function truncateAtWord(str: string, maxLength: number): string {
   if (str.length <= maxLength) {

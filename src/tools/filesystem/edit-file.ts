@@ -5,13 +5,13 @@ import { z } from 'zod';
 import { formatToolResult } from '../types.js';
 import { assertSandboxPath } from './sandbox.js';
 import {
-  detectLineEnding,
-  fuzzyFindText,
-  generateDiffString,
-  normalizeForFuzzyMatch,
-  normalizeToLF,
-  restoreLineEndings,
-  stripBom,
+    detectLineEnding,
+    fuzzyFindText,
+    generateDiffString,
+    normalizeForFuzzyMatch,
+    normalizeToLF,
+    restoreLineEndings,
+    stripBom
 } from './utils/edit-diff.js';
 
 export const EDIT_FILE_DESCRIPTION = `
