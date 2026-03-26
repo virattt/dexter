@@ -97,6 +97,36 @@ export function createApiKeyConfirmSelector(onConfirm: (wantsToSet: boolean) => 
   return list;
 }
 
+/** Formats a timestamp as a human-readable relative date+time.
+ * @internal exported for testing
+ */
+export function formatRelativeTime(ts: number, now: number = Date.now()): string {
+  const d = new Date(ts);
+  const today = new Date(now);
+
+  const sameDay =
+    d.getUTCFullYear() === today.getUTCFullYear() &&
+    d.getUTCMonth() === today.getUTCMonth() &&
+    d.getUTCDate() === today.getUTCDate();
+
+  const yesterday = new Date(today);
+  yesterday.setUTCDate(today.getUTCDate() - 1);
+  const isYesterday =
+    d.getUTCFullYear() === yesterday.getUTCFullYear() &&
+    d.getUTCMonth() === yesterday.getUTCMonth() &&
+    d.getUTCDate() === yesterday.getUTCDate();
+
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const mm = String(d.getUTCMinutes()).padStart(2, '0');
+
+  if (sameDay) return `Today ${hh}:${mm}`;
+  if (isYesterday) return `Yesterday ${hh}:${mm}`;
+
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const dayNum = d.getUTCDate();
+  return `${months[d.getUTCMonth()]} ${dayNum} ${hh}:${mm}`;
+}
+
 export function createSessionSelector(
   sessions: SessionIndexEntry[],
   onSelect: (id: string | null) => void,
@@ -112,10 +142,29 @@ export function createSessionSelector(
     };
     return container;
   }
-  const items: SelectItem[] = sessions.map((s, i) => ({
-    value: s.id,
-    label: `${i + 1}. ${s.name}  (${s.queryCount} ${s.queryCount === 1 ? 'query' : 'queries'})`,
-  }));
+
+  const now = Date.now();
+  const items: SelectItem[] = sessions.map((s) => {
+    // Show first query (verbatim) when available, otherwise strip the date prefix from name.
+    const rawQuery = s.firstQuery ?? s.name.replace(/^\d{4}-\d{2}-\d{2}\s+/, '');
+    const maxQueryLen = 46;
+    const queryPreview =
+      rawQuery.length > maxQueryLen ? `${rawQuery.slice(0, maxQueryLen - 1)}…` : rawQuery;
+
+    const relTime = formatRelativeTime(s.lastModified, now);
+    const countLabel = `${s.queryCount} ${s.queryCount === 1 ? 'query' : 'queries'}`;
+    const meta = `${relTime} · ${countLabel}`;
+
+    // Pad so metadata is right-aligned at a fixed column (72 chars total).
+    const totalWidth = 72;
+    const labelLeft = queryPreview;
+    const gap = Math.max(2, totalWidth - labelLeft.length - meta.length);
+    return {
+      value: s.id,
+      label: `${labelLeft}${' '.repeat(gap)}${meta}`,
+    };
+  });
+
   const list = new VimSelectList(items, Math.min(sessions.length + 2, 12), selectListTheme);
   list.onSelect = (item) => onSelect(item.value);
   list.onCancel = () => onSelect(null);

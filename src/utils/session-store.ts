@@ -28,6 +28,8 @@ export interface SessionLlmMessage {
 export interface SessionIndexEntry {
   id: string;
   name: string;
+  /** The first query the user typed — shown verbatim in the session selector */
+  firstQuery?: string;
   created: number;
   lastModified: number;
   queryCount: number;
@@ -158,6 +160,7 @@ export async function createSession(
   index.sessions.push({
     id,
     name: session.name,
+    firstQuery: firstQuery.trim(),
     created: session.created,
     lastModified: session.lastModified,
     queryCount: session.queryCount,
@@ -184,9 +187,12 @@ export async function saveSession(
 
   const index = await readIndex(baseDir);
   const idx = index.sessions.findIndex((s) => s.id === session.id);
+  const existing = idx >= 0 ? index.sessions[idx] : undefined;
   const entry: SessionIndexEntry = {
     id: session.id,
     name: session.name,
+    // Preserve firstQuery from the existing index entry (set at createSession time).
+    firstQuery: existing?.firstQuery,
     created: session.created,
     lastModified: session.lastModified,
     queryCount: session.queryCount,

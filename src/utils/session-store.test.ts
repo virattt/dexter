@@ -100,6 +100,27 @@ describe('createSession', () => {
     expect(sessions[0].name).toContain('first query');
   });
 
+  it('stores firstQuery verbatim in the index entry', async () => {
+    await createSession('What is the current P/E ratio of Apple?', tmpDir);
+    const sessions = await listSessions(tmpDir);
+    expect(sessions[0].firstQuery).toBe('What is the current P/E ratio of Apple?');
+  });
+
+  it('preserves firstQuery after subsequent saveSession calls', async () => {
+    const session = await createSession('initial question about Tesla valuation', tmpDir);
+    const updated: SessionFile = {
+      ...session,
+      queryCount: 3,
+      lastModified: Date.now(),
+      llmMessages: [],
+      history: [],
+    };
+    await saveSession(updated, tmpDir);
+    const sessions = await listSessions(tmpDir);
+    expect(sessions[0].firstQuery).toBe('initial question about Tesla valuation');
+    expect(sessions[0].queryCount).toBe(3);
+  });
+
   it('generates unique IDs for concurrent calls', async () => {
     // Even if called in very quick succession the IDs must differ.
     const [a, b] = await Promise.all([
