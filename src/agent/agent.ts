@@ -2,7 +2,7 @@ import { AIMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlm } from '../model/llm.js';
 import { getTools } from '../tools/registry.js';
-import { buildSystemPrompt, buildIterationPrompt, loadSoulDocument } from './prompts.js';
+import { buildSystemPrompt, buildIterationPrompt, buildTaskPlanningPrompt, loadSoulDocument } from './prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { buildHistoryContext } from '../utils/history-context.js';
@@ -24,6 +24,14 @@ const OVERFLOW_KEEP_TOOL_USES = 3;
 /**
  * The core agent class that handles the agent loop and tool execution.
  */
+type TaskPlanItem = {
+  id: number;
+  description: string;
+  tool: string;
+  args: Record<string, unknown>;
+  parallel?: boolean;
+};
+
 export class Agent {
   private readonly model: string;
   private readonly maxIterations: number;
@@ -97,6 +105,53 @@ export class Agent {
 
     // Build initial prompt with conversation history context
     let currentPrompt = this.buildInitialPrompt(query, inMemoryHistory);
+
+    // Task planning for complex queries (todo/task list style)
+    const plannedTasks = await this.planTaskList(query);
+    if (plannedTasks.length > 0) {
+      yield { type: 'thinking', message: `Generated task plan with ${plannedTasks.length} step(s).` };
+
+      for (const task of plannedTasks) {
+        if (!this.toolMap.has(task.tool)) {
+          yield { type: 'thinking', message: `Skipping unavailable tool in plan: ${task.tool}` };
+          continue;
+        }
+
+        // Execute each task sequentially. Parallel flag is honored as a hint, but true parallel execution
+        // will still respect the single-threaded event stream in this process.
+        for await (const event of this.toolExecutor.execute(task.tool, task.args, ctx)) {
+          yield event;
+          if (event.type === 'tool_denied') {
+            const totalTime = Date.now() - ctx.startTime;
+            yield {
+              type: 'done',
+              answer: '',
+              toolCalls: ctx.scratchpad.getToolCallRecords(),
+              iterations: ctx.iteration,
+              totalTime,
+              tokenUsage: ctx.tokenCounter.getUsage(),
+              tokensPerSecond: ctx.tokenCounter.getTokensPerSecond(totalTime),
+            };
+            return;
+          }
+        }
+      }
+
+      // Build final answer after task execution with tool outputs in context.
+      const finalPrompt = buildIterationPrompt(
+        query,
+        ctx.scratchpad.getToolResults(),
+        ctx.scratchpad.formatToolUsageForPrompt(),
+      );
+
+      const finalResponse = await this.callModel(finalPrompt, false);
+      const finalText = typeof finalResponse.response === 'string'
+        ? finalResponse.response
+        : extractTextContent(finalResponse.response);
+
+      yield* this.handleDirectResponse(finalText, ctx);
+      return;
+    }
 
     // Main agent loop
     let overflowRetries = 0;
@@ -215,6 +270,79 @@ export class Agent {
       signal: this.signal,
     });
     return { response: result.response, usage: result.usage };
+  }
+
+  /**
+   * Plan complex queries into a structured task list.
+   */
+  private async planTaskList(query: string): Promise<TaskPlanItem[]> {
+    const prompt = buildTaskPlanningPrompt(query, Array.from(this.toolMap.keys()));
+
+    try {
+      const result = await this.callModel(prompt, false);
+      const text = typeof result.response === 'string'
+        ? result.response
+        : extractTextContent(result.response);
+
+      const tasks = this.parseTaskPlan(text);
+      if (!tasks || tasks.length === 0) {
+        return [];
+      }
+
+      return tasks
+        .filter((task) => !!task.tool && this.toolMap.has(task.tool))
+        .map((task, index) => ({
+          id: task.id ?? index + 1,
+          description: task.description || `Task ${index + 1}`,
+          tool: task.tool,
+          args: typeof task.args === 'object' && task.args !== null ? task.args : {},
+          parallel: task.parallel ?? false,
+        }));
+    } catch {
+      return [];
+    }
+  }
+
+  private parseTaskPlan(raw: string): TaskPlanItem[] {
+    const cleaned = raw.trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/, '');
+
+    let jsonString = cleaned;
+
+    // Try to locate JSON array if model returns extra text.
+    if (!jsonString.trim().startsWith('[')) {
+      const match = jsonString.match(/(\[.*\])/s);
+      jsonString = match ? match[1] : jsonString;
+    }
+
+    try {
+      const parsed = JSON.parse(jsonString);
+      if (Array.isArray(parsed)) {
+        return parsed.map((rawTask, index) => {
+          if (typeof rawTask !== 'object' || rawTask === null) {
+            return {
+              id: index + 1,
+              description: 'Invalid plan item',
+              tool: '',
+              args: {},
+            } as TaskPlanItem;
+          }
+
+          return {
+            id: typeof rawTask.id === 'number' ? rawTask.id : index + 1,
+            description: typeof rawTask.description === 'string' ? rawTask.description : '',
+            tool: typeof rawTask.tool === 'string' ? rawTask.tool : '',
+            args: typeof rawTask.args === 'object' && rawTask.args !== null ? rawTask.args as Record<string, unknown> : {},
+            parallel: Boolean(rawTask.parallel),
+          };
+        });
+      }
+    } catch {
+      /* ignored */
+    }
+
+    return [];
   }
 
   /**

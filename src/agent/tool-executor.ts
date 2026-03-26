@@ -60,6 +60,17 @@ export class AgentToolExecutor {
     }
   }
 
+  /**
+   * Execute a single tool call by name and args.
+   */
+  async *execute(
+    toolName: string,
+    toolArgs: Record<string, unknown>,
+    ctx: RunContext
+  ): AsyncGenerator<ToolExecutionEvent, void> {
+    yield* this.executeSingle(toolName, toolArgs, ctx);
+  }
+
   private async *executeSingle(
     toolName: string,
     toolArgs: Record<string, unknown>,
