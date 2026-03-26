@@ -171,13 +171,16 @@ export async function runCli() {
     tui.requestRender();
   };
 
+  let agentRunner: AgentRunnerController; 
+
   const modelSelection = new ModelSelectionController(onError, () => {
     intro.setModel(modelSelection.model);
+    agentRunner.updateAgentConfig({ model: modelSelection.model, modelProvider: modelSelection.provider });
     renderSelectionOverlay();
     tui.requestRender();
   });
 
-  const agentRunner = new AgentRunnerController(
+  agentRunner = new AgentRunnerController(
     { model: modelSelection.model, modelProvider: modelSelection.provider, maxIterations: 10 },
     modelSelection.inMemoryChatHistory,
     () => {
