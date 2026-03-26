@@ -27,9 +27,9 @@ Jobs run as isolated agent turns with full tool access, delivering results via W
 
 ## Schedule Types
 
-- **at**: One-shot at a specific time. \`{ "kind": "at", "at": "2026-04-01T14:00:00Z" }\`
-- **every**: Recurring interval in milliseconds. \`{ "kind": "every", "everyMs": 3600000 }\` (1 hour)
-- **cron**: Cron expression with optional timezone. \`{ "kind": "cron", "expr": "0 9 * * 1-5", "tz": "America/New_York" }\`
+- **at**: One-shot at a specific time. \`{{ "kind": "at", "at": "2026-04-01T14:00:00Z" }}\`
+- **every**: Recurring interval in milliseconds. \`{{ "kind": "every", "everyMs": 3600000 }}\` (1 hour)
+- **cron**: Cron expression with optional timezone. \`{{ "kind": "cron", "expr": "0 9 * * 1-5", "tz": "America/New_York" }}\`
 
 ## Fulfillment Modes
 
