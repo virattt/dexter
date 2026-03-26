@@ -2,6 +2,8 @@
 
 > **Dexter** is an autonomous financial research agent that lives in your terminal. It thinks, plans, and iterates until it has a data-backed answer. This tutorial walks you from installation to advanced research workflows.
 
+> **Note:** This tutorial covers the community fork at [Rlahuerta/dexter](https://github.com/Rlahuerta/dexter), which extends the original [virattt/dexter](https://github.com/virattt/dexter) with session persistence, TUI improvements, extended thinking, and multi-provider data fallbacks.
+
 ---
 
 ## Table of Contents
@@ -11,22 +13,23 @@
 3. [Installation](#3-installation)
 4. [Environment Setup](#4-environment-setup)
 5. [Running Dexter](#5-running-dexter)
-6. [How the Agent Works](#6-how-the-agent-works)
-7. [Choosing Your LLM Model](#7-choosing-your-llm-model)
-8. [Financial Data Queries](#8-financial-data-queries)
-9. [Stock Screening](#9-stock-screening)
-10. [SEC Filings Analysis](#10-sec-filings-analysis)
-11. [DCF Valuation](#11-dcf-valuation)
-12. [Web Research](#12-web-research)
-13. [X/Twitter Sentiment Research](#13-xtwitter-sentiment-research)
-14. [Persistent Memory](#14-persistent-memory)
-15. [Heartbeat Monitoring](#15-heartbeat-monitoring)
-16. [Debugging with the Scratchpad](#16-debugging-with-the-scratchpad)
-17. [WhatsApp Gateway](#17-whatsapp-gateway)
-18. [Evaluations](#18-evaluations)
-19. [Example Prompts Reference](#19-example-prompts-reference)
-20. [Tips & Best Practices](#20-tips--best-practices)
-21. [Troubleshooting](#21-troubleshooting)
+6. [Session Persistence](#6-session-persistence)
+7. [How the Agent Works](#7-how-the-agent-works)
+8. [Choosing Your LLM Model](#8-choosing-your-llm-model)
+9. [Financial Data Queries](#9-financial-data-queries)
+10. [Stock Screening](#10-stock-screening)
+11. [SEC Filings Analysis](#11-sec-filings-analysis)
+12. [DCF Valuation](#12-dcf-valuation)
+13. [Web Research](#13-web-research)
+14. [X/Twitter Sentiment Research](#14-xtwitter-sentiment-research)
+15. [Persistent Memory](#15-persistent-memory)
+16. [Heartbeat Monitoring](#16-heartbeat-monitoring)
+17. [Debugging with the Scratchpad](#17-debugging-with-the-scratchpad)
+18. [WhatsApp Gateway](#18-whatsapp-gateway)
+19. [Evaluations](#19-evaluations)
+20. [Example Prompts Reference](#20-example-prompts-reference)
+21. [Tips & Best Practices](#21-tips--best-practices)
+22. [Troubleshooting](#22-troubleshooting)
 
 ---
 
@@ -86,8 +89,8 @@ bun --version
 ## 3. Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/virattt/dexter.git
+# Clone this fork
+git clone https://github.com/Rlahuerta/dexter.git
 cd dexter
 
 # Install dependencies
@@ -158,9 +161,11 @@ You'll see the Dexter intro screen with your active model displayed. Type any qu
 
 | Command | Action |
 |---|---|
+| `/help` | Show available commands and keyboard shortcuts |
 | `/model` | Switch your LLM provider and model |
-| `exit` | Quit Dexter |
-| `quit` | Quit Dexter |
+| `/sessions` | Browse and resume past conversations |
+| `/think` | Toggle extended thinking on/off (supported models only) |
+| `exit` / `quit` | Quit Dexter (session saved before exit) |
 
 ### Keyboard shortcuts
 
@@ -168,12 +173,55 @@ You'll see the Dexter intro screen with your active model displayed. Type any qu
 |---|---|
 | `↑` / `↓` | Navigate input history |
 | `Enter` | Submit query |
-| `Esc` | Cancel current selection |
-| `j` / `k` | Scroll model selection lists (Vim-style) |
+| `Esc` | **Cancel a running query immediately** |
+| `j` / `k` | Navigate selection lists (Vim-style) |
+| `Ctrl+C` | Exit Dexter (session saved before exit) |
 
 ---
 
-## 6. How the Agent Works
+## 6. Session Persistence
+
+Every query you submit is **automatically saved** to `.dexter/sessions/`. You can exit at any time and resume exactly where you left off — including full LLM context and conversation display.
+
+### Resuming a session
+
+1. Start Dexter: `bun start`
+2. Type `/sessions` and press `Enter`
+3. Navigate the list with `↑` / `↓` (or `j` / `k`)
+4. Press `Enter` to resume
+
+The session selector shows:
+- **Your first question** (up to 46 chars) — so you can identify each conversation
+- **Relative timestamp** — *Today 14:30*, *Yesterday 09:12*, or *Mar 20 08:00*
+- **Query count** — how many exchanges were in that session
+
+### What gets restored
+
+| Restored | Details |
+|---|---|
+| LLM context | The model "remembers" your prior questions and answers |
+| Display history | The previous conversation is visible in the scrollback |
+| Session identity | New queries continue the same session file |
+
+### How saving works
+
+- **After each query**: session is queued for save (250ms debounce)
+- **On `Ctrl+C` or `exit`**: any pending save is **flushed immediately** before the process exits — no data loss even if you quit right after a query
+
+### Session files location
+
+```
+.dexter/sessions/
+├── _index.json                    ← session list (id, name, queryCount, firstQuery, lastModified)
+├── 1774531777088-fcc12161.json    ← full session (llmMessages + history)
+└── ...
+```
+
+> **Tip:** Sessions are independent of the scratchpad. The scratchpad captures raw tool calls for debugging; sessions capture the conversation for continuity.
+
+---
+
+## 7. How the Agent Works
 
 Understanding the agent loop helps you write better queries.
 
@@ -211,7 +259,7 @@ Multiple tool calls within a single iteration run **in parallel**, keeping resea
 
 ---
 
-## 7. Choosing Your LLM Model
+## 8. Choosing Your LLM Model
 
 ### Switching models
 
@@ -249,6 +297,19 @@ Then use `/model` → select **Ollama** → pick from your downloaded models (or
 
 Model names use the `ollama:` prefix internally, e.g. `ollama:nemotron-3-super:cloud`.
 
+### Extended thinking with Ollama (`/think`)
+
+For models that support extended reasoning (`qwen3`, `deepseek-r1`, `qwq`), use `/think` to toggle it on or off mid-session:
+
+```
+/think
+```
+
+- **ON** (default for reasoning models): the model produces a `<think>` reasoning block before its answer. Dexter strips this from the displayed output and shows it in a dimmed style.
+- **OFF**: disables the reasoning block for faster, shorter replies.
+
+> **Tip:** Use `/think` ON for deep analysis and DCF valuations; toggle it OFF for quick factual lookups to save time and tokens.
+
 ### Provider-specific notes
 
 - **Anthropic**: Uses prompt caching on the system prompt — reduces token costs ~90% on repeated queries.
@@ -257,7 +318,7 @@ Model names use the `ollama:` prefix internally, e.g. `ollama:nemotron-3-super:c
 
 ---
 
-## 8. Financial Data Queries
+## 9. Financial Data Queries
 
 ### The two core financial tools
 
@@ -269,6 +330,16 @@ Dexter routes financial queries through two intelligent meta-tools:
 | `get_market_data` | Prices, crypto, news, insider trades |
 
 You never call these directly — just ask in plain English.
+
+### Data source fallback chain
+
+When the primary Financial Datasets API cannot return data (e.g. 402 for unpaid tickers, missing international data), Dexter automatically falls back to:
+
+1. **Yahoo Finance** — analyst price targets, international tickers (`VWS.CO`, `AZN.L`, `SAP.DE`, etc.)
+2. **Financial Modeling Prep (FMP)** — income statements, balance sheets, and cash flows for European and other international tickers (250 free requests/day with `FMP_API_KEY`)
+3. **Web search** — if financial APIs return no data, the agent retries using `web_search`
+
+This means many queries that previously failed silently on non-US tickers now return real results automatically.
 
 ### Income statements
 
@@ -400,7 +471,7 @@ Show me insider transactions for NVDA in the last 3 months
 
 ---
 
-## 9. Stock Screening
+## 10. Stock Screening
 
 Use the `stock_screener` tool to find stocks that match financial criteria. Just describe what you want in plain English.
 
@@ -435,7 +506,7 @@ Find companies trading below book value with positive earnings and low debt
 
 ---
 
-## 10. SEC Filings Analysis
+## 11. SEC Filings Analysis
 
 The `read_filings` tool fetches and reads actual SEC filing text — 10-K annual reports, 10-Q quarterly reports, and 8-K current events.
 
@@ -487,7 +558,7 @@ What risk factors did Tesla add to their 10-K this year compared to last?
 
 ---
 
-## 11. DCF Valuation
+## 12. DCF Valuation
 
 Dexter has a built-in **DCF (Discounted Cash Flow) valuation skill** that follows a rigorous 8-step workflow. It triggers automatically on valuation-related queries.
 
@@ -556,13 +627,13 @@ Caveats
 
 ---
 
-## 12. Web Research
+## 13. Web Research
 
 Dexter can research the open web to complement structured financial data.
 
 ### Web fetch (static pages)
 
-The `web_fetch` tool reads any URL directly — ideal for press releases, IR pages, and articles:
+The `web_fetch` tool reads any URL directly — ideal for press releases, IR pages, articles, and **PDF documents**:
 
 ```
 Read Apple's latest investor relations page at https://investor.apple.com
@@ -571,6 +642,12 @@ Read Apple's latest investor relations page at https://investor.apple.com
 ```
 Get the content from this earnings call transcript: [URL]
 ```
+
+```
+Read this annual report PDF: https://example.com/annual-report-2024.pdf
+```
+
+> **PDF support:** `web_fetch` automatically extracts text from PDFs via `unpdf`. Just pass a `.pdf` URL — no extra steps needed.
 
 ### Web search
 
@@ -603,7 +680,7 @@ Navigate to Yahoo Finance and read AAPL's analyst ratings
 
 ---
 
-## 13. X/Twitter Sentiment Research
+## 14. X/Twitter Sentiment Research
 
 If you have an `X_BEARER_TOKEN`, Dexter can research public sentiment on X/Twitter through the **X Research skill**.
 
@@ -659,7 +736,7 @@ Caveats
 
 ---
 
-## 14. Persistent Memory
+## 15. Persistent Memory
 
 Dexter has a **persistent memory system** that stores information across sessions as Markdown files backed by a SQLite vector database.
 
@@ -716,7 +793,7 @@ Memory embeddings use your existing LLM keys with this priority:
 
 ---
 
-## 15. Heartbeat Monitoring
+## 16. Heartbeat Monitoring
 
 The **heartbeat** feature lets Dexter periodically check things you care about on a schedule. This is especially useful when running Dexter through the WhatsApp gateway.
 
@@ -746,19 +823,26 @@ Your checklist lives in `.dexter/HEARTBEAT.md`. The gateway reads this file on e
 
 ---
 
-## 16. Debugging with the Scratchpad
+## 17. Debugging with the Scratchpad
 
 Every query creates a **JSONL scratchpad file** in `.dexter/scratchpad/`. This is your audit trail.
 
-### Location
+### `.dexter/` directory overview
 
 ```
-.dexter/scratchpad/
-  2026-03-25-142300_9a8f10723f79.jsonl
-  2026-03-25-150045_a1b2c3d4e5f6.jsonl
+.dexter/
+├── scratchpad/                         ← raw tool call logs (one file per query)
+│   ├── 2026-03-25-142300_9a8f10723f79.jsonl
+│   └── ...
+├── sessions/                           ← conversation history (for /sessions resume)
+│   ├── _index.json
+│   └── <session-id>.json
+├── memory/                             ← persistent memory (MEMORY.md + SQLite)
+├── settings.json                       ← active model/provider selection
+└── HEARTBEAT.md                        ← heartbeat checklist (optional)
 ```
 
-### Entry types
+### Scratchpad entry types
 
 | Type | Contents |
 |---|---|
@@ -792,7 +876,7 @@ cat .dexter/scratchpad/2026-03-25-142300_9a8f10723f79.jsonl | \
 
 ---
 
-## 17. WhatsApp Gateway
+## 18. WhatsApp Gateway
 
 Run Dexter through WhatsApp to get financial research delivered to your phone.
 
@@ -833,7 +917,7 @@ For full setup instructions, see [`src/gateway/channels/whatsapp/README.md`](../
 
 ---
 
-## 18. Evaluations
+## 19. Evaluations
 
 Dexter includes a built-in evaluation suite to test answer quality against a dataset of financial questions.
 
@@ -862,7 +946,7 @@ Uses an **LLM-as-judge** approach: the evaluating LLM checks each answer against
 
 ---
 
-## 19. Example Prompts Reference
+## 20. Example Prompts Reference
 
 Below is a curated library of prompts organized by analysis type.
 
@@ -978,7 +1062,7 @@ What are institutional investors saying about AI capex on X/Twitter?
 
 ---
 
-## 20. Tips & Best Practices
+## 21. Tips & Best Practices
 
 ### Writing better queries
 
@@ -1037,7 +1121,7 @@ The free tier of the Financial Datasets API covers **AAPL, NVDA, and MSFT**. To 
 
 ---
 
-## 21. Troubleshooting
+## 22. Troubleshooting
 
 ### "No tools available. Please check your API key configuration."
 
@@ -1054,10 +1138,30 @@ The free tier of the Financial Datasets API covers **AAPL, NVDA, and MSFT**. To 
 **Cause:** A very complex query hit the 10-iteration cap.  
 **Fix:** Break the query into parts. For example, instead of one massive multi-company, multi-year, multi-metric query, run two focused ones.
 
-### Financial data returns empty results
+### Financial data returns empty results for non-US tickers
+
+**Cause:** The ticker is not covered by the Financial Datasets free tier, or is an international ticker not in their dataset.  
+**Fix:** This fork automatically falls back to Yahoo Finance and FMP. Add `FMP_API_KEY` to `.env` for the best international coverage. If both fail, the agent will try `web_search` as a last resort.
+
+### Financial data returns empty results for US tickers
 
 **Cause:** The ticker requires a paid Financial Datasets API key.  
-**Fix:** Free tier covers AAPL, NVDA, MSFT only. Use those tickers to test, or upgrade your API key for full coverage.
+**Fix:** Free tier covers AAPL, NVDA, MSFT only. Use those tickers to test, or upgrade your API key.
+
+### `/sessions` list is empty
+
+**Cause:** No sessions have been saved yet, or Dexter was exited before any query was submitted.  
+**Fix:** Sessions are created on the **first query** of a run. Submit at least one question, then `/sessions` will show it on next launch.
+
+### Session context not fully restored after resume
+
+**Cause:** If the session was created before session persistence was added, or the session file is corrupted.  
+**Fix:** Start a new session. Old sessions before the persistence feature are not retroactively available.
+
+### Esc key not cancelling a running query
+
+**Cause:** Older version of Dexter or stream does not support mid-flight abort.  
+**Fix:** This fork includes immediate Escape cancellation. Ensure you are running the fork (`bun start` in the forked repo).
 
 ### Web search not working
 
@@ -1108,4 +1212,4 @@ This shows every tool call, its arguments, the raw response, and the LLM's inter
 
 ---
 
-*Built with ♥ by [virattt](https://github.com/virattt/dexter) · MIT License*
+*Built with ♥ by [virattt](https://github.com/virattt/dexter) · Fork maintained at [Rlahuerta/dexter](https://github.com/Rlahuerta/dexter) · MIT License*
