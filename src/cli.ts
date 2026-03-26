@@ -208,8 +208,23 @@ export async function runCli() {
       return;
     }
 
-    if (query === '/model') {
+    if (query === '/model' || query === '/provider') {
       modelSelection.startSelection();
+      return;
+    }
+
+    // Quick switch: /model <id> or /provider <id> skips the wizard
+    const modelMatch = query.match(/^\/model\s+(.+)/);
+    if (modelMatch) {
+      modelSelection.quickSwitch(modelMatch[1].trim());
+      tui.requestRender();
+      return;
+    }
+
+    const providerMatch = query.match(/^\/provider\s+(.+)/);
+    if (providerMatch) {
+      modelSelection.quickSwitchProvider(providerMatch[1].trim());
+      tui.requestRender();
       return;
     }
 

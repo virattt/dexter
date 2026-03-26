@@ -17,6 +17,24 @@ const DEPRECATED_MODEL_UPGRADES: Record<string, string> = {
   'gpt-5.2': 'gpt-5.4',
 };
 
+export interface SearchConfig {
+  /** Preferred search provider. "auto" uses first available key (exa → perplexity → tavily). */
+  provider?: 'exa' | 'perplexity' | 'tavily' | 'auto';
+  /** Number of results to return (default: 5) */
+  numResults?: number;
+  /** Include content highlights in results (default: true) */
+  highlights?: boolean;
+}
+
+export interface EvalConfig {
+  /** Model used for the target agent in evals (default: uses settings.modelId) */
+  model?: string;
+  /** Model used for the LLM-as-judge evaluator */
+  evaluatorModel?: string;
+  /** Provider for the evaluator LLM (default: uses settings.provider) */
+  evaluatorProvider?: 'openai' | 'anthropic' | 'google';
+}
+
 interface Config {
   provider?: string;
   modelId?: string;  // Selected model ID (e.g., "gpt-5.4", "ollama:llama3.1")
@@ -27,6 +45,8 @@ interface Config {
     embeddingModel?: string;
     maxSessionContextTokens?: number;
   };
+  search?: SearchConfig;
+  eval?: EvalConfig;
   [key: string]: unknown;
 }
 
@@ -97,6 +117,27 @@ export function getSetting<T>(key: string, defaultValue: T): T {
   }
   
   return (config[key] as T) ?? defaultValue;
+}
+
+/**
+ * Get search configuration with defaults.
+ */
+export function getSearchConfig(): Required<SearchConfig> {
+  const config = loadConfig();
+  const search = config.search ?? {};
+  return {
+    provider: search.provider ?? 'auto',
+    numResults: search.numResults ?? 5,
+    highlights: search.highlights ?? true,
+  };
+}
+
+/**
+ * Get eval configuration with defaults.
+ */
+export function getEvalConfig(): EvalConfig {
+  const config = loadConfig();
+  return config.eval ?? {};
 }
 
 export function setSetting(key: string, value: unknown): boolean {

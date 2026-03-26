@@ -14,6 +14,7 @@ import { SCREEN_STOCKS_DESCRIPTION } from './finance/screen-stocks.js';
 import { heartbeatTool, HEARTBEAT_TOOL_DESCRIPTION } from './heartbeat/heartbeat-tool.js';
 import { memoryGetTool, MEMORY_GET_DESCRIPTION, memorySearchTool, MEMORY_SEARCH_DESCRIPTION, memoryUpdateTool, MEMORY_UPDATE_DESCRIPTION } from './memory/index.js';
 import { discoverSkills } from '../skills/index.js';
+import { getSearchConfig } from '../utils/config.js';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -28,13 +29,35 @@ export interface RegisteredTool {
 }
 
 /**
+ * Resolve the web search tool based on settings.search.provider preference.
+ * "auto" (default) uses first available key: exa → perplexity → tavily.
+ */
+function resolveSearchTool(): StructuredToolInterface | null {
+  const { provider } = getSearchConfig();
+
+  if (provider === 'exa' || provider === 'auto') {
+    if (process.env.EXASEARCH_API_KEY) return exaSearch;
+    if (provider === 'exa') return null; // explicit choice but no key
+  }
+  if (provider === 'perplexity' || provider === 'auto') {
+    if (process.env.PERPLEXITY_API_KEY) return perplexitySearch;
+    if (provider === 'perplexity') return null;
+  }
+  if (provider === 'tavily' || provider === 'auto') {
+    if (process.env.TAVILY_API_KEY) return tavilySearch;
+  }
+  return null;
+}
+
+/**
  * Get all registered tools with their descriptions.
  * Conditionally includes tools based on environment configuration.
  *
  * @param model - The model name (needed for tools that require model-specific configuration)
+ * @param searchDescription - Optional override for web_search description (from SEARCH.md)
  * @returns Array of registered tools
  */
-export function getToolRegistry(model: string): RegisteredTool[] {
+export function getToolRegistry(model: string, searchDescription?: string | null): RegisteredTool[] {
   const tools: RegisteredTool[] = [
     {
       name: 'get_financials',
@@ -103,24 +126,13 @@ export function getToolRegistry(model: string): RegisteredTool[] {
     },
   ];
 
-  // Include web_search if Exa, Perplexity, or Tavily API key is configured (Exa → Perplexity → Tavily)
-  if (process.env.EXASEARCH_API_KEY) {
+  // Include web_search based on settings.search.provider (default: auto = exa → perplexity → tavily)
+  const searchTool = resolveSearchTool();
+  if (searchTool) {
     tools.push({
       name: 'web_search',
-      tool: exaSearch,
-      description: WEB_SEARCH_DESCRIPTION,
-    });
-  } else if (process.env.PERPLEXITY_API_KEY) {
-    tools.push({
-      name: 'web_search',
-      tool: perplexitySearch,
-      description: WEB_SEARCH_DESCRIPTION,
-    });
-  } else if (process.env.TAVILY_API_KEY) {
-    tools.push({
-      name: 'web_search',
-      tool: tavilySearch,
-      description: WEB_SEARCH_DESCRIPTION,
+      tool: searchTool,
+      description: searchDescription ?? WEB_SEARCH_DESCRIPTION,
     });
   }
 
@@ -150,10 +162,11 @@ export function getToolRegistry(model: string): RegisteredTool[] {
  * Get just the tool instances for binding to the LLM.
  *
  * @param model - The model name
+ * @param searchDescription - Optional override for web_search description (from SEARCH.md)
  * @returns Array of tool instances
  */
-export function getTools(model: string): StructuredToolInterface[] {
-  return getToolRegistry(model).map((t) => t.tool);
+export function getTools(model: string, searchDescription?: string | null): StructuredToolInterface[] {
+  return getToolRegistry(model, searchDescription).map((t) => t.tool);
 }
 
 /**
@@ -161,10 +174,11 @@ export function getTools(model: string): StructuredToolInterface[] {
  * Formats each tool's rich description with a header.
  *
  * @param model - The model name
+ * @param searchDescription - Optional override for web_search description (from SEARCH.md)
  * @returns Formatted string with all tool descriptions
  */
-export function buildToolDescriptions(model: string): string {
-  return getToolRegistry(model)
+export function buildToolDescriptions(model: string, searchDescription?: string | null): string {
+  return getToolRegistry(model, searchDescription)
     .map((t) => `### ${t.name}\n\n${t.description}`)
     .join('\n\n');
 }

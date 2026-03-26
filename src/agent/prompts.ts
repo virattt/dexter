@@ -48,6 +48,21 @@ export async function loadSoulDocument(): Promise<string | null> {
 }
 
 /**
+ * Load SEARCH.md content from .dexter/SEARCH.md.
+ * This file overrides the default web_search tool description in the system prompt,
+ * allowing users to paste custom instructions (e.g., Exa integration prompts).
+ */
+export async function loadSearchDocument(): Promise<string | null> {
+  const searchPath = dexterPath('SEARCH.md');
+  try {
+    return await readFile(searchPath, 'utf-8');
+  } catch {
+    // SEARCH.md is optional; default tool description is used when absent.
+  }
+  return null;
+}
+
+/**
  * Build the skills section for the system prompt.
  * Only includes skill metadata if skills are available.
  */
@@ -195,8 +210,9 @@ export function buildSystemPrompt(
   channel?: string,
   groupContext?: GroupContext,
   memoryFiles?: string[],
+  searchDescription?: string | null,
 ): string {
-  const toolDescriptions = buildToolDescriptions(model);
+  const toolDescriptions = buildToolDescriptions(model, searchDescription);
   const profile = getChannelProfile(channel);
 
   const behaviorBullets = profile.behavior.map(b => `- ${b}`).join('\n');

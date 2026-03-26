@@ -2,7 +2,7 @@ import { AIMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlm } from '../model/llm.js';
 import { getTools } from '../tools/registry.js';
-import { buildSystemPrompt, buildIterationPrompt, loadSoulDocument } from './prompts.js';
+import { buildSystemPrompt, buildIterationPrompt, loadSoulDocument, loadSearchDocument } from './prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { buildHistoryContext } from '../utils/history-context.js';
@@ -54,8 +54,11 @@ export class Agent {
    */
   static async create(config: AgentConfig = {}): Promise<Agent> {
     const model = config.model ?? DEFAULT_MODEL;
-    const tools = getTools(model);
-    const soulContent = await loadSoulDocument();
+    const [soulContent, searchDescription] = await Promise.all([
+      loadSoulDocument(),
+      loadSearchDocument(),
+    ]);
+    const tools = getTools(model, searchDescription);
     let memoryFiles: string[] = [];
 
     if (config.memoryEnabled !== false) {
@@ -69,6 +72,7 @@ export class Agent {
       config.channel,
       config.groupContext,
       memoryFiles,
+      searchDescription,
     );
     return new Agent(config, tools, systemPrompt);
   }

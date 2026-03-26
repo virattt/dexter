@@ -10,13 +10,14 @@ import 'dotenv/config';
 import { ProcessTerminal, TUI } from '@mariozechner/pi-tui';
 import { Client } from 'langsmith';
 import type { EvaluationResult } from 'langsmith/evaluation';
-import { ChatOpenAI } from '@langchain/openai';
 import { z } from 'zod';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Agent } from '../agent/agent.js';
 import { EvalApp, type EvalProgressEvent } from './components/index.js';
+import { getChatModel } from '../model/llm.js';
+import { getEvalConfig, getSetting } from '../utils/config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -141,20 +142,22 @@ function shuffleArray<T>(array: T[]): T[] {
 // ============================================================================
 
 async function target(inputs: { question: string }): Promise<{ answer: string }> {
-  const agent = await Agent.create({ model: 'gpt-5.4', maxIterations: 10 });
+  const evalConfig = getEvalConfig();
+  const targetModel = evalConfig.model ?? getSetting('modelId', 'gpt-5.4');
+  const agent = await Agent.create({ model: targetModel, maxIterations: 10 });
   let answer = '';
-  
+
   for await (const event of agent.run(inputs.question)) {
     if (event.type === 'done') {
       answer = event.answer;
     }
   }
-  
+
   return { answer };
 }
 
 // ============================================================================
-// Correctness evaluator - LLM-as-judge using gpt-5.4
+// Correctness evaluator - LLM-as-judge using configured model
 // ============================================================================
 
 const EvaluatorOutputSchema = z.object({
@@ -162,12 +165,12 @@ const EvaluatorOutputSchema = z.object({
   comment: z.string(),
 });
 
-const llm = new ChatOpenAI({
-  model: 'gpt-5.4',
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-const structuredLlm = llm.withStructuredOutput(EvaluatorOutputSchema);
+function getEvaluatorLlm() {
+  const evalConfig = getEvalConfig();
+  const evaluatorModel = evalConfig.evaluatorModel ?? getSetting('modelId', 'gpt-5.4');
+  const llm = getChatModel(evaluatorModel);
+  return llm.withStructuredOutput(EvaluatorOutputSchema);
+}
 
 async function correctnessEvaluator({
   outputs,
@@ -195,6 +198,7 @@ Evaluate and provide:
 - comment: brief explanation of why the answer is correct or incorrect`;
 
   try {
+    const structuredLlm = getEvaluatorLlm();
     const result = await structuredLlm.invoke(prompt);
     return {
       key: 'correctness',

@@ -11,6 +11,7 @@ import {
 } from '../utils/model.js';
 import { getOllamaModels } from '../utils/ollama.js';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from '../model/llm.js';
+import { resolveProvider } from '../providers.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 
 const SELECTION_STATES = [
@@ -80,6 +81,46 @@ export class ModelSelectionController {
   startSelection() {
     this.appStateValue = 'provider_select';
     this.emitChange();
+  }
+
+  /**
+   * Quick switch to a model by ID (e.g., "/model gemini-3-flash-preview").
+   * Resolves provider automatically from the model prefix.
+   */
+  quickSwitch(modelId: string) {
+    // Resolve provider from model prefix (e.g., "gemini-" → google)
+    const provider = resolveProvider(modelId);
+    const providerId = provider.id;
+
+    if (!checkApiKeyExistsForProvider(providerId)) {
+      this.onError(
+        `Cannot use ${getProviderDisplayName(providerId)} — API key not configured. Use /model to set it up.`,
+      );
+      return;
+    }
+
+    this.completeModelSwitch(providerId, modelId);
+  }
+
+  /**
+   * Quick switch provider (e.g., "/provider google").
+   * Selects the default model for that provider.
+   */
+  quickSwitchProvider(providerId: string) {
+    const defaultModel = getDefaultModelForProvider(providerId);
+    if (!defaultModel) {
+      this.onError(`Unknown provider "${providerId}". Use /model to see available providers.`);
+      return;
+    }
+
+    if (!checkApiKeyExistsForProvider(providerId)) {
+      this.onError(
+        `Cannot use ${getProviderDisplayName(providerId)} — API key not configured. Use /model to set it up.`,
+      );
+      return;
+    }
+
+    this.completeModelSwitch(providerId, defaultModel);
   }
 
   cancelSelection() {

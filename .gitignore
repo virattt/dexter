@@ -30,6 +30,7 @@ venv/
 env/
 ENV/
 .venv
+.claude
 
 # Node.js
 node_modules/

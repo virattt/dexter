@@ -13,13 +13,14 @@
     "gateway": "tsx src/gateway/index.ts run",
     "gateway:login": "tsx src/gateway/index.ts login",
     "typecheck": "tsc --noEmit",
+    "diagnose": "bun run src/tools/diagnostics.ts",
     "test": "bun test",
     "test:watch": "bun test --watch",
     "postinstall": "playwright install chromium"
   },
   "dependencies": {
     "@langchain/anthropic": "^1.1.3",
-    "@langchain/core": "^1.1.0",
+    "@langchain/core": "^1.1.36",
     "@langchain/exa": "^1.0.1",
     "@langchain/google-genai": "^2.0.0",
     "@langchain/ollama": "^1.0.3",
