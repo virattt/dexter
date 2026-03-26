@@ -178,3 +178,27 @@ For detailed setup instructions, configuration options, and troubleshooting, see
 ## 📄 License
 
 This project is licensed under the MIT License.
+## Hosted Web Version (Zero Setup)
+
+Love the autonomous agent but don't want to deal with Bun, API keys, or local compute?
+
+A community member has built **[Dexter Research](https://dexter-research.com)** — a polished, fully hosted web experience powered by the same core Dexter agent.
+
+**Benefits of the hosted version:**
+- Instant access — no installation required
+- Always up-to-date models, data feeds, and features
+- White-label branded PDF/CSV exports
+- Additional Pro modules (Company Intelligence Dossier, GTM Strategy Module, custom templates)
+- Shareable report links and priority support
+
+**Pricing tiers:**
+- **Free** — Major tickers (AAPL, NVDA, MSFT) + limited daily queries
+- **Starter** — $49/mo for 17k+ tickers and core tools
+- **Pro** — $149/mo for unlimited queries + full feature set
+
+Try it here: [https://dexter-research.com](https://dexter-research.com) (no credit card required)
+
+> This is **not** an official project — it's an independent hosted implementation built on top of the open-source Dexter. The self-hosted version remains completely free and open under the MIT license.
+
+Feedback from the community is very welcome! Feel free to open an issue or discussion if you'd like to see certain features improved in either version.
+Add Hosted Web Version section to README
