@@ -192,6 +192,13 @@ export const fmp = {
 
 // ── SEC EDGAR API (free, no key — segmented revenues via XBRL) ─────────────
 
+export class EdgarHostBlockedError extends Error {
+  constructor() {
+    super(`[SEC EDGAR] host not reachable: ${SEC_EDGAR_BASE} is blocked by the network`);
+    this.name = 'EdgarHostBlockedError';
+  }
+}
+
 export const edgar = {
   async get(
     endpoint: string,
@@ -199,15 +206,38 @@ export const edgar = {
   ): Promise<ApiResponse> {
     const url = `${SEC_EDGAR_BASE}${endpoint}`;
     const requestLabel = label || endpoint;
+    const userAgent = process.env.SEC_EDGAR_USER_AGENT || 'Dexter support@dexter.ai';
 
-    const data = await executeRequest('SEC EDGAR', url, requestLabel, {
-      headers: {
-        'User-Agent': 'Dexter/1.0 support@dexter.ai',
-        'Accept': 'application/json',
-      },
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        headers: {
+          'User-Agent': userAgent,
+          'Accept': 'application/json',
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(`[SEC EDGAR] network error: ${requestLabel} — ${message}`);
+      throw new Error(`[SEC EDGAR] request failed for ${requestLabel}: ${message}`);
+    }
+
+    if (!response.ok) {
+      if (response.headers.get('x-deny-reason') === 'host_not_allowed') {
+        throw new EdgarHostBlockedError();
+      }
+      const detail = `${response.status} ${response.statusText}`;
+      logger.error(`[SEC EDGAR] error: ${requestLabel} — ${detail}`);
+      throw new Error(`[SEC EDGAR] request failed: ${detail}`);
+    }
+
+    const data = await response.json().catch(() => {
+      const detail = `invalid JSON (${response.status} ${response.statusText})`;
+      logger.error(`[SEC EDGAR] parse error: ${requestLabel} — ${detail}`);
+      throw new Error(`[SEC EDGAR] request failed: ${detail}`);
     });
 
-    return { data, url };
+    return { data: data as Record<string, unknown>, url };
   },
 };
 

@@ -261,6 +261,22 @@ async function testEdgar(): Promise<void> {
 
   console.log('\n  Testing SEC EDGAR...');
 
+  // Pre-flight connectivity check
+  const userAgent = process.env.SEC_EDGAR_USER_AGENT || 'Dexter support@dexter.ai';
+  try {
+    const probe = await fetch('https://data.sec.gov/', {
+      method: 'HEAD',
+      headers: { 'User-Agent': userAgent },
+    });
+    if (!probe.ok && probe.headers.get('x-deny-reason') === 'host_not_allowed') {
+      results.push({ provider: 'EDGAR', endpoint: '*', status: 'skip', latencyMs: 0, detail: 'data.sec.gov not reachable from this network' });
+      return;
+    }
+  } catch {
+    results.push({ provider: 'EDGAR', endpoint: '*', status: 'skip', latencyMs: 0, detail: 'data.sec.gov not reachable' });
+    return;
+  }
+
   // Company facts (XBRL)
   await runTest('EDGAR', 'Company Facts (XBRL)', async () => {
     // AAPL CIK = 0000320193

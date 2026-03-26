@@ -146,7 +146,7 @@ async function checkSecEdgar(): Promise<CheckResult> {
   try {
     const { ms } = await timed(() =>
       fetch('https://efts.sec.gov/LATEST/search-index?q=%22AAPL%22&dateRange=custom&startdt=2024-01-01&enddt=2024-01-02&forms=10-K', {
-        headers: { 'User-Agent': 'Dexter/1.0 diagnostics@test.com' },
+        headers: { 'User-Agent': process.env.SEC_EDGAR_USER_AGENT || 'Dexter support@dexter.ai' },
       }).then((r) => {
         if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
         return r;
