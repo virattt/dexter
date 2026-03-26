@@ -383,6 +383,14 @@ export async function runCli() {
       return;
     }
 
+    // Flush the PREVIOUS completed exchange to scrollback now, before we clear
+    // the chatLog for the new query.  This keeps the last answer visible in the
+    // TUI until the user submits a new question.
+    const prevItem = agentRunner.history.at(-1);
+    if (prevItem && (prevItem.status === 'complete' || prevItem.status === 'interrupted')) {
+      flushExchangeToScrollback(tui, chatLog, prevItem);
+    }
+
     await inputHistory.saveMessage(query);
     inputHistory.resetNavigation();
     const result = await agentRunner.runQuery(query);
@@ -390,14 +398,9 @@ export async function runCli() {
       await inputHistory.updateAgentResponse(result.answer);
     }
 
-    // Flush the completed exchange to the terminal's native scrollback buffer so
-    // the user can scroll up to read it at any time.  The TUI viewport is then
-    // cleared, ready for the next query.
-    const lastItem = agentRunner.history[agentRunner.history.length - 1];
-    if (lastItem && (lastItem.status === 'complete' || lastItem.status === 'interrupted')) {
-      flushExchangeToScrollback(tui, chatLog, lastItem);
-    }
-
+    // The completed exchange stays in the chatLog (visible in TUI) until the
+    // user's next query triggers the flush above.  Just refresh the error line
+    // and re-render so the idle hint footer and cursor are correct.
     refreshError();
     tui.requestRender();
   };
