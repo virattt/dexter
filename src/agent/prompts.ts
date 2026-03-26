@@ -307,3 +307,30 @@ Continue working toward answering the query. When you have gathered sufficient d
   return prompt;
 }
 
+/**
+ * Build a task planning prompt for crushing complex queries into a sequential/parallel task list.
+ */
+export function buildTaskPlanningPrompt(
+  originalQuery: string,
+  availableTools: string[]
+): string {
+  return `You are Dexter's task planner.
+
+The user query is:
+${originalQuery}
+
+Available tools: ${availableTools.join(', ')}.
+
+Your job is to break the request into a JSON array of tasks, in execution order. Each task must include:
+- id: numeric step order
+- description: short, 1-2 sentences
+- tool: tool name (must be one of available tools)
+- args: JSON object for the tool call parameters
+- parallel: optional boolean (true if this task can run in parallel with adjacent tasks)
+
+If the question can be answered directly without tools, return an empty JSON array [] (NOT text).
+
+Return **only** valid JSON. No additional commentary or markdown fences.`;
+}
+
+
