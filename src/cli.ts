@@ -268,10 +268,24 @@ export function flushExchangeToScrollback(
   chatLog.clearAll();
 
   // Restart TUI: re-enable raw mode, hide cursor.
-  // requestRender(true) resets all cursor-tracking state so the first render
-  // starts cleanly from the current cursor position (below our written content).
+  //
+  // IMPORTANT: Do NOT call tui.requestRender(true) here.
+  // requestRender(true) sets previousWidth = -1 which causes the next render to
+  // take the "width changed" code path → fullRender(clear=true) → \x1b[3J which
+  // CLEARS THE ENTIRE SCROLLBACK BUFFER, erasing the exchange we just wrote above.
+  //
+  // Instead, manually reset only the cursor-tracking fields and leave previousWidth
+  // at its current value. With previousLines=[] and widthChanged=false, the render
+  // takes the "first render" path → fullRender(clear=false) → writes UI content at
+  // the current cursor position WITHOUT touching the scrollback buffer.
+  tuiInternal.previousLines = [];
+  tuiInternal.cursorRow = 0;
+  tuiInternal.hardwareCursorRow = 0;
+  tuiInternal.maxLinesRendered = 0;
+  tuiInternal.previousViewportTop = 0;
+  // Do NOT reset previousWidth — keeps widthChanged=false → no \x1b[3J scrollback wipe.
   tui.start();
-  tui.requestRender(true);
+  tui.requestRender(); // non-force: uses manual state above, hits "first render" path
 }
 
 export async function runCli() {
