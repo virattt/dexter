@@ -1,6 +1,7 @@
 import { Container, Input, SelectList, Text, type SelectItem, getEditorKeybindings } from '@mariozechner/pi-tui';
 import { PROVIDERS, type Model } from '../utils/model.js';
 import type { ApprovalDecision } from '../agent/types.js';
+import type { SessionIndexEntry } from '../utils/session-store.js';
 import { selectListTheme, theme } from '../theme.js';
 
 class VimSelectList extends SelectList {
@@ -93,6 +94,31 @@ export function createApiKeyConfirmSelector(onConfirm: (wantsToSet: boolean) => 
   const list = new VimSelectList(items, 4, selectListTheme);
   list.onSelect = (item) => onConfirm(item.value === 'yes');
   list.onCancel = () => onConfirm(false);
+  return list;
+}
+
+export function createSessionSelector(
+  sessions: SessionIndexEntry[],
+  onSelect: (id: string | null) => void,
+) {
+  if (sessions.length === 0) {
+    const container = new Container();
+    container.addChild(new Text(theme.muted('No saved sessions yet.'), 0, 0));
+    container.addChild(new Text(theme.muted('Sessions are saved automatically after each query.'), 0, 0));
+    container.addChild(new Text(theme.muted('esc to close'), 0, 0));
+    (container as any).handleInput = (keyData: string) => {
+      const kb = getEditorKeybindings();
+      if (kb.matches(keyData, 'selectCancel')) onSelect(null);
+    };
+    return container;
+  }
+  const items: SelectItem[] = sessions.map((s, i) => ({
+    value: s.id,
+    label: `${i + 1}. ${s.name}  (${s.queryCount} ${s.queryCount === 1 ? 'query' : 'queries'})`,
+  }));
+  const list = new VimSelectList(items, Math.min(sessions.length + 2, 12), selectListTheme);
+  list.onSelect = (item) => onSelect(item.value);
+  list.onCancel = () => onSelect(null);
   return list;
 }
 

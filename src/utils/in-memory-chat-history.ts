@@ -265,4 +265,62 @@ Select which previous messages are relevant to understanding or answering the cu
     this.messages = [];
     this.relevantMessagesByQuery.clear();
   }
+
+  // ─── Session restore helpers ──────────────────────────────────────────────
+
+  /**
+   * Seeds a single message with pre-computed query, answer and summary directly —
+   * no LLM call is triggered. Used to restore session context without network I/O.
+   */
+  seedMessage(msg: { query: string; answer: string; summary: string | null }): void {
+    this.relevantMessagesByQuery.clear();
+    this.messages.push({
+      id: this.messages.length,
+      query: msg.query,
+      answer: msg.answer,
+      summary: msg.summary,
+    });
+  }
+
+  /**
+   * Restores LLM context from a saved session's compact message list.
+   *
+   * Context-limit strategy:
+   *   - Only the most recent DEFAULT_HISTORY_LIMIT messages are seeded so the
+   *     restored context stays well within the 100 k-token threshold.
+   *   - If priorSummary is provided (generated when the session exceeded
+   *     DEFAULT_HISTORY_LIMIT exchanges), it is injected as a synthetic first
+   *     turn so older insights are preserved without inflating the prompt.
+   *
+   * Clears any existing messages before seeding.
+   */
+  seedFromLlmMessages(
+    msgs: Array<{ query: string; answer: string; summary: string | null }>,
+    priorSummary?: string,
+  ): void {
+    this.clear();
+
+    if (priorSummary) {
+      this.messages.push({
+        id: 0,
+        query: '[Prior session context]',
+        answer: priorSummary,
+        // Keep full text in summary so it's preserved even in summary-mode turns.
+        summary: priorSummary,
+      });
+    }
+
+    // If priorSummary occupies one slot, reduce the recent-message window by 1
+    // so the total seeded never exceeds DEFAULT_HISTORY_LIMIT.
+    const slotCount = priorSummary ? DEFAULT_HISTORY_LIMIT - 1 : DEFAULT_HISTORY_LIMIT;
+    const toSeed = msgs.slice(-slotCount);
+    for (const msg of toSeed) {
+      this.messages.push({
+        id: this.messages.length,
+        query: msg.query,
+        answer: msg.answer,
+        summary: msg.summary,
+      });
+    }
+  }
 }

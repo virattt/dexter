@@ -82,6 +82,16 @@ export class AgentRunnerController {
     return this.historyValue;
   }
 
+  /**
+   * Replaces the current display history with loaded session items.
+   * Used when resuming a saved session — does not touch InMemoryChatHistory
+   * (seed that separately via chatHistory.seedFromLlmMessages()).
+   */
+  loadHistory(items: HistoryItem[]): void {
+    this.historyValue = [...items];
+    this.emitChange();
+  }
+
   get workingState(): WorkingState {
     return this.workingStateValue;
   }

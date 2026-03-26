@@ -14,6 +14,7 @@ import {
   InputHistoryController,
   ModelSelectionController,
 } from './controllers/index.js';
+import { SessionController } from './controllers/session-controller.js';
 import {
   ApiKeyInputComponent,
   ApprovalPromptComponent,
@@ -25,10 +26,13 @@ import {
   createApiKeyConfirmSelector,
   createModelSelector,
   createProviderSelector,
+  createSessionSelector,
 } from './components/index.js';
 import { editorTheme, theme } from './theme.js';
 import type { HistoryItem } from './types.js';
 import { formatDuration, formatExchangeForScrollback } from './utils/scrollback.js';
+import type { SessionIndexEntry } from './utils/session-store.js';
+import type { SessionLlmMessage } from './utils/session-store.js';
 
 function truncateAtWord(str: string, maxLength: number): string {
   if (str.length <= maxLength) {
@@ -96,9 +100,10 @@ function createScreen(
 // the real set of available commands.
 
 const SLASH_COMMANDS: SlashCommand[] = [
-  { name: 'help',  description: 'Show available commands and keyboard shortcuts' },
-  { name: 'model', description: 'Switch the LLM model or provider' },
-  { name: 'think', description: 'Toggle Ollama extended thinking on/off (thinking models only)' },
+  { name: 'help',     description: 'Show available commands and keyboard shortcuts' },
+  { name: 'model',    description: 'Switch the LLM model or provider' },
+  { name: 'sessions', description: 'Browse and resume past conversations' },
+  { name: 'think',    description: 'Toggle Ollama extended thinking on/off (thinking models only)' },
 ];
 
 function buildHelpPanel(): Container {
@@ -295,8 +300,14 @@ export async function runCli() {
   const inputHistory = new InputHistoryController(() => tui.requestRender());
   let lastError: string | null = null;
   let helpVisible = false;
+  let sessionsVisible = false;
+  let sessionsList: SessionIndexEntry[] = [];
+  let resumedSessionName: string | null = null;
   // null = auto-detect from model name; true/false = explicit override
   let thinkEnabled: boolean | null = null;
+  let sessionStarted = false;
+
+  const sessionController = new SessionController();
 
   const onError = (message: string) => {
     lastError = message;
@@ -347,6 +358,10 @@ export async function runCli() {
       helpVisible = false;
       renderSelectionOverlay();
     }
+    if (sessionsVisible) {
+      sessionsVisible = false;
+      renderSelectionOverlay();
+    }
 
     if (query.toLowerCase() === 'exit' || query.toLowerCase() === 'quit') {
       tui.stop();
@@ -393,7 +408,14 @@ export async function runCli() {
       return;
     }
 
-    if (modelSelection.isInSelectionFlow() || agentRunner.pendingApproval || agentRunner.isProcessing) {
+    if (query === '/sessions') {
+      sessionsList = await sessionController.listSessions();
+      sessionsVisible = true;
+      renderSelectionOverlay();
+      return;
+    }
+
+    if (modelSelection.isInSelectionFlow() || sessionsVisible || agentRunner.pendingApproval || agentRunner.isProcessing) {
       return;
     }
 
@@ -407,10 +429,20 @@ export async function runCli() {
 
     await inputHistory.saveMessage(query);
     inputHistory.resetNavigation();
+
+    // Auto-save: start a new session on the first query of each run.
+    if (!sessionStarted) {
+      sessionStarted = true;
+      void sessionController.startSession(query);
+    }
+
     const result = await agentRunner.runQuery(query);
     if (result?.answer) {
       await inputHistory.updateAgentResponse(result.answer);
     }
+
+    // Persist the updated history after each completed exchange.
+    sessionController.autosave(agentRunner.history, modelSelection.inMemoryChatHistory);
 
     // The completed exchange stays in the chatLog (visible in TUI) until the
     // user's next query triggers the flush above.  Just refresh the error line
@@ -430,6 +462,11 @@ export async function runCli() {
   editor.onEscape = () => {
     if (helpVisible) {
       helpVisible = false;
+      renderSelectionOverlay();
+      return;
+    }
+    if (sessionsVisible) {
+      sessionsVisible = false;
       renderSelectionOverlay();
       return;
     }
@@ -474,7 +511,7 @@ export async function runCli() {
     // Hint footer: keyboard shortcuts when idle, cancel hint while running.
     const hintLine = agentRunner.isProcessing
       ? theme.muted('  esc · cancel query')
-      : theme.muted('  ↑↓ history  ·  /model  /think  /help  ·  ctrl+c exit');
+      : theme.muted('  ↑↓ history  ·  /model  /sessions  /think  /help  ·  ctrl+c exit');
     root.addChild(new Text(hintLine, 0, 0));
     root.addChild(editor);
     root.addChild(debugPanel);
@@ -505,6 +542,54 @@ export async function runCli() {
         buildHelpPanel(),
         'Esc to close · type a question to close and ask',
         editor,
+      );
+      return;
+    }
+
+    if (sessionsVisible) {
+      const selector = createSessionSelector(sessionsList, async (id) => {
+        sessionsVisible = false;
+        if (id) {
+          const loaded = await sessionController.loadSession(id);
+          if (loaded) {
+            // Flush any current exchange to scrollback before overwriting history.
+            const prevItem = agentRunner.history.at(-1);
+            if (prevItem && (prevItem.status === 'complete' || prevItem.status === 'interrupted')) {
+              flushExchangeToScrollback(tui, chatLog, prevItem);
+            } else {
+              chatLog.clearAll();
+            }
+
+            // Restore LLM context — seed InMemoryChatHistory from the compact layer.
+            modelSelection.inMemoryChatHistory.seedFromLlmMessages(
+              loaded.llmMessages,
+              loaded.priorSummary,
+            );
+
+            // Restore display history.
+            agentRunner.loadHistory(loaded.history);
+
+            resumedSessionName = loaded.name;
+            sessionStarted = true;
+            // Adopt the loaded session as current so auto-saves append to it.
+            void sessionController.startSessionFromLoaded(loaded);
+
+            intro.setModel(`${modelSelection.model}  ↩ ${loaded.name}`);
+            setTimeout(() => {
+              intro.setModel(modelSelection.model);
+              tui.requestRender();
+            }, 4000);
+          }
+        }
+        renderSelectionOverlay();
+        tui.requestRender();
+      });
+      renderScreenView(
+        '⬡ Dexter — Sessions',
+        'Select a past conversation to resume',
+        selector,
+        'Enter to resume · ↑↓ navigate · Esc to close',
+        selector,
       );
       return;
     }

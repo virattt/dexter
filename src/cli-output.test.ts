@@ -241,10 +241,13 @@ describe('flushExchangeToScrollback integration', () => {
     } finally { restore(); }
   });
 
-  test('calls requestRender(true) to reset cursor state', async () => {
+  test('calls requestRender() without force to avoid wiping scrollback', async () => {
+    // IMPORTANT: requestRender(true) would trigger fullRender(clear=true) which writes
+    // \x1b[3J — erasing the entire terminal scrollback buffer including the exchange
+    // we just flushed.  The implementation must call requestRender() with no argument.
     try {
       await runFlush();
-      expect(renderForceCalled).toBe(true);
+      expect(renderForceCalled).toBe(false);
     } finally { restore(); }
   });
 
