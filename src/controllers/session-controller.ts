@@ -25,6 +25,7 @@ export class SessionController {
   private currentSessionId: string | null = null;
   private currentSession: SessionFile | null = null;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingSnapshot: { snapshot: SessionFile; llmMessages: SessionLlmMessage[] } | null = null;
   private priorSummary: string | undefined;
   private lastSavedMessageCount = 0;
 
@@ -76,9 +77,11 @@ export class SessionController {
     };
 
     this.saveTimer = setTimeout(() => void this.doSave(snapshot, llmMessages), 250);
+    this.pendingSnapshot = { snapshot, llmMessages };
   }
 
   private async doSave(snapshot: SessionFile, llmMessages: SessionLlmMessage[]): Promise<void> {
+    this.pendingSnapshot = null;
     // Trigger compaction when the session first exceeds DEFAULT_HISTORY_LIMIT and
     // each time it crosses another multiple (20, 30, …).
     // blockOf: which "compaction block" a count belongs to (-1 = never triggered).
@@ -107,6 +110,22 @@ export class SessionController {
     } catch {
       // Non-fatal — session saves proceed without a priorSummary.
     }
+  }
+
+  /**
+   * Cancels any pending debounce timer and immediately persists the current
+   * session snapshot to disk.  Must be called before process.exit() to ensure
+   * the last exchange is saved even when the user exits within the 250ms window.
+   */
+  async flush(): Promise<void> {
+    if (!this.pendingSnapshot) return;
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
+    const { snapshot, llmMessages } = this.pendingSnapshot;
+    this.pendingSnapshot = null;
+    await this.doSave(snapshot, llmMessages);
   }
 
   /**

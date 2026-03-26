@@ -246,6 +246,77 @@ describe('E2E: AgentRunnerController.loadHistory()', () => {
   });
 });
 
+// ─── flush() — session saved before process.exit() ───────────────────────────
+//
+// Root cause of "session not available after exit":
+//   autosave() debounces the write by 250ms.
+//   process.exit(0) on Ctrl+C kills the pending timer before it fires.
+//   flush() cancels the timer and immediately persists the snapshot.
+
+describe('E2E: flush() saves session before process.exit()', () => {
+  it('flush() after autosave() persists without waiting for debounce', async () => {
+    const ctrl = new SessionController(tmpDir);
+    await ctrl.startSession('what is the PE ratio of Apple');
+
+    const items = makeItems(2);
+    const chatHistory = makeChatHistory(2);
+
+    ctrl.autosave(items, chatHistory);
+    // Immediately flush — no debounce wait.  Simulates Ctrl+C right after query.
+    await ctrl.flush();
+
+    const sessions = await ctrl.listSessions();
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].queryCount).toBe(2);
+    expect(sessions[0].name).toContain('what is the PE');
+  });
+
+  it('flush() with no pending save is a no-op (safe to call on exit always)', async () => {
+    const ctrl = new SessionController(tmpDir);
+    await ctrl.startSession('safe flush test');
+    // No autosave called — flush should not throw
+    await expect(ctrl.flush()).resolves.toBeUndefined();
+  });
+
+  it('session is visible in /sessions list after flush() + fresh controller', async () => {
+    // Session A — saved via flush() (simulating exit after first run)
+    const ctrlA = new SessionController(tmpDir);
+    await ctrlA.startSession('deep analysis of Chevron CVX');
+    ctrlA.autosave(makeItems(3), makeChatHistory(3));
+    await ctrlA.flush();
+
+    // Session B — fresh controller, simulating a new process startup
+    const ctrlB = new SessionController(tmpDir);
+    const sessions = await ctrlB.listSessions();
+
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].queryCount).toBe(3);
+    expect(sessions[0].name).toContain('deep analysis');
+  });
+
+  it('resumed session receives further queries after flush-based restore', async () => {
+    // First run: save and exit
+    const ctrlA = new SessionController(tmpDir);
+    await ctrlA.startSession('initial question about Tesla');
+    ctrlA.autosave(makeItems(2), makeChatHistory(2));
+    await ctrlA.flush();
+
+    const [entry] = await ctrlA.listSessions();
+
+    // Second run: resume session and add more queries
+    const ctrlB = new SessionController(tmpDir);
+    const loaded = await ctrlB.loadSession(entry.id);
+    expect(loaded).not.toBeNull();
+
+    ctrlB.startSessionFromLoaded(loaded!);
+    ctrlB.autosave(makeItems(4), makeChatHistory(4)); // extended history
+    await ctrlB.flush();
+
+    const updated = await ctrlB.loadSession(entry.id);
+    expect(updated!.queryCount).toBe(4);
+  });
+});
+
 // ─── Full restore flow ────────────────────────────────────────────────────────
 
 describe('E2E: full session restore flow', () => {

@@ -365,6 +365,7 @@ export async function runCli() {
 
     if (query.toLowerCase() === 'exit' || query.toLowerCase() === 'quit') {
       tui.stop();
+      await sessionController.flush();
       process.exit(0);
       return;
     }
@@ -490,7 +491,9 @@ export async function runCli() {
       return;
     }
     tui.stop();
-    process.exit(0);
+    // Flush pending autosave before exiting — autosave() debounces by 250ms but
+    // process.exit(0) kills the timer.  flush() writes synchronously then exits.
+    void sessionController.flush().finally(() => process.exit(0));
   };
 
   const renderMainView = () => {
