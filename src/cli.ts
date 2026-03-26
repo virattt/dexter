@@ -413,6 +413,7 @@ export async function runCli() {
       sessionsList = await sessionController.listSessions();
       sessionsVisible = true;
       renderSelectionOverlay();
+      tui.requestRender();
       return;
     }
 
