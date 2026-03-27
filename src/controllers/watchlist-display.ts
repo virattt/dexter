@@ -155,6 +155,55 @@ export function buildEnrichedEntries(
   });
 }
 
+// ---------------------------------------------------------------------------
+// Snapshot display data (pure — no TUI imports)
+// ---------------------------------------------------------------------------
+
+export interface SnapshotDisplayData {
+  /** Entries that have cost basis + shares + a live price → fully calculated. */
+  positionEntries: EnrichedEntry[];
+  /** Entries that have a live price but no cost basis (watch-only). */
+  watchOnlyEntries: EnrichedEntry[];
+  /** Aggregated portfolio totals (investments, P&L, return %). */
+  totals: PortfolioTotals;
+  /** True when there is literally nothing to display (no prices at all). */
+  hasNoData: boolean;
+  /** Best performer by returnPct (or undefined if fewer than 2 positions). */
+  best: EnrichedEntry | undefined;
+  /** Worst performer by returnPct (or undefined if fewer than 2 positions). */
+  worst: EnrichedEntry | undefined;
+}
+
+/**
+ * Pure helper that separates the data-preparation logic from TUI rendering.
+ * Used by buildSnapshotPanel in cli.ts and unit-tested independently.
+ */
+export function buildSnapshotDisplayData(
+  entries: WatchlistEntry[],
+  prices: Map<string, PriceSnapshot>,
+): SnapshotDisplayData {
+  const totals = calcPortfolioTotals(entries, prices);
+  const enriched = buildEnrichedEntries(entries, prices);
+
+  const positionEntries = enriched.filter((e) => e.allocPct !== undefined);
+  const watchOnlyEntries = enriched.filter(
+    (e) => e.allocPct === undefined && e.price !== undefined,
+  );
+
+  const ranked = positionEntries
+    .filter((e) => e.returnPct !== undefined)
+    .sort((a, b) => (b.returnPct ?? 0) - (a.returnPct ?? 0));
+
+  return {
+    positionEntries,
+    watchOnlyEntries,
+    totals,
+    hasNoData: positionEntries.length === 0 && watchOnlyEntries.length === 0,
+    best:  ranked.length >= 2 ? ranked[0] : undefined,
+    worst: ranked.length >= 2 ? ranked[ranked.length - 1] : undefined,
+  };
+}
+
 /**
  * Renders a proportional ASCII bar for a given percentage.
  * e.g. buildAsciiBar(25, 20) → "█████░░░░░░░░░░░░░░░"

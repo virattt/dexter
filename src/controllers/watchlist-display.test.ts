@@ -300,3 +300,124 @@ describe('fetchLivePrices()', () => {
     expect(map.get('NVDA')?.price).toBe(800);
   });
 });
+
+// ---------------------------------------------------------------------------
+// buildSnapshotDisplayData()
+// ---------------------------------------------------------------------------
+import { buildSnapshotDisplayData } from './watchlist-display.js';
+
+describe('buildSnapshotDisplayData()', () => {
+  // ── Watch-only (no cost basis) ─────────────────────────────────────────────
+
+  it('places entries with prices but no cost basis in watchOnlyEntries', () => {
+    const entries = [makeEntry('AMD'), makeEntry('VALE')];
+    const prices = new Map([
+      ['AMD',  makeSnap('AMD',  219.85, 1.2)],
+      ['VALE', makeSnap('VALE',  14.95, -0.5)],
+    ]);
+    const result = buildSnapshotDisplayData(entries, prices);
+
+    expect(result.watchOnlyEntries).toHaveLength(2);
+    expect(result.positionEntries).toHaveLength(0);
+    expect(result.hasNoData).toBe(false);
+  });
+
+  it('does NOT set hasNoData when watch-only prices are available', () => {
+    const entries = [makeEntry('AMD')];
+    const prices = new Map([['AMD', makeSnap('AMD', 219.85, 1.2)]]);
+    const { hasNoData } = buildSnapshotDisplayData(entries, prices);
+    expect(hasNoData).toBe(false);
+  });
+
+  it('sets hasNoData only when no entry has a price', () => {
+    const entries = [makeEntry('AMD'), makeEntry('VALE')];
+    const prices = new Map<string, PriceSnapshot>(); // all fetches failed
+    const { hasNoData } = buildSnapshotDisplayData(entries, prices);
+    expect(hasNoData).toBe(true);
+  });
+
+  it('sets hasNoData for an empty watchlist', () => {
+    const { hasNoData } = buildSnapshotDisplayData([], new Map());
+    expect(hasNoData).toBe(true);
+  });
+
+  // ── Full positions (cost basis + shares) ──────────────────────────────────
+
+  it('places entries with cost basis + shares in positionEntries', () => {
+    const entries = [makeEntry('AAPL', 150, 10), makeEntry('MSFT', 300, 5)];
+    const prices = new Map([
+      ['AAPL', makeSnap('AAPL', 200, 1)],
+      ['MSFT', makeSnap('MSFT', 350, 2)],
+    ]);
+    const result = buildSnapshotDisplayData(entries, prices);
+
+    expect(result.positionEntries).toHaveLength(2);
+    expect(result.watchOnlyEntries).toHaveLength(0);
+    expect(result.hasNoData).toBe(false);
+  });
+
+  it('computes portfolio totals for position entries', () => {
+    const entries = [makeEntry('AAPL', 100, 10)];
+    const prices = new Map([['AAPL', makeSnap('AAPL', 150, 0)]]);
+    const { totals } = buildSnapshotDisplayData(entries, prices);
+
+    expect(totals.totalInvested).toBe(1000);
+    expect(totals.totalCurrent).toBe(1500);
+    expect(totals.totalPnl).toBe(500);
+  });
+
+  // ── Best / worst ──────────────────────────────────────────────────────────
+
+  it('exposes best and worst performer when 2+ positions exist', () => {
+    const entries = [makeEntry('AAPL', 100, 10), makeEntry('MSFT', 100, 10), makeEntry('NVDA', 100, 10)];
+    const prices = new Map([
+      ['AAPL', makeSnap('AAPL', 150, 0)],   // +50%
+      ['MSFT', makeSnap('MSFT', 110, 0)],   // +10%
+      ['NVDA', makeSnap('NVDA',  80, 0)],   // -20%
+    ]);
+    const { best, worst } = buildSnapshotDisplayData(entries, prices);
+
+    expect(best?.ticker).toBe('AAPL');
+    expect(worst?.ticker).toBe('NVDA');
+  });
+
+  it('best and worst are undefined with only 1 position', () => {
+    const entries = [makeEntry('AAPL', 100, 10)];
+    const prices = new Map([['AAPL', makeSnap('AAPL', 150, 0)]]);
+    const { best, worst } = buildSnapshotDisplayData(entries, prices);
+
+    expect(best).toBeUndefined();
+    expect(worst).toBeUndefined();
+  });
+
+  // ── Mixed watchlist ────────────────────────────────────────────────────────
+
+  it('correctly splits a mixed watchlist into positions and watch-only', () => {
+    const entries = [
+      makeEntry('AAPL', 150, 10),   // position
+      makeEntry('AMD'),              // watch-only
+      makeEntry('VALE'),             // watch-only — price fetch failed
+    ];
+    const prices = new Map([
+      ['AAPL', makeSnap('AAPL', 200, 1)],
+      ['AMD',  makeSnap('AMD',  220, -0.5)],
+      // VALE has no price (fetch failed)
+    ]);
+    const result = buildSnapshotDisplayData(entries, prices);
+
+    expect(result.positionEntries).toHaveLength(1);
+    expect(result.positionEntries[0]!.ticker).toBe('AAPL');
+    expect(result.watchOnlyEntries).toHaveLength(1);
+    expect(result.watchOnlyEntries[0]!.ticker).toBe('AMD');
+    expect(result.hasNoData).toBe(false);
+  });
+
+  it('watch-only entries carry their live price and changePercent', () => {
+    const entries = [makeEntry('AMD')];
+    const prices = new Map([['AMD', makeSnap('AMD', 219.85, -1.5)]]);
+    const { watchOnlyEntries } = buildSnapshotDisplayData(entries, prices);
+
+    expect(watchOnlyEntries[0]!.price).toBe(219.85);
+    expect(watchOnlyEntries[0]!.changePercent).toBe(-1.5);
+  });
+});

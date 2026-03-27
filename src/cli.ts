@@ -18,8 +18,9 @@ import {
 import { SessionController } from './controllers/session-controller.js';
 import { WatchlistController, parseWatchlistSubcommand } from './controllers/watchlist-controller.js';
 import {
-  buildEnrichedEntries,
   buildAsciiBar,
+  buildEnrichedEntries,
+  buildSnapshotDisplayData,
   calcPortfolioTotals,
   fetchLivePrices,
 } from './controllers/watchlist-display.js';
@@ -346,7 +347,10 @@ function buildSnapshotPanel(
   container.addChild(new Text(theme.bold(`  Portfolio Snapshot — ${today}`), 0, 0));
   container.addChild(new Text(theme.muted('  ' + '━'.repeat(40)), 0, 0));
 
-  const totals = calcPortfolioTotals(entries, prices);
+  const { positionEntries, watchOnlyEntries, totals, hasNoData, best, worst } =
+    buildSnapshotDisplayData(entries, prices);
+
+  // Portfolio summary totals (only when positions exist with cost basis)
   if (totals.totalInvested > 0) {
     container.addChild(new Text(`  Total Invested:  ${fmtMoney(totals.totalInvested)}`, 0, 0));
     container.addChild(new Text(`  Current Value:   ${fmtMoney(totals.totalCurrent)}`, 0, 0));
@@ -356,14 +360,10 @@ function buildSnapshotPanel(
   }
 
   // ASCII bar chart for allocation
-  const enriched = buildEnrichedEntries(entries, prices);
-  const withAlloc = enriched.filter((e) => e.allocPct !== undefined);
-  const watchOnly = enriched.filter((e) => e.allocPct === undefined && e.price !== undefined);
-
-  if (withAlloc.length > 0) {
+  if (positionEntries.length > 0) {
     container.addChild(new Text(theme.bold('  Allocation:'), 0, 0));
     const BAR_WIDTH = 26;
-    for (const e of withAlloc) {
+    for (const e of positionEntries) {
       const pct = e.allocPct!;
       const bar = buildAsciiBar(pct, BAR_WIDTH);
       const pctStr = `${pct.toFixed(0)}%`.padStart(4);
@@ -372,22 +372,17 @@ function buildSnapshotPanel(
     container.addChild(new Text('', 0, 0));
   }
 
-  // Performance ranking
-  const ranked = withAlloc
-    .filter((e) => e.returnPct !== undefined)
-    .sort((a, b) => (b.returnPct ?? 0) - (a.returnPct ?? 0));
-  if (ranked.length > 1) {
-    const best  = ranked[0]!;
-    const worst = ranked[ranked.length - 1]!;
+  // Performance ranking (best / worst)
+  if (best && worst) {
     container.addChild(new Text(`  Best:  ${theme.primary(best.ticker.padEnd(6))} ${colorPct(best.returnPct!, fmtPct(best.returnPct!))}`, 0, 0));
     container.addChild(new Text(`  Worst: ${theme.primary(worst.ticker.padEnd(6))} ${colorPct(worst.returnPct!, fmtPct(worst.returnPct!))}`, 0, 0));
     container.addChild(new Text('', 0, 0));
   }
 
-  // Watch-only section
-  if (watchOnly.length > 0) {
+  // Watch-only section (tickers tracked without cost basis / shares)
+  if (watchOnlyEntries.length > 0) {
     container.addChild(new Text(theme.muted('  Watching (no position):'), 0, 0));
-    for (const e of watchOnly) {
+    for (const e of watchOnlyEntries) {
       const day = e.changePercent !== undefined
         ? colorPct(e.changePercent, fmtPct(e.changePercent))
         : '';
@@ -395,8 +390,10 @@ function buildSnapshotPanel(
     }
   }
 
-  if (totals.totalInvested === 0 && withAlloc.length === 0) {
-    container.addChild(new Text(theme.muted('  No position data. Add shares and cost basis with /watchlist add TICKER COST SHARES'), 0, 0));
+  // "No data" fallback — only when nothing at all could be loaded
+  if (hasNoData) {
+    container.addChild(new Text(theme.muted('  No price data available. Add tickers with /watchlist add TICKER'), 0, 0));
+    container.addChild(new Text(theme.muted('  To track P&L, provide cost basis: /watchlist add TICKER COST SHARES'), 0, 0));
   }
 
   return container;
@@ -764,6 +761,16 @@ export async function runCli() {
     if (query.startsWith('/watchlist')) {
       const watchlistCtrl = new WatchlistController(process.cwd());
       const sub = parseWatchlistSubcommand(query.slice('/watchlist'.length).trim());
+
+      // Flush current completed exchange to scrollback before any overlay hides chatLog.
+      // This preserves the conversation history so it isn't visually erased when the
+      // watchlist panel renders over the chat area.
+      if (sub.cmd === 'list' || sub.cmd === 'show' || sub.cmd === 'snapshot') {
+        const prevItem = agentRunner.history.at(-1);
+        if (prevItem && (prevItem.status === 'complete' || prevItem.status === 'interrupted')) {
+          flushExchangeToScrollback(tui, chatLog, prevItem);
+        }
+      }
 
       if (sub.cmd === 'add') {
         watchlistCtrl.add(sub.ticker, sub.costBasis, sub.shares);
