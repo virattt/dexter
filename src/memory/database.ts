@@ -7,6 +7,7 @@ import type {
   MemoryVectorCandidate,
 } from './types.js';
 import { buildFtsQueryExpanded } from './financial-synonyms.js';
+import { extractTickers } from './ticker-extractor.js';
 
 type SqliteQuery<T> = {
   all(...params: unknown[]): T[];
@@ -18,6 +19,8 @@ type SqliteDatabase = {
   exec(sql: string): void;
   query<T>(sql: string): SqliteQuery<T>;
   close(): void;
+  /** Available in Bun (bun:sqlite) and better-sqlite3. Used to load sqlite-vec. */
+  loadExtension?: (path: string) => void;
 };
 
 type FinancialInsightRow = {
@@ -57,6 +60,7 @@ type ChunkRow = {
   embedding: Uint8Array | null;
   source: string;
   updated_at: number;
+  tickers: string | null;
 };
 
 type CacheRow = {
@@ -177,12 +181,33 @@ function cosineSimilarity(a: number[], b: number[]): number {
 }
 
 export class MemoryDatabase {
-  private constructor(private readonly db: SqliteDatabase) {}
+  /** Set to true when the sqlite-vec extension was loaded successfully. */
+  private vecEnabled: boolean;
+  /** Embedding dimension currently used by the vec_chunks virtual table (-1 = not created). */
+  private vecTableDim = -1;
+
+  private constructor(private readonly db: SqliteDatabase, vecEnabled = false) {
+    this.vecEnabled = vecEnabled;
+  }
 
   static async create(path: string): Promise<MemoryDatabase> {
     await mkdir(dirname(path), { recursive: true });
     const db = await MemoryDatabase.openSqlite(path);
-    const memoryDb = new MemoryDatabase(db);
+
+    // Attempt to load sqlite-vec for ANN vector search.
+    // Falls back to JS cosine scan if unavailable.
+    let vecEnabled = false;
+    if (db.loadExtension) {
+      try {
+        const { getLoadablePath } = await import('sqlite-vec');
+        db.loadExtension(getLoadablePath());
+        vecEnabled = true;
+      } catch {
+        // sqlite-vec not installed or incompatible platform — JS fallback will be used
+      }
+    }
+
+    const memoryDb = new MemoryDatabase(db, vecEnabled);
     memoryDb.db.exec(CREATE_SCHEMA_SQL);
     memoryDb.db.exec(FINANCIAL_SCHEMA_SQL);
     memoryDb.runMigrations();
@@ -191,8 +216,63 @@ export class MemoryDatabase {
 
   private runMigrations(): void {
     const columns = this.db.query<{ name: string }>('PRAGMA table_info(chunks)').all();
-    if (!columns.some((c) => c.name === 'source')) {
+    const colNames = new Set(columns.map((c) => c.name));
+
+    if (!colNames.has('source')) {
       this.db.exec("ALTER TABLE chunks ADD COLUMN source TEXT NOT NULL DEFAULT 'memory'");
+    }
+    if (!colNames.has('tickers')) {
+      this.db.exec('ALTER TABLE chunks ADD COLUMN tickers TEXT');
+    }
+
+    // If sqlite-vec is enabled, restore vec table from persisted dimension and backfill.
+    if (this.vecEnabled) {
+      const dimRow = this.db.query<{ value: string }>('SELECT value FROM meta WHERE key = ?').get('embedding_dim');
+      if (dimRow) {
+        const dim = parseInt(dimRow.value, 10);
+        if (!Number.isNaN(dim) && dim > 0) {
+          const created = this.ensureVecTable(dim);
+          if (created) {
+            this.backfillVecTable();
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Creates the vec_chunks virtual table for the given embedding dimension.
+   * Returns true if the table now exists, false on failure.
+   */
+  private ensureVecTable(dim: number): boolean {
+    if (!this.vecEnabled) return false;
+    if (this.vecTableDim === dim) return true;
+    try {
+      this.db.exec(
+        `CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(embedding float[${dim}] distance_metric=cosine)`,
+      );
+      this.vecTableDim = dim;
+      return true;
+    } catch {
+      // sqlite-vec unavailable at runtime despite extension load attempt
+      this.vecEnabled = false;
+      return false;
+    }
+  }
+
+  /** Copies existing chunk embeddings into vec_chunks (idempotent — uses INSERT OR IGNORE). */
+  private backfillVecTable(): void {
+    const rows = this.db
+      .query<{ id: number; embedding: Uint8Array | null }>('SELECT id, embedding FROM chunks WHERE embedding IS NOT NULL')
+      .all();
+    for (const row of rows) {
+      if (row.embedding) {
+        try {
+          this.db.query('INSERT OR IGNORE INTO vec_chunks (rowid, embedding) VALUES (?, ?)').run(row.id, row.embedding);
+        } catch {
+          // Silently skip rows that fail (e.g., dimension mismatch for old embeddings)
+        }
+      }
     }
   }
 
@@ -223,6 +303,7 @@ export class MemoryDatabase {
         };
       },
       close: () => raw.close(),
+      loadExtension: (extPath: string) => raw.loadExtension(extPath),
     };
   }
 
@@ -411,10 +492,12 @@ export class MemoryDatabase {
     const existing = this.getChunkByHash(params.chunk.contentHash);
     const embeddingBlob = params.embedding ? toBlob(params.embedding) : null;
     const source = params.source ?? params.chunk.source ?? 'memory';
+    const tickers = extractTickers(params.chunk.content).join(',') || null;
+
     if (existing) {
       this.db
         .query(
-          'UPDATE chunks SET file_path = ?, start_line = ?, end_line = ?, content = ?, embedding = ?, embedding_provider = ?, embedding_model = ?, updated_at = ?, source = ? WHERE id = ?',
+          'UPDATE chunks SET file_path = ?, start_line = ?, end_line = ?, content = ?, embedding = ?, embedding_provider = ?, embedding_model = ?, updated_at = ?, source = ?, tickers = ? WHERE id = ?',
         )
         .run(
           params.chunk.filePath,
@@ -426,16 +509,21 @@ export class MemoryDatabase {
           params.model ?? null,
           Date.now(),
           source,
+          tickers,
           existing.id,
         );
       this.db.query('DELETE FROM chunks_fts WHERE chunk_id = ?').run(existing.id);
       this.db.query('INSERT INTO chunks_fts (content, chunk_id) VALUES (?, ?)').run(params.chunk.content, existing.id);
+
+      if (embeddingBlob && params.embedding) {
+        this.upsertVecChunk(existing.id, embeddingBlob, params.embedding.length);
+      }
       return { id: existing.id, inserted: false };
     }
 
     this.db
       .query(
-        'INSERT INTO chunks (file_path, start_line, end_line, content, content_hash, embedding, embedding_provider, embedding_model, updated_at, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO chunks (file_path, start_line, end_line, content, content_hash, embedding, embedding_provider, embedding_model, updated_at, source, tickers) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       )
       .run(
         params.chunk.filePath,
@@ -448,6 +536,7 @@ export class MemoryDatabase {
         params.model ?? null,
         Date.now(),
         source,
+        tickers,
       );
 
     const inserted = this.db.query<{ id: number }>('SELECT id FROM chunks WHERE content_hash = ?').get(
@@ -457,13 +546,36 @@ export class MemoryDatabase {
       throw new Error('Failed to resolve inserted chunk id.');
     }
     this.db.query('INSERT INTO chunks_fts (content, chunk_id) VALUES (?, ?)').run(params.chunk.content, inserted.id);
+
+    if (embeddingBlob && params.embedding) {
+      this.upsertVecChunk(inserted.id, embeddingBlob, params.embedding.length);
+    }
     return { id: inserted.id, inserted: true };
+  }
+
+  /** Ensures the vec_chunks table exists for `dim` dimensions and inserts/replaces the vector. */
+  private upsertVecChunk(chunkId: number, embeddingBlob: Uint8Array, dim: number): void {
+    if (!this.ensureVecTable(dim)) return;
+    // Persist dimension to meta so it survives process restarts.
+    if (this.vecTableDim === dim) {
+      this.db.query("INSERT OR IGNORE INTO meta (key, value) VALUES ('embedding_dim', ?)").run(String(dim));
+    }
+    try {
+      this.db.query('INSERT OR REPLACE INTO vec_chunks (rowid, embedding) VALUES (?, ?)').run(chunkId, embeddingBlob);
+    } catch {
+      // Dimension mismatch or other vec error — skip silently
+    }
   }
 
   deleteChunksForFile(filePath: string): number {
     const rows = this.db.query<{ id: number }>('SELECT id FROM chunks WHERE file_path = ?').all(filePath);
     for (const row of rows) {
       this.db.query('DELETE FROM chunks_fts WHERE chunk_id = ?').run(row.id);
+      if (this.vecEnabled && this.vecTableDim > 0) {
+        try {
+          this.db.query('DELETE FROM vec_chunks WHERE rowid = ?').run(row.id);
+        } catch { /* ignore if table not yet created */ }
+      }
     }
     this.db.query('DELETE FROM chunks WHERE file_path = ?').run(filePath);
     return rows.length;
@@ -482,24 +594,49 @@ export class MemoryDatabase {
       .all();
   }
 
+  /**
+   * KNN vector search using sqlite-vec if loaded; falls back to O(n) JS cosine scan.
+   * Scores are in [0, 1]: 1 = identical, 0 = orthogonal/opposite.
+   */
   searchVector(queryEmbedding: number[], maxResults: number): MemoryVectorCandidate[] {
+    if (this.vecEnabled && this.vecTableDim === queryEmbedding.length) {
+      try {
+        return this.searchVectorKnn(queryEmbedding, maxResults);
+      } catch {
+        // Unexpected error from vec extension — fall through to JS scan
+      }
+    }
+    return this.searchVectorScan(queryEmbedding, maxResults);
+  }
+
+  private searchVectorKnn(queryEmbedding: number[], maxResults: number): MemoryVectorCandidate[] {
+    const queryBlob = toBlob(queryEmbedding);
+    const rows = this.db
+      .query<{ rowid: number; distance: number }>(
+        'SELECT rowid, distance FROM vec_chunks WHERE embedding MATCH ? ORDER BY distance LIMIT ?',
+      )
+      .all(queryBlob, maxResults);
+    // sqlite-vec cosine distance: 0 = identical, 2 = opposite. Convert to similarity score.
+    return rows.map((row) => ({
+      chunkId: row.rowid,
+      score: Math.max(0, 1 - row.distance / 2),
+    }));
+  }
+
+  private searchVectorScan(queryEmbedding: number[], maxResults: number): MemoryVectorCandidate[] {
     const rows = this.db
       .query<{ id: number; embedding: Uint8Array | null }>(
         'SELECT id, embedding FROM chunks WHERE embedding IS NOT NULL',
       )
       .all();
-    const scored = rows
+    return rows
       .map((row) => {
-        if (!row.embedding) {
-          return null;
-        }
-        const score = cosineSimilarity(queryEmbedding, fromBlob(row.embedding));
-        return { chunkId: row.id, score };
+        if (!row.embedding) return null;
+        return { chunkId: row.id, score: cosineSimilarity(queryEmbedding, fromBlob(row.embedding)) };
       })
       .filter((entry): entry is MemoryVectorCandidate => Boolean(entry))
       .sort((a, b) => b.score - a.score)
       .slice(0, maxResults);
-    return scored;
   }
 
   searchKeyword(query: string, maxResults: number): MemoryKeywordCandidate[] {
@@ -531,6 +668,25 @@ export class MemoryDatabase {
     }));
   }
 
+  /**
+   * Returns tickers stored for the given chunk IDs.
+   * Used by hybridSearch to boost score for ticker-matching results.
+   */
+  getChunkTickers(ids: number[]): Map<number, string[]> {
+    if (ids.length === 0) return new Map();
+    const placeholders = ids.map(() => '?').join(', ');
+    const rows = this.db
+      .query<{ id: number; tickers: string | null }>(
+        `SELECT id, tickers FROM chunks WHERE id IN (${placeholders})`,
+      )
+      .all(...ids);
+    const result = new Map<number, string[]>();
+    for (const row of rows) {
+      result.set(row.id, row.tickers ? row.tickers.split(',') : []);
+    }
+    return result;
+  }
+
   loadResultsByIds(ids: number[]): MemorySearchResult[] {
     if (ids.length === 0) {
       return [];
@@ -538,7 +694,7 @@ export class MemoryDatabase {
     const placeholders = ids.map(() => '?').join(', ');
     const rows = this.db
       .query<ChunkRow>(
-        `SELECT id, file_path, start_line, end_line, content, content_hash, embedding, source, updated_at FROM chunks WHERE id IN (${placeholders})`,
+        `SELECT id, file_path, start_line, end_line, content, content_hash, embedding, source, updated_at, tickers FROM chunks WHERE id IN (${placeholders})`,
       )
       .all(...ids);
     const rowById = new Map(rows.map((row) => [row.id, row]));
@@ -554,6 +710,12 @@ export class MemoryDatabase {
         source: 'keyword' as const,
         contentSource: (row.source ?? 'memory') as 'memory' | 'sessions',
         updatedAt: row.updated_at,
+        tickers: row.tickers ? row.tickers.split(',') : [],
       }));
+  }
+
+  /** Expose whether sqlite-vec ANN index is active (used in tests and diagnostics). */
+  get isVecEnabled(): boolean {
+    return this.vecEnabled && this.vecTableDim > 0;
   }
 }

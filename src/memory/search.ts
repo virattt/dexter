@@ -2,6 +2,7 @@ import { buildSnippet } from './chunker.js';
 import { embedSingleQuery } from './embeddings.js';
 import { applyTemporalDecay } from './temporal-decay.js';
 import { applyMMRToHybridResults } from './mmr.js';
+import { extractTickers } from './ticker-extractor.js';
 import type { MemoryDatabase } from './database.js';
 import type {
   MemoryEmbeddingClient,
@@ -103,6 +104,9 @@ export async function hybridSearch(params: {
     }
   }
 
+  // Extract tickers from the query for ticker-aware score boost.
+  const queryTickers = new Set(extractTickers(params.query));
+
   let results: MemorySearchResult[] = merged
     .map((entry) => {
       const detail = byId.get(entry.id);
@@ -115,12 +119,19 @@ export async function hybridSearch(params: {
           : entry.vectorScore > 0
             ? 'vector'
             : 'keyword';
+
+      // Boost score when any chunk ticker matches a query ticker (+0.25, capped at 1.0).
+      const chunkTickers = detail.tickers ?? [];
+      const tickerMatch = queryTickers.size > 0 && chunkTickers.some((t) => queryTickers.has(t));
+      const boostedScore = tickerMatch ? Math.min(1, entry.finalScore + 0.25) : entry.finalScore;
+
+      const tickerNote = tickerMatch ? ` t=${chunkTickers.filter((t) => queryTickers.has(t)).join('+')}` : '';
       const explanation =
-        `v=${entry.vectorScore.toFixed(3)} k=${entry.keywordScore.toFixed(3)} src=${source}`;
+        `v=${entry.vectorScore.toFixed(3)} k=${entry.keywordScore.toFixed(3)} src=${source}${tickerNote}`;
       return {
         ...detail,
         snippet: buildSnippet(detail.snippet, 700),
-        score: entry.finalScore,
+        score: boostedScore,
         source,
         explanation,
       } as MemorySearchResult;

@@ -37,6 +37,7 @@
     "linkedom": "^0.18.12",
     "playwright": "^1.52.0",
     "qrcode-terminal": "^0.12.0",
+    "sqlite-vec": "^0.1.7",
     "unpdf": "^1.4.0",
     "yahoo-finance2": "^3.13.2",
     "zod": "^4.1.13"

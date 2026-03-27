@@ -55,20 +55,39 @@ export function shouldRunMemoryFlush(params: {
   return params.estimatedContextTokens >= threshold;
 }
 
+/**
+ * Validates flush output before persisting it to memory.
+ *
+ * A valid flush must:
+ * - Be non-empty (after trimming whitespace)
+ * - Be at least 50 characters (avoids trivially short / meaningless entries)
+ * - Contain at least one markdown bullet point (- or * at the start of a line)
+ */
+export function validateFlushOutput(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length < 50) return false;
+  return /^[-*]\s+\S/m.test(trimmed);
+}
+
 export async function runMemoryFlush(params: {
   model: string;
   systemPrompt: string;
   query: string;
   toolResults: string;
+  existingMemory?: string;
   signal?: AbortSignal;
 }): Promise<{ flushed: boolean; written: boolean; content?: string }> {
+  const existingSection = params.existingMemory
+    ? `\nAlready stored in memory (do not repeat these facts):\n${params.existingMemory}\n`
+    : '';
+
   const prompt = `
 Original user query:
 ${params.query}
 
 Relevant retrieved context:
 ${params.toolResults || '[no tool results yet]'}
-
+${existingSection}
 ${MEMORY_FLUSH_PROMPT}
 `.trim();
 
@@ -79,6 +98,10 @@ ${MEMORY_FLUSH_PROMPT}
   });
   const response = typeof result.response === 'string' ? result.response.trim() : '';
   if (!response || response === MEMORY_FLUSH_TOKEN) {
+    return { flushed: true, written: false };
+  }
+
+  if (!validateFlushOutput(response)) {
     return { flushed: true, written: false };
   }
 

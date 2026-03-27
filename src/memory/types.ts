@@ -60,6 +60,8 @@ export interface MemorySearchResult {
   updatedAt?: number;
   /** Ranking breakdown for transparency: "v=0.843 k=0.210 src=both" */
   explanation?: string;
+  /** Tickers found in the chunk content (e.g. ["AAPL", "TSLA"]). */
+  tickers?: string[];
 }
 
 export interface MemorySearchOptions {
