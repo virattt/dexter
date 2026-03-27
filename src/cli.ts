@@ -17,6 +17,14 @@ import {
 } from './controllers/index.js';
 import { SessionController } from './controllers/session-controller.js';
 import { WatchlistController, parseWatchlistSubcommand } from './controllers/watchlist-controller.js';
+import {
+  buildEnrichedEntries,
+  buildAsciiBar,
+  calcPortfolioTotals,
+  fetchLivePrices,
+} from './controllers/watchlist-display.js';
+import type { PriceFetcher, PriceSnapshot } from './controllers/watchlist-display.js';
+import { api } from './tools/finance/api.js';
 import { MemoryStore } from './memory/store.js';
 import { runDream, incrementDreamSessionCount, shouldRunDream } from './memory/dream.js';
 import {
@@ -108,7 +116,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'model',     description: 'Switch the LLM model or provider' },
   { name: 'sessions',  description: 'Browse and resume past conversations' },
   { name: 'think',     description: 'Toggle Ollama extended thinking on/off (thinking models only)' },
-  { name: 'watchlist', description: 'Portfolio briefing — or: add TICKER [cost] [shares] | remove TICKER | list' },
+  { name: 'watchlist', description: 'Portfolio briefing — or: add TICKER [cost] [shares] | remove TICKER | list | show TICKER | snapshot' },
   { name: 'dream',     description: 'Consolidate memory files (merge daily notes into MEMORY.md + FINANCE.md)' },
 ];
 
@@ -149,23 +157,247 @@ function buildHelpPanel(): Container {
   return container;
 }
 
-function buildWatchlistPanel(entries: import('./controllers/watchlist-controller.js').WatchlistEntry[]): Container {
+function fmtPct(n: number): string {
+  const sign = n >= 0 ? '+' : '';
+  return `${sign}${n.toFixed(1)}%`;
+}
+
+function fmtMoney(n: number): string {
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
+  return `$${n.toFixed(2)}`;
+}
+
+function colorPct(n: number, text: string): string {
+  return n >= 0 ? theme.success(text) : theme.error(text);
+}
+
+type WatchlistEntry = import('./controllers/watchlist-controller.js').WatchlistEntry;
+
+function buildWatchlistPanel(
+  entries: WatchlistEntry[],
+  prices: Map<string, PriceSnapshot> | null,
+): Container {
   const container = new Container();
   if (entries.length === 0) {
     container.addChild(new Text(theme.muted('  No positions. Use /watchlist add TICKER [cost] [shares]'), 0, 0));
     return container;
   }
-  const COL_TICKER = 8;
-  const header = `  ${'TICKER'.padEnd(COL_TICKER)}  COST BASIS   SHARES    ADDED`;
-  container.addChild(new Text(theme.bold(header), 0, 0));
-  container.addChild(new Text(theme.muted('  ' + '─'.repeat(46)), 0, 0));
-  for (const e of entries) {
-    const ticker = theme.primary(e.ticker.padEnd(COL_TICKER));
-    const cost   = e.costBasis !== undefined ? `$${e.costBasis}`.padStart(10) : '          ';
-    const shares = e.shares    !== undefined ? String(e.shares).padStart(8) : '        ';
-    const added  = theme.muted(e.addedAt);
-    container.addChild(new Text(`  ${ticker}  ${cost}   ${shares}    ${added}`, 0, 0));
+
+  if (prices === null) {
+    // Loading state — show spinner line + stored data
+    container.addChild(new Text(theme.muted('  ⏳ Fetching live prices…'), 0, 0));
+    container.addChild(new Text('', 0, 0));
   }
+
+  const enriched = prices ? buildEnrichedEntries(entries, prices) : null;
+  const hasPrices = prices !== null && prices.size > 0;
+  const hasPositions = entries.some((e) => e.costBasis !== undefined && e.shares !== undefined);
+
+  // Header
+  let header: string;
+  if (hasPrices && hasPositions) {
+    header = `  ${'TICKER'.padEnd(8)}  ${'CURRENT'.padStart(9)}  ${'DAY%'.padStart(7)}  ${'P&L'.padStart(10)}  ${'RETURN'.padStart(8)}  ${'ALLOC'.padStart(6)}`;
+  } else if (hasPrices) {
+    header = `  ${'TICKER'.padEnd(8)}  ${'CURRENT'.padStart(9)}  ${'DAY%'.padStart(7)}  ${'COST'.padStart(9)}  ${'SHARES'.padStart(8)}`;
+  } else {
+    header = `  ${'TICKER'.padEnd(8)}  ${'COST BASIS'.padStart(10)}  ${'SHARES'.padStart(8)}  ADDED`;
+  }
+  container.addChild(new Text(theme.bold(header), 0, 0));
+  container.addChild(new Text(theme.muted('  ' + '─'.repeat(header.length - 2)), 0, 0));
+
+  const rows = enriched ?? entries.map((e) => ({
+    ticker: e.ticker, shares: e.shares, costBasis: e.costBasis, addedAt: e.addedAt,
+    price: undefined, changePercent: undefined, pnl: undefined, returnPct: undefined,
+    currentValue: undefined, allocPct: undefined,
+  }));
+
+  for (const row of rows) {
+    const ticker = theme.primary(row.ticker.padEnd(8));
+
+    if (hasPrices && hasPositions) {
+      const price   = row.price !== undefined ? `$${row.price.toFixed(2)}`.padStart(9) : '         ';
+      const day     = row.changePercent !== undefined
+        ? colorPct(row.changePercent, fmtPct(row.changePercent).padStart(7))
+        : '       ';
+      const pnl     = row.pnl !== undefined
+        ? colorPct(row.pnl, fmtMoney(row.pnl).padStart(10))
+        : '          ';
+      const ret     = row.returnPct !== undefined
+        ? colorPct(row.returnPct, fmtPct(row.returnPct).padStart(8))
+        : '        ';
+      const alloc   = row.allocPct !== undefined
+        ? `${row.allocPct.toFixed(0)}%`.padStart(6)
+        : '      ';
+      container.addChild(new Text(`  ${ticker}  ${price}  ${day}  ${pnl}  ${ret}  ${alloc}`, 0, 0));
+    } else if (hasPrices) {
+      const price   = row.price !== undefined ? `$${row.price.toFixed(2)}`.padStart(9) : '         ';
+      const day     = row.changePercent !== undefined
+        ? colorPct(row.changePercent, fmtPct(row.changePercent).padStart(7))
+        : '       ';
+      const cost    = row.costBasis !== undefined ? `$${row.costBasis}`.padStart(9) : '         ';
+      const shares  = row.shares !== undefined ? String(row.shares).padStart(8) : '        ';
+      container.addChild(new Text(`  ${ticker}  ${price}  ${day}  ${cost}  ${shares}`, 0, 0));
+    } else {
+      const cost    = row.costBasis !== undefined ? `$${row.costBasis}`.padStart(10) : '          ';
+      const shares  = row.shares !== undefined ? String(row.shares).padStart(8) : '        ';
+      const added   = theme.muted(row.addedAt);
+      container.addChild(new Text(`  ${ticker}  ${cost}   ${shares}    ${added}`, 0, 0));
+    }
+  }
+
+  // Portfolio totals row (only when we have full position data)
+  if (hasPrices && hasPositions && prices) {
+    const totals = calcPortfolioTotals(entries, prices);
+    if (totals.totalInvested > 0) {
+      container.addChild(new Text(theme.muted('  ' + '─'.repeat(header.length - 2)), 0, 0));
+      const pnlColor = colorPct(totals.totalPnl, fmtMoney(totals.totalPnl).padStart(10));
+      const retColor = colorPct(totals.totalReturnPct, fmtPct(totals.totalReturnPct).padStart(8));
+      const totalLine = `  ${'TOTAL'.padEnd(8)}  ${fmtMoney(totals.totalCurrent).padStart(9)}  ${''.padStart(7)}  ${pnlColor}  ${retColor}`;
+      container.addChild(new Text(theme.bold(totalLine), 0, 0));
+    }
+  }
+
+  return container;
+}
+
+function buildShowPanel(ticker: string, snap: PriceSnapshot): Container {
+  const container = new Container();
+  const w = 62;
+  const bar = '─'.repeat(w);
+
+  // Title
+  const name = snap.name ? `${ticker} — ${snap.name}` : ticker;
+  container.addChild(new Text(theme.bold(`  ┌─ ${name}`), 0, 0));
+
+  // Price row
+  const dayStr = snap.changePercent !== undefined
+    ? colorPct(snap.changePercent, ` (${fmtPct(snap.changePercent)})`)
+    : '';
+  const priceRow = `  │ Price: ${theme.primary(`$${snap.price.toFixed(2)}`)}${dayStr}`;
+  const rangeStr = snap.high52Week !== undefined && snap.low52Week !== undefined
+    ? `  52-wk: $${snap.low52Week.toFixed(2)} – $${snap.high52Week.toFixed(2)}`
+    : '';
+  container.addChild(new Text(priceRow + rangeStr, 0, 0));
+
+  if (snap.marketCap !== undefined) {
+    const mcStr = snap.marketCap >= 1e12
+      ? `$${(snap.marketCap / 1e12).toFixed(2)}T`
+      : snap.marketCap >= 1e9
+        ? `$${(snap.marketCap / 1e9).toFixed(1)}B`
+        : `$${(snap.marketCap / 1e6).toFixed(0)}M`;
+    container.addChild(new Text(`  │ Mkt Cap: ${mcStr}`, 0, 0));
+  }
+
+  // Ratios
+  const ratios: string[] = [];
+  if (snap.pe !== undefined)       ratios.push(`P/E: ${snap.pe.toFixed(1)}`);
+  if (snap.pb !== undefined)       ratios.push(`P/B: ${snap.pb.toFixed(1)}`);
+  if (snap.evEbitda !== undefined) ratios.push(`EV/EBITDA: ${snap.evEbitda.toFixed(1)}`);
+  if (snap.peg !== undefined)      ratios.push(`PEG: ${snap.peg.toFixed(1)}`);
+  if (ratios.length > 0) {
+    container.addChild(new Text(theme.muted('  ├' + bar), 0, 0));
+    container.addChild(new Text(`  │ ${ratios.join('   ')}`, 0, 0));
+  }
+
+  // Analyst
+  if (snap.analystRating !== undefined || snap.analystAvgTarget !== undefined) {
+    container.addChild(new Text(theme.muted('  ├' + bar), 0, 0));
+    const rating = snap.analystRating ? theme.primary(snap.analystRating.toUpperCase()) : '';
+    const target = snap.analystAvgTarget !== undefined
+      ? `  Avg Target: $${snap.analystAvgTarget.toFixed(2)}`
+      : '';
+    const upside = snap.analystAvgTarget !== undefined && snap.price > 0
+      ? colorPct(
+          (snap.analystAvgTarget / snap.price - 1) * 100,
+          `  (${fmtPct((snap.analystAvgTarget / snap.price - 1) * 100)})`,
+        )
+      : '';
+    container.addChild(new Text(`  │ Analyst: ${rating}${target}${upside}`, 0, 0));
+  }
+
+  // News
+  if (snap.news && snap.news.length > 0) {
+    container.addChild(new Text(theme.muted('  ├' + bar), 0, 0));
+    for (const item of snap.news.slice(0, 3)) {
+      const date = theme.muted(`(${item.date.slice(0, 10)})`);
+      const title = item.title.length > 55 ? item.title.slice(0, 52) + '…' : item.title;
+      container.addChild(new Text(`  │ ${date} ${title}`, 0, 0));
+    }
+  }
+
+  container.addChild(new Text(theme.muted('  └' + bar), 0, 0));
+  return container;
+}
+
+function buildSnapshotPanel(
+  entries: WatchlistEntry[],
+  prices: Map<string, PriceSnapshot> | null,
+): Container {
+  const container = new Container();
+
+  if (prices === null) {
+    container.addChild(new Text(theme.muted('  ⏳ Fetching live prices…'), 0, 0));
+    return container;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  container.addChild(new Text(theme.bold(`  Portfolio Snapshot — ${today}`), 0, 0));
+  container.addChild(new Text(theme.muted('  ' + '━'.repeat(40)), 0, 0));
+
+  const totals = calcPortfolioTotals(entries, prices);
+  if (totals.totalInvested > 0) {
+    container.addChild(new Text(`  Total Invested:  ${fmtMoney(totals.totalInvested)}`, 0, 0));
+    container.addChild(new Text(`  Current Value:   ${fmtMoney(totals.totalCurrent)}`, 0, 0));
+    const pnlLine = `  Total P&L:       ${fmtMoney(totals.totalPnl)}  (${fmtPct(totals.totalReturnPct)})`;
+    container.addChild(new Text(colorPct(totals.totalPnl, pnlLine), 0, 0));
+    container.addChild(new Text('', 0, 0));
+  }
+
+  // ASCII bar chart for allocation
+  const enriched = buildEnrichedEntries(entries, prices);
+  const withAlloc = enriched.filter((e) => e.allocPct !== undefined);
+  const watchOnly = enriched.filter((e) => e.allocPct === undefined && e.price !== undefined);
+
+  if (withAlloc.length > 0) {
+    container.addChild(new Text(theme.bold('  Allocation:'), 0, 0));
+    const BAR_WIDTH = 26;
+    for (const e of withAlloc) {
+      const pct = e.allocPct!;
+      const bar = buildAsciiBar(pct, BAR_WIDTH);
+      const pctStr = `${pct.toFixed(0)}%`.padStart(4);
+      container.addChild(new Text(`  ${e.ticker.padEnd(6)} ${theme.primary(bar)} ${pctStr}`, 0, 0));
+    }
+    container.addChild(new Text('', 0, 0));
+  }
+
+  // Performance ranking
+  const ranked = withAlloc
+    .filter((e) => e.returnPct !== undefined)
+    .sort((a, b) => (b.returnPct ?? 0) - (a.returnPct ?? 0));
+  if (ranked.length > 1) {
+    const best  = ranked[0]!;
+    const worst = ranked[ranked.length - 1]!;
+    container.addChild(new Text(`  Best:  ${theme.primary(best.ticker.padEnd(6))} ${colorPct(best.returnPct!, fmtPct(best.returnPct!))}`, 0, 0));
+    container.addChild(new Text(`  Worst: ${theme.primary(worst.ticker.padEnd(6))} ${colorPct(worst.returnPct!, fmtPct(worst.returnPct!))}`, 0, 0));
+    container.addChild(new Text('', 0, 0));
+  }
+
+  // Watch-only section
+  if (watchOnly.length > 0) {
+    container.addChild(new Text(theme.muted('  Watching (no position):'), 0, 0));
+    for (const e of watchOnly) {
+      const day = e.changePercent !== undefined
+        ? colorPct(e.changePercent, fmtPct(e.changePercent))
+        : '';
+      container.addChild(new Text(`  ${e.ticker.padEnd(8)} $${e.price!.toFixed(2)}  ${day}`, 0, 0));
+    }
+  }
+
+  if (totals.totalInvested === 0 && withAlloc.length === 0) {
+    container.addChild(new Text(theme.muted('  No position data. Add shares and cost basis with /watchlist add TICKER COST SHARES'), 0, 0));
+  }
+
   return container;
 }
 
@@ -328,7 +560,11 @@ export async function runCli() {
   let helpVisible = false;
   let sessionsVisible = false;
   let watchlistVisible = false;
-  let watchlistEntries: import('./controllers/watchlist-controller.js').WatchlistEntry[] = [];
+  let watchlistMode: 'list' | 'show' | 'snapshot' = 'list';
+  let watchlistShowTicker: string | null = null;
+  let watchlistEntries: WatchlistEntry[] = [];
+  // null = loading, Map = loaded (may be empty if API unavailable)
+  let watchlistPrices: Map<string, PriceSnapshot> | null = null;
   let sessionsList: SessionIndexEntry[] = [];
   let resumedSessionName: string | null = null;
   // null = auto-detect from model name; true/false = explicit override
@@ -380,6 +616,79 @@ export async function runCli() {
   const refreshError = () => {
     const message = lastError ?? agentRunner.error;
     errorText.setText(message ? theme.error(`Error: ${message}`) : '');
+  };
+
+  // ---------------------------------------------------------------------------
+  // Watchlist price fetchers (dependency-injected pattern for testability)
+  // ---------------------------------------------------------------------------
+
+  const makePriceFetcher = (): PriceFetcher => async (ticker: string) => {
+    try {
+      const { data } = await api.get('/prices/snapshot/', { ticker });
+      const snap = data.snapshot as Record<string, unknown> | undefined;
+      if (!snap) return null;
+      const price = Number(snap.price ?? snap.close ?? 0);
+      if (!price) return null;
+      return {
+        ticker,
+        price,
+        changePercent: Number(snap.change_percent ?? snap.percent_change ?? 0),
+        high52Week:    snap.week_52_high !== undefined ? Number(snap.week_52_high) : undefined,
+        low52Week:     snap.week_52_low  !== undefined ? Number(snap.week_52_low)  : undefined,
+        marketCap:     snap.market_cap   !== undefined ? Number(snap.market_cap)   : undefined,
+        name:          typeof snap.name === 'string' ? snap.name : undefined,
+      } satisfies PriceSnapshot;
+    } catch {
+      return null;
+    }
+  };
+
+  const fetchShowData = async (ticker: string): Promise<PriceSnapshot | null> => {
+    const fetcher = makePriceFetcher();
+    const base = await fetcher(ticker);
+    if (!base) return null;
+
+    // Fetch ratios + analyst targets + news in parallel
+    const [ratiosResult, analystResult, newsResult] = await Promise.allSettled([
+      api.get('/financial-metrics/snapshot/', { ticker }),
+      // Yahoo Finance analyst targets via env-conditional endpoint
+      (async () => {
+        const yahooFd = await import('./tools/finance/yahoo-finance.js');
+        const result = await yahooFd.getYahooAnalystTargets.invoke({ ticker });
+        return typeof result === 'string' ? JSON.parse(result) : result;
+      })(),
+      api.get('/news', { ticker, limit: 3 }),
+    ]);
+
+    const snap: PriceSnapshot = { ...base };
+
+    if (ratiosResult.status === 'fulfilled') {
+      const r = (ratiosResult.value.data.snapshot ?? {}) as Record<string, unknown>;
+      if (r.price_to_earnings !== undefined) snap.pe = Number(r.price_to_earnings);
+      if (r.price_to_book     !== undefined) snap.pb = Number(r.price_to_book);
+      if (r.ev_to_ebitda      !== undefined) snap.evEbitda = Number(r.ev_to_ebitda);
+      if (r.peg_ratio         !== undefined) snap.peg = Number(r.peg_ratio);
+    }
+
+    if (analystResult.status === 'fulfilled') {
+      const a = analystResult.value as Record<string, unknown>;
+      if (a.recommendationKey) snap.analystRating  = String(a.recommendationKey);
+      if (a.targetMeanPrice)   snap.analystAvgTarget = Number(a.targetMeanPrice);
+    }
+
+    if (newsResult.status === 'fulfilled') {
+      const items = (newsResult.value.data.news as unknown[]) ?? [];
+      snap.news = items.slice(0, 3).map((n) => {
+        const item = n as Record<string, unknown>;
+        return {
+          title:  String(item.title ?? ''),
+          date:   String(item.date ?? item.published_at ?? ''),
+          source: typeof item.source === 'string' ? item.source : undefined,
+        };
+      });
+    }
+
+    return snap;
   };
 
   const handleSubmit = async (query: string) => {
@@ -479,9 +788,50 @@ export async function runCli() {
 
       if (sub.cmd === 'list') {
         watchlistEntries = watchlistCtrl.list();
+        watchlistMode = 'list';
+        watchlistShowTicker = null;
+        watchlistPrices = null; // will show loading state
         watchlistVisible = true;
         renderSelectionOverlay();
         tui.requestRender();
+        // Fetch prices in background; re-render when done
+        void fetchLivePrices(watchlistEntries.map((e) => e.ticker), makePriceFetcher()).then((prices) => {
+          watchlistPrices = prices;
+          if (watchlistVisible) { renderSelectionOverlay(); tui.requestRender(); }
+        });
+        return;
+      }
+
+      if (sub.cmd === 'show') {
+        const ticker = sub.ticker;
+        const allEntries = watchlistCtrl.list();
+        watchlistEntries = allEntries;
+        watchlistMode = 'show';
+        watchlistShowTicker = ticker;
+        watchlistPrices = null;
+        watchlistVisible = true;
+        renderSelectionOverlay();
+        tui.requestRender();
+        // Fetch rich data for this ticker
+        void fetchShowData(ticker).then((snap) => {
+          watchlistPrices = snap ? new Map([[ticker, snap]]) : new Map();
+          if (watchlistVisible) { renderSelectionOverlay(); tui.requestRender(); }
+        });
+        return;
+      }
+
+      if (sub.cmd === 'snapshot') {
+        watchlistEntries = watchlistCtrl.list();
+        watchlistMode = 'snapshot';
+        watchlistShowTicker = null;
+        watchlistPrices = null;
+        watchlistVisible = true;
+        renderSelectionOverlay();
+        tui.requestRender();
+        void fetchLivePrices(watchlistEntries.map((e) => e.ticker), makePriceFetcher()).then((prices) => {
+          watchlistPrices = prices;
+          if (watchlistVisible) { renderSelectionOverlay(); tui.requestRender(); }
+        });
         return;
       }
 
@@ -644,7 +994,7 @@ export async function runCli() {
     // Hint footer: keyboard shortcuts when idle, cancel hint while running.
     const hintLine = agentRunner.isProcessing
       ? theme.muted('  esc · cancel query')
-      : theme.muted('  ↑↓ history  ·  /model  /sessions  /think  /watchlist  /dream  /help  ·  ctrl+c exit');
+      : theme.muted('  ↑↓ history  ·  /model  /sessions  /think  /watchlist [list|show|snapshot]  /dream  /help  ·  ctrl+c exit');
     root.addChild(new Text(hintLine, 0, 0));
     root.addChild(editor);
     root.addChild(debugPanel);
@@ -728,13 +1078,41 @@ export async function runCli() {
     }
 
     if (watchlistVisible) {
-      renderScreenView(
-        '⬡ Dexter — Watchlist',
-        watchlistEntries.length === 0 ? 'No positions tracked' : `${watchlistEntries.length} position${watchlistEntries.length === 1 ? '' : 's'}`,
-        buildWatchlistPanel(watchlistEntries),
-        'Esc to close · /watchlist add TICKER [cost] [shares]',
-        editor,
-      );
+      let title: string;
+      let subtitle: string;
+      let panel: Container;
+      let footer: string;
+
+      if (watchlistMode === 'show' && watchlistShowTicker) {
+        const snap = watchlistPrices?.get(watchlistShowTicker) ?? null;
+        title    = `⬡ Dexter — ${watchlistShowTicker}`;
+        subtitle = watchlistPrices === null ? 'Loading…' : (snap ? 'Quick snapshot' : 'Price unavailable');
+        panel    = watchlistPrices === null
+          ? (() => { const c = new Container(); c.addChild(new Text(theme.muted('  ⏳ Fetching data…'), 0, 0)); return c; })()
+          : (snap ? buildShowPanel(watchlistShowTicker, snap) : (() => {
+              const c = new Container();
+              c.addChild(new Text(theme.error(`  No price data available for ${watchlistShowTicker}`), 0, 0));
+              return c;
+            })());
+        footer   = 'Esc to close · /watchlist list · /watchlist snapshot';
+      } else if (watchlistMode === 'snapshot') {
+        title    = '⬡ Dexter — Portfolio Snapshot';
+        subtitle = watchlistEntries.length === 0 ? 'No positions tracked' : `${watchlistEntries.length} ticker${watchlistEntries.length === 1 ? '' : 's'}`;
+        panel    = buildSnapshotPanel(watchlistEntries, watchlistPrices);
+        footer   = 'Esc to close · /watchlist list · /watchlist show TICKER';
+      } else {
+        const loading = watchlistPrices === null;
+        title    = '⬡ Dexter — Watchlist';
+        subtitle = watchlistEntries.length === 0
+          ? 'No positions tracked'
+          : loading
+            ? `${watchlistEntries.length} position${watchlistEntries.length === 1 ? '' : 's'} — loading prices…`
+            : `${watchlistEntries.length} position${watchlistEntries.length === 1 ? '' : 's'}`;
+        panel    = buildWatchlistPanel(watchlistEntries, watchlistPrices);
+        footer   = 'Esc to close · /watchlist show TICKER · /watchlist snapshot';
+      }
+
+      renderScreenView(title, subtitle, panel, footer, editor);
       return;
     }
 

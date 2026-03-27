@@ -208,4 +208,24 @@ describe('parseWatchlistSubcommand()', () => {
       cmd: 'add', ticker: 'NVDA', costBasis: 400, shares: undefined,
     });
   });
+
+  it('parses "show AAPL"', () => {
+    expect(parseWatchlistSubcommand('show AAPL')).toEqual({ cmd: 'show', ticker: 'AAPL' });
+  });
+
+  it('parses "show" with lowercase ticker', () => {
+    expect(parseWatchlistSubcommand('show nvda')).toEqual({ cmd: 'show', ticker: 'NVDA' });
+  });
+
+  it('returns briefing when "show" has no ticker', () => {
+    expect(parseWatchlistSubcommand('show')).toEqual({ cmd: 'briefing' });
+  });
+
+  it('parses "snapshot"', () => {
+    expect(parseWatchlistSubcommand('snapshot')).toEqual({ cmd: 'snapshot' });
+  });
+
+  it('parses "SNAPSHOT" case-insensitively', () => {
+    expect(parseWatchlistSubcommand('SNAPSHOT')).toEqual({ cmd: 'snapshot' });
+  });
 });
