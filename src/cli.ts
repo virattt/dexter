@@ -146,6 +146,26 @@ function buildHelpPanel(): Container {
   return container;
 }
 
+function buildWatchlistPanel(entries: import('./controllers/watchlist-controller.js').WatchlistEntry[]): Container {
+  const container = new Container();
+  if (entries.length === 0) {
+    container.addChild(new Text(theme.muted('  No positions. Use /watchlist add TICKER [cost] [shares]'), 0, 0));
+    return container;
+  }
+  const COL_TICKER = 8;
+  const header = `  ${'TICKER'.padEnd(COL_TICKER)}  COST BASIS   SHARES    ADDED`;
+  container.addChild(new Text(theme.bold(header), 0, 0));
+  container.addChild(new Text(theme.muted('  ' + '─'.repeat(46)), 0, 0));
+  for (const e of entries) {
+    const ticker = theme.primary(e.ticker.padEnd(COL_TICKER));
+    const cost   = e.costBasis !== undefined ? `$${e.costBasis}`.padStart(10) : '          ';
+    const shares = e.shares    !== undefined ? String(e.shares).padStart(8) : '        ';
+    const added  = theme.muted(e.addedAt);
+    container.addChild(new Text(`  ${ticker}  ${cost}   ${shares}    ${added}`, 0, 0));
+  }
+  return container;
+}
+
 /**
  * Render only the most recent history item (currently executing or just completed).
  * Completed exchanges are flushed to the terminal scrollback buffer so the TUI
@@ -304,6 +324,8 @@ export async function runCli() {
   let lastError: string | null = null;
   let helpVisible = false;
   let sessionsVisible = false;
+  let watchlistVisible = false;
+  let watchlistEntries: import('./controllers/watchlist-controller.js').WatchlistEntry[] = [];
   let sessionsList: SessionIndexEntry[] = [];
   let resumedSessionName: string | null = null;
   // null = auto-detect from model name; true/false = explicit override
@@ -360,6 +382,10 @@ export async function runCli() {
     // Dismiss help overlay before processing; re-show below only if /help typed again.
     if (helpVisible) {
       helpVisible = false;
+      renderSelectionOverlay();
+    }
+    if (watchlistVisible) {
+      watchlistVisible = false;
       renderSelectionOverlay();
     }
     if (sessionsVisible) {
@@ -448,22 +474,10 @@ export async function runCli() {
       }
 
       if (sub.cmd === 'list') {
-        const entries = watchlistCtrl.list();
-        if (entries.length === 0) {
-          lastError = 'Watchlist is empty. Use /watchlist add TICKER [cost] [shares] to add positions.';
-          refreshError();
-          tui.requestRender();
-        } else {
-          const lines = entries.map((e) => {
-            const parts = [e.ticker];
-            if (e.costBasis !== undefined) parts.push(`@ $${e.costBasis}`);
-            if (e.shares !== undefined) parts.push(`× ${e.shares} shares`);
-            return parts.join('  ');
-          });
-          lastError = `Watchlist:\n${lines.map(l => `  ${l}`).join('\n')}`;
-          refreshError();
-          tui.requestRender();
-        }
+        watchlistEntries = watchlistCtrl.list();
+        watchlistVisible = true;
+        renderSelectionOverlay();
+        tui.requestRender();
         return;
       }
 
@@ -471,6 +485,7 @@ export async function runCli() {
       if (watchlistCtrl.isEmpty()) {
         lastError = 'Watchlist is empty. Use /watchlist add TICKER [cost] [shares] to add positions.';
         refreshError();
+        renderSelectionOverlay();
         tui.requestRender();
         return;
       }
@@ -490,7 +505,7 @@ export async function runCli() {
       query = `Run watchlist briefing for: ${context}`;
     }
 
-    if (modelSelection.isInSelectionFlow() || sessionsVisible || agentRunner.pendingApproval || agentRunner.isProcessing) {
+    if (modelSelection.isInSelectionFlow() || sessionsVisible || watchlistVisible || agentRunner.pendingApproval || agentRunner.isProcessing) {
       return;
     }
 
@@ -537,6 +552,11 @@ export async function runCli() {
   editor.onEscape = () => {
     if (helpVisible) {
       helpVisible = false;
+      renderSelectionOverlay();
+      return;
+    }
+    if (watchlistVisible) {
+      watchlistVisible = false;
       renderSelectionOverlay();
       return;
     }
@@ -667,6 +687,17 @@ export async function runCli() {
         selector,
         'Enter to resume · ↑↓ navigate · Esc to close',
         selector,
+      );
+      return;
+    }
+
+    if (watchlistVisible) {
+      renderScreenView(
+        '⬡ Dexter — Watchlist',
+        watchlistEntries.length === 0 ? 'No positions tracked' : `${watchlistEntries.length} position${watchlistEntries.length === 1 ? '' : 's'}`,
+        buildWatchlistPanel(watchlistEntries),
+        'Esc to close · /watchlist add TICKER [cost] [shares]',
+        editor,
       );
       return;
     }
