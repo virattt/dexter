@@ -55,6 +55,42 @@ function splitIntoParagraphs(text: string): Paragraph[] {
   return paragraphs;
 }
 
+/**
+ * Hard-splits a paragraph that exceeds charBudget into sentence-aware sub-paragraphs.
+ * Ensures no single chunk ever exceeds the embedding model's context window.
+ */
+function splitOversizedParagraph(para: Paragraph, charBudget: number): Paragraph[] {
+  if (para.text.length <= charBudget) {
+    return [para];
+  }
+
+  const result: Paragraph[] = [];
+  let remaining = para.text;
+  let lineOffset = para.startLine;
+
+  while (remaining.length > charBudget) {
+    // Try to break at a sentence boundary within the budget.
+    let cutAt = charBudget;
+    const sentenceEnd = remaining.lastIndexOf('. ', cutAt);
+    if (sentenceEnd > charBudget / 2) {
+      cutAt = sentenceEnd + 1;
+    }
+
+    const piece = remaining.slice(0, cutAt).trim();
+    if (piece) {
+      result.push({ text: piece, startLine: lineOffset, endLine: lineOffset });
+      lineOffset += 1;
+    }
+    remaining = remaining.slice(cutAt).trim();
+  }
+
+  if (remaining) {
+    result.push({ text: remaining, startLine: lineOffset, endLine: para.endLine });
+  }
+
+  return result;
+}
+
 function hashContent(content: string): string {
   return createHash('sha256').update(content).digest('hex');
 }
@@ -65,13 +101,16 @@ export function chunkMemoryText(params: {
   chunkTokens: number;
   overlapTokens: number;
 }): MemoryChunk[] {
-  const paragraphs = splitIntoParagraphs(params.text);
-  if (paragraphs.length === 0) {
+  const rawParagraphs = splitIntoParagraphs(params.text);
+  if (rawParagraphs.length === 0) {
     return [];
   }
 
   const chunkBudget = tokenToCharBudget(params.chunkTokens);
   const overlapBudget = tokenToCharBudget(params.overlapTokens);
+
+  // Hard-split any paragraph that exceeds the budget before the main loop.
+  const paragraphs = rawParagraphs.flatMap((p) => splitOversizedParagraph(p, chunkBudget));
   const chunks: MemoryChunk[] = [];
 
   let startIndex = 0;

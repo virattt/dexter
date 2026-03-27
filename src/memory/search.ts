@@ -46,7 +46,7 @@ export async function hybridSearch(params: {
   const minScore = params.options?.minScore ?? params.defaults.minScore;
   const candidateCount = maxResults * 4;
 
-  const queryEmbedding = await embedSingleQuery(params.embeddingClient, params.query);
+  const queryEmbedding = await embedSingleQuery(params.embeddingClient, params.query).catch(() => null);
   const vectorCandidates = queryEmbedding ? params.db.searchVector(queryEmbedding, candidateCount) : [];
   const keywordCandidates = params.db.searchKeyword(params.query, candidateCount);
 

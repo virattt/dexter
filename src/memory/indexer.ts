@@ -202,7 +202,13 @@ export class MemoryIndexer {
     const uncached = chunks.filter((chunk) => !this.db.getCachedEmbedding(chunk.contentHash));
     let uncachedVectors: number[][] = [];
     if (uncached.length > 0 && this.options.embeddingClient) {
-      uncachedVectors = await this.options.embeddingClient.embed(uncached.map((chunk) => chunk.content));
+      try {
+        uncachedVectors = await this.options.embeddingClient.embed(uncached.map((chunk) => chunk.content));
+      } catch {
+        // Embedding failed (e.g. context-length overflow). Store chunks without vectors;
+        // keyword search will still work and embeddings will be retried on next sync.
+        uncachedVectors = [];
+      }
     }
 
     const uncachedMap = new Map<string, number[]>();

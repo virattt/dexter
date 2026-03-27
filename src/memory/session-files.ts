@@ -63,9 +63,12 @@ export async function parseSessionTranscripts(chatHistoryPath: string): Promise<
       continue;
     }
 
+    // Preserve newlines in agentResponse so the chunker can split at natural paragraph
+    // boundaries. Collapsing whitespace created single 10k+ char lines that exceeded
+    // the Ollama embedding model's context window.
     const userPart = normalizeWhitespace(msg.userMessage);
-    const assistantPart = normalizeWhitespace(msg.agentResponse);
-    const content = `User: ${userPart}\nAssistant: ${assistantPart}`;
+    const assistantPart = msg.agentResponse.trim();
+    const content = `User: ${userPart}\n\nAssistant:\n\n${assistantPart}`;
 
     entries.push({
       content,
