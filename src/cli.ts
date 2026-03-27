@@ -9,7 +9,8 @@ import type {
 } from './agent/index.js';
 import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js';
 import { logger } from './utils/logger.js';
-import { isThinkingModel } from './model/llm.js';
+import { callLlm, isThinkingModel } from './model/llm.js';
+import { MemoryManager } from './memory/index.js';
 import {
   AgentRunnerController,
   InputHistoryController,
@@ -85,6 +86,49 @@ function summarizeToolResult(tool: string, args: Record<string, unknown>, result
     return truncateAtWord(result, 50);
   }
   return 'Received data';
+}
+
+
+/**
+ * Writes a brief LLM summary of the current session to today's daily memory file.
+ * This ensures Dream has meaningful input to consolidate even when the context-
+ * overflow threshold is never reached (the usual case for shorter sessions).
+ * Skips silently if there are no exchanges, the model call fails, or the output
+ * is trivially short.
+ */
+async function writeSessionDailySummary(
+  history: { query: string; answer: string }[],
+  model: string,
+): Promise<void> {
+  const exchanges = history.filter((h) => h.query && h.answer);
+  if (exchanges.length === 0) return;
+
+  const transcript = exchanges
+    .map((h, i) => `[${i + 1}] User: ${h.query.slice(0, 400)}\nAssistant: ${h.answer.slice(0, 600)}`)
+    .join('\n\n');
+
+  const prompt = `You are a financial research assistant. A user just finished a Dexter session.
+Summarize the key facts, decisions, and insights from this session in concise markdown bullet points.
+
+Rules:
+- Only include durable, reusable facts (investment theses, risk flags, model assumptions, ticker notes)
+- Date-stamp any financial figures (e.g. "AMD P/E ~45x as of 2026-03")
+- Skip trivial exchanges (greetings, command help, failed lookups)
+- Output 3–10 bullet points max. If nothing worth remembering occurred, output only: NOTHING_TO_STORE
+
+Session transcript:
+${transcript}`;
+
+  try {
+    const result = await callLlm(prompt, { model });
+    const text = typeof result.response === 'string' ? result.response.trim() : '';
+    if (!text || text === 'NOTHING_TO_STORE' || text.length < 40) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const manager = await MemoryManager.get();
+    await manager.appendDailyMemory(`## Session summary — ${today}\n${text}`);
+  } catch {
+    // Non-fatal — never block exit on memory errors.
+  }
 }
 
 function createScreen(
@@ -603,7 +647,7 @@ export async function runCli() {
   const errorText = new Text('', 0, 0);
   const workingIndicator = new WorkingIndicatorComponent(tui);
   const editor = new CustomEditor(tui, editorTheme);
-  const debugPanel = new DebugPanelComponent(8, true);
+  const debugPanel = new DebugPanelComponent(8, process.env.DEBUG === 'true' || process.env.DEBUG === '1');
 
   // Detect fd/fdfind for fuzzy @ completion; falls back to readdirSync if absent.
   const fdPath = Bun.which('fd') ?? Bun.which('fdfind') ?? null;
@@ -706,6 +750,7 @@ export async function runCli() {
 
     if (query.toLowerCase() === 'exit' || query.toLowerCase() === 'quit') {
       tui.stop();
+      await writeSessionDailySummary(agentRunner.history, modelSelection.model);
       await sessionController.flush();
       process.exit(0);
       return;
@@ -1013,9 +1058,10 @@ export async function runCli() {
       return;
     }
     tui.stop();
-    // Flush pending autosave before exiting — autosave() debounces by 250ms but
-    // process.exit(0) kills the timer.  flush() writes synchronously then exits.
-    void sessionController.flush().finally(() => process.exit(0));
+    // Write an end-of-session daily summary so Dream has material to consolidate,
+    // then flush the session autosave, then exit.
+    void writeSessionDailySummary(agentRunner.history, modelSelection.model)
+      .finally(() => sessionController.flush().finally(() => process.exit(0)));
   };
 
   const renderMainView = () => {
