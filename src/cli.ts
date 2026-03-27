@@ -1,4 +1,5 @@
-import { CombinedAutocompleteProvider, Container, ProcessTerminal, Spacer, Text, TUI, type SlashCommand } from '@mariozechner/pi-tui';
+import { Container, ProcessTerminal, Spacer, Text, TUI, type SlashCommand } from '@mariozechner/pi-tui';
+import { AtPathAutocompleteProvider } from './components/at-path-provider.js';
 import type {
   ApprovalDecision,
   ReasoningEvent,
@@ -342,8 +343,9 @@ export async function runCli() {
   const editor = new CustomEditor(tui, editorTheme);
   const debugPanel = new DebugPanelComponent(8, true);
 
-  // Register slash command autocomplete so typing / shows a completion dropdown.
-  editor.setAutocompleteProvider(new CombinedAutocompleteProvider(SLASH_COMMANDS));
+  // Detect fd/fdfind for fuzzy @ completion; falls back to readdirSync if absent.
+  const fdPath = Bun.which('fd') ?? Bun.which('fdfind') ?? null;
+  editor.setAutocompleteProvider(new AtPathAutocompleteProvider(SLASH_COMMANDS, process.cwd(), fdPath));
 
   tui.addChild(root);
 
