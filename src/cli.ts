@@ -444,6 +444,15 @@ function buildSnapshotPanel(
 }
 
 /**
+ * While a query is running, cap the number of visible events to keep the TUI
+ * within the terminal viewport.  Without this limit, a long-running agent with
+ * many tool calls would push the earliest events above the top of the screen
+ * with no way for the user to scroll back (the TUI snaps to the bottom on
+ * every re-render).  After completion, all events are shown.
+ */
+const MAX_RUNNING_EVENTS = 30;
+
+/**
  * Render only the most recent history item (currently executing or just completed).
  * Completed exchanges are flushed to the terminal scrollback buffer so the TUI
  * stays lean — only the active query lives in the TUI viewport.
@@ -460,7 +469,20 @@ function renderCurrentQuery(chatLog: ChatLogComponent, history: AgentRunnerContr
     chatLog.addInterrupted();
   }
 
-  for (const display of item.events) {
+  // During an active run, cap visible events so the TUI stays within the viewport.
+  // Once complete, render everything so the user sees the full picture.
+  const isRunning = item.status !== 'complete' && item.status !== 'interrupted';
+  const allEvents = item.events;
+  const hiddenCount = isRunning && allEvents.length > MAX_RUNNING_EVENTS
+    ? allEvents.length - MAX_RUNNING_EVENTS
+    : 0;
+  const visibleEvents = hiddenCount > 0 ? allEvents.slice(-MAX_RUNNING_EVENTS) : allEvents;
+
+  if (hiddenCount > 0) {
+    chatLog.addChild(new Text(theme.muted(`  … ${hiddenCount} earlier events`), 0, 0));
+  }
+
+  for (const display of visibleEvents) {
     const event = display.event;
     if (event.type === 'thinking') {
       const message = event.message.trim();
@@ -613,6 +635,9 @@ export async function runCli() {
   let thinkEnabled: boolean | null = null;
   let sessionStarted = false;
   let dreamRunning = false;
+  // Tracks exchanges already flushed to scrollback on completion (long answers).
+  // Prevents the "flush on next submit" path from double-writing them.
+  const flushedItems = new WeakSet<HistoryItem>();
 
   const sessionController = new SessionController();
 
@@ -970,12 +995,17 @@ export async function runCli() {
       return;
     }
 
-    // Flush the PREVIOUS completed exchange to scrollback now, before we clear
-    // the chatLog for the new query.  This keeps the last answer visible in the
-    // TUI until the user submits a new question.
+    // Flush the PREVIOUS completed exchange to scrollback before starting the
+    // new query.  If it was already flushed on completion (long answer path),
+    // skip the scrollback write and just clear the compact TUI view.
     const prevItem = agentRunner.history.at(-1);
     if (prevItem && (prevItem.status === 'complete' || prevItem.status === 'interrupted')) {
-      flushExchangeToScrollback(tui, chatLog, prevItem);
+      if (flushedItems.has(prevItem)) {
+        chatLog.clearAll(); // compact view is still in chatLog; clear it
+      } else {
+        flushExchangeToScrollback(tui, chatLog, prevItem);
+        flushedItems.add(prevItem);
+      }
     }
 
     await inputHistory.saveMessage(query);
@@ -995,9 +1025,29 @@ export async function runCli() {
     // Persist the updated history after each completed exchange.
     sessionController.autosave(agentRunner.history, modelSelection.inMemoryChatHistory);
 
-    // The completed exchange stays in the chatLog (visible in TUI) until the
-    // user's next query triggers the flush above.  Just refresh the error line
-    // and re-render so the idle hint footer and cursor are correct.
+    // If the answer is longer than the terminal can display, flush it to terminal
+    // scrollback immediately so the user can scroll up to read it.  Show a compact
+    // "done" line in the TUI viewport instead.  Short answers stay in the TUI
+    // until the next query (current behaviour) so the user can read them inline.
+    const completedItem = agentRunner.history.at(-1);
+    const termRows = process.stdout.rows ?? 40;
+    const longAnswerThreshold = Math.max(20, termRows - 8);
+    if (
+      completedItem &&
+      completedItem.status === 'complete' &&
+      !flushedItems.has(completedItem) &&
+      (completedItem.answer ?? '').split('\n').length > longAnswerThreshold
+    ) {
+      flushExchangeToScrollback(tui, chatLog, completedItem);
+      flushedItems.add(completedItem);
+      const dur = formatDuration(completedItem.duration ?? 0);
+      const toks = (completedItem.tokenUsage?.totalTokens ?? 0).toLocaleString();
+      chatLog.addChild(new Text(
+        theme.muted(`  ↑ scroll terminal to read full response  ·  ${dur}  ·  ${toks} tokens`),
+        0, 0,
+      ));
+    }
+
     refreshError();
     tui.requestRender();
   };
