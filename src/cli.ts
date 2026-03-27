@@ -884,20 +884,39 @@ export async function runCli() {
       dreamRunning = true;
       intro.setModel('🌙 Dream: consolidating memories…');
       tui.requestRender();
+      const dreamStart = Date.now();
+      let dreamAnswer = '';
       try {
         const dreamResult = await runDream(dreamStore, modelSelection.model, { force });
         if (dreamResult.ran) {
           const n = dreamResult.archivedFiles.length;
+          const files = dreamResult.archivedFiles.map((f) => `  • ${f}`).join('\n');
+          dreamAnswer = `✨ **Dream complete** — memory consolidated\n\n**Archived ${n} daily file${n === 1 ? '' : 's'}:**\n${files}\n\n**Updated:** MEMORY.md, FINANCE.md`;
           intro.setModel(`✨ Dream: archived ${n} file${n === 1 ? '' : 's'}, memory updated`);
         } else {
+          dreamAnswer = `🌙 **Dream skipped**\n\n${dreamResult.reason}\n\nUse \`/dream force\` to run regardless of conditions.`;
           intro.setModel(`🌙 Dream: ${dreamResult.reason}`);
         }
       } catch (err) {
-        intro.setModel(`Dream error: ${err instanceof Error ? err.message : String(err)}`);
+        const msg = err instanceof Error ? err.message : String(err);
+        dreamAnswer = `❌ **Dream error**\n\n${msg}`;
+        intro.setModel(`Dream error: ${msg}`);
       } finally {
         dreamRunning = false;
       }
-      tui.requestRender();
+      // Flush the command + result to scrollback so it's visible in chat history.
+      const prevItem = agentRunner.history.at(-1);
+      if (prevItem && (prevItem.status === 'complete' || prevItem.status === 'interrupted')) {
+        flushExchangeToScrollback(tui, chatLog, prevItem);
+      }
+      flushExchangeToScrollback(tui, chatLog, {
+        id: `dream-${dreamStart}`,
+        query,
+        events: [],
+        answer: dreamAnswer,
+        status: 'complete',
+        duration: Date.now() - dreamStart,
+      });
       setTimeout(() => { intro.setModel(modelSelection.model); tui.requestRender(); }, 5000);
       return;
     }
