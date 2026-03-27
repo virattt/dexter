@@ -133,11 +133,22 @@ export class AtPathAutocompleteProvider implements AutocompleteProvider {
       if (isExactMatch) return null;
     }
 
-    // Slash commands + fd-based fuzzy @ completion (fd disabled — null above).
-    const result = this.inner.getSuggestions(lines, cursorLine, cursorCol);
-    if (result !== null) return result;
+    // Only call the inner provider for slash commands.
+    //
+    // The inner CombinedAutocompleteProvider calls extractPathPrefix() on every
+    // getSuggestions() call. When text ends with a space that method returns ""
+    // (empty path prefix) and immediately calls getFileSuggestions("") which does
+    // a synchronous readdirSync(cwd). In a repo with node_modules/ this blocks
+    // the event loop on every space keypress, causing visible TUI lag.
+    //
+    // Restricting the inner call to "/" input eliminates the spurious readdirSync.
+    // @ completion is handled entirely by our getAtFileSuggestions() below.
+    if (textBeforeCursor.startsWith('/')) {
+      const result = this.inner.getSuggestions(lines, cursorLine, cursorCol);
+      if (result !== null) return result;
+    }
 
-    // Fallback: readdirSync-based @ completion (works without fd).
+    // readdirSync-based @ completion (works without fd).
     const atPrefix = extractAtPrefix(textBeforeCursor);
     if (atPrefix === null) return null;
 

@@ -167,6 +167,21 @@ describe('AtPathAutocompleteProvider', () => {
     expect(result).toBeNull();
   });
 
+  // Regression: typing a word ending with a space must NOT trigger readdirSync.
+  // Before the fix, CombinedAutocompleteProvider.extractPathPrefix returned ""
+  // for trailing-space text, causing getFileSuggestions("") → readdirSync(cwd)
+  // on every space keypress — visible as TUI lag / freeze.
+  it('returns null for plain text ending with a space (no readdirSync lag)', () => {
+    expect(provider.getSuggestions(['what is AAPL '], 0, 13)).toBeNull();
+    expect(provider.getSuggestions(['analyse this stock '], 0, 19)).toBeNull();
+    expect(provider.getSuggestions(['show me '], 0, 8)).toBeNull();
+  });
+
+  it('returns null for plain text with no special prefix', () => {
+    expect(provider.getSuggestions(['NVDA earnings'], 0, 13)).toBeNull();
+    expect(provider.getSuggestions(['tell me about Apple'], 0, 19)).toBeNull();
+  });
+
   // --- TUI freeze regression tests ---
 
   it('suppresses autocomplete for exact slash command match (prevents double-Enter)', () => {
