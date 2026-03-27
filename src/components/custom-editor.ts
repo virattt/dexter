@@ -15,4 +15,16 @@ export class CustomEditor extends Editor {
     }
     super.handleInput(data);
   }
+
+  /**
+   * Override setText to clear autocomplete state first.
+   * Pi-tui's built-in submit handler clears the editor but does not call
+   * cancelAutocomplete(), so if autocomplete was showing when the user pressed
+   * Enter the dropdown state persists into the next message. Clearing it here
+   * (called from onSubmit after submit) ensures a clean slate.
+   */
+  setText(text: string): void {
+    (this as unknown as { cancelAutocomplete: () => void }).cancelAutocomplete?.();
+    super.setText(text);
+  }
 }

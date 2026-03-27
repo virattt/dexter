@@ -176,6 +176,10 @@ export class MemoryIndexer {
       overlapTokens: this.options.overlapTokens,
     });
 
+    // Yield after the CPU-bound chunking operation so TUI keystrokes can render
+    // before we proceed to SQLite writes.
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
     // Mark chunks with session source.
     for (const chunk of chunks) {
       chunk.source = 'sessions';
@@ -230,7 +234,13 @@ export class MemoryIndexer {
     let indexed = 0;
     let updated = 0;
 
-    for (const chunk of chunks) {
+    for (let i = 0; i < chunks.length; i++) {
+      // Yield to the event loop every 50 chunks so TUI keystrokes can render
+      // between SQLite writes without a perceptible freeze.
+      if (i > 0 && i % 50 === 0) {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      }
+      const chunk = chunks[i]!;
       const cached = this.db.getCachedEmbedding(chunk.contentHash);
       const embedding = cached ?? uncachedMap.get(chunk.contentHash) ?? null;
       const result = this.db.upsertChunk({

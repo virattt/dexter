@@ -152,7 +152,7 @@ export async function createSession(
   // from clobbering each other's tmp file.
   const filePath = sessionFilePath(id, baseDir);
   const tmp = `${filePath}.${randomBytes(3).toString('hex')}.tmp`;
-  await writeFile(tmp, JSON.stringify(session, null, 2), 'utf-8');
+  await writeFile(tmp, JSON.stringify(session), 'utf-8');
   await rename(tmp, filePath);
 
   // Update index
@@ -182,7 +182,7 @@ export async function saveSession(
 
   const filePath = sessionFilePath(session.id, baseDir);
   const tmp = `${filePath}.${randomBytes(3).toString('hex')}.tmp`;
-  await writeFile(tmp, JSON.stringify(session, null, 2), 'utf-8');
+  await writeFile(tmp, JSON.stringify(session), 'utf-8');
   await rename(tmp, filePath);
 
   const index = await readIndex(baseDir);
