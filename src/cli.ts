@@ -17,6 +17,8 @@ import {
 } from './controllers/index.js';
 import { SessionController } from './controllers/session-controller.js';
 import { WatchlistController, parseWatchlistSubcommand } from './controllers/watchlist-controller.js';
+import { MemoryStore } from './memory/store.js';
+import { runDream, incrementDreamSessionCount, shouldRunDream } from './memory/dream.js';
 import {
   ApiKeyInputComponent,
   ApprovalPromptComponent,
@@ -107,6 +109,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'sessions',  description: 'Browse and resume past conversations' },
   { name: 'think',     description: 'Toggle Ollama extended thinking on/off (thinking models only)' },
   { name: 'watchlist', description: 'Portfolio briefing — or: add TICKER [cost] [shares] | remove TICKER | list' },
+  { name: 'dream',     description: 'Consolidate memory files (merge daily notes into MEMORY.md + FINANCE.md)' },
 ];
 
 function buildHelpPanel(): Container {
@@ -331,6 +334,7 @@ export async function runCli() {
   // null = auto-detect from model name; true/false = explicit override
   let thinkEnabled: boolean | null = null;
   let sessionStarted = false;
+  let dreamRunning = false;
 
   const sessionController = new SessionController();
 
@@ -505,6 +509,38 @@ export async function runCli() {
       query = `Run watchlist briefing for: ${context}`;
     }
 
+    if (query.startsWith('/dream')) {
+      if (agentRunner.isProcessing || dreamRunning) {
+        lastError = dreamRunning
+          ? 'Dream is already running.'
+          : 'Cannot run Dream while the agent is busy.';
+        refreshError();
+        tui.requestRender();
+        return;
+      }
+      const force = query.slice('/dream'.length).trim() === 'force';
+      const dreamStore = new MemoryStore();
+      dreamRunning = true;
+      intro.setModel('🌙 Dream: consolidating memories…');
+      tui.requestRender();
+      try {
+        const dreamResult = await runDream(dreamStore, modelSelection.model, { force });
+        if (dreamResult.ran) {
+          const n = dreamResult.archivedFiles.length;
+          intro.setModel(`✨ Dream: archived ${n} file${n === 1 ? '' : 's'}, memory updated`);
+        } else {
+          intro.setModel(`🌙 Dream: ${dreamResult.reason}`);
+        }
+      } catch (err) {
+        intro.setModel(`Dream error: ${err instanceof Error ? err.message : String(err)}`);
+      } finally {
+        dreamRunning = false;
+      }
+      tui.requestRender();
+      setTimeout(() => { intro.setModel(modelSelection.model); tui.requestRender(); }, 5000);
+      return;
+    }
+
     if (modelSelection.isInSelectionFlow() || sessionsVisible || watchlistVisible || agentRunner.pendingApproval || agentRunner.isProcessing) {
       return;
     }
@@ -608,7 +644,7 @@ export async function runCli() {
     // Hint footer: keyboard shortcuts when idle, cancel hint while running.
     const hintLine = agentRunner.isProcessing
       ? theme.muted('  esc · cancel query')
-      : theme.muted('  ↑↓ history  ·  /model  /sessions  /think  /watchlist  /help  ·  ctrl+c exit');
+      : theme.muted('  ↑↓ history  ·  /model  /sessions  /think  /watchlist  /dream  /help  ·  ctrl+c exit');
     root.addChild(new Text(hintLine, 0, 0));
     root.addChild(editor);
     root.addChild(debugPanel);
@@ -802,6 +838,39 @@ export async function runCli() {
   refreshError();
 
   tui.start();
+
+  // Auto-trigger Dream consolidation on startup if conditions are met.
+  // Increments the session counter unconditionally, then runs consolidation
+  // in the background without blocking the TUI or the user's first query.
+  void (async () => {
+    const dreamStore = new MemoryStore();
+    try {
+      await incrementDreamSessionCount(dreamStore);
+      const [dreamMeta, dreamDailyFiles] = await Promise.all([
+        dreamStore.readDreamMeta(),
+        dreamStore.listDailyFiles(),
+      ]);
+      if (!dreamRunning && shouldRunDream(dreamMeta, dreamDailyFiles)) {
+        dreamRunning = true;
+        intro.setModel('🌙 Dream running…');
+        tui.requestRender();
+        const result = await runDream(dreamStore, modelSelection.model);
+        if (result.ran) {
+          const n = result.archivedFiles.length;
+          intro.setModel(`✨ Dream: archived ${n} file${n === 1 ? '' : 's'}`);
+          tui.requestRender();
+          setTimeout(() => { intro.setModel(modelSelection.model); tui.requestRender(); }, 4000);
+        } else {
+          intro.setModel(modelSelection.model);
+          tui.requestRender();
+        }
+      }
+    } catch {
+      // Non-fatal — Dream failure must never crash the TUI.
+    } finally {
+      dreamRunning = false;
+    }
+  })();
   await new Promise<void>((resolve) => {
     const finish = () => resolve();
     process.once('exit', finish);

@@ -1,6 +1,6 @@
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, join, normalize, relative } from 'node:path';
-import type { MemoryReadOptions, MemoryReadResult, MemorySessionContext } from './types.js';
+import type { DreamMeta, MemoryReadOptions, MemoryReadResult, MemorySessionContext } from './types.js';
 import { estimateTokens } from '../utils/tokens.js';
 import { getDexterDir } from '../utils/paths.js';
 
@@ -8,6 +8,8 @@ const MEMORY_DIRNAME = 'memory';
 const LONG_TERM_FILE = 'MEMORY.md';
 const FINANCE_FILE = 'FINANCE.md';
 const DAILY_FILE_RE = /^\d{4}-\d{2}-\d{2}\.md$/;
+const DREAM_META_FILE = '.dream-meta.json';
+const ARCHIVE_DIRNAME = 'archive';
 
 function pad2(value: number): string {
   return String(value).padStart(2, '0');
@@ -140,6 +142,44 @@ export class MemoryStore {
       tokenEstimate,
       text: sections.join('\n\n'),
     };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Dream meta — persists consolidation run state
+  // ---------------------------------------------------------------------------
+
+  async readDreamMeta(): Promise<DreamMeta | null> {
+    const filePath = join(this.getMemoryDir(), DREAM_META_FILE);
+    try {
+      const raw = await readFile(filePath, 'utf-8');
+      return JSON.parse(raw) as DreamMeta;
+    } catch {
+      return null;
+    }
+  }
+
+  async writeDreamMeta(meta: DreamMeta): Promise<void> {
+    await this.ensureDirectoryExists();
+    const filePath = join(this.getMemoryDir(), DREAM_META_FILE);
+    await writeFile(filePath, JSON.stringify(meta, null, 2), 'utf-8');
+  }
+
+  /** Returns sorted list of YYYY-MM-DD.md filenames (excludes MEMORY.md, FINANCE.md, etc.). */
+  async listDailyFiles(): Promise<string[]> {
+    await this.ensureDirectoryExists();
+    const entries = await readdir(this.getMemoryDir(), { withFileTypes: true });
+    return entries
+      .filter((e) => e.isFile() && DAILY_FILE_RE.test(e.name))
+      .map((e) => e.name)
+      .sort();
+  }
+
+  /** Moves a daily file into the archive/ subdirectory of the memory directory. */
+  async archiveDailyFile(filename: string): Promise<void> {
+    const memoryDir = this.getMemoryDir();
+    const archiveDir = join(memoryDir, ARCHIVE_DIRNAME);
+    await mkdir(archiveDir, { recursive: true });
+    await rename(join(memoryDir, filename), join(archiveDir, filename));
   }
 
   resolveMemoryPath(path: string): string {

@@ -93,6 +93,15 @@ export interface MemorySyncStats {
   removedChunks: number;
 }
 
+export interface DreamMeta {
+  /** Unix timestamp (ms) of the last completed Dream run. 0 if never run. */
+  lastRunAt: number;
+  /** Number of sessions started since the last Dream run. */
+  sessionsSinceLastRun: number;
+  /** Total number of Dream runs completed. */
+  totalRuns: number;
+}
+
 export interface MemoryEmbeddingClient {
   provider: Exclude<EmbeddingProviderId, 'auto' | 'none'>;
   model: string;
