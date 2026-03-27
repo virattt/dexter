@@ -103,9 +103,14 @@ export function getAtFileSuggestions(atPrefix: string, cwd: string): Autocomplet
 export class AtPathAutocompleteProvider implements AutocompleteProvider {
   private readonly inner: CombinedAutocompleteProvider;
   private readonly cwd: string;
+  private readonly commands: SlashCommand[];
 
-  constructor(commands: SlashCommand[], cwd: string, fdPath: string | null) {
-    this.inner = new CombinedAutocompleteProvider(commands, cwd, fdPath);
+  constructor(commands: SlashCommand[], cwd: string, _fdPath: string | null) {
+    this.commands = commands;
+    // Always pass null to prevent CombinedAutocompleteProvider from calling
+    // spawnSync(fdPath, ...) on every @ keystroke, which blocks the event loop.
+    // Our own getAtFileSuggestions() handles @ paths via readdirSync instead.
+    this.inner = new CombinedAutocompleteProvider(commands, cwd, null);
     this.cwd = cwd;
   }
 
@@ -114,13 +119,25 @@ export class AtPathAutocompleteProvider implements AutocompleteProvider {
     cursorLine: number,
     cursorCol: number,
   ): { items: AutocompleteItem[]; prefix: string } | null {
-    // Slash commands + fd-based fuzzy @ completion.
+    const currentLine = lines[cursorLine] ?? '';
+    const textBeforeCursor = currentLine.slice(0, cursorCol);
+
+    // When the user has typed a complete slash command name (exact match, no
+    // trailing space), suppress autocomplete so Enter submits directly instead
+    // of selecting the completion item and requiring a second Enter.
+    if (textBeforeCursor.startsWith('/') && !textBeforeCursor.includes(' ')) {
+      const typedName = textBeforeCursor.slice(1).toLowerCase();
+      const isExactMatch = this.commands.some(
+        (cmd) => cmd.name.toLowerCase() === typedName,
+      );
+      if (isExactMatch) return null;
+    }
+
+    // Slash commands + fd-based fuzzy @ completion (fd disabled — null above).
     const result = this.inner.getSuggestions(lines, cursorLine, cursorCol);
     if (result !== null) return result;
 
     // Fallback: readdirSync-based @ completion (works without fd).
-    const currentLine = lines[cursorLine] ?? '';
-    const textBeforeCursor = currentLine.slice(0, cursorCol);
     const atPrefix = extractAtPrefix(textBeforeCursor);
     if (atPrefix === null) return null;
 

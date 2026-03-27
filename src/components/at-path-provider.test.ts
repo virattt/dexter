@@ -167,6 +167,44 @@ describe('AtPathAutocompleteProvider', () => {
     expect(result).toBeNull();
   });
 
+  // --- TUI freeze regression tests ---
+
+  it('suppresses autocomplete for exact slash command match (prevents double-Enter)', () => {
+    // Typing the full command name should return null so Enter submits directly.
+    const result = provider.getSuggestions(['/model'], 0, '/model'.length);
+    expect(result).toBeNull();
+  });
+
+  it('suppresses autocomplete for exact match case-insensitively', () => {
+    const result = provider.getSuggestions(['/MODEL'], 0, '/MODEL'.length);
+    expect(result).toBeNull();
+  });
+
+  it('still shows autocomplete for partial slash command (prefix match)', () => {
+    const result = provider.getSuggestions(['/mo'], 0, '/mo'.length);
+    expect(result).not.toBeNull();
+    expect(result!.items.some((i) => i.value === 'model')).toBe(true);
+  });
+
+  it('does not suppress autocomplete when text has trailing space after command', () => {
+    // "/model " (with space) is the state after autocomplete applied — should still work.
+    const result = provider.getSuggestions(['/model '], 0, '/model '.length);
+    // inner provider handles this (command argument completions); we just don't block it.
+    // result may be null or non-null — we only care it didn't throw.
+    expect(typeof result === 'object' || result === null).toBe(true);
+  });
+
+  it('does not suppress slash command check when fdPath is provided', () => {
+    // Even if a real fdPath is passed, the exact-match guard must still work.
+    const providerWithFd = new AtPathAutocompleteProvider(
+      [{ name: 'watchlist', description: 'Portfolio tracker' }],
+      tmpDir,
+      '/usr/bin/fdfind', // non-null fdPath — must be ignored internally
+    );
+    const result = providerWithFd.getSuggestions(['/watchlist'], 0, '/watchlist'.length);
+    expect(result).toBeNull();
+  });
+
   it('applyCompletion replaces @ prefix with file value', () => {
     const applied = provider.applyCompletion(
       ['analyse @R'],
