@@ -10,6 +10,7 @@ Dexter is an autonomous financial research agent that thinks, plans, and learns 
 - [✅ Prerequisites](#-prerequisites)
 - [💻 How to Install](#-how-to-install)
 - [🚀 How to Run](#-how-to-run)
+- [🐳 How to Run with Docker](#-how-to-run-with-docker)
 - [📊 How to Evaluate](#-how-to-evaluate)
 - [🐛 How to Debug](#-how-to-debug)
 - [📱 How to Use with WhatsApp](#-how-to-use-with-whatsapp)
@@ -106,6 +107,28 @@ Or with watch mode for development:
 ```bash
 bun dev
 ```
+
+## 🐳 How to Run with Docker
+
+Run Dexter in a container without installing Bun or Playwright locally.
+
+1. Copy the environment file and add your API keys:
+```bash
+cp env.example .env
+```
+
+2. Build and run:
+```bash
+docker compose run --rm dexter
+```
+
+Or build and run manually:
+```bash
+docker build -t dexter .
+docker run -it --env-file .env -v $(pwd)/.dexter:/app/.dexter dexter
+```
+
+> **Note:** The first build downloads Chromium for Playwright web scraping and may take a few minutes.
 
 ## 📊 How to Evaluate
 
