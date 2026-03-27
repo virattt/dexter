@@ -1,23 +1,15 @@
 import { describe, test, expect, mock, beforeEach } from 'bun:test';
+import { makeYahooTools } from './yahoo-finance.js';
 
 // ---------------------------------------------------------------------------
-// Mock yahoo-finance2 BEFORE importing the module under test.
-// The module instantiates YahooFinance at module load time, so the mock must
-// be registered first.
+// Use factory-based dependency injection — no module-level mocking needed.
+// Each test suite gets its own tool instances backed by mockQuoteSummary so
+// tests remain isolated regardless of module-cache order in parallel runs.
 // ---------------------------------------------------------------------------
 
 const mockQuoteSummary = mock(async (_ticker: string, _opts: unknown) => ({}));
-
-mock.module('yahoo-finance2', () => ({
-  default: class MockYahooFinance {
-    constructor(_opts?: unknown) {}
-    quoteSummary = mockQuoteSummary;
-  },
-}));
-
-// Import after mocking
 const { getYahooAnalystTargets, getYahooAnalystRecommendations, getYahooUpgradeDowngradeHistory, getYahooIncomeStatements } =
-  await import('./yahoo-finance.js');
+  makeYahooTools(mockQuoteSummary as Parameters<typeof makeYahooTools>[0]);
 
 // ---------------------------------------------------------------------------
 // Helpers
