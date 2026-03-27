@@ -22,6 +22,12 @@ const MESSAGES_DIR = 'messages';
 const MESSAGES_FILE = 'chat_history.json';
 
 /**
+ * Default maximum number of conversation entries to keep.
+ * Older entries beyond this limit are dropped from the front of the stack.
+ */
+const DEFAULT_MAX_ENTRIES = 200;
+
+/**
  * Manages persistent storage of conversation history for input history navigation.
  * Uses stack ordering (most recent first) for O(1) access to latest entries.
  * Stores messages in .dexter/messages/chat_history.json
@@ -30,9 +36,29 @@ export class LongTermChatHistory {
   private filePath: string;
   private messages: ConversationEntry[] = [];
   private loaded = false;
+  private maxEntries: number;
 
-  constructor(baseDir: string = process.cwd()) {
+  /**
+   * @param baseDir Base directory for the .dexter folder (defaults to process.cwd()).
+   * @param options Optional configuration; currently supports maxEntries.
+   */
+  constructor(
+    baseDir: string = process.cwd(),
+    options?: {
+      /**
+       * Maximum number of entries to retain in memory and on disk.
+       * Values <= 0 are treated as "no limit" (no trimming).
+       */
+      maxEntries?: number;
+    }
+  ) {
     this.filePath = join(baseDir, getDexterDir(), MESSAGES_DIR, MESSAGES_FILE);
+    const requestedMax = options?.maxEntries;
+    if (typeof requestedMax === 'number') {
+      this.maxEntries = requestedMax > 0 ? Math.floor(requestedMax) : 0;
+    } else {
+      this.maxEntries = DEFAULT_MAX_ENTRIES;
+    }
   }
 
   /**
@@ -46,15 +72,22 @@ export class LongTermChatHistory {
       if (existsSync(this.filePath)) {
         const content = await readFile(this.filePath, 'utf-8');
         const data: MessagesFile = JSON.parse(content);
-        this.messages = data.messages || [];
+        this.messages = Array.isArray(data.messages) ? data.messages : [];
       } else {
         // File doesn't exist, initialize with empty messages
         this.messages = [];
         await this.save();
       }
     } catch {
-      // If there's any error reading/parsing, start fresh
+      // If there's any error reading/parsing, start fresh in memory
+      // but leave the on-disk file untouched so users can recover it manually.
       this.messages = [];
+    }
+
+    // Enforce max entries on load as well, in case file grew too large.
+    if (this.maxEntries > 0 && this.messages.length > this.maxEntries) {
+      this.messages = this.messages.slice(0, this.maxEntries);
+      await this.save();
     }
 
     this.loaded = true;
@@ -93,6 +126,12 @@ export class LongTermChatHistory {
 
     // Prepend to stack (most recent first)
     this.messages.unshift(entry);
+
+    // Trim to max entries if enabled
+    if (this.maxEntries > 0 && this.messages.length > this.maxEntries) {
+      this.messages = this.messages.slice(0, this.maxEntries);
+    }
+
     await this.save();
   }
 

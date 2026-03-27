@@ -298,6 +298,7 @@ export class Agent {
     return buildHistoryContext({
       entries: recentTurns,
       currentMessage: query,
+      historyLimit: 0,
     });
   }
 }
