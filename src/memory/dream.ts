@@ -71,15 +71,27 @@ export type CallLlmFn = (
  * Used as the default in production; tests inject their own CallLlmFn directly.
  */
 async function defaultCallLlm(prompt: string, opts: { model: string }): Promise<{ content: string }> {
-  const result = await realCallLlm(prompt, { model: opts.model });
+  // Disable thinking for dream consolidation: output must be parseable plain text.
+  const result = await realCallLlm(prompt, { model: opts.model, thinkOverride: false });
   const raw = result.response;
-  const content =
-    typeof raw === 'string'
-      ? raw
-      : typeof (raw as { content?: unknown }).content === 'string'
-        ? (raw as { content: string }).content
-        : '';
-  return { content };
+  if (typeof raw === 'string') return { content: raw };
+  const rawContent = (raw as { content?: unknown }).content;
+  if (typeof rawContent === 'string') return { content: rawContent };
+  // Thinking models may still return array blocks even with thinkOverride; extract text.
+  if (Array.isArray(rawContent)) {
+    const text = rawContent
+      .filter(
+        (b): b is { type: string; text: string } =>
+          typeof b === 'object' &&
+          b !== null &&
+          (b as { type?: unknown }).type === 'text' &&
+          typeof (b as { text?: unknown }).text === 'string',
+      )
+      .map((b) => b.text)
+      .join('');
+    return { content: text };
+  }
+  return { content: '' };
 }
 
 // ---------------------------------------------------------------------------
@@ -109,14 +121,18 @@ export function shouldRunDream(
  * Exported for direct unit testing.
  */
 export function parseDreamOutput(raw: string): { memory: string; finance: string } | null {
-  const MEM_MARKER = '### MEMORY.md';
-  const FIN_MARKER = '### FINANCE.md';
-  const memIdx = raw.indexOf(MEM_MARKER);
-  const finIdx = raw.indexOf(FIN_MARKER);
-  if (memIdx === -1 || finIdx === -1 || finIdx <= memIdx) return null;
+  // Accept 2–4 leading '#' chars (## / ### / ####) in any combination.
+  const MEM_RE = /#{2,4}\s*MEMORY\.md/i;
+  const FIN_RE = /#{2,4}\s*FINANCE\.md/i;
+  const memMatch = MEM_RE.exec(raw);
+  const finMatch = FIN_RE.exec(raw);
+  if (!memMatch || !finMatch) return null;
+  const memIdx = memMatch.index;
+  const finIdx = finMatch.index;
+  if (finIdx <= memIdx) return null;
 
-  const memory = raw.slice(memIdx + MEM_MARKER.length, finIdx).trim();
-  const finance = raw.slice(finIdx + FIN_MARKER.length).trim();
+  const memory = raw.slice(memIdx + memMatch[0].length, finIdx).trim();
+  const finance = raw.slice(finIdx + finMatch[0].length).trim();
   if (!memory || !finance) return null;
 
   return { memory, finance };

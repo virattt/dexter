@@ -285,7 +285,26 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
   // If no outputSchema and no tools, extract content from AIMessage
   // When tools are provided, return the full AIMessage to preserve tool_calls
   if (!outputSchema && !tools && result && typeof result === 'object' && 'content' in result) {
-    return { response: (result as { content: string }).content, usage };
+    const rawContent = (result as { content: unknown }).content;
+    if (typeof rawContent === 'string') {
+      return { response: rawContent, usage };
+    }
+    // Thinking models (qwen3, deepseek-r1) return an array of content blocks:
+    // [{type:'thinking', thinking:'...'}, {type:'text', text:'...'}]
+    // Extract only the text blocks and join them.
+    if (Array.isArray(rawContent)) {
+      const text = rawContent
+        .filter(
+          (b): b is { type: string; text: string } =>
+            typeof b === 'object' &&
+            b !== null &&
+            (b as { type?: unknown }).type === 'text' &&
+            typeof (b as { text?: unknown }).text === 'string',
+        )
+        .map((b) => b.text)
+        .join('');
+      return { response: text, usage };
+    }
   }
   return { response: result as AIMessage, usage };
 }
