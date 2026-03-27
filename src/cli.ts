@@ -929,7 +929,19 @@ export async function runCli() {
 
   editor.onSubmit = (text) => {
     const value = text.trim();
-    if (!value) return;
+    // Empty Enter while a modal overlay is open → close it (same as Esc).
+    if (!value) {
+      if (watchlistVisible) {
+        watchlistVisible = false;
+        renderSelectionOverlay();
+        tui.requestRender();
+      } else if (helpVisible) {
+        helpVisible = false;
+        renderSelectionOverlay();
+        tui.requestRender();
+      }
+      return;
+    }
     editor.setText('');
     editor.addToHistory(value);
     void handleSubmit(value);
@@ -1013,6 +1025,28 @@ export async function runCli() {
     if (focusTarget) {
       tui.setFocus(focusTarget);
     }
+  };
+
+  /**
+   * Renders a watchlist panel (list / show / snapshot) with the editor visible
+   * at the bottom.  Including the editor in the component tree means:
+   *   - The cursor is visible so the user knows the TUI is interactive.
+   *   - Keyboard input shows in the editor (the user can type the next command).
+   *   - Esc (and Enter on an empty line) both close the panel as expected.
+   *   - The hint line tells the user which commands make sense next.
+   */
+  const renderWatchlistView = (
+    title: string,
+    description: string,
+    panel: Container,
+    hint: string,
+  ) => {
+    root.clear();
+    root.addChild(createScreen(title, description, panel));
+    root.addChild(new Text(theme.muted(hint), 0, 0));
+    root.addChild(editor);
+    root.addChild(debugPanel);
+    tui.setFocus(editor);
   };
 
   const renderSelectionOverlay = () => {
@@ -1112,7 +1146,7 @@ export async function runCli() {
         footer   = 'Esc to close · /watchlist show TICKER · /watchlist snapshot';
       }
 
-      renderScreenView(title, subtitle, panel, footer, editor);
+      renderWatchlistView(title, subtitle, panel, footer);
       return;
     }
 
