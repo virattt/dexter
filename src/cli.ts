@@ -27,6 +27,7 @@ import type { PriceFetcher, PriceSnapshot } from './controllers/watchlist-displa
 import { api } from './tools/finance/api.js';
 import { MemoryStore } from './memory/store.js';
 import { runDream, incrementDreamSessionCount, shouldRunDream } from './memory/dream.js';
+import { seedWatchlistEntries } from './memory/auto-store.js';
 import {
   ApiKeyInputComponent,
   ApprovalPromptComponent,
@@ -774,6 +775,9 @@ export async function runCli() {
         intro.setModel(`✓ Added ${sub.ticker}${detail ? ' ' + detail : ''} to watchlist`);
         tui.requestRender();
         setTimeout(() => { intro.setModel(modelSelection.model); tui.requestRender(); }, 3000);
+        // Seed the new ticker into financial memory so recall_financial_context
+        // returns a hit even before any LLM analysis runs.
+        void seedWatchlistEntries([{ ticker: sub.ticker, costBasis: sub.costBasis, shares: sub.shares }]);
         return;
       }
 
@@ -1250,6 +1254,20 @@ export async function runCli() {
   refreshError();
 
   tui.start();
+
+  // Seed existing watchlist tickers into financial memory at startup.
+  // Ensures recall_financial_context() returns a result for tracked tickers
+  // even before any LLM analysis has run for them.
+  void (async () => {
+    try {
+      const existingEntries = new WatchlistController(process.cwd()).list();
+      if (existingEntries.length > 0) {
+        await seedWatchlistEntries(existingEntries);
+      }
+    } catch {
+      // Non-critical.
+    }
+  })();
 
   // Auto-trigger Dream consolidation on startup if conditions are met.
   // Increments the session counter unconditionally, then runs consolidation

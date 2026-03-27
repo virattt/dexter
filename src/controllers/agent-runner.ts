@@ -8,6 +8,7 @@ import type {
 } from '../agent/index.js';
 import type { DisplayEvent } from '../agent/types.js';
 import type { HistoryItem, HistoryItemStatus, WorkingState } from '../types.js';
+import { autoStoreFromRun } from '../memory/auto-store.js';
 
 type ChangeListener = () => void;
 
@@ -185,14 +186,22 @@ export class AgentRunnerController {
       // Drive the stream manually so each next() can be raced against
       // triggerCancellation — Ollama cloud endpoints don't honour AbortSignal.
       const stream = agent.run(query, this.inMemoryChatHistory);
+      let doneEvent: DoneEvent | null = null;
       while (true) {
         const nextResult = await this.makeCancellable(stream.next());
         if (nextResult.done) break;
         const event = nextResult.value;
         if (event.type === 'done') {
           finalAnswer = (event as DoneEvent).answer;
+          doneEvent = event as DoneEvent;
         }
         await this.makeCancellable(this.handleEvent(event));
+      }
+
+      // Auto-persist financial context when the LLM didn't call
+      // store_financial_insight itself. Fire-and-forget — never block the UI.
+      if (doneEvent) {
+        void autoStoreFromRun(query, doneEvent.answer, doneEvent.toolCalls);
       }
 
       if (finalAnswer) {
