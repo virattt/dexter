@@ -115,11 +115,14 @@ export async function hybridSearch(params: {
           : entry.vectorScore > 0
             ? 'vector'
             : 'keyword';
+      const explanation =
+        `v=${entry.vectorScore.toFixed(3)} k=${entry.keywordScore.toFixed(3)} src=${source}`;
       return {
         ...detail,
         snippet: buildSnippet(detail.snippet, 700),
         score: entry.finalScore,
         source,
+        explanation,
       } as MemorySearchResult;
     })
     .filter((entry): entry is MemorySearchResult => Boolean(entry));

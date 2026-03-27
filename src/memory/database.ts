@@ -6,6 +6,7 @@ import type {
   MemorySearchResult,
   MemoryVectorCandidate,
 } from './types.js';
+import { buildFtsQueryExpanded } from './financial-synonyms.js';
 
 type SqliteQuery<T> = {
   all(...params: unknown[]): T[];
@@ -502,18 +503,31 @@ export class MemoryDatabase {
   }
 
   searchKeyword(query: string, maxResults: number): MemoryKeywordCandidate[] {
-    const sanitized = buildFtsQuery(query);
-    if (!sanitized) {
+    const ftsQuery = buildFtsQueryExpanded(query);
+    if (!ftsQuery) {
       return [];
     }
+    // Fetch extra candidates so min-max normalisation is representative.
+    const fetchCount = Math.max(maxResults * 2, 20);
     const rows = this.db
       .query<{ chunk_id: number; rank: number }>(
-        'SELECT chunk_id, bm25(chunks_fts) AS rank FROM chunks_fts WHERE chunks_fts MATCH ? ORDER BY rank LIMIT ?',
+        // k1=1.5 (term-freq saturation), b=0.75 (field-length norm) — tuned for
+        // financial text with frequent proper nouns and ticker symbols.
+        'SELECT chunk_id, bm25(chunks_fts, 1.5, 0.75) AS rank FROM chunks_fts WHERE chunks_fts MATCH ? ORDER BY rank LIMIT ?',
       )
-      .all(sanitized, maxResults);
-    return rows.map((row) => ({
+      .all(ftsQuery, fetchCount);
+
+    if (rows.length === 0) return [];
+
+    // SQLite BM25 returns negative values — more negative = better match.
+    // Normalise to [0, 1]: best candidate → 1, worst → 0.
+    const minRank = Math.min(...rows.map((r) => r.rank));
+    const maxRank = Math.max(...rows.map((r) => r.rank));
+    const range = maxRank - minRank;
+
+    return rows.slice(0, maxResults).map((row) => ({
       chunkId: row.chunk_id,
-      score: 1 / (1 + Math.max(0, row.rank)),
+      score: range > 0 ? (maxRank - row.rank) / range : 1,
     }));
   }
 

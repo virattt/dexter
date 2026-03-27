@@ -58,6 +58,8 @@ export interface MemorySearchResult {
   source: 'vector' | 'keyword' | 'both';
   contentSource?: ContentSource;
   updatedAt?: number;
+  /** Ranking breakdown for transparency: "v=0.843 k=0.210 src=both" */
+  explanation?: string;
 }
 
 export interface MemorySearchOptions {
