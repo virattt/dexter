@@ -75,7 +75,14 @@ This fork adds the following on top of the upstream repository:
 - `/help` — in-TUI help panel with all commands and keyboard shortcuts
 - `/sessions` — session browser with resume support
 - `/think` — toggle extended thinking for supported models
-- `/watchlist` — portfolio morning briefing; subcommands: `add TICKER [cost] [shares]`, `remove TICKER`, `list`
+- `/watchlist` — portfolio morning briefing; subcommands: `add TICKER [cost] [shares]`, `remove TICKER`, `list`, `show TICKER`, `snapshot`
+- `/dream` — manually trigger Dream memory consolidation; `force` bypasses trigger conditions
+
+### Watchlist Display Enhancements
+- **`/watchlist list`** now fetches live prices in parallel and shows: current price, day %, unrealised P&L ($), return %, allocation %, plus a portfolio totals row
+- **`/watchlist show TICKER`** — instant inline info card: price + 52-week range, key ratios (P/E, P/B, EV/EBITDA, PEG), analyst consensus + average price target, last 3 news headlines — no agent call required
+- **`/watchlist snapshot`** — portfolio dashboard with ASCII horizontal bar chart (allocation %), total invested vs. current value, P&L, best/worst performers
+- All three commands gracefully degrade when `FINANCIAL_DATASETS_API_KEY` is not set
 
 ### New Skills & Research Templates
 - **Earnings Calendar** — structured table of upcoming earnings with consensus estimates, prior surprise %, and options implied move
@@ -85,7 +92,18 @@ This fork adds the following on top of the upstream repository:
 - **Sector Overview** — macro backdrop, top names, valuation spread, recent catalysts, three actionable ideas
 - **Watchlist Briefing** — triggered by `/watchlist`; live price + P&L + next earnings table for your positions
 
-### `~/reports` Write Support
+### Memory System & Dream Consolidation
+- **Persistent memory** stored in `.dexter/memory/` as plain Markdown (`MEMORY.md`, `FINANCE.md`, daily `YYYY-MM-DD.md` files)
+- **Four-tier priority system** (P1 critical → P4 noise) guides what the agent remembers and prunes
+- **Dream** — background consolidation cycle inspired by Claude Code's AutoDream: merges fragmented daily notes, replaces relative timestamps with absolute dates, deduplicates ticker data, resolves contradictions, and rewrites `MEMORY.md`/`FINANCE.md` into clean summaries
+  - Auto-triggers at startup when: ≥2 daily files exist, ≥24h elapsed, ≥3 sessions since last run
+  - Manual trigger: `/dream` (respects conditions) or `/dream force` (always runs)
+  - Processed daily files are archived to `.dexter/memory/archive/` — never deleted
+- Full documentation: [`docs/memory.md`](docs/memory.md)
+
+### TUI Stability Fixes
+- **`@`-path completion lag eliminated** — removed blocking `spawnSync(fdfind)` call that froze the terminal on every `@` keystroke; replaced with async `readdirSync`-based completion
+- **`/watchlist` double-Enter fixed** — exact-match slash command autocomplete suppression prevents the completion dropdown from requiring a second Enter press to submit
 - Agent can write markdown reports to `~/reports/` (and any `~/` subdirectory), not just the current working directory
 - Requested with `@` prefix in prompts (e.g. `@~/reports/my-analysis.md`) — full tab-completion included
 
@@ -185,10 +203,14 @@ Type `/` at the prompt to see all available commands:
 | `/model` | Switch LLM provider or model |
 | `/sessions` | Browse and resume past conversations |
 | `/think` | Toggle extended thinking (supported models only) |
-| `/watchlist` | Run portfolio morning briefing |
+| `/watchlist` | Run portfolio morning briefing (LLM agent) |
 | `/watchlist add TICKER [cost] [shares]` | Add a position to your watchlist |
 | `/watchlist remove TICKER` | Remove a position |
-| `/watchlist list` | Print all current holdings |
+| `/watchlist list` | Live-enriched table: prices, P&L, return %, allocation |
+| `/watchlist show TICKER` | Instant info card: price, ratios, analyst target, news |
+| `/watchlist snapshot` | Portfolio dashboard with ASCII allocation chart |
+| `/dream` | Consolidate memory files (merges daily notes into MEMORY.md) |
+| `/dream force` | Force Dream consolidation regardless of trigger conditions |
 | `/exit` | Exit Dexter (session is saved first) |
 
 **Keyboard shortcuts:**

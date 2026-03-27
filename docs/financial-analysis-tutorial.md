@@ -169,10 +169,14 @@ You'll see the Dexter intro screen with your active model displayed. Type any qu
 | `/model` | Switch your LLM provider and model |
 | `/sessions` | Browse and resume past conversations |
 | `/think` | Toggle extended thinking on/off (supported models only) |
-| `/watchlist` | Run portfolio briefing on your watchlist |
-| `/watchlist add TICKER [cost] [shares]` | Add a position to your watchlist |
-| `/watchlist remove TICKER` | Remove a position from your watchlist |
-| `/watchlist list` | Print all current watchlist holdings |
+| `/watchlist` | Run portfolio morning briefing (LLM agent) |
+| `/watchlist add TICKER [cost] [shares]` | Add or update a position |
+| `/watchlist remove TICKER` | Remove a position |
+| `/watchlist list` | Live-enriched table: prices, P&L, return %, allocation % |
+| `/watchlist show TICKER` | Instant info card: price, ratios, analyst target, news |
+| `/watchlist snapshot` | Portfolio dashboard with ASCII allocation chart |
+| `/dream` | Consolidate memory files (merges daily notes into MEMORY.md) |
+| `/dream force` | Force Dream consolidation immediately |
 | `exit` / `quit` | Quit Dexter (session saved before exit) |
 
 ### Keyboard shortcuts
@@ -643,39 +647,105 @@ Dexter includes a built-in watchlist so you can track your positions and get a m
 
 ```
 /watchlist add NVDA 400 100       # Add NVDA: 100 shares at $400 cost basis
-/watchlist add MSFT               # Track without cost basis
+/watchlist add MSFT               # Track without cost basis (watch-only)
 /watchlist remove TSLA            # Remove a position
-/watchlist list                   # Print all holdings
 ```
 
 The watchlist is persisted to `.dexter/watchlist.json` and survives restarts.
 
-### Morning briefing
+### Live-enriched list — `/watchlist list`
+
+```
+/watchlist list
+```
+
+Fetches live prices in parallel and displays a fully enriched table:
+
+```
+Watchlist  —  2026-04-15  (4 positions)
+
+TICKER  SHARES  COST     CURRENT    DAY%     P&L       RETURN   ALLOC
+──────  ──────  ───────  ─────────  ───────  ────────  ───────  ──────
+NVDA      100   $400.00  $875.40   -2.1%    +$47,540  +118.9%   61%
+MSFT       50   $380.00  $420.15   +1.2%    + $2,008   +10.6%   28%
+AMD        --        --  $156.20   +0.8%          --       --    --
+─────────────────────────────────────────────────────────────────────
+TOTAL                   $61,885    +0.3%    +$49,548   +49.3%  100%
+```
+
+- **DAY%** — colour-coded green/red
+- **P&L** — unrealised dollars only for positions with cost basis + shares
+- **ALLOC** — each position's % of total portfolio value
+- **Watch-only** tickers (no shares) show current price and day % only
+- Gracefully falls back to stored data when `FINANCIAL_DATASETS_API_KEY` is not set
+
+### Single-ticker info card — `/watchlist show TICKER`
+
+```
+/watchlist show AMD
+```
+
+Instant inline card — no agent call, no waiting:
+
+```
+┌─ AMD — Advanced Micro Devices ────────────────────────────────┐
+│ Price:  $156.20  (+0.81%)          52-wk: $107.05 – $227.30  │
+│ Mkt Cap: $253B                                                 │
+├───────────────────────────────────────────────────────────────┤
+│ P/E: 45.2   P/B: 4.1   EV/EBITDA: 32.1   PEG: 1.8           │
+├───────────────────────────────────────────────────────────────┤
+│ Analyst: BUY (28 buy / 4 hold / 3 sell)                       │
+│ Avg Target: $195.00   Upside: +24.8%                          │
+├───────────────────────────────────────────────────────────────┤
+│ News (2026-04-14): AMD launches MI350 GPU for AI inference    │
+│      (2026-04-12): Analyst raises PT to $200 from $180        │
+│      (2026-04-09): Q1 earnings guide reaffirmed               │
+└───────────────────────────────────────────────────────────────┘
+```
+
+Useful when you want a quick sanity check before asking the agent for a deep dive.
+
+### Portfolio snapshot — `/watchlist snapshot`
+
+```
+/watchlist snapshot
+```
+
+Dashboard view with an ASCII horizontal bar chart:
+
+```
+Portfolio Snapshot  —  2026-04-15
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Total Invested:  $59,000
+Current Value:   $61,885
+Total P&L:       +$2,885  (+4.9%)
+
+Allocation:
+  NVDA  █████████████████████████░   61%
+  MSFT  ████████████░░░░░░░░░░░░░░   28%
+  AMD   ████░░░░░░░░░░░░░░░░░░░░░░   11%
+
+Best:  NVDA   +118.9%
+Worst: MSFT    +10.6%
+
+Watch-only (no position size): AMD
+```
+
+Only tickers with both `shares` and `costBasis` contribute to totals.
+
+### Morning briefing — `/watchlist` (bare)
 
 ```
 /watchlist
 ```
 
-This injects your full position list into the agent and triggers the **watchlist-briefing** skill, which:
+Injects your full position list into the agent and triggers the **watchlist-briefing** skill, which:
 
 1. Fetches live price, day % change, and 52-week range for every ticker
 2. Looks up next earnings date and analyst consensus rating
-3. Calculates unrealised P&L % for each position where cost basis is set
+3. Calculates unrealised P&L % for positions with cost basis set
 4. Outputs a compact table: `Ticker | Price | Day% | P&L% | Next Earnings | Rating`
 5. Flags any position ±5% intraday or with earnings within 7 days
-
-### Example output
-
-```
-Watchlist Briefing  –  2026-04-15
-
-Ticker  Price      Day%    P&L%    Next Earnings   Rating
-------  ---------  ------  ------  --------------  --------
-MSFT    $420.15    +1.2%   +10.6%  Apr 30          Buy
-NVDA    $875.40    -2.1%   +118%   May 21          Strong Buy
-
-⚠  NVDA  down 2.1% intraday
-```
 
 ---
 
@@ -908,8 +978,11 @@ Dexter has a **persistent memory system** that stores information across session
 ```
 .dexter/memory/
   MEMORY.md              ← Long-term facts and preferences
+  FINANCE.md             ← Accumulated financial research notes
   2026-03-25.md          ← Today's daily log
+  archive/               ← Processed daily files (safe to inspect)
   index.sqlite           ← Embeddings + keyword search index
+  .dream-meta.json       ← Dream consolidation state
 ```
 
 ### Storing memories
@@ -945,6 +1018,61 @@ Log today's research: reviewed AAPL 10-K, noted Services gross margin expansion
 ### Memory search (automatic)
 
 Dexter automatically searches memory at the start of relevant queries. For example, if you previously told it your portfolio weights, it will factor that in when giving allocation advice.
+
+### Dream — Memory Consolidation
+
+As daily notes accumulate, memory can become fragmented (relative phrases like "yesterday" lose meaning, the same ticker appears in multiple files with conflicting data). **Dream** consolidates all of this automatically.
+
+#### What Dream does
+
+1. Reads every daily note file (`YYYY-MM-DD.md`) not yet processed
+2. Merges fragmented entries into clean, dated paragraphs
+3. Replaces relative language ("yesterday", "last week") with absolute dates
+4. Deduplicates ticker mentions — keeps the most recent data per ticker
+5. Resolves contradictions (e.g., two different price targets for NVDA)
+6. Rewrites `MEMORY.md` and `FINANCE.md` with consolidated summaries
+7. Archives processed daily files to `.dexter/memory/archive/` (never deleted)
+
+#### Auto-trigger conditions
+
+Dream runs automatically at startup when **all three** are true:
+
+| Condition | Default |
+|-----------|---------|
+| ≥ 2 unprocessed daily files exist | — |
+| ≥ 24 hours since last Dream run | — |
+| ≥ 3 sessions since last Dream run | — |
+
+#### Manual trigger
+
+```
+/dream           # runs if trigger conditions are met
+/dream force     # always runs, regardless of conditions
+```
+
+#### When Dream is most useful
+
+- **After a research sprint** — you've had 5 sessions over 3 days researching NVDA, with notes spread across 5 daily files. Dream merges them into a single coherent summary.
+- **Returning after a gap** — "two weeks ago" in a daily note is now meaningless. Dream replaces it with the actual date before you lose the context.
+- **Conflicting data** — you got different analyst targets on different days. Dream keeps the most recent and removes the stale entry.
+- **Context pressure** — without Dream, all daily files are loaded into context. After Dream, only `MEMORY.md` and `FINANCE.md` are needed — significantly reducing token usage on long sessions.
+
+#### Checking Dream status
+
+```
+/dream           # shows "conditions not met" message if no action is taken
+```
+
+Or inspect `.dexter/memory/.dream-meta.json`:
+
+```json
+{
+  "lastRunAt": "2026-04-14T09:23:11.000Z",
+  "sessionsSinceLastRun": 0,
+  "filesProcessed": 5,
+  "version": 1
+}
+```
 
 ### Memory embedding providers
 
