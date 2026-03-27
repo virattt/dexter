@@ -16,6 +16,7 @@ import {
   ModelSelectionController,
 } from './controllers/index.js';
 import { SessionController } from './controllers/session-controller.js';
+import { WatchlistController, parseWatchlistSubcommand } from './controllers/watchlist-controller.js';
 import {
   ApiKeyInputComponent,
   ApprovalPromptComponent,
@@ -101,10 +102,11 @@ function createScreen(
 // the real set of available commands.
 
 const SLASH_COMMANDS: SlashCommand[] = [
-  { name: 'help',     description: 'Show available commands and keyboard shortcuts' },
-  { name: 'model',    description: 'Switch the LLM model or provider' },
-  { name: 'sessions', description: 'Browse and resume past conversations' },
-  { name: 'think',    description: 'Toggle Ollama extended thinking on/off (thinking models only)' },
+  { name: 'help',      description: 'Show available commands and keyboard shortcuts' },
+  { name: 'model',     description: 'Switch the LLM model or provider' },
+  { name: 'sessions',  description: 'Browse and resume past conversations' },
+  { name: 'think',     description: 'Toggle Ollama extended thinking on/off (thinking models only)' },
+  { name: 'watchlist', description: 'Portfolio briefing — or: add TICKER [cost] [shares] | remove TICKER | list' },
 ];
 
 function buildHelpPanel(): Container {
@@ -419,6 +421,75 @@ export async function runCli() {
       return;
     }
 
+    if (query.startsWith('/watchlist')) {
+      const watchlistCtrl = new WatchlistController(process.cwd());
+      const sub = parseWatchlistSubcommand(query.slice('/watchlist'.length).trim());
+
+      if (sub.cmd === 'add') {
+        watchlistCtrl.add(sub.ticker, sub.costBasis, sub.shares);
+        const detail = [
+          sub.costBasis !== undefined ? `@ $${sub.costBasis}` : '',
+          sub.shares !== undefined ? `× ${sub.shares} shares` : '',
+        ].filter(Boolean).join(' ');
+        lastError = null;
+        intro.setModel(`✓ Added ${sub.ticker}${detail ? ' ' + detail : ''} to watchlist`);
+        tui.requestRender();
+        setTimeout(() => { intro.setModel(modelSelection.model); tui.requestRender(); }, 3000);
+        return;
+      }
+
+      if (sub.cmd === 'remove') {
+        watchlistCtrl.remove(sub.ticker);
+        lastError = null;
+        intro.setModel(`✓ Removed ${sub.ticker} from watchlist`);
+        tui.requestRender();
+        setTimeout(() => { intro.setModel(modelSelection.model); tui.requestRender(); }, 3000);
+        return;
+      }
+
+      if (sub.cmd === 'list') {
+        const entries = watchlistCtrl.list();
+        if (entries.length === 0) {
+          lastError = 'Watchlist is empty. Use /watchlist add TICKER [cost] [shares] to add positions.';
+          refreshError();
+          tui.requestRender();
+        } else {
+          const lines = entries.map((e) => {
+            const parts = [e.ticker];
+            if (e.costBasis !== undefined) parts.push(`@ $${e.costBasis}`);
+            if (e.shares !== undefined) parts.push(`× ${e.shares} shares`);
+            return parts.join('  ');
+          });
+          lastError = `Watchlist:\n${lines.map(l => `  ${l}`).join('\n')}`;
+          refreshError();
+          tui.requestRender();
+        }
+        return;
+      }
+
+      // Bare /watchlist — run briefing skill with injected context.
+      if (watchlistCtrl.isEmpty()) {
+        lastError = 'Watchlist is empty. Use /watchlist add TICKER [cost] [shares] to add positions.';
+        refreshError();
+        tui.requestRender();
+        return;
+      }
+
+      const entries = watchlistCtrl.list();
+      const context = entries
+        .map((e) => {
+          const parts = [e.ticker];
+          if (e.shares !== undefined && e.costBasis !== undefined)
+            parts.push(`(${e.shares} shares @ $${e.costBasis})`);
+          else if (e.costBasis !== undefined)
+            parts.push(`(@ $${e.costBasis})`);
+          return parts.join(' ');
+        })
+        .join(', ');
+      // Fall through to agent submission with injected watchlist context.
+      query = `Run watchlist briefing for: ${context}`;
+    }
+
     if (modelSelection.isInSelectionFlow() || sessionsVisible || agentRunner.pendingApproval || agentRunner.isProcessing) {
       return;
     }
@@ -517,7 +588,7 @@ export async function runCli() {
     // Hint footer: keyboard shortcuts when idle, cancel hint while running.
     const hintLine = agentRunner.isProcessing
       ? theme.muted('  esc · cancel query')
-      : theme.muted('  ↑↓ history  ·  /model  /sessions  /think  /help  ·  ctrl+c exit');
+      : theme.muted('  ↑↓ history  ·  /model  /sessions  /think  /watchlist  /help  ·  ctrl+c exit');
     root.addChild(new Text(hintLine, 0, 0));
     root.addChild(editor);
     root.addChild(debugPanel);

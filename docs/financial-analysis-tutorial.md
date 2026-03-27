@@ -20,16 +20,20 @@
 10. [Stock Screening](#10-stock-screening)
 11. [SEC Filings Analysis](#11-sec-filings-analysis)
 12. [DCF Valuation](#12-dcf-valuation)
-13. [Web Research](#13-web-research)
-14. [X/Twitter Sentiment Research](#14-xtwitter-sentiment-research)
-15. [Persistent Memory](#15-persistent-memory)
-16. [Heartbeat Monitoring](#16-heartbeat-monitoring)
-17. [Debugging with the Scratchpad](#17-debugging-with-the-scratchpad)
-18. [WhatsApp Gateway](#18-whatsapp-gateway)
-19. [Evaluations](#19-evaluations)
-20. [Example Prompts Reference](#20-example-prompts-reference)
-21. [Tips & Best Practices](#21-tips--best-practices)
-22. [Troubleshooting](#22-troubleshooting)
+13. [Watchlist & Portfolio Tracker](#13-watchlist--portfolio-tracker)
+14. [Earnings Calendar](#14-earnings-calendar)
+15. [Peer Comparison](#15-peer-comparison)
+16. [Analysis Templates](#16-analysis-templates)
+17. [Web Research](#17-web-research)
+18. [X/Twitter Sentiment Research](#18-xtwitter-sentiment-research)
+19. [Persistent Memory](#19-persistent-memory)
+20. [Heartbeat Monitoring](#20-heartbeat-monitoring)
+21. [Debugging with the Scratchpad](#21-debugging-with-the-scratchpad)
+22. [WhatsApp Gateway](#22-whatsapp-gateway)
+23. [Evaluations](#23-evaluations)
+24. [Example Prompts Reference](#24-example-prompts-reference)
+25. [Tips & Best Practices](#25-tips--best-practices)
+26. [Troubleshooting](#26-troubleshooting)
 
 ---
 
@@ -165,6 +169,10 @@ You'll see the Dexter intro screen with your active model displayed. Type any qu
 | `/model` | Switch your LLM provider and model |
 | `/sessions` | Browse and resume past conversations |
 | `/think` | Toggle extended thinking on/off (supported models only) |
+| `/watchlist` | Run portfolio briefing on your watchlist |
+| `/watchlist add TICKER [cost] [shares]` | Add a position to your watchlist |
+| `/watchlist remove TICKER` | Remove a position from your watchlist |
+| `/watchlist list` | Print all current watchlist holdings |
 | `exit` / `quit` | Quit Dexter (session saved before exit) |
 
 ### Keyboard shortcuts
@@ -627,7 +635,162 @@ Caveats
 
 ---
 
-## 13. Web Research
+## 13. Watchlist & Portfolio Tracker
+
+Dexter includes a built-in watchlist so you can track your positions and get a morning briefing with a single command.
+
+### Managing positions
+
+```
+/watchlist add NVDA 400 100       # Add NVDA: 100 shares at $400 cost basis
+/watchlist add MSFT               # Track without cost basis
+/watchlist remove TSLA            # Remove a position
+/watchlist list                   # Print all holdings
+```
+
+The watchlist is persisted to `.dexter/watchlist.json` and survives restarts.
+
+### Morning briefing
+
+```
+/watchlist
+```
+
+This injects your full position list into the agent and triggers the **watchlist-briefing** skill, which:
+
+1. Fetches live price, day % change, and 52-week range for every ticker
+2. Looks up next earnings date and analyst consensus rating
+3. Calculates unrealised P&L % for each position where cost basis is set
+4. Outputs a compact table: `Ticker | Price | Day% | P&L% | Next Earnings | Rating`
+5. Flags any position ±5% intraday or with earnings within 7 days
+
+### Example output
+
+```
+Watchlist Briefing  –  2026-04-15
+
+Ticker  Price      Day%    P&L%    Next Earnings   Rating
+------  ---------  ------  ------  --------------  --------
+MSFT    $420.15    +1.2%   +10.6%  Apr 30          Buy
+NVDA    $875.40    -2.1%   +118%   May 21          Strong Buy
+
+⚠  NVDA  down 2.1% intraday
+```
+
+---
+
+## 14. Earnings Calendar
+
+Ask Dexter for a structured earnings calendar for any set of tickers.
+
+### Example prompts
+
+```
+What are the upcoming earnings for NVDA, MSFT, and AAPL?
+```
+
+```
+Show me an earnings calendar for my watchlist this month.
+```
+
+```
+When does Tesla report next quarter, and what's the implied move?
+```
+
+The **earnings-calendar** skill:
+
+1. Fetches earnings dates, analyst EPS/revenue consensus, and prior-quarter surprise %
+2. Estimates the options-implied earnings move (IV ÷ √52 approximation)
+3. Groups results by week in a table: `Date | Ticker | EPS Est. | Prior Surprise | Impl. Move | Key watch`
+4. Offers to save to `~/reports/earnings-calendar-YYYY-MM-DD.md`
+
+### Triggers
+
+The skill fires automatically when your query contains phrases like "earnings this week", "upcoming earnings", "earnings calendar", or "when does X report".
+
+---
+
+## 15. Peer Comparison
+
+Get a structured side-by-side comparison of a company against its sector peers.
+
+### Example prompts
+
+```
+Compare NVDA to its semiconductor peers.
+```
+
+```
+How does Palantir's valuation compare to other enterprise software companies?
+```
+
+```
+Is Microsoft expensive relative to mega-cap tech?
+```
+
+The **peer-comparison** skill:
+
+1. Identifies peers automatically via `stock_screener` (same industry, 0.25×–4× market cap), or uses tickers you name
+2. Fetches for all companies: P/E, EV/EBITDA, P/FCF, PEG, revenue growth YoY, gross margin, ROIC, net debt/EBITDA
+3. Produces two tables:
+   - **Valuation multiples** (cheapest/priciest vs. peer median annotated)
+   - **Growth & quality** (outliers highlighted per column)
+4. Writes a 3–4 sentence verdict on where the subject stands
+5. Offers to save to `~/reports/{TICKER}-peer-comparison-YYYY-MM-DD.md`
+
+---
+
+## 16. Analysis Templates
+
+Dexter ships four structured research templates that can be triggered naturally or by name.
+
+### Earnings Preview
+
+```
+Run an earnings preview for AMD before next week's report.
+```
+
+```
+Give me an earnings preview template for TSLA.
+```
+
+Covers: consensus vs. actuals history, segment breakdown, guidance track record, implied move, key metrics to watch, bull/bear scenarios. Saves to `~/reports/{TICKER}-earnings-preview-{date}.md`.
+
+### Short Thesis
+
+```
+Build a short thesis for NKLA.
+```
+
+```
+What are the bear case arguments for WeWork?
+```
+
+Covers: valuation vs. historical range, debt and liquidity, competitive threats, insider activity (Form 4), technical picture, trough-multiple price target. Saves to `~/reports/{TICKER}-short-thesis-{date}.md`.
+
+### Sector Overview
+
+```
+Give me a sector overview for semiconductors.
+```
+
+```
+What's the state of the cloud computing sector right now?
+```
+
+Covers: macro backdrop, top 5 names by market cap with YTD performance, valuation spread, recent catalysts, three actionable ideas (value / growth / contrarian). Saves to `~/reports/sector-{name}-overview-{date}.md`.
+
+### Saving reports
+
+All four templates offer to save their output to `~/reports/`. You can also ask explicitly:
+
+```
+Run an earnings preview for AAPL and save it to ~/reports/
+```
+
+---
+
+## 17. Web Research
 
 Dexter can research the open web to complement structured financial data.
 
@@ -680,7 +843,7 @@ Navigate to Yahoo Finance and read AAPL's analyst ratings
 
 ---
 
-## 14. X/Twitter Sentiment Research
+## 18. X/Twitter Sentiment Research
 
 If you have an `X_BEARER_TOKEN`, Dexter can research public sentiment on X/Twitter through the **X Research skill**.
 
@@ -736,7 +899,7 @@ Caveats
 
 ---
 
-## 15. Persistent Memory
+## 19. Persistent Memory
 
 Dexter has a **persistent memory system** that stores information across sessions as Markdown files backed by a SQLite vector database.
 
@@ -793,7 +956,7 @@ Memory embeddings use your existing LLM keys with this priority:
 
 ---
 
-## 16. Heartbeat Monitoring
+## 20. Heartbeat Monitoring
 
 The **heartbeat** feature lets Dexter periodically check things you care about on a schedule. This is especially useful when running Dexter through the WhatsApp gateway.
 
@@ -823,7 +986,7 @@ Your checklist lives in `.dexter/HEARTBEAT.md`. The gateway reads this file on e
 
 ---
 
-## 17. Debugging with the Scratchpad
+## 21. Debugging with the Scratchpad
 
 Every query creates a **JSONL scratchpad file** in `.dexter/scratchpad/`. This is your audit trail.
 
@@ -876,7 +1039,7 @@ cat .dexter/scratchpad/2026-03-25-142300_9a8f10723f79.jsonl | \
 
 ---
 
-## 18. WhatsApp Gateway
+## 22. WhatsApp Gateway
 
 Run Dexter through WhatsApp to get financial research delivered to your phone.
 
@@ -917,7 +1080,7 @@ For full setup instructions, see [`src/gateway/channels/whatsapp/README.md`](../
 
 ---
 
-## 19. Evaluations
+## 23. Evaluations
 
 Dexter includes a built-in evaluation suite to test answer quality against a dataset of financial questions.
 
@@ -946,7 +1109,7 @@ Uses an **LLM-as-judge** approach: the evaluating LLM checks each answer against
 
 ---
 
-## 20. Example Prompts Reference
+## 24. Example Prompts Reference
 
 Below is a curated library of prompts organized by analysis type.
 
@@ -1062,7 +1225,7 @@ What are institutional investors saying about AI capex on X/Twitter?
 
 ---
 
-## 21. Tips & Best Practices
+## 25. Tips & Best Practices
 
 ### Writing better queries
 
@@ -1121,7 +1284,7 @@ The free tier of the Financial Datasets API covers **AAPL, NVDA, and MSFT**. To 
 
 ---
 
-## 22. Troubleshooting
+## 26. Troubleshooting
 
 ### "No tools available. Please check your API key configuration."
 
@@ -1205,7 +1368,7 @@ This shows every tool call, its arguments, the raw response, and the LLM's inter
 | `memory_get` | Read specific memory file sections | None |
 | `memory_update` | Add / edit / delete memories | None |
 | `heartbeat` | View / update heartbeat checklist | None |
-| `skill` | DCF valuation, X research workflows | Depends on skill |
+| `skill` | DCF valuation, earnings calendar, peer comparison, earnings preview, short thesis, sector overview, watchlist briefing | Depends on skill |
 | `read_file` | Local workspace files | None |
 | `write_file` | Create new local files | None |
 | `edit_file` | Modify existing local files | None |

@@ -75,6 +75,19 @@ This fork adds the following on top of the upstream repository:
 - `/help` — in-TUI help panel with all commands and keyboard shortcuts
 - `/sessions` — session browser with resume support
 - `/think` — toggle extended thinking for supported models
+- `/watchlist` — portfolio morning briefing; subcommands: `add TICKER [cost] [shares]`, `remove TICKER`, `list`
+
+### New Skills & Research Templates
+- **Earnings Calendar** — structured table of upcoming earnings with consensus estimates, prior surprise %, and options implied move
+- **Peer Comparison** — side-by-side valuation, growth, and quality metrics against auto-discovered sector peers
+- **Earnings Preview** — pre-earnings research template: consensus, guidance history, implied move, bull/bear scenarios
+- **Short Thesis** — bear-case research template: valuation, debt, competitive threats, insider activity, trough-multiple price target
+- **Sector Overview** — macro backdrop, top names, valuation spread, recent catalysts, three actionable ideas
+- **Watchlist Briefing** — triggered by `/watchlist`; live price + P&L + next earnings table for your positions
+
+### `~/reports` Write Support
+- Agent can write markdown reports to `~/reports/` (and any `~/` subdirectory), not just the current working directory
+- Requested with `@` prefix in prompts (e.g. `@~/reports/my-analysis.md`) — full tab-completion included
 
 
 ## ✅ Prerequisites
@@ -172,6 +185,10 @@ Type `/` at the prompt to see all available commands:
 | `/model` | Switch LLM provider or model |
 | `/sessions` | Browse and resume past conversations |
 | `/think` | Toggle extended thinking (supported models only) |
+| `/watchlist` | Run portfolio morning briefing |
+| `/watchlist add TICKER [cost] [shares]` | Add a position to your watchlist |
+| `/watchlist remove TICKER` | Remove a position |
+| `/watchlist list` | Print all current holdings |
 | `/exit` | Exit Dexter (session is saved first) |
 
 **Keyboard shortcuts:**
