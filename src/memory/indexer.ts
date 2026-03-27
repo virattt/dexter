@@ -41,7 +41,13 @@ export class MemoryIndexer {
     }
 
     // Watch memory directory for changes to MEMORY.md and daily files.
-    this.watcher = watch(this.store.getMemoryDir(), { recursive: false }, () => {
+    // IMPORTANT: filter out SQLite files — the indexer writes index.sqlite itself,
+    // which would create an infinite feedback loop (sync → write → watch event → sync).
+    this.watcher = watch(this.store.getMemoryDir(), { recursive: false }, (_eventType, filename) => {
+      const name = filename != null ? String(filename) : '';
+      if (name.endsWith('.sqlite') || name.endsWith('.sqlite-journal') || name.endsWith('.sqlite-wal')) {
+        return;
+      }
       this.scheduleDebouncedSync();
     });
 
@@ -49,7 +55,9 @@ export class MemoryIndexer {
     if (this.options.indexSessions) {
       try {
         const chatHistoryDir = dirname(this.store.getChatHistoryPath());
-        this.sessionWatcher = watch(chatHistoryDir, { recursive: false }, () => {
+        this.sessionWatcher = watch(chatHistoryDir, { recursive: false }, (_eventType, filename) => {
+          const name = filename != null ? String(filename) : '';
+          if (name !== 'chat_history.json') return;
           this.scheduleDebouncedSync();
         });
       } catch {

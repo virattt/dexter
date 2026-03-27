@@ -495,15 +495,34 @@ export class MemoryDatabase {
     const tickers = extractTickers(params.chunk.content).join(',') || null;
 
     if (existing) {
+      // Skip the write entirely when nothing has changed — avoids touching index.sqlite
+      // mtime and prevents the file watcher from firing unnecessarily.
+      const filePath = params.chunk.filePath;
+      const startLine = params.chunk.startLine;
+      const endLine = params.chunk.endLine;
+      const content = params.chunk.content;
+      const existingTickers = extractTickers((existing as { content: string }).content).join(',') || null;
+      const hasExistingEmbedding = (existing as { embedding: unknown }).embedding != null;
+      if (
+        (existing as { file_path: string }).file_path === filePath &&
+        (existing as { start_line: number }).start_line === startLine &&
+        (existing as { end_line: number }).end_line === endLine &&
+        (existing as { content: string }).content === content &&
+        (existing as { source?: string }).source === source &&
+        existingTickers === tickers &&
+        hasExistingEmbedding === (embeddingBlob != null)
+      ) {
+        return { id: existing.id, inserted: false };
+      }
       this.db
         .query(
           'UPDATE chunks SET file_path = ?, start_line = ?, end_line = ?, content = ?, embedding = ?, embedding_provider = ?, embedding_model = ?, updated_at = ?, source = ?, tickers = ? WHERE id = ?',
         )
         .run(
-          params.chunk.filePath,
-          params.chunk.startLine,
-          params.chunk.endLine,
-          params.chunk.content,
+          filePath,
+          startLine,
+          endLine,
+          content,
           embeddingBlob,
           params.provider ?? null,
           params.model ?? null,
@@ -513,7 +532,7 @@ export class MemoryDatabase {
           existing.id,
         );
       this.db.query('DELETE FROM chunks_fts WHERE chunk_id = ?').run(existing.id);
-      this.db.query('INSERT INTO chunks_fts (content, chunk_id) VALUES (?, ?)').run(params.chunk.content, existing.id);
+      this.db.query('INSERT INTO chunks_fts (content, chunk_id) VALUES (?, ?)').run(content, existing.id);
 
       if (embeddingBlob && params.embedding) {
         this.upsertVecChunk(existing.id, embeddingBlob, params.embedding.length);
