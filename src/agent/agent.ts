@@ -13,6 +13,7 @@ import { createRunContext, type RunContext } from './run-context.js';
 import { AgentToolExecutor } from './tool-executor.js';
 import { MemoryManager } from '../memory/index.js';
 import { runMemoryFlush, shouldRunMemoryFlush } from '../memory/flush.js';
+import { extractTickers } from '../memory/ticker-extractor.js';
 import { resolveProvider } from '../providers.js';
 
 
@@ -112,6 +113,9 @@ export class Agent {
     // Build initial prompt with conversation history context
     let currentPrompt = this.buildInitialPrompt(query, inMemoryHistory);
 
+    // Auto-inject relevant prior research memories based on tickers mentioned
+    currentPrompt = await this.injectMemoryContext(query, currentPrompt);
+
     // Track whether sequential_thinking has been used at least once this session
     let sequentialThinkingUsed = false;
     // Cap retries for the sequential_thinking compliance reminder to avoid
@@ -144,6 +148,7 @@ export class Agent {
 
           if (isContextOverflowError(errorMessage) && overflowRetries < MAX_OVERFLOW_RETRIES) {
             overflowRetries++;
+            this.injectContextSummaryBeforeClearing(ctx, OVERFLOW_KEEP_TOOL_USES);
             const clearedCount = ctx.scratchpad.clearOldestToolResults(OVERFLOW_KEEP_TOOL_USES);
 
             if (clearedCount > 0) {
@@ -345,12 +350,39 @@ export class Agent {
         };
       }
 
+      this.injectContextSummaryBeforeClearing(ctx, KEEP_TOOL_USES);
       const clearedCount = ctx.scratchpad.clearOldestToolResults(KEEP_TOOL_USES);
       if (clearedCount > 0) {
         memoryFlushState.alreadyFlushed = false;
         yield { type: 'context_cleared', clearedCount, keptCount: KEEP_TOOL_USES };
       }
     }
+  }
+
+  /**
+   * Builds a compact rule-based summary of tool results that are about to be
+   * dropped from context and injects it as a context_summary entry so the LLM
+   * doesn't lose analysis continuity without incurring an extra LLM call.
+   */
+  private injectContextSummaryBeforeClearing(ctx: RunContext, keepCount: number): void {
+    const toSummarise = ctx.scratchpad.getContentToBeCleared(keepCount);
+    if (toSummarise.length === 0) return;
+
+    const lines: string[] = [];
+    for (const { toolName, args, snippet } of toSummarise) {
+      const argsStr = Object.entries(args)
+        .map(([k, v]) => `${k}=${v}`)
+        .join(', ');
+      // Extract the first meaningful sentence / key numbers from the snippet
+      const condensed = snippet
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 300);
+      lines.push(`- ${toolName}(${argsStr}): ${condensed}…`);
+    }
+
+    const summary = `The following ${toSummarise.length} earlier tool result(s) were condensed to save context:\n${lines.join('\n')}`;
+    ctx.scratchpad.addContextSummary(summary);
   }
 
   /**
@@ -373,5 +405,37 @@ export class Agent {
       entries: recentTurns,
       currentMessage: query,
     });
+  }
+
+  /**
+   * Looks up prior research memories that are relevant to tickers mentioned
+   * in the query and prepends a compact "Prior Research" block so the agent
+   * can build on previous work without re-fetching the same data.
+   *
+   * Caps at 2 tickers × 3 results to stay well within token budget.
+   */
+  private async injectMemoryContext(query: string, prompt: string): Promise<string> {
+    try {
+      const memoryManager = await MemoryManager.get();
+      const tickers = extractTickers(query).slice(0, 2);
+      if (tickers.length === 0) return prompt;
+
+      const allResults: string[] = [];
+      for (const ticker of tickers) {
+        const results = await memoryManager.search(ticker, { maxResults: 3 });
+        for (const r of results) {
+          const snippet = r.snippet.trim().replace(/\s+/g, ' ').slice(0, 300);
+          allResults.push(`[${ticker}] ${snippet}`);
+        }
+      }
+
+      if (allResults.length === 0) return prompt;
+
+      const block = `📚 Prior Research:\n${allResults.map(s => `• ${s}`).join('\n')}\n\n`;
+      return block + prompt;
+    } catch {
+      // Memory is optional — never let it break the query
+      return prompt;
+    }
   }
 }

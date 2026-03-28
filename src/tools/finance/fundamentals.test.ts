@@ -96,15 +96,30 @@ describe('getIncomeStatements — FMP fallback', () => {
     delete process.env.TAVILY_API_KEY;
   });
 
-  test('does NOT call FMP when financialdatasets.ai returns data', async () => {
+  test('does NOT call FMP when financialdatasets.ai returns data (non-annual)', async () => {
     spyOn(api, 'get').mockResolvedValue({
       data: { income_statements: FD_INCOME_STUB },
       url: 'https://api.financialdatasets.ai/financials/income-statements/',
     });
 
-    await getIncomeStatements.invoke({ ticker: 'AAPL', period: 'annual', limit: 4 });
+    // period=quarterly skips cross-validation — FMP should not be called
+    await getIncomeStatements.invoke({ ticker: 'AAPL', period: 'quarterly', limit: 4 });
 
     expect(mockFmpIncomeInvoke).not.toHaveBeenCalled();
+  });
+
+  test('calls FMP for cross-validation when financialdatasets.ai returns annual data', async () => {
+    spyOn(api, 'get').mockResolvedValue({
+      data: { income_statements: FD_INCOME_STUB },
+      url: 'https://api.financialdatasets.ai/financials/income-statements/',
+    });
+    // FMP returns agreeing data — no warning appended
+    mockFmpIncomeInvoke.mockResolvedValueOnce(fmpIncomeResult('AAPL'));
+
+    const result = await getIncomeStatements.invoke({ ticker: 'AAPL', period: 'annual', limit: 4 });
+
+    expect(mockFmpIncomeInvoke).toHaveBeenCalledTimes(1);
+    expect(result).not.toContain('⚠️');
   });
 
   test('calls FMP when financialdatasets.ai returns empty array', async () => {

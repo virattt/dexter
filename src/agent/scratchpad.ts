@@ -13,9 +13,9 @@ export interface ToolCallRecord {
 }
 
 export interface ScratchpadEntry {
-  type: 'init' | 'tool_result' | 'thinking';
+  type: 'init' | 'tool_result' | 'thinking' | 'context_summary';
   timestamp: string;
-  // For init/thinking:
+  // For init/thinking/context_summary:
   content?: string;
   // For tool_result:
   toolName?: string;
@@ -308,11 +308,17 @@ export class Scratchpad {
     
     const formattedResults: string[] = [];
     for (const entry of entries) {
+      // Context summaries always included — they replace cleared content
+      if (entry.type === 'context_summary') {
+        formattedResults.push(`### [Prior Research Summary]\n${entry.content ?? ''}`);
+        continue;
+      }
+
       if (entry.type !== 'tool_result' || !entry.toolName) continue;
       
       // Skip entries that have been cleared from context (in-memory only)
       if (this.clearedToolIndices.has(toolResultIndex)) {
-        formattedResults.push(`[Tool result #${toolResultIndex + 1} cleared from context]`);
+        // Summary replaces the placeholder — suppress redundant "[cleared]" lines
         toolResultIndex++;
         continue;
       }
@@ -326,6 +332,46 @@ export class Scratchpad {
     }
     
     return formattedResults.join('\n\n');
+  }
+
+  /**
+   * Returns the raw text content of tool results that WOULD be dropped by
+   * clearOldestToolResults(keepCount). Call this BEFORE clearing to build a summary.
+   */
+  getContentToBeCleared(keepCount: number): { toolName: string; args: Record<string, unknown>; snippet: string }[] {
+    const entries = this.readEntries();
+    const toolResults: { idx: number; toolName: string; args: Record<string, unknown>; snippet: string }[] = [];
+
+    let index = 0;
+    for (const entry of entries) {
+      if (entry.type === 'tool_result' && entry.toolName && !this.clearedToolIndices.has(index)) {
+        toolResults.push({
+          idx: index,
+          toolName: entry.toolName,
+          args: entry.args ?? {},
+          snippet: this.stringifyResult(entry.result).slice(0, 600),
+        });
+        index++;
+      } else if (entry.type === 'tool_result') {
+        index++;
+      }
+    }
+
+    const toClearCount = Math.max(0, toolResults.length - keepCount);
+    return toolResults.slice(0, toClearCount).map(({ toolName, args, snippet }) => ({ toolName, args, snippet }));
+  }
+
+  /**
+   * Appends a context_summary entry to the scratchpad (persisted to disk).
+   * The summary replaces cleared tool results for the LLM.
+   */
+  addContextSummary(summary: string): void {
+    const entry: ScratchpadEntry = {
+      type: 'context_summary',
+      timestamp: new Date().toISOString(),
+      content: summary,
+    };
+    this.append(entry);
   }
 
   /**

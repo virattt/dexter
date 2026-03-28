@@ -5,6 +5,7 @@ import { formatToolResult } from '../types.js';
 import { getFmpIncomeStatements, getFmpBalanceSheets, getFmpCashFlowStatements, FMP_PREMIUM_REQUIRED } from './fmp.js';
 import { getYahooIncomeStatements } from './yahoo-finance.js';
 import { tavilySearch } from '../search/tavily.js';
+import { crossValidateFinancials, type FinancialRecord } from '../../utils/cross-validate.js';
 
 const REDUNDANT_FINANCIAL_FIELDS = ['accession_number', 'currency', 'period'] as const;
 
@@ -123,7 +124,30 @@ export const getIncomeStatements = new DynamicStructuredTool({
       const { data, url } = await api.get('/financials/income-statements/', params);
       const statements = data.income_statements as unknown[];
       if (statements && statements.length > 0) {
-        return formatToolResult(stripFieldsDeep(statements, REDUNDANT_FINANCIAL_FIELDS), [url]);
+        const primaryResult = formatToolResult(stripFieldsDeep(statements, REDUNDANT_FINANCIAL_FIELDS), [url]);
+
+        // Fire FMP concurrently for cross-source validation (best-effort, annual only)
+        if (input.period === 'annual') {
+          try {
+            const fmpResult = await tryFmp(getFmpIncomeStatements, ticker, 'annual', input.limit);
+            if (fmpResult.kind === 'ok') {
+              const fmpData = JSON.parse(fmpResult.result) as { data?: FinancialRecord[] };
+              const primaryRecords: FinancialRecord[] = (statements as Array<Record<string, unknown>>).map(s => ({
+                year: new Date(s.report_period as string ?? s.period as string ?? '').getFullYear(),
+                totalRevenue: s.revenue as number ?? s.total_revenue as number,
+                netIncome: s.net_income as number,
+              }));
+              const validation = crossValidateFinancials(primaryRecords, fmpData.data ?? []);
+              if (!validation.ok) {
+                return primaryResult + '\n\n' + validation.warnings.join('\n');
+              }
+            }
+          } catch {
+            // Validation is best-effort — never block primary result
+          }
+        }
+
+        return primaryResult;
       }
     } catch {
       // Fall through to FMP

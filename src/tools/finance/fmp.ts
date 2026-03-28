@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
+import { withRetry, isRateLimitError } from '../../utils/retry.js';
 
 const FMP_BASE_URL = 'https://financialmodelingprep.com/stable';
 
@@ -47,7 +48,14 @@ export const fmpApi = {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30_000);
     try {
-      const response = await fetch(url.toString(), { signal: controller.signal });
+      const response = await withRetry(
+        async () => {
+          const res = await fetch(url.toString(), { signal: controller.signal });
+          if (res.status === 429) throw new Error('429 rate limit');
+          return res;
+        },
+        { maxAttempts: 4, shouldRetry: isRateLimitError },
+      );
       if (response.status === 402) {
         throw new Error(
           `${FMP_PREMIUM_REQUIRED}: This ticker is not available under the free FMP plan. ` +

@@ -1,5 +1,6 @@
 import { readCache, writeCache, describeRequest } from '../../utils/cache.js';
 import { logger } from '../../utils/logger.js';
+import { withRetry, isRateLimitError } from '../../utils/retry.js';
 
 const BASE_URL = 'https://api.financialdatasets.ai';
 
@@ -69,20 +70,25 @@ async function executeRequest(
 
   let response: Response;
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000);
-    try {
-      response = await fetch(url, {
-        ...init,
-        headers: {
-          'x-api-key': apiKey,
-          ...init.headers,
-        },
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
+    response = await withRetry(
+      async () => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30_000);
+        try {
+          const res = await fetch(url, {
+            ...init,
+            headers: { 'x-api-key': apiKey, ...init.headers },
+            signal: controller.signal,
+          });
+          // Throw so withRetry can catch and back off on 429
+          if (res.status === 429) throw new Error(`429 rate limit`);
+          return res;
+        } finally {
+          clearTimeout(timeout);
+        }
+      },
+      { maxAttempts: 4, shouldRetry: isRateLimitError },
+    );
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       logger.error(`[Financial Datasets API] timeout: ${label}`);

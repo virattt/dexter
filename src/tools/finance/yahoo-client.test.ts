@@ -51,7 +51,8 @@ function setupHappyPath(dataBody: unknown) {
 describe('yahoo-client — quoteSummary', () => {
   beforeEach(() => {
     _clearCrumbCache();
-    (global.fetch as ReturnType<typeof mock>).mockClear?.();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (global.fetch as unknown as { mockClear?: () => void }).mockClear?.();
   });
 
   it('makes 3 fetch calls: consent + crumb + data on cold cache', async () => {
