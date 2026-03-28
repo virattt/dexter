@@ -76,7 +76,7 @@ describe('polymarketTool', () => {
   });
 
   it('handles API error gracefully without throwing', async () => {
-    globalThis.fetch = (async () => ({ ok: false, status: 503, json: async () => ({}) })) as typeof fetch;
+    globalThis.fetch = (async () => ({ ok: false, status: 503, json: async () => ({}) })) as unknown as typeof fetch;
     const result = await polymarketTool.invoke({ query: 'test', limit: 3 });
     const text = typeof result === 'string' ? result : JSON.stringify(result);
     // Promise.allSettled means a 503 degrades to "no results" rather than crashing
@@ -88,7 +88,7 @@ describe('polymarketTool', () => {
   });
 
   it('handles network failure gracefully without throwing', async () => {
-    globalThis.fetch = (async () => { throw new Error('Network error'); }) as typeof fetch;
+    globalThis.fetch = (async () => { throw new Error('Network error'); }) as unknown as typeof fetch;
     const result = await polymarketTool.invoke({ query: 'test', limit: 3 });
     const text = typeof result === 'string' ? result : JSON.stringify(result);
     const graceful = text.includes('No active Polymarket') || text.includes('Polymarket search failed');

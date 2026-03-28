@@ -165,7 +165,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'sessions',  description: 'Browse and resume past conversations' },
   { name: 'think',     description: 'Toggle Ollama extended thinking on/off (thinking models only)' },
   { name: 'watchlist', description: 'Portfolio briefing — or: add TICKER [cost] [shares] | remove TICKER | list | show TICKER | snapshot' },
-  { name: 'dream',     description: 'Consolidate memory files (merge daily notes into MEMORY.md + FINANCE.md)' },
+  { name: 'dream',     description: 'Consolidate memory files — or: show (status), force (bypass conditions)' },
   { name: 'memory',    description: 'Show consolidated memory files (MEMORY.md + FINANCE.md)' },
 ];
 
@@ -586,9 +586,15 @@ export function flushExchangeToScrollback(
   // Move cursor back to the top of the TUI's rendered area and clear to end of
   // screen so the live processing trail doesn't appear above the clean output.
   if (prevLineCount > 0) {
-    // After stop(), cursor is prevLineCount lines below TUI start (+1 for the \r\n).
-    process.stdout.write(`\x1b[${prevLineCount + 1}A`); // move up
-    process.stdout.write('\x1b[J');                     // clear to end of screen
+    // After stop(), cursor is near the bottom of the terminal viewport.
+    // IMPORTANT: clamp to terminal height — if prevLineCount > terminal rows the TUI
+    // was using internal viewport scrolling, and moving up more than the viewport
+    // height would overshoot into the scrollback buffer, causing \x1b[J to wipe
+    // previously-committed exchange content.
+    const termRows = process.stdout.rows ?? 24;
+    const moveUp = Math.min(prevLineCount + 1, termRows);
+    process.stdout.write(`\x1b[${moveUp}A`); // move up (clamped to viewport)
+    process.stdout.write('\x1b[J');          // clear to end of screen
   }
 
   // Write the formatted exchange — this is what lands in the scroll buffer.
@@ -952,6 +958,68 @@ export async function runCli() {
     }
 
     if (query.startsWith('/dream')) {
+      // --- /dream show — show dream status without running ---
+      if (query.trim() === '/dream show' || query.trim() === '/dream status') {
+        const dreamStore = new MemoryStore();
+        const [meta, dailyFiles] = await Promise.all([
+          dreamStore.readDreamMeta(),
+          dreamStore.listDailyFiles(),
+        ]);
+        const lastRun = meta?.lastRunAt
+          ? new Date(meta.lastRunAt).toLocaleString()
+          : 'Never';
+        const elapsedH = meta?.lastRunAt
+          ? Math.floor((Date.now() - meta.lastRunAt) / 3_600_000)
+          : null;
+        const elapsedLabel = elapsedH !== null
+          ? elapsedH >= 24 ? `${Math.floor(elapsedH / 24)}d ${elapsedH % 24}h ago` : `${elapsedH}h ago`
+          : '—';
+        const ready = shouldRunDream(meta, dailyFiles);
+        const statusIcon = ready ? '✅' : '⏳';
+        const statusLabel = ready ? 'Ready to consolidate' : 'Conditions not yet met';
+        const needFiles = Math.max(0, 2 - dailyFiles.length);
+        const needSessions = meta ? Math.max(0, 3 - (meta.sessionsSinceLastRun ?? 0)) : 3;
+        const needHours = meta?.lastRunAt
+          ? Math.max(0, 24 - Math.floor((Date.now() - meta.lastRunAt) / 3_600_000))
+          : 0;
+        const conditions: string[] = [];
+        if (needFiles > 0) conditions.push(`${dailyFiles.length}/2 daily files`);
+        if (needSessions > 0) conditions.push(`${meta?.sessionsSinceLastRun ?? 0}/3 sessions`);
+        if (needHours > 0) conditions.push(`${needHours}h until 24h interval`);
+        const condText = conditions.length > 0
+          ? `\n\n_Waiting on: ${conditions.join(' · ')}_`
+          : '';
+        const fileList = dailyFiles.length > 0
+          ? dailyFiles.map((f) => `  • ${f}`).join('\n')
+          : '  _(none yet — exit Dexter after conversations to generate them)_';
+        const showAnswer = [
+          `🌙 **Dream Status**`,
+          ``,
+          `${statusIcon} **${statusLabel}**${condText}`,
+          ``,
+          `| Field | Value |`,
+          `|---|---|`,
+          `| Last run | ${lastRun} ${elapsedLabel !== '—' ? `(${elapsedLabel})` : ''} |`,
+          `| Total runs | ${meta?.totalRuns ?? 0} |`,
+          `| Sessions since last run | ${meta?.sessionsSinceLastRun ?? 0} / 3 required |`,
+          `| Daily files available | ${dailyFiles.length} / 2 required |`,
+          ``,
+          `**Daily files:**`,
+          fileList,
+          ``,
+          `_Run \`/dream force\` to consolidate regardless of conditions._`,
+        ].join('\n');
+        flushExchangeToScrollback(tui, chatLog, {
+          id: `dream-show-${Date.now()}`,
+          query,
+          events: [],
+          answer: showAnswer,
+          status: 'complete',
+          duration: 0,
+        });
+        return;
+      }
+
       if (agentRunner.isProcessing || dreamRunning) {
         lastError = dreamRunning
           ? 'Dream is already running.'
@@ -1179,7 +1247,7 @@ export async function runCli() {
     // Hint footer: keyboard shortcuts when idle, cancel hint while running.
     const hintLine = agentRunner.isProcessing
       ? theme.muted('  esc · cancel query')
-      : theme.muted('  ↑↓ history  ·  /model  /sessions  /think  /watchlist [list|show|snapshot]  /dream  /memory  /help  ·  ctrl+c exit');
+      : theme.muted('  ↑↓ history  ·  /model  /sessions  /think  /watchlist [list|show|snapshot]  /dream [show|force]  /memory  /help  ·  ctrl+c exit');
     root.addChild(new Text(hintLine, 0, 0));
     root.addChild(editor);
     root.addChild(debugPanel);
