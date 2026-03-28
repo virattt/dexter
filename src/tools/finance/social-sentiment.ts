@@ -48,7 +48,7 @@ const BEARISH_EMOJIS = new Set(['📉', '🩸', '💀', '⚰️', '🐻', '🔴'
 // Types
 // ---------------------------------------------------------------------------
 
-interface SentimentPost {
+export interface SentimentPost {
   source: 'reddit' | 'x';
   id: string;
   text: string;
@@ -73,10 +73,11 @@ interface SentimentStats {
 }
 
 // ---------------------------------------------------------------------------
-// Sentiment scoring
+// Pure helpers (no I/O — fully unit-testable)
+// Exported for direct unit testing.
 // ---------------------------------------------------------------------------
 
-function scoreSentiment(text: string): { sentiment: 'bullish' | 'bearish' | 'neutral'; score: number } {
+export function scoreSentiment(text: string): { sentiment: 'bullish' | 'bearish' | 'neutral'; score: number } {
   const lower = text.toLowerCase();
   const words = lower.split(/\W+/);
 
@@ -101,7 +102,7 @@ function scoreSentiment(text: string): { sentiment: 'bullish' | 'bearish' | 'neu
   return { sentiment, score };
 }
 
-function aggregateStats(posts: SentimentPost[]): SentimentStats {
+export function aggregateStats(posts: SentimentPost[]): SentimentStats {
   const total = posts.length;
   if (total === 0) return { total: 0, bullish: 0, bearish: 0, neutral: 0, bullishPct: 0, bearishPct: 0, neutralPct: 0, avgScore: 0 };
 
@@ -125,7 +126,8 @@ function aggregateStats(posts: SentimentPost[]): SentimentStats {
     bullish, bearish, neutral,
     bullishPct: Math.round((bullish / total) * 100),
     bearishPct: Math.round((bearish / total) * 100),
-    neutralPct: Math.round((neutral / total) * 100),
+    // Compute neutralPct as remainder to guarantee bullishPct + bearishPct + neutralPct = 100.
+    neutralPct: 100 - Math.round((bullish / total) * 100) - Math.round((bearish / total) * 100),
     avgScore,
   };
 }
@@ -257,12 +259,12 @@ async function fetchFearGreed(): Promise<{ value: number; classification: string
 // Formatters
 // ---------------------------------------------------------------------------
 
-function formatBar(pct: number, emoji: string): string {
+export function formatBar(pct: number, emoji: string): string {
   const filled = Math.round(pct / 5); // 20 segments = 100%
   return emoji + ' ' + '█'.repeat(filled) + '░'.repeat(20 - filled) + ` ${pct}%`;
 }
 
-function sentimentEmoji(score: number): string {
+export function sentimentEmoji(score: number): string {
   if (score >= 60) return '🐂 Very Bullish';
   if (score >= 20) return '📈 Bullish';
   if (score >= -20) return '😐 Neutral / Mixed';
