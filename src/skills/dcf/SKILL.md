@@ -12,7 +12,7 @@ Copy and track progress:
 DCF Analysis Progress:
 - [ ] Step 1: Gather financial data
 - [ ] Step 2: Calculate FCF growth rate
-- [ ] Step 3: Estimate discount rate (WACC)
+- [ ] Step 3: Estimate discount rate — call `wacc_inputs` tool (CAPM-based WACC)
 - [ ] Step 4: Project future cash flows (Years 1-5 + Terminal)
 - [ ] Step 5: Calculate present value and fair value per share
 - [ ] Step 6: Run sensitivity analysis
@@ -110,22 +110,43 @@ Before using FCF figures, validate the data:
 4. **Stock-based compensation (SBC):** For software/tech companies, check if SBC is already excluded from FCF. If a company strips SBC out, add it back for apples-to-apples peer comparison
 5. **One-time items:** Check if large one-off items (asset sales, litigation settlements) inflate/deflate OCF — exclude them from the base FCF for projection purposes
 
-## Step 3: Estimate Discount Rate (WACC)
+## Step 3: Estimate Discount Rate (WACC) via CAPM
 
-**Use the `sector` from company facts** to select the appropriate base WACC range from [sector-wacc.md](sector-wacc.md).
+**Always use the `wacc_inputs` tool — do not estimate WACC from the sector table.**
 
-**Default assumptions:**
-- Risk-free rate: current 10-year Treasury yield (fetch via web_search if needed; default 4.0-4.5%)
-- Equity risk premium: 5–6%
-- Cost of debt: 5–6% pre-tax
-- **After-tax cost of debt = Pre-tax rate × (1 − effective_tax_rate from Step 1.7)**
-  - Example at 21% tax rate: 5.5% × (1 − 0.21) = **4.3%** (NOT 4% at the old 30% assumption)
+```
+wacc_inputs({
+  ticker: "[TICKER]",
+  cost_of_debt: [pre-tax interest rate from Step 1.3, default 0.055],
+  tax_rate: [effective tax rate from Step 1.7, default 0.21],
+  risk_free_rate: [10Y Treasury yield; default 0.043 if not yet fetched],
+  equity_risk_premium: 0.055
+})
+```
 
-Calculate WACC using `debt_to_equity` for capital structure weights.
+The tool:
+1. Fetches the company's **beta** from the Financial Datasets API snapshot, with automatic FMP and sector-median fallbacks
+2. Applies **CAPM**: `Ke = Rfr + β × ERP`
+3. Computes **WACC**: `WACC = E/V × Ke + D/V × Kd × (1 − T)`
 
-**Reasonableness check:** WACC should be 2–4% below `return_on_invested_capital` for value-creating companies.
+**Use the returned `wacc` value as the discount rate for Steps 4–6.**
 
-**Sector adjustments:** Apply adjustment factors from [sector-wacc.md](sector-wacc.md) based on company-specific characteristics.
+The output also includes `betaSource`, `ke`, `deRatio`, `equityWeight`, `debtWeight`, `waccPct`, and a human-readable `note` — include these in the Key Inputs table (Step 8).
+
+### Overriding inputs (when you have better data)
+
+| Situation | Override |
+|-----------|----------|
+| You found a precise 10Y yield via `web_search` | Pass `risk_free_rate: <decimal>` |
+| Balance sheet shows specific debt cost | Pass `cost_of_debt: <pre-tax decimal>` |
+| Income statement shows exact effective tax rate | Pass `tax_rate: <decimal>` |
+| You computed D/E from balance sheet directly | Pass `debt_to_equity: <decimal>` |
+
+### Reasonableness check
+
+After getting the WACC, verify:
+- WACC is **2–4% below** `return_on_invested_capital` for value-creating companies; if WACC > ROIC, the company may be destroying value — note this as a risk
+- WACC should fall within the sector range from [sector-wacc.md](sector-wacc.md) — if not, review the beta source and D/E ratio
 
 ## Step 4: Project Future Cash Flows
 
@@ -195,7 +216,13 @@ If validation fails, reconsider assumptions before presenting results.
 
 Present a structured summary including:
 1. **Valuation Summary**: Current price vs. fair value, upside/downside percentage
-2. **Key Inputs Table**: All assumptions with their sources
+2. **Key Inputs Table**: All assumptions with their sources — **must include**:
+   - Beta (and `betaSource` from `wacc_inputs`)
+   - Risk-free rate, ERP, cost of equity (Ke)
+   - D/E ratio, pre-tax Kd, after-tax Kd, tax rate
+   - WACC (`waccPct` from `wacc_inputs`)
+   - FCF growth rate (and how it was derived)
+   - Terminal growth rate
 3. **Projected FCF Table**: 5-year projections with present values
-4. **Sensitivity Matrix**: 3×3 grid varying WACC (±1%) and terminal growth (2.0%, 2.5%, 3.0%)
+4. **Sensitivity Matrix**: 3×3 grid varying WACC (base ±1%) and terminal growth (2.0%, 2.5%, 3.0%)
 5. **Caveats**: Standard DCF limitations plus company-specific risks

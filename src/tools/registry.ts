@@ -16,6 +16,7 @@ import { memoryGetTool, MEMORY_GET_DESCRIPTION, memorySearchTool, MEMORY_SEARCH_
 import { discoverSkills } from '../skills/index.js';
 import { sequentialThinkingTool, sequentialThinkingEngine, SEQUENTIAL_THINKING_DESCRIPTION } from './thinking/sequential.js';
 import { portfolioRiskTool, PORTFOLIO_RISK_DESCRIPTION } from './finance/portfolio-risk.js';
+import { waccInputsTool, WACC_INPUTS_DESCRIPTION } from './finance/wacc-inputs.js';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -70,6 +71,11 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'portfolio_risk',
       tool: portfolioRiskTool,
       description: PORTFOLIO_RISK_DESCRIPTION,
+    },
+    {
+      name: 'wacc_inputs',
+      tool: waccInputsTool,
+      description: WACC_INPUTS_DESCRIPTION,
     },
     {
       name: 'polymarket_search',
