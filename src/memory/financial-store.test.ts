@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { MemoryDatabase } from './database.js';
-import { FinancialMemoryStore } from './financial-store.js';
+import { FinancialMemoryStore, getTtlMs, isExpired } from './financial-store.js';
 import { EdgeRelations, RoutingResults, Tags } from './financial-tags.js';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -161,5 +161,118 @@ describe('financial-tags', () => {
     expect(Tags.routing(RoutingResults.FMP_PREMIUM)).toBe('routing:fmp-premium');
     expect(Tags.sector('Energy')).toBe('sector:energy');
     expect(Tags.exchange('cph')).toBe('exchange:CPH');
+  });
+});
+
+describe('getTtlMs / isExpired', () => {
+  it('routing tags never expire', () => {
+    expect(getTtlMs(['routing:fmp-ok'])).toBe(Infinity);
+    expect(getTtlMs(['routing:fmp-premium'])).toBe(Infinity);
+    expect(isExpired({ tags: ['routing:yahoo-ok'], updatedAt: 0 })).toBe(false);
+  });
+
+  it('analysis:consensus expires after 7 days', () => {
+    const sevenDaysMs = 7 * 24 * 3600 * 1000;
+    expect(getTtlMs(['analysis:consensus'])).toBe(sevenDaysMs);
+    const eightDaysAgo = Date.now() - 8 * 24 * 3600 * 1000;
+    expect(isExpired({ tags: ['analysis:consensus'], updatedAt: eightDaysAgo })).toBe(true);
+    const sixDaysAgo = Date.now() - 6 * 24 * 3600 * 1000;
+    expect(isExpired({ tags: ['analysis:consensus'], updatedAt: sixDaysAgo })).toBe(false);
+  });
+
+  it('analysis:valuation expires after 90 days', () => {
+    const ninetyOneDaysAgo = Date.now() - 91 * 24 * 3600 * 1000;
+    expect(isExpired({ tags: ['analysis:valuation'], updatedAt: ninetyOneDaysAgo })).toBe(true);
+    const eightNineDaysAgo = Date.now() - 89 * 24 * 3600 * 1000;
+    expect(isExpired({ tags: ['analysis:valuation'], updatedAt: eightNineDaysAgo })).toBe(false);
+  });
+
+  it('analysis:thesis and analysis:risk expire after 90 days', () => {
+    const ninetyOneDaysAgo = Date.now() - 91 * 24 * 3600 * 1000;
+    expect(isExpired({ tags: ['analysis:thesis'], updatedAt: ninetyOneDaysAgo })).toBe(true);
+    expect(isExpired({ tags: ['analysis:risk'], updatedAt: ninetyOneDaysAgo })).toBe(true);
+  });
+
+  it('untagged entries expire after 60 days', () => {
+    const sixtyOneDaysAgo = Date.now() - 61 * 24 * 3600 * 1000;
+    expect(isExpired({ tags: [], updatedAt: sixtyOneDaysAgo })).toBe(true);
+    const fiftyNineDaysAgo = Date.now() - 59 * 24 * 3600 * 1000;
+    expect(isExpired({ tags: [], updatedAt: fiftyNineDaysAgo })).toBe(false);
+  });
+
+  it('uses createdAt as fallback when updatedAt is absent', () => {
+    const ninetyOneDaysAgo = Date.now() - 61 * 24 * 3600 * 1000;
+    expect(isExpired({ tags: [], createdAt: ninetyOneDaysAgo })).toBe(true);
+  });
+});
+
+describe('recallByTicker TTL filtering', () => {
+  let dbPath2: string;
+  let db2: MemoryDatabase;
+  let store2: FinancialMemoryStore;
+
+  beforeEach(async () => {
+    dbPath2 = join(tmpdir(), `dexter-ttl-test-${Date.now()}.sqlite`);
+    db2 = await MemoryDatabase.create(dbPath2);
+    store2 = new FinancialMemoryStore(db2);
+  });
+
+  afterEach(async () => {
+    db2.close();
+    await rm(dbPath2, { force: true });
+  });
+
+  it('filters out expired entries from recallByTicker', async () => {
+    const id = await store2.storeInsight({ ticker: 'AAPL', content: 'old insight', tags: [] });
+    // Backdate the entry to 70 days ago (> 60-day default TTL)
+    db2['db'].query('UPDATE financial_insights SET updated_at = ? WHERE id = ?').run(
+      Date.now() - 70 * 24 * 3600 * 1000,
+      id,
+    );
+    const results = store2.recallByTicker('AAPL');
+    expect(results).toHaveLength(0);
+  });
+
+  it('returns fresh entries from recallByTicker', async () => {
+    await store2.storeInsight({ ticker: 'AAPL', content: 'fresh insight', tags: [] });
+    const results = store2.recallByTicker('AAPL');
+    expect(results).toHaveLength(1);
+  });
+
+  it('routing insights are never filtered even when very old', async () => {
+    const id = await store2.storeInsight({
+      ticker: 'VWS.CO',
+      content: 'routing insight',
+      tags: [Tags.routing(RoutingResults.FMP_PREMIUM)],
+    });
+    db2['db'].query('UPDATE financial_insights SET updated_at = ? WHERE id = ?').run(
+      Date.now() - 365 * 24 * 3600 * 1000, // 1 year old
+      id,
+    );
+    const results = store2.recallByTicker('VWS.CO');
+    expect(results).toHaveLength(1);
+  });
+
+  it('analyst consensus entries expire after 7 days', async () => {
+    const id = await store2.storeInsight({
+      ticker: 'MSFT',
+      content: 'analyst consensus from last month',
+      tags: ['analysis:consensus'],
+    });
+    db2['db'].query('UPDATE financial_insights SET updated_at = ? WHERE id = ?').run(
+      Date.now() - 8 * 24 * 3600 * 1000, // 8 days old
+      id,
+    );
+    expect(store2.recallByTicker('MSFT')).toHaveLength(0);
+  });
+
+  it('search() also filters expired entries', async () => {
+    const id = await store2.storeInsight({ ticker: 'TSLA', content: 'Tesla old note', tags: [] });
+    db2['db'].query('UPDATE financial_insights SET updated_at = ? WHERE id = ?').run(
+      Date.now() - 70 * 24 * 3600 * 1000,
+      id,
+    );
+    const results = store2.search('Tesla old note');
+    expect(results).toHaveLength(0);
   });
 });

@@ -7,6 +7,7 @@ import type {
   ToolErrorEvent,
   ToolStartEvent,
 } from './agent/index.js';
+import { DEFAULT_MAX_ITERATIONS } from './agent/index.js';
 import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js';
 import { logger } from './utils/logger.js';
 import { callLlm, isThinkingModel } from './model/llm.js';
@@ -206,6 +207,7 @@ function buildHelpPanel(): Container {
   container.addChild(row('/', 'Type / to see available commands'));
   container.addChild(row('Thinking', 'Enabled automatically for qwen3, deepseek-r1, qwq models'));
   container.addChild(row('Fallback', 'Dexter uses web search when financial APIs fail'));
+  container.addChild(row('--deep', 'Launch with --deep flag for 40-iteration complex queries'));
 
   // Skills section — populated from discovered skills at render time
   const skills = discoverSkills();
@@ -646,6 +648,10 @@ export function flushExchangeToScrollback(
 }
 
 export async function runCli() {
+  // --deep flag: raises max agent iterations to 40 for complex multi-skill queries
+  const isDeepMode = process.argv.includes('--deep');
+  const maxIterations = isDeepMode ? 40 : DEFAULT_MAX_ITERATIONS;
+
   const tui = new TUI(new ProcessTerminal());
   const root = new Container();
   const chatLog = new ChatLogComponent(tui);
@@ -695,7 +701,7 @@ export async function runCli() {
   });
 
   const agentRunner = new AgentRunnerController(
-    { model: modelSelection.model, modelProvider: modelSelection.provider, maxIterations: 15 },
+    { model: modelSelection.model, modelProvider: modelSelection.provider, maxIterations },
     modelSelection.inMemoryChatHistory,
     () => {
       renderCurrentQuery(chatLog, agentRunner.history);

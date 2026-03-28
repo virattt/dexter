@@ -30,3 +30,6 @@ export type {
   ToolLimitConfig,
   ToolUsageStatus,
 } from './scratchpad.js';
+
+export { DEFAULT_MAX_ITERATIONS } from './agent.js';
+

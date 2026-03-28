@@ -1,6 +1,7 @@
 import { readCache, writeCache, describeRequest } from '../../utils/cache.js';
 import { logger } from '../../utils/logger.js';
 import { withRetry, isRateLimitError } from '../../utils/retry.js';
+import { trackFmpCall, getQuotaWarning } from '../../utils/fmp-quota.js';
 
 const BASE_URL = 'https://api.financialdatasets.ai';
 
@@ -150,6 +151,15 @@ export const api = {
     }
 
     const data = await executeRequest(url.toString(), label, {});
+
+    // Track quota usage and surface a warning in the result when approaching the limit.
+    // Only real network calls are counted (cache hits above are returned early).
+    const quotaStatus = trackFmpCall();
+    const quotaWarning = getQuotaWarning();
+    if (quotaWarning) {
+      (data as Record<string, unknown>)['_fmpQuotaWarning'] = quotaWarning;
+      logger.warn(`[FMP Quota] ${quotaStatus.used}/${quotaStatus.limit} calls used today`);
+    }
 
     // Persist for future requests when the caller marked the response as cacheable
     if (options?.cacheable) {

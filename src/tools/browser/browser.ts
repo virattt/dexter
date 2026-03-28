@@ -306,8 +306,9 @@ export const browserTool = new DynamicStructuredTool({
 
         case 'snapshot': {
           const p = await ensureBrowser();
-          // Wait for any dynamic content to settle
-          await p.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+          // Wait for any dynamic content to settle; capture timeout to surface partial-load warning
+          let partialLoad = false;
+          await p.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => { partialLoad = true; });
           
           const { snapshot, truncated } = await takeSnapshot(p, maxChars);
           
@@ -318,6 +319,7 @@ export const browserTool = new DynamicStructuredTool({
             truncated,
             refCount: currentRefs.size,
             refs: Object.fromEntries(currentRefs),
+            ...(partialLoad ? { partial: true, loadWarning: 'Page may not be fully loaded (networkidle timeout). Content could be incomplete — consider retrying or using the read action.' } : {}),
             hint: 'Use act with kind="click" and ref="eN" to click elements. Or navigate directly to a /url visible in the snapshot.',
           });
         }
@@ -337,11 +339,13 @@ export const browserTool = new DynamicStructuredTool({
               }
               const locator = resolveRefToLocator(p, ref);
               await locator.click({ timeout: 8000 });
-              // Wait for navigation/content to load
-              await p.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+              // Wait for navigation/content to load; surface timeout as a warning
+              let clickLoadPartial = false;
+              await p.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => { clickLoadPartial = true; });
               return formatToolResult({ 
                 ok: true, 
                 clicked: ref,
+                ...(clickLoadPartial ? { loadWarning: 'Post-click navigation may not be complete (networkidle timeout). Call snapshot to see current state.' } : {}),
                 hint: 'Click successful. Call snapshot to see the updated page.',
               });
             }
@@ -363,8 +367,9 @@ export const browserTool = new DynamicStructuredTool({
                 return formatToolResult({ error: 'key is required for press' });
               }
               await p.keyboard.press(key);
-              await p.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
-              return formatToolResult({ ok: true, pressed: key });
+              let pressLoadPartial = false;
+              await p.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => { pressLoadPartial = true; });
+              return formatToolResult({ ok: true, pressed: key, ...(pressLoadPartial ? { loadWarning: 'Post-keypress navigation may not be complete. Call snapshot to see current state.' } : {}) });
             }
             
             case 'hover': {
@@ -397,8 +402,9 @@ export const browserTool = new DynamicStructuredTool({
 
         case 'read': {
           const p = await ensureBrowser();
-          // Wait for content to be fully loaded
-          await p.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+          // Wait for content to be fully loaded; surface timeout warning if partial
+          let readPartial = false;
+          await p.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => { readPartial = true; });
           
           // Extract visible text from main content area, falling back to body
           const content = await p.evaluate(() => {
@@ -409,6 +415,7 @@ export const browserTool = new DynamicStructuredTool({
             url: p.url(),
             title: await p.title(),
             content,
+            ...(readPartial ? { loadWarning: 'Page may not be fully loaded (networkidle timeout). Content could be incomplete.' } : {}),
           });
         }
 

@@ -22,7 +22,7 @@ import { resolveProvider } from '../providers.js';
 
 
 const DEFAULT_MODEL = 'gpt-5.4';
-const DEFAULT_MAX_ITERATIONS = 15;
+export const DEFAULT_MAX_ITERATIONS = 25;
 
 /**
  * Remove <think>...</think> blocks that Ollama thinking models sometimes embed
