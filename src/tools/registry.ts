@@ -15,6 +15,7 @@ import { heartbeatTool, HEARTBEAT_TOOL_DESCRIPTION } from './heartbeat/heartbeat
 import { memoryGetTool, MEMORY_GET_DESCRIPTION, memorySearchTool, MEMORY_SEARCH_DESCRIPTION, memoryUpdateTool, MEMORY_UPDATE_DESCRIPTION, recallFinancialContextTool, RECALL_FINANCIAL_CONTEXT_DESCRIPTION, storeFinancialInsightTool, STORE_FINANCIAL_INSIGHT_DESCRIPTION } from './memory/index.js';
 import { discoverSkills } from '../skills/index.js';
 import { sequentialThinkingTool, sequentialThinkingEngine, SEQUENTIAL_THINKING_DESCRIPTION } from './thinking/sequential.js';
+import { portfolioRiskTool, PORTFOLIO_RISK_DESCRIPTION } from './finance/portfolio-risk.js';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -64,6 +65,11 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'stock_screener',
       tool: createScreenStocks(model),
       description: SCREEN_STOCKS_DESCRIPTION,
+    },
+    {
+      name: 'portfolio_risk',
+      tool: portfolioRiskTool,
+      description: PORTFOLIO_RISK_DESCRIPTION,
     },
     {
       name: 'polymarket_search',
