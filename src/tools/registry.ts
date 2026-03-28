@@ -1,5 +1,5 @@
 import { StructuredToolInterface } from '@langchain/core/tools';
-import { createGetFinancials, createGetMarketData, createReadFilings, createScreenStocks, polymarketTool, POLYMARKET_DESCRIPTION } from './finance/index.js';
+import { createGetFinancials, createGetMarketData, createReadFilings, createScreenStocks, polymarketTool, POLYMARKET_DESCRIPTION, socialSentimentTool, SOCIAL_SENTIMENT_DESCRIPTION } from './finance/index.js';
 import { exaSearch, perplexitySearch, tavilySearch, WEB_SEARCH_DESCRIPTION, xSearchTool, X_SEARCH_DESCRIPTION } from './search/index.js';
 import { skillTool, SKILL_TOOL_DESCRIPTION } from './skill.js';
 import { webFetchTool, WEB_FETCH_DESCRIPTION } from './fetch/web-fetch.js';
@@ -69,6 +69,11 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'polymarket_search',
       tool: polymarketTool,
       description: POLYMARKET_DESCRIPTION,
+    },
+    {
+      name: 'social_sentiment',
+      tool: socialSentimentTool,
+      description: SOCIAL_SENTIMENT_DESCRIPTION,
     },
     {
       name: 'web_fetch',

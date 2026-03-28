@@ -14,4 +14,5 @@ export { createGetMarketData } from './get-market-data.js';
 export { createReadFilings } from './read-filings.js';
 export { createScreenStocks } from './screen-stocks.js';
 export { polymarketTool, POLYMARKET_DESCRIPTION } from './polymarket.js';
+export { socialSentimentTool, SOCIAL_SENTIMENT_DESCRIPTION } from './social-sentiment.js';
 
