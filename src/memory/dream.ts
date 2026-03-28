@@ -72,7 +72,8 @@ export type CallLlmFn = (
  */
 async function defaultCallLlm(prompt: string, opts: { model: string }): Promise<{ content: string }> {
   // Disable thinking for dream consolidation: output must be parseable plain text.
-  const result = await realCallLlm(prompt, { model: opts.model, thinkOverride: false });
+  // Use a 5-minute timeout — consolidation prompts can be large and cloud models may be slow.
+  const result = await realCallLlm(prompt, { model: opts.model, thinkOverride: false, timeoutMs: 300_000 });
   const raw = result.response;
   if (typeof raw === 'string') return { content: raw };
   const rawContent = (raw as { content?: unknown }).content;

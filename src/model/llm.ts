@@ -187,6 +187,8 @@ interface CallLlmOptions {
   signal?: AbortSignal;
   /** Override Ollama think flag. Passed directly to getChatModel(). */
   thinkOverride?: boolean;
+  /** Override the default LLM_CALL_TIMEOUT_MS for this call (milliseconds). */
+  timeoutMs?: number;
 }
 
 export interface LlmResult {
@@ -243,7 +245,7 @@ function buildAnthropicMessages(systemPrompt: string, userPrompt: string) {
 }
 
 export async function callLlm(prompt: string, options: CallLlmOptions = {}): Promise<LlmResult> {
-  const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools, signal, thinkOverride } = options;
+  const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools, signal, thinkOverride, timeoutMs } = options;
   const finalSystemPrompt = systemPrompt || getDefaultSystemPrompt();
 
   const llm = getChatModel(model, false, thinkOverride);
@@ -279,7 +281,7 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
       const chain = promptTemplate.pipe(runnable);
       return withRetry(() => chain.invoke({ prompt }, invokeOpts), provider.displayName);
     }
-  }, LLM_CALL_TIMEOUT_MS);
+  }, timeoutMs ?? LLM_CALL_TIMEOUT_MS);
   const usage = extractUsage(result);
 
   // If no outputSchema and no tools, extract content from AIMessage

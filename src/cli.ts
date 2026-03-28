@@ -121,7 +121,8 @@ ${transcript}`;
 
   try {
     // thinkOverride:false — session summaries need concise plain-text output, not thinking tokens
-    const result = await callLlm(prompt, { model, thinkOverride: false });
+    // Use a 3-minute timeout — session summary is non-critical but can be slow on cloud models
+    const result = await callLlm(prompt, { model, thinkOverride: false, timeoutMs: 180_000 });
     const text = typeof result.response === 'string' ? result.response.trim() : '';
     if (!text || text === 'NOTHING_TO_STORE' || text.length < 40) return;
     const today = new Date().toISOString().slice(0, 10);
