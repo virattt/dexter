@@ -64,8 +64,8 @@ export function isRateLimitError(err: unknown): boolean {
   return err.message.includes('429') || err.message.toLowerCase().includes('rate limit');
 }
 
-/** Returns true for transient server-side errors (429 or 5xx). */
+/** Returns true for transient server-side errors (428, 429, or 5xx). */
 export function isTransientError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
-  return /4[28]9|5\d\d/.test(err.message) || err.message.toLowerCase().includes('rate limit');
+  return /42[89]|5\d\d/.test(err.message) || err.message.toLowerCase().includes('rate limit');
 }

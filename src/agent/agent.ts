@@ -13,7 +13,8 @@ import { createRunContext, type RunContext } from './run-context.js';
 import { AgentToolExecutor } from './tool-executor.js';
 import { MemoryManager } from '../memory/index.js';
 import { runMemoryFlush, shouldRunMemoryFlush } from '../memory/flush.js';
-import { extractTickers } from '../memory/ticker-extractor.js';
+import { injectMemoryContext } from './memory-injection.js';
+import { extractTickers as extractTickersFn } from '../memory/ticker-extractor.js';
 import { resolveProvider } from '../providers.js';
 
 
@@ -114,7 +115,10 @@ export class Agent {
     let currentPrompt = this.buildInitialPrompt(query, inMemoryHistory);
 
     // Auto-inject relevant prior research memories based on tickers mentioned
-    currentPrompt = await this.injectMemoryContext(query, currentPrompt);
+    currentPrompt = await injectMemoryContext(query, currentPrompt, {
+      getMemoryManager: () => MemoryManager.get(),
+      extractTickers: (text) => extractTickersFn(text),
+    });
 
     // Track whether sequential_thinking has been used at least once this session
     let sequentialThinkingUsed = false;
@@ -405,37 +409,5 @@ export class Agent {
       entries: recentTurns,
       currentMessage: query,
     });
-  }
-
-  /**
-   * Looks up prior research memories that are relevant to tickers mentioned
-   * in the query and prepends a compact "Prior Research" block so the agent
-   * can build on previous work without re-fetching the same data.
-   *
-   * Caps at 2 tickers × 3 results to stay well within token budget.
-   */
-  private async injectMemoryContext(query: string, prompt: string): Promise<string> {
-    try {
-      const memoryManager = await MemoryManager.get();
-      const tickers = extractTickers(query).slice(0, 2);
-      if (tickers.length === 0) return prompt;
-
-      const allResults: string[] = [];
-      for (const ticker of tickers) {
-        const results = await memoryManager.search(ticker, { maxResults: 3 });
-        for (const r of results) {
-          const snippet = r.snippet.trim().replace(/\s+/g, ' ').slice(0, 300);
-          allResults.push(`[${ticker}] ${snippet}`);
-        }
-      }
-
-      if (allResults.length === 0) return prompt;
-
-      const block = `📚 Prior Research:\n${allResults.map(s => `• ${s}`).join('\n')}\n\n`;
-      return block + prompt;
-    } catch {
-      // Memory is optional — never let it break the query
-      return prompt;
-    }
   }
 }
