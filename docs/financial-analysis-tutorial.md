@@ -1015,9 +1015,19 @@ What sector analysis have I been working on?
 Log today's research: reviewed AAPL 10-K, noted Services gross margin expansion
 ```
 
-### Memory search (automatic)
+### Memory auto-injection (automatic)
 
-Dexter automatically searches memory at the start of relevant queries. For example, if you previously told it your portfolio weights, it will factor that in when giving allocation advice.
+At the start of every query, Dexter scans for **stock tickers** in your question and silently retrieves relevant prior research snippets from memory. These are prepended as a `📚 Prior Research:` block before the agent starts reasoning — so it builds on earlier work automatically without you having to repeat context.
+
+**Example:** if you previously researched AAPL and now ask *"Is AAPL expensive relative to its 5-year average P/E?"*, Dexter might prepend:
+
+```
+📚 Prior Research:
+• [AAPL] P/E TTM 28x, forward P/E 24x — historically 24–30x (2026-03-10)
+• [AAPL] Services gross margin 74% in Q1 2026, expanding trend noted
+```
+
+The injection is silent — it only appears if relevant memories exist, and is capped at 2 tickers × 3 snippets to stay within token budget. Requires an embedding provider (see [Memory embedding providers](#memory-embedding-providers)).
 
 ### Dream — Memory Consolidation
 
@@ -1477,6 +1487,42 @@ cat .dexter/scratchpad/<latest-file>.jsonl
 ```
 
 This shows every tool call, its arguments, the raw response, and the LLM's interpretation — useful for debugging routing or unexpected results.
+
+Entry types in scratchpad files:
+
+| Type | Description |
+|------|-------------|
+| `init` | The original query text |
+| `tool_result` | One tool call: name, args, raw result, LLM summary |
+| `thinking` | Agent reasoning step (shown in TUI with ⏺) |
+| `context_summary` | Condensed digest of tool results that were cleared from context to make room — preserves key numbers so the agent stays coherent across long sessions |
+
+---
+
+## 20. Reliability Features
+
+### Exponential backoff on rate limits
+
+All financial API calls (`financialdatasets.ai`, FMP) automatically retry when they receive a **HTTP 429 (rate limit)** or transient error (408, 502, 503, 504). You do not need to do anything — retries happen silently in the background.
+
+| Attempt | Delay before retry |
+|---------|-------------------|
+| 1st | 1 s ± jitter |
+| 2nd | 2 s ± jitter |
+| 3rd | 4 s ± jitter |
+| 4th (final) | 8 s ± jitter |
+
+If all 4 retries are exhausted the error is surfaced as usual (and may trigger the FMP or web-search fallback chain).
+
+### Multi-source data validation
+
+When `FINANCIAL_DATASETS_API_KEY` **and** `FMP_API_KEY` are both set, Dexter fetches annual income statements from **both** sources in parallel and compares them. If `totalRevenue` or `netIncome` diverge by more than **15 %** between the two providers, a warning is appended to the result:
+
+```
+⚠️ Data discrepancy detected: Revenue — financialdatasets says $394.3B, FMP says $391.0B (0.8% difference). Verify before acting on these figures.
+```
+
+This catches stale or misaligned data (e.g. different fiscal-year end assumptions, TTM vs. annual discrepancies) before the agent bases investment reasoning on them.
 
 ---
 

@@ -64,6 +64,8 @@ This fork adds the following on top of the upstream repository:
 - **FMP fallback**: Financial Modeling Prep fills in international financial statements not covered by financialdatasets.ai (250 free requests/day)
 - **Web search fallback**: agent automatically retries with web search when financial data tools fail
 - **Data freshness enforcement**: agent explicitly checks whether retrieved data is recent enough
+- **Exponential backoff on rate limits**: all financial API calls (`financialdatasets.ai`, FMP) automatically retry with exponential back-off (1 s → 2 s → 4 s → 8 s) on HTTP 429 responses — no manual intervention needed
+- **Multi-source data validation**: when `financialdatasets.ai` returns annual income statements and `FMP_API_KEY` is set, FMP is queried concurrently; if `totalRevenue` or `netIncome` diverge by more than 15 % between sources, a `⚠️ Data discrepancy` warning is appended to the result so you can investigate before acting on the numbers
 
 ### Ollama / Local LLM
 - Full support for local Ollama models with no API key required
@@ -95,10 +97,12 @@ This fork adds the following on top of the upstream repository:
 ### Memory System & Dream Consolidation
 - **Persistent memory** stored in `.dexter/memory/` as plain Markdown (`MEMORY.md`, `FINANCE.md`, daily `YYYY-MM-DD.md` files)
 - **Four-tier priority system** (P1 critical → P4 noise) guides what the agent remembers and prunes
+- **Memory auto-injection**: at the start of every query, Dexter extracts any stock tickers mentioned (e.g. `AAPL`, `NVDA`) and silently searches memory for prior research on those tickers; if relevant notes are found, they are prepended as a `📚 Prior Research:` block so the agent can build on earlier work without re-fetching the same data (capped at 2 tickers × 3 snippets per query)
 - **Dream** — background consolidation cycle inspired by Claude Code's AutoDream: merges fragmented daily notes, replaces relative timestamps with absolute dates, deduplicates ticker data, resolves contradictions, and rewrites `MEMORY.md`/`FINANCE.md` into clean summaries
   - Auto-triggers at startup when: ≥2 daily files exist, ≥24h elapsed, ≥3 sessions since last run
   - Manual trigger: `/dream` (respects conditions) or `/dream force` (always runs)
   - Processed daily files are archived to `.dexter/memory/archive/` — never deleted
+- **Smarter context clearing**: when the agent's context window fills up and old tool results must be dropped, a compact text summary is automatically generated and injected into the scratchpad — the LLM never loses key numbers or ticker data even when results are cleared
 - Full documentation: [`docs/memory.md`](docs/memory.md)
 
 ### TUI Stability Fixes
@@ -280,10 +284,16 @@ Each scratchpad file contains newline-delimited JSON entries tracking:
 - **init**: The original query
 - **tool_result**: Each tool call with arguments, raw result, and LLM summary
 - **thinking**: Agent reasoning steps
+- **context_summary**: Compact digest of tool results that were cleared from context to make room — preserves key numbers and tickers even when old results are dropped
 
 **Example entry:**
 ```json
 {"type":"tool_result","timestamp":"2026-01-30T11:14:05.123Z","toolName":"get_income_statements","args":{"ticker":"AAPL","period":"annual","limit":5},"result":{...},"llmSummary":"Retrieved 5 years of Apple annual income statements showing revenue growth from $274B to $394B"}
+```
+
+**Example context_summary entry:**
+```json
+{"type":"context_summary","timestamp":"2026-01-30T11:14:10.456Z","content":"The following 2 earlier tool result(s) were condensed to save context:\n- get_income_statements(ticker=AAPL, period=annual): Revenue $394B, Net Income $97B, gross margin 45%…\n- get_stock_price(ticker=AAPL): $182.50 (+1.2%)…"}
 ```
 
 ## 📱 How to Use with WhatsApp

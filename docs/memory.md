@@ -94,6 +94,42 @@ When memory is enabled (requires an embedding provider), Dexter uses hybrid vect
 
 Search is triggered automatically for financial queries and returns ranked results with source file, line range, and an explanation score (`v=vector k=keyword src=both`).
 
+---
+
+## Memory Auto-Injection
+
+At the start of **every query**, Dexter automatically scans the input for stock tickers (e.g. `AAPL`, `$NVDA`, `MSFT`) and silently searches memory for prior research on those tickers. If relevant notes are found, they are prepended to the prompt as a `📚 Prior Research:` block before the agent starts working.
+
+### What it looks like
+
+When you ask:
+```
+What is AAPL's current valuation vs its 5-year average P/E?
+```
+
+If memory contains a note about Apple, the agent sees:
+```
+📚 Prior Research:
+• [AAPL] Services segment gross margin expanded to 74% in Q1 2026, up from 70.8% (2026-01-30)
+• [AAPL] P/E TTM 28x, forward P/E 24x — historically trades 24–30x (2026-03-10)
+
+What is AAPL's current valuation vs its 5-year average P/E?
+```
+
+The agent then factors in the prior context without needing to re-fetch data it has already analysed, reducing tool calls and improving continuity across sessions.
+
+### Limits
+
+| Setting | Default | Effect |
+|---------|---------|--------|
+| Max tickers per query | 2 | Looks up at most 2 tickers (the first two found in the query) |
+| Max results per ticker | 3 | At most 3 memory snippets per ticker |
+| Snippet length | 300 chars | Each snippet is truncated to 300 characters |
+
+### Requirements
+
+Memory auto-injection requires an embedding provider (same as memory search). If no embedding provider is configured, the feature is silently skipped — queries run normally.
+
 ### Enabling memory
 
 Set an embedding provider in your environment:
@@ -106,6 +142,39 @@ OLLAMA_BASE_URL=http://...     # enables Ollama embeddings (nomic-embed-text)
 ```
 
 Memory is disabled by default when no embedding provider is configured.
+
+---
+
+## Context Summaries (Smarter Clearing)
+
+When a long research session causes the agent's context window to fill up, Dexter must drop the oldest tool results to make room. Instead of simply discarding them, it first generates a compact **context summary** — a condensed digest of what was in the dropped results — and injects it into the scratchpad.
+
+### Why this matters
+
+Without summaries, dropping old tool results could cause the agent to "forget" that it already fetched AAPL's income statement at step 3 and re-fetch it at step 9. With summaries, the agent sees a brief note like:
+
+```
+### [Prior Research Summary]
+The following 2 earlier tool result(s) were condensed to save context:
+- get_income_statements(ticker=AAPL, period=annual): Revenue $394B, Net Income $97B…
+- get_stock_price(ticker=AAPL): $182.50 (+1.2%) as of 2026-03-28…
+```
+
+This keeps analysis continuity without consuming the full token budget of the original results.
+
+### What gets summarised
+
+Each condensed entry includes:
+- **Tool name** and **arguments** (which ticker, which period, etc.)
+- **First 600 characters** of the raw result — enough to preserve key numbers
+
+### Viewing in scratchpad
+
+Context summary entries appear in the `.dexter/scratchpad/*.jsonl` debug files with `"type": "context_summary"`:
+
+```json
+{"type":"context_summary","timestamp":"...","content":"The following 2 earlier tool result(s) were condensed…"}
+```
 
 ---
 
