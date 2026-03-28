@@ -23,6 +23,11 @@ interface CrumbCache {
 
 let crumbCache: CrumbCache | null = null;
 
+/** Exported for testing — resets the in-memory crumb cache. */
+export function _clearCrumbCache(): void {
+  crumbCache = null;
+}
+
 async function acquireCrumb(): Promise<CrumbCache> {
   // Step 1: hit fc.yahoo.com to establish a session cookie (A1/A3 pair)
   const initRes = await fetch(CONSENT_URL, {

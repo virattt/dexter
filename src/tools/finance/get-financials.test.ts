@@ -16,14 +16,6 @@ mock.module('../../model/llm.js', () => ({
   getChatModel: mock(() => ({})),
 }));
 
-// Also mock yahoo-finance2 to avoid real network calls
-mock.module('yahoo-finance2', () => ({
-  default: class MockYahooFinance {
-    constructor(_opts?: unknown) {}
-    quoteSummary = mock(async () => ({}));
-  },
-}));
-
 // ---------------------------------------------------------------------------
 // Import after mocking
 // ---------------------------------------------------------------------------

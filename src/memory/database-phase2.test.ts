@@ -260,3 +260,24 @@ describe('deleteChunksForFile', () => {
     expect(results.find((r) => r.chunkId === 1)).toBeUndefined();
   });
 });
+
+// ============================================================================
+// WAL journal mode
+// ============================================================================
+
+describe('SQLite WAL journaling', () => {
+  it('database opens in WAL mode to prevent corruption on crash', async () => {
+    const { unlink } = await import('node:fs/promises');
+    const path = join(tmpdir(), `dexter-wal-${Date.now()}.db`);
+    try {
+      const testDb = await MemoryDatabase.create(path);
+      // Access via the private db field — safe in tests
+      const raw = (testDb as unknown as { db: { query: (s: string) => { get: () => { journal_mode: string } | null } } }).db;
+      const result = raw.query('PRAGMA journal_mode').get();
+      expect(result?.journal_mode).toBe('wal');
+      testDb.close();
+    } finally {
+      try { await unlink(path); } catch { /* ignore */ }
+    }
+  });
+});
