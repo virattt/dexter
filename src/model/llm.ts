@@ -310,3 +310,102 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
   }
   return { response: result as AIMessage, usage };
 }
+
+/**
+ * Stateful filter that strips <think>…</think> blocks from a character stream.
+ * Yields only the non-thinking content as chunks arrive.
+ */
+class StreamingThinkFilter {
+  private buf = '';
+  private thinking = false;
+  private readonly OPEN = '<think>';
+  private readonly CLOSE = '</think>';
+
+  process(text: string): string {
+    let out = '';
+    this.buf += text;
+    while (this.buf.length > 0) {
+      if (this.thinking) {
+        const closeAt = this.buf.indexOf(this.CLOSE);
+        if (closeAt === -1) {
+          // Still inside thinking block — keep only what can't be a partial close tag
+          const safe = this.buf.length - this.CLOSE.length;
+          if (safe > 0) this.buf = this.buf.slice(safe);
+          break;
+        }
+        this.buf = this.buf.slice(closeAt + this.CLOSE.length);
+        this.thinking = false;
+      } else {
+        const openAt = this.buf.indexOf(this.OPEN);
+        if (openAt === -1) {
+          // Check if the tail could be a partial <think> tag
+          let partialLen = 0;
+          for (let i = 1; i < this.OPEN.length; i++) {
+            if (this.buf.endsWith(this.OPEN.slice(0, i))) {
+              partialLen = i;
+            }
+          }
+          out += this.buf.slice(0, this.buf.length - partialLen);
+          this.buf = this.buf.slice(this.buf.length - partialLen);
+          break;
+        }
+        out += this.buf.slice(0, openAt);
+        this.buf = this.buf.slice(openAt + this.OPEN.length);
+        this.thinking = true;
+      }
+    }
+    return out;
+  }
+
+  flush(): string {
+    if (this.thinking) { this.buf = ''; return ''; }
+    const remaining = this.buf;
+    this.buf = '';
+    return remaining;
+  }
+}
+
+/**
+ * Stream the LLM response token by token, yielding non-empty text chunks.
+ * Strips <think>…</think> blocks from thinking models (qwen3, deepseek-r1).
+ * Does NOT support tool-call binding — for final answer generation only.
+ */
+export async function* streamCallLlm(
+  prompt: string,
+  options: Omit<CallLlmOptions, 'tools' | 'outputSchema'> = {},
+): AsyncGenerator<string> {
+  const { model = DEFAULT_MODEL, systemPrompt, signal, thinkOverride } = options;
+  const finalSystemPrompt = systemPrompt ?? getDefaultSystemPrompt();
+  const llm = getChatModel(model, false, thinkOverride);
+  const provider = resolveProvider(model);
+
+  const messages =
+    provider.id === 'anthropic'
+      ? buildAnthropicMessages(finalSystemPrompt, prompt)
+      : [new SystemMessage(finalSystemPrompt), new HumanMessage(prompt)];
+
+  const filter = new StreamingThinkFilter();
+  const stream = await llm.stream(messages, signal ? { signal } : {});
+
+  for await (const chunk of stream) {
+    const content = chunk.content;
+    let text = '';
+    if (typeof content === 'string') {
+      text = content;
+    } else if (Array.isArray(content)) {
+      text = content
+        .filter(
+          (b): b is { type: string; text: string } =>
+            typeof b === 'object' && b !== null && b.type === 'text' && typeof b.text === 'string',
+        )
+        .map((b) => b.text)
+        .join('');
+    }
+    if (!text) continue;
+    const filtered = filter.process(text);
+    if (filtered) yield filtered;
+  }
+
+  const remaining = filter.flush();
+  if (remaining) yield remaining;
+}

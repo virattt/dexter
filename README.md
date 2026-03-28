@@ -93,6 +93,7 @@ This fork adds the following on top of the upstream repository:
 - **Short Thesis** — bear-case research template: valuation, debt, competitive threats, insider activity, trough-multiple price target
 - **Sector Overview** — macro backdrop, top names, valuation spread, recent catalysts, three actionable ideas
 - **Watchlist Briefing** — triggered by `/watchlist`; live price + P&L + next earnings table for your positions
+- **Full Analysis** — flagship meta-skill that chains DCF → Peer Comparison → Short Thesis → Probability Assessment into one structured report. Invoke with: `Use the full-analysis skill for AAPL`
 
 ### Memory System & Dream Consolidation
 - **Persistent memory** stored in `.dexter/memory/` as plain Markdown (`MEMORY.md`, `FINANCE.md`, daily `YYYY-MM-DD.md` files)
@@ -102,7 +103,8 @@ This fork adds the following on top of the upstream repository:
   - Auto-triggers at startup when: ≥2 daily files exist, ≥24h elapsed, ≥3 sessions since last run
   - Manual trigger: `/dream` (respects conditions) or `/dream force` (always runs)
   - Processed daily files are archived to `.dexter/memory/archive/` — never deleted
-- **Smarter context clearing**: when the agent's context window fills up and old tool results must be dropped, a compact text summary is automatically generated and injected into the scratchpad — the LLM never loses key numbers or ticker data even when results are cleared
+- **Smarter context clearing**: when the agent's context window fills up and old tool results must be dropped, a compact text summary is automatically generated and injected into the scratchpad — key numeric facts (prices, P/E, WACC, probabilities) are explicitly preserved so the agent doesn't re-fetch data it already has
+- **Auto-save every 5 iterations**: memory is flushed to disk periodically throughout a session, not just on context overflow, so research survives session crashes
 - Full documentation: [`docs/memory.md`](docs/memory.md)
 
 ### TUI Stability Fixes
@@ -206,6 +208,7 @@ Type `/` at the prompt to see all available commands:
 | `/help` | Show available commands and keyboard shortcuts |
 | `/model` | Switch LLM provider or model |
 | `/sessions` | Browse and resume past conversations |
+| `/skills` | Browse all available skills and pre-fill an invocation |
 | `/think` | Toggle extended thinking (supported models only) |
 | `/watchlist` | Run portfolio morning briefing (LLM agent) |
 | `/watchlist add TICKER [cost] [shares]` | Add a position to your watchlist |
@@ -221,6 +224,36 @@ Type `/` at the prompt to see all available commands:
 - `↑` / `↓` — navigate input history
 - `Esc` — cancel a running query immediately
 - `Ctrl+C` — exit (session auto-saved before exit)
+
+## 📅 Scheduled Research Jobs
+
+Run Dexter headlessly on a schedule using the `schedule` subcommand:
+
+```bash
+# List configured jobs
+bun start schedule list
+
+# Run all jobs
+bun start schedule run
+
+# Run a specific job
+bun start schedule run morning-briefing
+```
+
+Configure jobs in `~/.dexter/schedules.json`:
+
+```json
+[
+  {
+    "id": "morning-briefing",
+    "description": "Daily watchlist briefing",
+    "query": "Run the watchlist-briefing skill for my portfolio",
+    "outputFile": "~/.dexter/reports/{date}-briefing.md"
+  }
+]
+```
+
+The `{date}` placeholder is replaced with today's ISO date (e.g. `2025-01-15`). Output is saved as a Markdown file with a timestamp header. Combine with any system cron or task scheduler to automate daily research.
 
 ## 💾 Session Persistence
 

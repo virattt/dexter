@@ -21,6 +21,8 @@ export type {
   ContextClearedEvent,
   MemoryRecalledEvent,
   MemoryFlushEvent,
+  AnswerStartEvent,
+  AnswerChunkEvent,
   DoneEvent,
 } from './types.js';
 

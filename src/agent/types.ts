@@ -215,6 +215,23 @@ export interface DoneEvent {
 }
 
 /**
+ * Signals that the agent is about to start streaming the final answer.
+ * The TUI should switch from the working indicator to streaming display mode.
+ */
+export interface AnswerStartEvent {
+  type: 'answer_start';
+}
+
+/**
+ * A streamed token chunk of the final answer. Chunks should be appended
+ * in order to reconstruct the full answer progressively.
+ */
+export interface AnswerChunkEvent {
+  type: 'answer_chunk';
+  chunk: string;
+}
+
+/**
  * Union type for all agent events
  */
 export type AgentEvent =
@@ -230,6 +247,8 @@ export type AgentEvent =
   | ContextClearedEvent
   | MemoryRecalledEvent
   | MemoryFlushEvent
+  | AnswerStartEvent
+  | AnswerChunkEvent
   | DoneEvent;
 
 /**

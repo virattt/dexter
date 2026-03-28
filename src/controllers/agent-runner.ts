@@ -3,6 +3,7 @@ import type { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import type {
   AgentConfig,
   AgentEvent,
+  AnswerChunkEvent,
   ApprovalDecision,
   DoneEvent,
 } from '../agent/index.js';
@@ -299,6 +300,18 @@ export class AgentRunnerController {
           completed: true,
         });
         break;
+      case 'answer_start':
+        // Switch working state to idle — the streaming answer will fill the item
+        this.workingStateValue = { status: 'idle' };
+        break;
+      case 'answer_chunk': {
+        const { chunk } = event as AnswerChunkEvent;
+        this.updateLastItem((last) => ({
+          ...last,
+          answer: (last.answer ?? '') + chunk,
+        }));
+        break;
+      }
       case 'done': {
         const done = event as DoneEvent;
         if (done.answer) {

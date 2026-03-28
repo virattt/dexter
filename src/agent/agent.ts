@@ -1,6 +1,6 @@
 import { AIMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
-import { callLlm } from '../model/llm.js';
+import { callLlm, streamCallLlm } from '../model/llm.js';
 import { getTools } from '../tools/registry.js';
 import { buildSystemPrompt, buildIterationPrompt, loadSoulDocument } from './prompts.js';
 import { extractTextContent, hasToolCalls, extractReasoningContent } from '../utils/ai-message.js';
@@ -8,7 +8,7 @@ import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { buildHistoryContext } from '../utils/history-context.js';
 import { estimateTokens, CONTEXT_THRESHOLD, KEEP_TOOL_USES } from '../utils/tokens.js';
 import { formatUserFacingError, isContextOverflowError } from '../utils/errors.js';
-import type { AgentConfig, AgentEvent, ContextClearedEvent, TokenUsage } from '../agent/types.js';
+import type { AgentConfig, AgentEvent, AnswerStartEvent, AnswerChunkEvent, ContextClearedEvent, TokenUsage } from '../agent/types.js';
 import { createRunContext, type RunContext } from './run-context.js';
 import { AgentToolExecutor } from './tool-executor.js';
 import { MemoryManager } from '../memory/index.js';
@@ -37,6 +37,8 @@ export function stripThinkingTags(text: string): string {
 }
 const MAX_OVERFLOW_RETRIES = 2;
 const OVERFLOW_KEEP_TOOL_USES = 3;
+/** Flush memory to disk every N iterations regardless of context size. */
+const PERIODIC_FLUSH_INTERVAL = 5;
 
 /**
  * The core agent class that handles the agent loop and tool execution.
@@ -113,6 +115,7 @@ export class Agent {
 
     const ctx = createRunContext(query);
     const memoryFlushState = { alreadyFlushed: false };
+    const periodicFlushState = { lastFlushedIteration: 0 };
 
     // Build initial prompt with conversation history context
     let currentPrompt = this.buildInitialPrompt(query, inMemoryHistory);
@@ -211,7 +214,7 @@ export class Agent {
 
       // No tool calls = final answer is in this response
       if (typeof response === 'string' || !hasToolCalls(response)) {
-        yield* this.handleDirectResponse(responseText ?? '', ctx);
+        yield* this.handleDirectResponse(responseText ?? '', ctx, currentPrompt);
         return;
       }
 
@@ -266,6 +269,15 @@ export class Agent {
       }
       yield* this.manageContextThreshold(ctx, query, memoryFlushState);
 
+      // Periodic auto-save: flush findings to long-term memory every N iterations
+      // so a crash doesn't lose all research done so far.
+      if (
+        this.memoryEnabled &&
+        ctx.iteration - periodicFlushState.lastFlushedIteration >= PERIODIC_FLUSH_INTERVAL
+      ) {
+        yield* this.runPeriodicMemoryFlush(ctx, query, periodicFlushState);
+      }
+
       // Build iteration prompt with full tool results (Anthropic-style)
       currentPrompt = buildIterationPrompt(
         query,
@@ -313,13 +325,49 @@ export class Agent {
    * Emit the response text as the final answer.
    */
   private async *handleDirectResponse(
-    responseText: string,
-    ctx: RunContext
+    fallbackText: string,
+    ctx: RunContext,
+    currentPrompt?: string,
   ): AsyncGenerator<AgentEvent, void> {
+    // Emit answer_start so the TUI can switch to streaming display mode
+    yield { type: 'answer_start' } as AnswerStartEvent;
+
+    let streamedAnswer = '';
+
+    // Attempt true streaming when we have the originating prompt
+    if (currentPrompt) {
+      try {
+        for await (const chunk of streamCallLlm(currentPrompt, {
+          model: this.model,
+          systemPrompt: this.systemPrompt,
+          signal: this.signal,
+        })) {
+          streamedAnswer += chunk;
+          yield { type: 'answer_chunk', chunk } as AnswerChunkEvent;
+        }
+      } catch {
+        // Streaming failed — fall back to the already-received full text
+        streamedAnswer = '';
+        if (fallbackText) {
+          yield { type: 'answer_chunk', chunk: stripThinkingTags(fallbackText) } as AnswerChunkEvent;
+          streamedAnswer = stripThinkingTags(fallbackText);
+        }
+      }
+    } else {
+      // No prompt available — fake-stream the already-received text
+      const text = stripThinkingTags(fallbackText);
+      const CHUNK_SIZE = 6;
+      for (let i = 0; i < text.length; i += CHUNK_SIZE) {
+        const chunk = text.slice(i, i + CHUNK_SIZE);
+        streamedAnswer += chunk;
+        yield { type: 'answer_chunk', chunk } as AnswerChunkEvent;
+      }
+    }
+
     const totalTime = Date.now() - ctx.startTime;
     yield {
       type: 'done',
-      answer: stripThinkingTags(responseText),
+      answer: streamedAnswer,
       toolCalls: ctx.scratchpad.getToolCallRecords(),
       iterations: ctx.iteration,
       totalTime,
@@ -373,9 +421,73 @@ export class Agent {
   }
 
   /**
+   * Numeric fact patterns extracted from tool results before they are cleared
+   * from context. Each pattern captures a distinct type of financial data.
+   */
+  private static readonly FACT_PATTERNS: ReadonlyArray<RegExp> = [
+    /\$[\d,]+(?:\.\d{1,2})?(?:\s*[BMK](?:illion)?)?/gi,  // prices / market caps
+    /[-+]?\d+(?:\.\d+)?%/g,                                // percentages
+    /\b(?:IC|ICIR|RankIC)\s*[:=]\s*[-+]?\d+\.\d+/gi,     // factor IC values
+    /\bP\/E\s*[:=]?\s*\d+(?:\.\d+)?x?/gi,                 // P/E ratios
+    /\bEV\/EBITDA\s*[:=]?\s*\d+(?:\.\d+)?x?/gi,           // EV/EBITDA
+    /\bP\/[SB]\s*[:=]?\s*\d+(?:\.\d+)?x?/gi,              // P/S, P/B
+    /\b(?:probability|chance|likely)\s+[:=]?\s*\d+(?:\.\d+)?%/gi, // probabilities
+    /\bWACC\s*[:=]\s*\d+(?:\.\d+)?%/gi,                   // WACC
+    /\bROIC?\s*[:=]\s*\d+(?:\.\d+)?%/gi,                  // ROIC
+  ];
+
+  /**
+   * Extract up to `maxFacts` unique key numeric facts from a text snippet.
+   * Returns them as a compact comma-separated string, or '' when none found.
+   */
+  private static extractKeyFacts(text: string, maxFacts = 10): string {
+    const seen = new Set<string>();
+    const facts: string[] = [];
+    for (const re of Agent.FACT_PATTERNS) {
+      const pattern = new RegExp(re.source, re.flags);
+      for (const m of text.matchAll(pattern)) {
+        const key = m[0].toLowerCase().replace(/\s+/g, ' ').trim();
+        if (!seen.has(key) && facts.length < maxFacts) {
+          seen.add(key);
+          facts.push(m[0].trim());
+        }
+      }
+    }
+    return facts.join(', ');
+  }
+
+  /**
+   * Periodic auto-save: flush research findings to long-term memory every
+   * PERIODIC_FLUSH_INTERVAL iterations, independent of context size.
+   * This prevents total data loss if the session crashes mid-research.
+   */
+  private async *runPeriodicMemoryFlush(
+    ctx: RunContext,
+    query: string,
+    state: { lastFlushedIteration: number },
+  ): AsyncGenerator<AgentEvent, void> {
+    state.lastFlushedIteration = ctx.iteration;
+    yield { type: 'memory_flush', phase: 'start' };
+    const flushResult = await runMemoryFlush({
+      model: this.model,
+      systemPrompt: this.systemPrompt,
+      query,
+      toolResults: ctx.scratchpad.getToolResults(),
+      signal: this.signal,
+    }).catch(() => ({ flushed: false, written: false as const }));
+    yield {
+      type: 'memory_flush',
+      phase: 'end',
+      filesWritten: flushResult.written ? [`${new Date().toISOString().slice(0, 10)}.md`] : [],
+    };
+  }
+
+  /**
    * Builds a compact rule-based summary of tool results that are about to be
    * dropped from context and injects it as a context_summary entry so the LLM
    * doesn't lose analysis continuity without incurring an extra LLM call.
+   * Key numeric facts (prices, ratios, IC values, probabilities) are extracted
+   * and preserved explicitly so the agent doesn't re-fetch data it already has.
    */
   private injectContextSummaryBeforeClearing(ctx: RunContext, keepCount: number): void {
     const toSummarise = ctx.scratchpad.getContentToBeCleared(keepCount);
@@ -386,12 +498,10 @@ export class Agent {
       const argsStr = Object.entries(args)
         .map(([k, v]) => `${k}=${v}`)
         .join(', ');
-      // Extract the first meaningful sentence / key numbers from the snippet
-      const condensed = snippet
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 300);
-      lines.push(`- ${toolName}(${argsStr}): ${condensed}…`);
+      const condensed = snippet.replace(/\s+/g, ' ').trim().slice(0, 200);
+      const keyFacts = Agent.extractKeyFacts(snippet);
+      const factsNote = keyFacts ? ` [KEY FACTS: ${keyFacts}]` : '';
+      lines.push(`- ${toolName}(${argsStr}): ${condensed}…${factsNote}`);
     }
 
     const summary = `The following ${toSummarise.length} earlier tool result(s) were condensed to save context:\n${lines.join('\n')}`;
