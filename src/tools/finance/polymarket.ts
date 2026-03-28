@@ -105,9 +105,9 @@ const TEXT_FILTER_STOP_WORDS = new Set([
  * Returns true if the Polymarket question (or event title) contains at least
  * one significant word from the search query.
  *
- * The Gamma API `keyword` parameter is unreliable — it often returns the
- * highest-volume markets globally (sports/politics) regardless of the query.
- * This function provides client-side relevance filtering after every fetch.
+ * The Gamma API `keyword` parameter is non-functional — it always returns
+ * the highest-volume markets globally regardless of the query. This function
+ * provides all client-side relevance filtering after every fetch.
  *
  * Exported for testing.
  */
@@ -123,39 +123,52 @@ export function questionMatchesQuery(text: string, query: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Tag-slug fallback (category-based search when keyword returns 0 results)
+// Tag-slug map  (verified against live Gamma API — /events endpoint only)
 // ---------------------------------------------------------------------------
+//
+// IMPORTANT: tag_slug ONLY works on the /events endpoint.
+//            The /markets endpoint ignores it entirely.
+//            The `keyword` parameter on BOTH endpoints is non-functional —
+//            it always returns the same top-volume global markets.
+//
+// Slugs were validated by probing GET /events?tag_slug=X and confirming
+// at least 3 relevant events are returned.
 
-/**
- * Maps query keyword patterns to Polymarket tag slugs.
- * Tag-based browsing is reliable — the Gamma API's tag_slug filter works
- * even when the keyword param is ignored.
- */
 const TAG_SLUG_PATTERNS: Array<{ patterns: string[]; slugs: string[] }> = [
-  { patterns: ['bitcoin', 'btc'],                                            slugs: ['bitcoin', 'crypto'] },
-  { patterns: ['ethereum', 'eth'],                                           slugs: ['ethereum', 'crypto'] },
-  { patterns: ['solana', 'sol', 'crypto', 'defi', 'nft', 'web3'],           slugs: ['crypto'] },
+  { patterns: ['bitcoin', 'btc'],
+    slugs: ['bitcoin', 'crypto-prices', 'crypto'] },
+  { patterns: ['ethereum', 'eth'],
+    slugs: ['ethereum', 'crypto-prices', 'crypto'] },
+  { patterns: ['solana', 'sol', 'crypto', 'defi', 'nft', 'web3'],
+    slugs: ['crypto-prices', 'crypto'] },
   { patterns: ['fed', 'fomc', 'federal reserve', 'rate cut', 'rate hike',
-               'interest rate', 'basis point'],                              slugs: ['economics'] },
-  { patterns: ['recession', 'gdp', 'inflation', 'cpi', 'unemployment',
-               'economic'],                                                  slugs: ['economics'] },
-  { patterns: ['tariff', 'trade war', 'trade deal', 'import duty'],         slugs: ['economics', 'politics'] },
-  { patterns: ['oil', 'opec', 'crude', 'energy'],                           slugs: ['commodities', 'economics'] },
-  { patterns: ['gold', 'silver', 'copper', 'platinum', 'palladium',
-               'precious metal', 'metal'],                                   slugs: ['commodities', 'economics'] },
-  { patterns: ['wheat', 'corn', 'soybean', 'coffee', 'sugar', 'grain',
-               'natural gas'],                                               slugs: ['commodities', 'economics'] },
-  { patterns: ['fda', 'drug approval', 'clinical trial', 'pharma',
-               'pfizer', 'moderna', 'eli lilly'],                           slugs: ['science', 'health'] },
-  { patterns: ['nvidia', 'apple', 'microsoft', 'google', 'amazon',
-               'meta', 'tesla', 'broadcom', 'qualcomm', 'intel'],          slugs: ['technology', 'business'] },
-  { patterns: ['earnings', 'revenue', 'eps', 'quarterly results'],          slugs: ['business', 'economics'] },
-  { patterns: ['ai regulation', 'artificial intelligence', 'chatgpt',
-               'openai', 'antitrust'],                                      slugs: ['technology', 'science'] },
-  { patterns: ['middle east', 'ukraine', 'russia', 'china', 'taiwan',
-               'war', 'conflict', 'sanctions', 'geopolitical'],             slugs: ['world', 'politics'] },
-  { patterns: ['election', 'president', 'senate', 'congress', 'trump',
-               'white house'],                                               slugs: ['politics'] },
+               'interest rate', 'basis point'],
+    slugs: ['fed-rates', 'fed', 'economic-policy'] },
+  { patterns: ['recession', 'gdp', 'inflation', 'cpi', 'unemployment', 'economic'],
+    slugs: ['economy', 'business', 'economic-policy'] },
+  { patterns: ['tariff', 'trade war', 'trade deal', 'import duty'],
+    slugs: ['tariffs', 'politics', 'world'] },
+  { patterns: ['oil', 'opec', 'crude', 'energy'],
+    slugs: ['commodities'] },
+  { patterns: ['gold', 'silver', 'copper', 'platinum', 'palladium', 'precious metal', 'metal'],
+    slugs: ['commodities'] },
+  { patterns: ['wheat', 'corn', 'soybean', 'coffee', 'sugar', 'grain', 'natural gas'],
+    slugs: ['commodities'] },
+  { patterns: ['fda', 'drug approval', 'clinical trial', 'pharma', 'pfizer', 'moderna', 'eli lilly'],
+    slugs: ['science', 'health'] },
+  { patterns: ['nvidia', 'apple', 'microsoft', 'google', 'amazon', 'meta',
+               'tesla', 'broadcom', 'qualcomm', 'intel', 'spacex'],
+    slugs: ['big-tech', 'tech', 'business'] },
+  { patterns: ['earnings', 'revenue', 'eps', 'quarterly results'],
+    slugs: ['business', 'finance'] },
+  { patterns: ['ai regulation', 'artificial intelligence', 'chatgpt', 'openai', 'antitrust'],
+    slugs: ['tech', 'science'] },
+  { patterns: ['middle east', 'ukraine', 'russia', 'china', 'taiwan', 'war', 'conflict', 'sanctions', 'geopolitical'],
+    slugs: ['world', 'politics'] },
+  { patterns: ['election', 'president', 'senate', 'congress', 'trump', 'white house'],
+    slugs: ['elections', 'us-politics', 'politics'] },
+  { patterns: ['ipo', 'initial public offering'],
+    slugs: ['ipos', 'ipo', 'business'] },
 ];
 
 /** Returns an ordered list of tag slugs to try for the given query. Exported for testing. */
@@ -167,40 +180,9 @@ export function inferTagSlugs(query: string): string[] {
   return [];
 }
 
-/**
- * Fetches active markets by Polymarket tag slug and filters client-side
- * for question text relevance. Used as a fallback when keyword search
- * returns no relevant results.
- */
-async function searchMarketsByTag(
-  tagSlug: string,
-  textFilter: string,
-  limit: number,
-): Promise<FormattedMarket[]> {
-  try {
-    const params = new URLSearchParams({
-      limit: String(Math.min(limit * 6, 60)), // fetch wide to compensate for text filter
-      active: 'true',
-      closed: 'false',
-      order: 'volume24hr',
-      ascending: 'false',
-      tag_slug: tagSlug,
-    });
-    const res = await fetch(`${GAMMA_BASE}/markets?${params}`, {
-      headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!res.ok) return [];
-    const markets: PolymarketMarket[] = await res.json() as PolymarketMarket[];
-    return markets
-      .filter((m) => m.active && !m.closed)
-      .map(formatMarket)
-      .filter((m): m is FormattedMarket => m !== null)
-      .filter((m) => questionMatchesQuery(m.question, textFilter));
-  } catch {
-    return [];
-  }
-}
+// ---------------------------------------------------------------------------
+// Core fetch helpers
+// ---------------------------------------------------------------------------
 
 function parseJsonField<T>(raw: string | T): T {
   if (typeof raw === 'string') {
@@ -240,76 +222,131 @@ function formatMarket(m: PolymarketMarket): FormattedMarket | null {
   };
 }
 
-async function searchEvents(query: string, limit: number): Promise<FormattedMarket[]> {
-  const params = new URLSearchParams({
-    limit: String(limit * 3), // fetch extra — keyword filter is unreliable; text filter reduces count
-    active: 'true',
-    closed: 'false',
-    order: 'volume24hr',
-    ascending: 'false',
-    keyword: query.toLowerCase(), // some API implementations are case-sensitive
-  });
+/**
+ * Fetches events from the Gamma API using a specific tag slug and applies
+ * client-side text filtering. This is the ONLY reliable search method —
+ * the `keyword` param on both /events and /markets endpoints is non-functional.
+ *
+ * @param tagSlug   - Verified Polymarket tag slug (e.g. 'commodities', 'fed-rates')
+ * @param textFilter - Query string used for client-side relevance filtering
+ * @param limit     - Max markets to return after filtering
+ */
+async function searchEventsByTag(
+  tagSlug: string,
+  textFilter: string,
+  limit: number,
+): Promise<FormattedMarket[]> {
+  try {
+    const params = new URLSearchParams({
+      limit: String(Math.min(limit * 8, 80)), // fetch wide — text filter reduces count
+      active: 'true',
+      closed: 'false',
+      order: 'volume24hr',
+      ascending: 'false',
+      tag_slug: tagSlug,
+    });
+    const res = await fetch(`${GAMMA_BASE}/events?${params}`, {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!res.ok) return [];
+    const events: PolymarketEvent[] = await res.json() as PolymarketEvent[];
 
-  const res = await fetch(`${GAMMA_BASE}/events?${params}`, {
-    headers: { 'Accept': 'application/json' },
-    signal: AbortSignal.timeout(15_000),
-  });
-
-  if (!res.ok) {
-    polymarketBreaker.onFailure();
-    throw new Error(`Polymarket API error: ${res.status}`);
-  }
-  polymarketBreaker.onSuccess();
-
-  const events: PolymarketEvent[] = await res.json() as PolymarketEvent[];
-
-  const results: FormattedMarket[] = [];
-  for (const event of events) {
-    if (!event.markets?.length) continue;
-    // An event is relevant if its title OR any market question matches the query
-    const titleMatches = questionMatchesQuery(event.title ?? '', query);
-    const sorted = [...event.markets]
-      .filter((m) => m.active && !m.closed)
-      .sort((a, b) => (b.volume24hr ?? 0) - (a.volume24hr ?? 0))
-      .slice(0, 3);
-    for (const m of sorted) {
-      // Include if event title matches OR individual question matches
-      if (!titleMatches && !questionMatchesQuery(m.question, query)) continue;
-      const fmt = formatMarket(m);
-      if (fmt) results.push(fmt);
-      if (results.length >= limit) return results;
+    const results: FormattedMarket[] = [];
+    for (const event of events) {
+      if (!event.markets?.length) continue;
+      const titleMatches = questionMatchesQuery(event.title ?? '', textFilter);
+      const sorted = [...event.markets]
+        .filter((m) => m.active && !m.closed)
+        .sort((a, b) => (b.volume24hr ?? 0) - (a.volume24hr ?? 0))
+        .slice(0, 4); // up to 4 markets per event
+      for (const m of sorted) {
+        if (!titleMatches && !questionMatchesQuery(m.question, textFilter)) continue;
+        const fmt = formatMarket(m);
+        if (fmt) results.push(fmt);
+        if (results.length >= limit) return results;
+      }
     }
+    return results;
+  } catch {
+    return [];
   }
-  return results;
 }
 
-async function searchMarkets(query: string, limit: number): Promise<FormattedMarket[]> {
-  const params = new URLSearchParams({
-    limit: String(limit * 3), // fetch extra — keyword filter is unreliable; text filter reduces count
-    active: 'true',
-    closed: 'false',
-    order: 'volume24hr',
-    ascending: 'false',
-    keyword: query.toLowerCase(), // some API implementations are case-sensitive
-  });
+/**
+ * Primary search function. Uses tag slugs + client-side text filtering.
+ *
+ * Strategy:
+ *  1. Infer tag slugs from query → fetch /events?tag_slug=X (works reliably)
+ *  2. If tags infer 0 results or no tags found, do a broad top-events fetch
+ *     and rely entirely on the client-side text filter.
+ */
+async function searchEvents(query: string, limit: number): Promise<FormattedMarket[]> {
+  const slugs = inferTagSlugs(query);
 
-  const res = await fetch(`${GAMMA_BASE}/markets?${params}`, {
-    headers: { 'Accept': 'application/json' },
-    signal: AbortSignal.timeout(15_000),
-  });
+  if (slugs.length > 0) {
+    // Fetch all tag buckets in parallel, merge, text-filter, deduplicate
+    const settled = await Promise.allSettled(
+      slugs.map((slug) => searchEventsByTag(slug, query, limit)),
+    );
 
-  if (!res.ok) {
-    polymarketBreaker.onFailure();
-    throw new Error(`Polymarket API error: ${res.status}`);
+    const seen = new Set<string>();
+    const combined: FormattedMarket[] = [];
+    for (const r of settled) {
+      if (r.status !== 'fulfilled') continue;
+      for (const m of r.value) {
+        if (!seen.has(m.question)) { seen.add(m.question); combined.push(m); }
+        if (combined.length >= limit) return combined;
+      }
+    }
+    if (combined.length > 0) return combined;
   }
-  polymarketBreaker.onSuccess();
 
-  const markets: PolymarketMarket[] = await res.json() as PolymarketMarket[];
-  return markets
-    .filter((m) => m.active && !m.closed)
-    .map(formatMarket)
-    .filter((m): m is FormattedMarket => m !== null)
-    .filter((m) => questionMatchesQuery(m.question, query)); // client-side text filter
+  // Broad fallback: no tags inferred or tags returned 0 results.
+  // Fetch top events globally and rely on text filter.
+  try {
+    const params = new URLSearchParams({
+      limit: String(limit * 10),
+      active: 'true',
+      closed: 'false',
+      order: 'volume24hr',
+      ascending: 'false',
+    });
+    const res = await fetch(`${GAMMA_BASE}/events?${params}`, {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) {
+      polymarketBreaker.onFailure();
+      throw new Error(`Polymarket API error: ${res.status}`);
+    }
+    polymarketBreaker.onSuccess();
+
+    const events: PolymarketEvent[] = await res.json() as PolymarketEvent[];
+    const results: FormattedMarket[] = [];
+    const seen = new Set<string>();
+    for (const event of events) {
+      if (!event.markets?.length) continue;
+      const titleMatches = questionMatchesQuery(event.title ?? '', query);
+      const sorted = [...event.markets]
+        .filter((m) => m.active && !m.closed)
+        .sort((a, b) => (b.volume24hr ?? 0) - (a.volume24hr ?? 0))
+        .slice(0, 2);
+      for (const m of sorted) {
+        if (!titleMatches && !questionMatchesQuery(m.question, query)) continue;
+        const fmt = formatMarket(m);
+        if (fmt && !seen.has(fmt.question)) {
+          seen.add(fmt.question);
+          results.push(fmt);
+        }
+        if (results.length >= limit) return results;
+      }
+    }
+    return results;
+  } catch (err) {
+    if (slugs.length === 0) throw err; // only re-throw if we had no tag results at all
+    return [];
+  }
 }
 
 function formatResults(markets: FormattedMarket[], query: string): string {
@@ -369,42 +406,14 @@ function parseVolumeStr(s: string): number {
 /**
  * Fetches Polymarket markets for `query` and returns structured numeric results.
  * Used by `polymarket-injector` for pre-query context injection.
- *
- * Strategy:
- *   1. Keyword search via /events and /markets endpoints (fast)
- *   2. If 0 text-matching results, fall back to tag-slug category search
- *
- * Throws on network / API error (caller should handle).
+ * Uses tag-based search exclusively — the Gamma API keyword param is non-functional.
  */
 export async function fetchPolymarketMarkets(
   query: string,
   limit: number,
 ): Promise<PolymarketMarketResult[]> {
-  const [eventResults, marketResults] = await Promise.allSettled([
-    searchEvents(query, limit),
-    searchMarkets(query, limit),
-  ]);
-
-  const seen = new Set<string>();
-  const combined: FormattedMarket[] = [];
-
-  const addIfNew = (m: FormattedMarket) => {
-    if (!seen.has(m.question)) { seen.add(m.question); combined.push(m); }
-  };
-  if (eventResults.status === 'fulfilled') eventResults.value.forEach(addIfNew);
-  if (marketResults.status === 'fulfilled') marketResults.value.forEach(addIfNew);
-
-  // Tag-slug fallback: keyword search returned 0 text-relevant results
-  if (combined.length === 0) {
-    const slugs = inferTagSlugs(query);
-    for (const slug of slugs) {
-      const tagResults = await searchMarketsByTag(slug, query, limit);
-      tagResults.forEach(addIfNew);
-      if (combined.length > 0) break; // first slug with relevant results wins
-    }
-  }
-
-  return combined.slice(0, limit).map((m) => ({
+  const markets = await searchEvents(query, limit);
+  return markets.map((m) => ({
     question: m.question,
     probability: parseYesProbability(m.probabilities),
     volume24h: parseVolumeStr(m.volume24h),
@@ -431,43 +440,13 @@ export const polymarketTool = new DynamicStructuredTool({
       return formatToolResult({ error: 'Polymarket API is temporarily unavailable (circuit open). Try again in a few minutes.' });
     }
     try {
-      // Search events (richer) and direct markets in parallel
-      const [eventResults, marketResults] = await Promise.allSettled([
-        searchEvents(query, limit),
-        searchMarkets(query, limit),
-      ]);
-
-      const seen = new Set<string>();
-      const combined: FormattedMarket[] = [];
-
-      const addIfNew = (m: FormattedMarket) => {
-        if (!seen.has(m.question)) {
-          seen.add(m.question);
-          combined.push(m);
-        }
-      };
-
-      if (eventResults.status === 'fulfilled') {
-        eventResults.value.forEach(addIfNew);
-      }
-      if (marketResults.status === 'fulfilled' && combined.length < limit) {
-        marketResults.value.forEach(addIfNew);
-      }
-
-      // Tag-slug fallback: keyword search returned 0 text-relevant results
-      if (combined.length === 0) {
-        const slugs = inferTagSlugs(query);
-        for (const slug of slugs) {
-          const tagResults = await searchMarketsByTag(slug, query, limit);
-          tagResults.forEach(addIfNew);
-          if (combined.length > 0) break;
-        }
-      }
-
-      return formatToolResult({ result: formatResults(combined.slice(0, limit), query) });
+      const markets = await searchEvents(query, limit);
+      return formatToolResult({ result: formatResults(markets, query) });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return formatToolResult({ error: `Polymarket search failed: ${msg}` });
     }
   },
 });
+
+

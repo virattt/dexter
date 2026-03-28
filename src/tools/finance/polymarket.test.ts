@@ -119,35 +119,39 @@ describe('questionMatchesQuery', () => {
 });
 
 describe('inferTagSlugs', () => {
-  it('returns bitcoin and crypto for bitcoin query', () => {
+  it('returns bitcoin and crypto slugs for bitcoin query', () => {
     const slugs = inferTagSlugs('Bitcoin price');
     expect(slugs).toContain('bitcoin');
-    expect(slugs).toContain('crypto');
+    expect(slugs.some(s => s.startsWith('crypto'))).toBe(true);
   });
 
   it('returns crypto slugs for eth query', () => {
     const slugs = inferTagSlugs('ethereum price prediction');
-    expect(slugs).toContain('crypto');
+    expect(slugs.some(s => s.startsWith('crypto') || s === 'ethereum')).toBe(true);
   });
 
-  it('returns economics for Fed/FOMC query', () => {
+  it('returns fed-rates for Fed/FOMC query (not economics)', () => {
     const slugs = inferTagSlugs('Fed rate cut');
-    expect(slugs).toContain('economics');
+    expect(slugs).toContain('fed-rates');
+    expect(slugs).not.toContain('economics'); // old broken slug
   });
 
-  it('returns economics for recession query', () => {
+  it('returns economy for recession query (not economics)', () => {
     const slugs = inferTagSlugs('US recession 2026');
-    expect(slugs).toContain('economics');
+    expect(slugs).toContain('economy');
+    expect(slugs).not.toContain('economics'); // old broken slug
   });
 
-  it('returns politics slugs for election query', () => {
+  it('returns elections slugs for election query', () => {
     const slugs = inferTagSlugs('US presidential election');
+    expect(slugs).toContain('elections');
     expect(slugs).toContain('politics');
   });
 
-  it('returns technology for NVIDIA query', () => {
+  it('returns big-tech or tech for NVIDIA query (not broken technology slug)', () => {
     const slugs = inferTagSlugs('NVIDIA earnings');
-    expect(slugs.some(s => ['technology', 'business'].includes(s))).toBe(true);
+    expect(slugs.some(s => ['big-tech', 'tech', 'business'].includes(s))).toBe(true);
+    expect(slugs).not.toContain('technology'); // old broken slug that returns 0 results
   });
 
   it('returns empty array for unrecognized query', () => {
@@ -156,6 +160,10 @@ describe('inferTagSlugs', () => {
 
   it('is case-insensitive for BTC', () => {
     expect(inferTagSlugs('BTC halving')).toContain('bitcoin');
+  });
+
+  it('returns tariffs slug for tariff query', () => {
+    expect(inferTagSlugs('US China tariffs')).toContain('tariffs');
   });
 });
 
