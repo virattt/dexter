@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
+import { polymarketBreaker } from '../../utils/circuit-breaker.js';
 
 // ---------------------------------------------------------------------------
 // Description (injected into system prompt)
@@ -127,7 +128,11 @@ async function searchEvents(query: string, limit: number): Promise<FormattedMark
     signal: AbortSignal.timeout(15_000),
   });
 
-  if (!res.ok) throw new Error(`Polymarket API error: ${res.status}`);
+  if (!res.ok) {
+    polymarketBreaker.onFailure();
+    throw new Error(`Polymarket API error: ${res.status}`);
+  }
+  polymarketBreaker.onSuccess();
 
   const events: PolymarketEvent[] = await res.json() as PolymarketEvent[];
 
@@ -163,7 +168,11 @@ async function searchMarkets(query: string, limit: number): Promise<FormattedMar
     signal: AbortSignal.timeout(15_000),
   });
 
-  if (!res.ok) throw new Error(`Polymarket API error: ${res.status}`);
+  if (!res.ok) {
+    polymarketBreaker.onFailure();
+    throw new Error(`Polymarket API error: ${res.status}`);
+  }
+  polymarketBreaker.onSuccess();
 
   const markets: PolymarketMarket[] = await res.json() as PolymarketMarket[];
   return markets
@@ -215,6 +224,9 @@ export const polymarketTool = new DynamicStructuredTool({
     ),
   }),
   func: async ({ query, limit = 8 }, _config?: unknown) => {
+    if (polymarketBreaker.isOpen()) {
+      return formatToolResult({ error: 'Polymarket API is temporarily unavailable (circuit open). Try again in a few minutes.' });
+    }
     try {
       // Search events first (richer structure), fall back to direct market search
       const [eventResults, marketResults] = await Promise.allSettled([

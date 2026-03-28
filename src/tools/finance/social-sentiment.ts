@@ -12,6 +12,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
+import { xApiBreaker } from '../../utils/circuit-breaker.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -191,6 +192,8 @@ async function fetchXTweets(query: string, limit: number): Promise<SentimentPost
   const token = process.env.X_BEARER_TOKEN;
   if (!token) return [];
 
+  if (xApiBreaker.isOpen()) return [];
+
   const TWEET_FIELDS =
     'tweet.fields=created_at,public_metrics,author_id' +
     '&expansions=author_id' +
@@ -206,7 +209,11 @@ async function fetchXTweets(query: string, limit: number): Promise<SentimentPost
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      xApiBreaker.onFailure();
+      return [];
+    }
+    xApiBreaker.onSuccess();
 
     const raw = await res.json() as {
       data?: { id: string; text: string; author_id: string; created_at: string; public_metrics: Record<string, number> }[];
@@ -234,6 +241,7 @@ async function fetchXTweets(query: string, limit: number): Promise<SentimentPost
       };
     });
   } catch {
+    xApiBreaker.onFailure();
     return [];
   }
 }

@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import YahooFinance from 'yahoo-finance2';
 import { formatToolResult } from '../types.js';
+import { quoteSummary as directQuoteSummary } from './yahoo-client.js';
 
 // Minimal type for the quoteSummary function, wide enough for all modules used here.
 // Using `any` response type avoids coupling to yahoo-finance2 internal generics.
@@ -121,9 +121,11 @@ export function makeYahooTools(quoteSummary: QuoteSummaryFn) {
       const ticker = input.ticker.trim();
       try {
         const result = await quoteSummary(ticker, { modules: ['incomeStatementHistory'] });
-        const records = result.incomeStatementHistory?.incomeStatementHistory ?? [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const records: any[] = result.incomeStatementHistory?.incomeStatementHistory ?? [];
 
-        const data = records.slice(0, input.limit).reduce<Record<string, unknown>[]>((acc, r) => {
+        const data: Record<string, unknown>[] = [];
+        for (const r of records.slice(0, input.limit)) {
           const entry: Record<string, unknown> = { date: r.endDate };
           // Only include fields that carry real values for this ticker
           if (r.totalRevenue) entry.totalRevenue = r.totalRevenue;
@@ -132,9 +134,8 @@ export function makeYahooTools(quoteSummary: QuoteSummaryFn) {
           if (r.netIncome !== null && r.netIncome !== undefined) entry.netIncome = r.netIncome;
           if (r.ebit) entry.ebit = r.ebit;
           // Keep record only if it has at least one meaningful metric
-          if (entry.totalRevenue !== undefined || entry.netIncome !== undefined) acc.push(entry);
-          return acc;
-        }, []);
+          if (entry.totalRevenue !== undefined || entry.netIncome !== undefined) data.push(entry);
+        }
 
         if (data.length === 0) {
           return formatToolResult(
@@ -154,12 +155,8 @@ export function makeYahooTools(quoteSummary: QuoteSummaryFn) {
   return { getYahooAnalystTargets, getYahooAnalystRecommendations, getYahooUpgradeDowngradeHistory, getYahooIncomeStatements };
 }
 
-// ---------------------------------------------------------------------------
-// Default singleton exports — use the real Yahoo Finance instance
-// ---------------------------------------------------------------------------
-
-const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
-const _tools = makeYahooTools(yf.quoteSummary.bind(yf));
+// Default singleton exports — use the direct Yahoo Finance HTTP client
+const _tools = makeYahooTools(directQuoteSummary);
 
 export const getYahooAnalystTargets = _tools.getYahooAnalystTargets;
 export const getYahooAnalystRecommendations = _tools.getYahooAnalystRecommendations;

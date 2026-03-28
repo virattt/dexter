@@ -208,6 +208,8 @@ export class MemoryDatabase {
     }
 
     const memoryDb = new MemoryDatabase(db, vecEnabled);
+    // WAL mode: prevents database corruption on crash mid-write.
+    memoryDb.db.exec('PRAGMA journal_mode=WAL');
     memoryDb.db.exec(CREATE_SCHEMA_SQL);
     memoryDb.db.exec(FINANCIAL_SCHEMA_SQL);
     memoryDb.runMigrations();
