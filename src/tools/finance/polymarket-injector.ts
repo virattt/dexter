@@ -3,14 +3,17 @@
  *
  * Before the agent starts reasoning, this module:
  *   1. Calls `extractSignals()` to identify what events can move the asset
- *   2. Fetches Polymarket markets for each signal (in parallel)
- *   3. Prepends a categorised "🎯 Prediction Markets" block to the prompt
+ *   2. Fetches Polymarket markets for each signal using a fallback cascade
+ *      (primary phrase → variant phrases until results are found)
+ *   3. Filters results by category relevance and deduplicates across signals
+ *   4. Prepends a categorised "🎯 Prediction Markets" block to the prompt
  *
  * Fully silent on failure — returns the original prompt unchanged.
  * Deps-injected for testability (no direct Polymarket API calls in tests).
  */
 
 import type { SignalCategory } from './signal-extractor.js';
+import { scoreMarketRelevance } from './signal-extractor.js';
 import type { PolymarketMarketResult } from './polymarket.js';
 
 export type { PolymarketMarketResult };
@@ -29,6 +32,32 @@ export interface PolymarketInjectorDeps {
 }
 
 // ---------------------------------------------------------------------------
+// Fallback cascade helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Tries each phrase in `variants` in order, returning the first non-empty
+ * result. Individual fetch failures are silently skipped so the cascade
+ * continues to the next variant.
+ */
+export async function fetchWithFallback(
+  variants: string[],
+  limit: number,
+  fetchFn: (query: string, limit: number) => Promise<PolymarketMarketResult[]>,
+): Promise<PolymarketMarketResult[]> {
+  for (const phrase of variants) {
+    if (!phrase.trim()) continue;
+    try {
+      const markets = await fetchFn(phrase, limit);
+      if (markets.length > 0) return markets;
+    } catch {
+      // silent — try next variant
+    }
+  }
+  return [];
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -36,6 +65,9 @@ export interface PolymarketInjectorDeps {
  * Prepends a "🎯 Prediction Markets" block to `prompt` when relevant Polymarket
  * markets are found for the signals extracted from `query`. Returns `prompt`
  * unchanged if no markets are found or any step throws.
+ *
+ * Each signal is searched using a fallback cascade (primary phrase → variants).
+ * Results are filtered for category relevance and deduplicated across signals.
  */
 export async function injectPolymarketContext(
   query: string,
@@ -48,21 +80,35 @@ export async function injectPolymarketContext(
     const signals = extractSignals(query).slice(0, maxSignals);
     if (signals.length === 0) return prompt;
 
-    // Fetch markets for each signal in parallel; ignore individual failures
+    // Fetch markets for each signal in parallel using variant fallback cascade
     const settled = await Promise.allSettled(
       signals.map(async (signal) => ({
         signal,
-        markets: await fetchMarkets(signal.searchPhrase, 2),
+        markets: await fetchWithFallback(
+          [signal.searchPhrase, ...(signal.queryVariants ?? [])],
+          2,
+          fetchMarkets,
+        ),
       })),
     );
 
-    // Build categorised output sections
+    // Build categorised output sections; filter by relevance + deduplicate
     const sections: string[] = [];
+    const seenQuestions = new Set<string>();
 
     for (const result of settled) {
       if (result.status !== 'fulfilled') continue;
       const { signal, markets } = result.value;
-      const visible = markets.filter((m) => m.volume24h >= minLiquidity);
+
+      const visible = markets
+        .filter((m) => m.volume24h >= minLiquidity)
+        .filter((m) => scoreMarketRelevance(m.question, signal.category) > 0)
+        .filter((m) => {
+          if (seenQuestions.has(m.question)) return false;
+          seenQuestions.add(m.question);
+          return true;
+        });
+
       if (visible.length === 0) continue;
 
       const lines = visible

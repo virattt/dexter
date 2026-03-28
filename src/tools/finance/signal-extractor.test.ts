@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'bun:test';
-import { detectAssetType, extractSignals } from './signal-extractor.js';
+import {
+  detectAssetType,
+  extractSignals,
+  normalizeForPolymarket,
+  scoreMarketRelevance,
+  TICKER_TO_COMPANY_NAME,
+  SIGNAL_KEYWORDS,
+} from './signal-extractor.js';
 
 // ---------------------------------------------------------------------------
 // detectAssetType
@@ -112,10 +119,11 @@ describe('extractSignals', () => {
     expect(signals[0].weight).toBe(0.35);
   });
 
-  it('substitutes NVDA ticker in earnings search phrase', () => {
+  it('uses company name (not ticker) in earnings search phrase for NVDA', () => {
     const signals = extractSignals('NVDA');
     const earnings = signals.find((s) => s.category === 'earnings')!;
-    expect(earnings.searchPhrase).toContain('NVDA');
+    expect(earnings.searchPhrase).toContain('NVIDIA');
+    expect(earnings.searchPhrase).not.toContain('NVDA');
   });
 
   it('returns fda_approval as first signal for PFE (weight 0.40)', () => {
@@ -124,10 +132,11 @@ describe('extractSignals', () => {
     expect(signals[0].weight).toBe(0.40);
   });
 
-  it('substitutes PFE ticker in fda_approval search phrase', () => {
+  it('uses company name (not ticker) in fda_approval search phrase for PFE', () => {
     const signals = extractSignals('PFE');
     const fda = signals.find((s) => s.category === 'fda_approval')!;
-    expect(fda.searchPhrase).toContain('PFE');
+    expect(fda.searchPhrase).toContain('Pfizer');
+    expect(fda.searchPhrase).not.toContain('PFE');
   });
 
   it('returns regulatory as first signal for BTC (weight 0.35)', () => {
@@ -136,10 +145,11 @@ describe('extractSignals', () => {
     expect(signals[0].weight).toBe(0.35);
   });
 
-  it('substitutes BTC ticker in ETF signal search phrase', () => {
+  it('uses company name (Bitcoin not BTC) in ETF signal search phrase', () => {
     const signals = extractSignals('BTC');
     const etf = signals.find((s) => s.category === 'etf_product')!;
-    expect(etf.searchPhrase).toContain('BTC');
+    expect(etf.searchPhrase).toContain('Bitcoin');
+    expect(etf.searchPhrase).not.toContain('BTC');
   });
 
   it('returns macro_rates as first signal for JPM (financials)', () => {
@@ -153,18 +163,18 @@ describe('extractSignals', () => {
     expect(signals[0].category).toBe('macro_rates');
   });
 
-  it('substitutes current year in search phrases', () => {
+  it('search phrases do NOT contain year tokens (normalisation strips them)', () => {
     const year = String(new Date().getFullYear());
     const signals = extractSignals('NVDA');
-    const withYear = signals.filter((s) => s.searchPhrase.includes(year));
-    expect(withYear.length).toBeGreaterThan(0);
+    for (const sig of signals) {
+      expect(sig.searchPhrase).not.toContain(year);
+    }
   });
 
-  it('substitutes current quarter in macro_rates search phrase', () => {
-    const q = `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`;
+  it('macro_rates search phrase does NOT contain quarter token (normalisation strips it)', () => {
     const signals = extractSignals('NVDA');
     const rate = signals.find((s) => s.category === 'macro_rates')!;
-    expect(rate.searchPhrase).toContain(q);
+    expect(rate.searchPhrase).not.toMatch(/Q[1-4]/i);
   });
 
   it('weights sum to 1.0 for tech_semiconductor (NVDA)', () => {
@@ -223,6 +233,163 @@ describe('extractSignals', () => {
         expect(sig.searchPhrase).not.toContain('{');
         expect(sig.searchPhrase).not.toContain('}');
       }
+    }
+  });
+
+  it('every signal has a queryVariants array with at least one entry', () => {
+    for (const sig of extractSignals('NVDA')) {
+      expect(Array.isArray(sig.queryVariants)).toBe(true);
+      expect((sig.queryVariants ?? []).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('no queryVariant contains template placeholders', () => {
+    const queries = ['NVDA', 'PFE', 'JPM', 'BTC', 'recession', 'WMT', 'XOM'];
+    for (const q of queries) {
+      for (const sig of extractSignals(q)) {
+        for (const variant of sig.queryVariants ?? []) {
+          expect(variant).not.toContain('{');
+          expect(variant).not.toContain('}');
+        }
+      }
+    }
+  });
+
+  it('no queryVariant contains year tokens', () => {
+    const year = String(new Date().getFullYear());
+    for (const sig of extractSignals('NVDA')) {
+      for (const v of sig.queryVariants ?? []) {
+        expect(v).not.toContain(year);
+      }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// normalizeForPolymarket
+// ---------------------------------------------------------------------------
+
+describe('normalizeForPolymarket', () => {
+  it('replaces ticker with company name', () => {
+    expect(normalizeForPolymarket('NVDA earnings', 'NVDA')).toBe('NVIDIA earnings');
+  });
+
+  it('replaces ticker case-insensitively', () => {
+    expect(normalizeForPolymarket('nvda earnings', 'NVDA')).toBe('NVIDIA earnings');
+  });
+
+  it('strips 4-digit year tokens', () => {
+    expect(normalizeForPolymarket('US recession 2026', null)).toBe('US recession');
+  });
+
+  it('strips quarter tokens Q1–Q4', () => {
+    expect(normalizeForPolymarket('Fed rate cut Q2', null)).toBe('Fed rate cut');
+  });
+
+  it('strips both year and quarter', () => {
+    expect(normalizeForPolymarket('Fed rate cut Q2 2026', null)).toBe('Fed rate cut');
+  });
+
+  it('truncates to 4 words maximum', () => {
+    const result = normalizeForPolymarket('one two three four five six', null);
+    expect(result.split(' ').length).toBeLessThanOrEqual(4);
+  });
+
+  it('handles null ticker gracefully (no replacement)', () => {
+    expect(normalizeForPolymarket('US recession', null)).toBe('US recession');
+  });
+
+  it('leaves unknown tickers as-is', () => {
+    const result = normalizeForPolymarket('ZZZZ earnings', 'ZZZZ');
+    expect(result).toContain('ZZZZ');
+  });
+
+  it('collapses extra whitespace', () => {
+    const result = normalizeForPolymarket('Fed  rate   cut', null);
+    expect(result).toBe('Fed rate cut');
+  });
+
+  it('PFE → Pfizer in phrase', () => {
+    expect(normalizeForPolymarket('PFE FDA approval', 'PFE')).toBe('Pfizer FDA approval');
+  });
+
+  it('BTC → Bitcoin in phrase', () => {
+    expect(normalizeForPolymarket('BTC ETF', 'BTC')).toBe('Bitcoin ETF');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// scoreMarketRelevance
+// ---------------------------------------------------------------------------
+
+describe('scoreMarketRelevance', () => {
+  it('returns > 0 when question contains a category keyword', () => {
+    expect(scoreMarketRelevance('Will NVIDIA beat Q1 earnings?', 'earnings')).toBeGreaterThan(0);
+  });
+
+  it('returns 0 when question contains no category keywords', () => {
+    expect(scoreMarketRelevance('Will Argentina legalise cannabis?', 'earnings')).toBe(0);
+  });
+
+  it('returns 1 for unknown category (no filtering)', () => {
+    expect(scoreMarketRelevance('Any question here', 'unknown_category')).toBe(1);
+  });
+
+  it('macro_rates question matches Fed/rate keywords', () => {
+    expect(scoreMarketRelevance('Will the Fed cut rates in 2026?', 'macro_rates')).toBeGreaterThan(0);
+  });
+
+  it('earnings keyword "beat" matches via substring (beats → beat)', () => {
+    expect(scoreMarketRelevance('Will NVDA beats Q1 2026?', 'earnings')).toBeGreaterThan(0);
+  });
+
+  it('fda_approval question containing FDA scores > 0', () => {
+    expect(scoreMarketRelevance('Will Pfizer receive FDA approval?', 'fda_approval')).toBeGreaterThan(0);
+  });
+
+  it('trade_policy question containing tariff scores > 0', () => {
+    expect(scoreMarketRelevance('Will the US impose new tariff on China?', 'trade_policy')).toBeGreaterThan(0);
+  });
+
+  it('matching more keywords gives a higher score than matching fewer', () => {
+    const many = scoreMarketRelevance('Fed FOMC rate cut hike', 'macro_rates');
+    const one  = scoreMarketRelevance('Fed decision', 'macro_rates');
+    expect(many).toBeGreaterThan(one);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TICKER_TO_COMPANY_NAME coverage
+// ---------------------------------------------------------------------------
+
+describe('TICKER_TO_COMPANY_NAME', () => {
+  it('contains key tech tickers', () => {
+    expect(TICKER_TO_COMPANY_NAME['NVDA']).toBe('NVIDIA');
+    expect(TICKER_TO_COMPANY_NAME['AAPL']).toBe('Apple');
+    expect(TICKER_TO_COMPANY_NAME['MSFT']).toBe('Microsoft');
+  });
+
+  it('contains crypto tickers', () => {
+    expect(TICKER_TO_COMPANY_NAME['BTC']).toBe('Bitcoin');
+    expect(TICKER_TO_COMPANY_NAME['ETH']).toBe('Ethereum');
+  });
+
+  it('contains healthcare tickers', () => {
+    expect(TICKER_TO_COMPANY_NAME['PFE']).toBe('Pfizer');
+    expect(TICKER_TO_COMPANY_NAME['LLY']).toBe('Eli Lilly');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SIGNAL_KEYWORDS coverage
+// ---------------------------------------------------------------------------
+
+describe('SIGNAL_KEYWORDS', () => {
+  it('has entries for core categories', () => {
+    const required = ['earnings', 'macro_rates', 'macro_growth', 'regulatory', 'fda_approval'];
+    for (const cat of required) {
+      expect(SIGNAL_KEYWORDS[cat]).toBeDefined();
+      expect(SIGNAL_KEYWORDS[cat].length).toBeGreaterThan(0);
     }
   });
 });

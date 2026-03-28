@@ -26,12 +26,29 @@ Searches Polymarket prediction markets for crowd-sourced probability estimates o
 - News or breaking events (use web_search)
 - Prediction markets are not infallible — treat probabilities as one data point, not ground truth
 
-## Usage Notes
+## Query Guidelines (critical for good results)
 
-- Use broad natural language queries: "Fed rate cut 2026", "US recession", "tariffs", "oil price"
-- Returns top markets sorted by 24h trading volume (most liquid / most relevant first)
+The Polymarket search API uses simple text matching against market question titles.
+Short, specific queries work far better than long compound strings.
+
+**✅ Effective queries (short, topic-focused):**
+- Company name only: \`"NVIDIA"\`, \`"Apple"\`, \`"Tesla"\`
+- Company + topic: \`"NVIDIA earnings"\`, \`"Apple revenue"\`
+- Macro topic: \`"Fed rate cut"\`, \`"US recession"\`, \`"FOMC"\`
+- Event keyword: \`"tariff"\`, \`"oil price"\`, \`"FDA approval"\`
+- Crypto: \`"Bitcoin ETF"\`, \`"crypto regulation"\`
+
+**❌ Ineffective queries (too long, use ticker symbols, include years):**
+- \`"NVDA earnings beat 2026"\` → use \`"NVIDIA earnings"\` instead
+- \`"Fed rate cut Q2 2026"\` → use \`"Fed rate cut"\` instead
+- \`"chip export controls 2026"\` → use \`"chip export controls"\` instead
+
+**Key rules:**
+- Use the company's full name, not the ticker symbol (\`"NVIDIA"\` not \`"NVDA"\`)
+- Omit year/quarter suffixes — the API searches active markets, which are current
+- 2–3 words is usually optimal; never more than 4
+- Returns top markets sorted by 24h trading volume (most liquid = most reliable signal)
 - YES price = implied probability (e.g. 0.72 = 72% chance the event happens)
-- Liquidity indicates how confident / contested the market is — higher = more reliable signal
 - Combine with financial analysis: e.g. if recession probability is 35%, stress-test DCF with lower growth assumptions
 `.trim();
 
