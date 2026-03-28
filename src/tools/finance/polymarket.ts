@@ -209,6 +209,63 @@ function formatResults(markets: FormattedMarket[], query: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Structured fetch (for programmatic use by polymarket-injector)
+// ---------------------------------------------------------------------------
+
+/** Structured Polymarket market result — numeric values, suitable for the injector. */
+export interface PolymarketMarketResult {
+  question: string;
+  /** YES probability [0, 1] */
+  probability: number;
+  /** 24-hour trading volume in USD */
+  volume24h: number;
+}
+
+function parseYesProbability(probs: Record<string, string>): number {
+  const key = Object.keys(probs).find((k) => k.toLowerCase() === 'yes') ?? Object.keys(probs)[0];
+  if (!key) return 0.5;
+  return Math.min(1, Math.max(0, parseFloat(probs[key].replace('%', '')) / 100));
+}
+
+function parseVolumeStr(s: string): number {
+  const n = parseFloat(s.replace(/[$,]/g, ''));
+  if (isNaN(n)) return 0;
+  if (s.includes('M')) return n * 1_000_000;
+  if (s.includes('K')) return n * 1_000;
+  return n;
+}
+
+/**
+ * Fetches Polymarket markets for `query` and returns structured numeric results.
+ * Used by `polymarket-injector` for pre-query context injection.
+ * Throws on network / API error (caller should handle).
+ */
+export async function fetchPolymarketMarkets(
+  query: string,
+  limit: number,
+): Promise<PolymarketMarketResult[]> {
+  const [eventResults, marketResults] = await Promise.allSettled([
+    searchEvents(query, limit),
+    searchMarkets(query, limit),
+  ]);
+
+  const seen = new Set<string>();
+  const combined: FormattedMarket[] = [];
+
+  const addIfNew = (m: FormattedMarket) => {
+    if (!seen.has(m.question)) { seen.add(m.question); combined.push(m); }
+  };
+  if (eventResults.status === 'fulfilled') eventResults.value.forEach(addIfNew);
+  if (marketResults.status === 'fulfilled') marketResults.value.forEach(addIfNew);
+
+  return combined.slice(0, limit).map((m) => ({
+    question: m.question,
+    probability: parseYesProbability(m.probabilities),
+    volume24h: parseVolumeStr(m.volume24h),
+  }));
+}
+
+// ---------------------------------------------------------------------------
 // Tool
 // ---------------------------------------------------------------------------
 

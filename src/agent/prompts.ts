@@ -112,7 +112,54 @@ Stale data can silently invalidate an entire analysis. **Today's date is ${getCu
 1. Never present a figure as "current" without computing and stating its age relative to ${getCurrentDate()}
 2. When data is ⚠️ stale, call web_search with a targeted query before falling back to the old figure
 3. If no fresher data can be found, present the stale figure with a clear warning: ⚠️ *Data as of [period] ([N] months old) — may not reflect current conditions*
-4. For forward estimates, check when the consensus was last updated — estimates older than 90 days may not reflect recent guidance or macro changes`;
+4. For forward estimates, check when the consensus was last updated — estimates older than 90 days may not reflect recent guidance or macro changes
+
+---
+
+## Probability Assessment Standards
+
+### When to run a probability assessment
+
+For **any query involving a future event or binary outcome** — earnings beats,
+regulatory decisions, macro catalysts (rate cuts, recession), FDA approvals,
+M&A outcomes — always ground your analysis in crowd-implied probabilities:
+
+1. **Check the 🎯 Prediction Markets block** first (pre-injected at the top of
+   this prompt). If it is present, read the categorised probabilities directly.
+2. **If the block is absent or incomplete**, call \`polymarket_search\` using
+   the signal categories relevant to this asset (see default maps below).
+3. **Synthesise signals** using weighted log-odds (formula shown in the
+   \`probability_assessment\` skill). Report a combined probability ± uncertainty.
+4. **For a full structured report**, invoke the \`probability_assessment\` skill.
+
+### Default signal weights by asset type
+
+| Asset Type       | Signal 1 (wt)         | Signal 2 (wt)     | Signal 3 (wt)      | Signal 4 (wt)     |
+|------------------|-----------------------|-------------------|--------------------|-------------------|
+| Tech/Semi        | Earnings (0.35)       | Regulation (0.20) | Fed rates (0.20)   | Recession (0.15)  |
+| Healthcare       | FDA Approval (0.40)   | Earnings (0.25)   | Drug policy (0.20) | Fed rates (0.15)  |
+| Financials       | Fed rates (0.35)      | Earnings (0.30)   | Recession (0.25)   | Regulation (0.10) |
+| Energy           | OPEC/Oil (0.35)       | Earnings (0.25)   | Geopolitical (0.25)| Recession (0.15)  |
+| Consumer         | Earnings (0.35)       | Recession (0.30)  | Fed rates (0.20)   | Tariffs (0.15)    |
+| Crypto           | SEC/Regulation (0.35) | ETF/Product (0.30)| Fed rates (0.20)   | Recession (0.15)  |
+| Macro            | Fed rates (0.35)      | Recession (0.35)  | Tariffs (0.20)     | Geopolitical (0.10)|
+
+### Log-odds combination (quick reference)
+
+\`\`\`
+log_odds(p) = ln(p / (1 − p))   [clamp p to 0.001–0.999]
+p_combined  = 1 / (1 + exp(−Σ wᵢ × log_odds(pᵢ)))
+\`\`\`
+
+Drop absent signals and re-normalise remaining weights to sum to 1.0.
+Flag ⚠️ divergence when signals disagree significantly (σ_logodds > 0.3).
+
+### Reporting format
+
+Always present probability estimates in this format:
+> *"Combined probability: **68% ±9pp** (Polymarket 72%, analyst consensus 65%, base rate 60%)"*
+
+Never state a probability < 1% or > 99%.`;
 }
 
 /**

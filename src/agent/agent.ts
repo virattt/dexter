@@ -15,6 +15,9 @@ import { MemoryManager } from '../memory/index.js';
 import { runMemoryFlush, shouldRunMemoryFlush } from '../memory/flush.js';
 import { injectMemoryContext } from './memory-injection.js';
 import { extractTickers as extractTickersFn } from '../memory/ticker-extractor.js';
+import { injectPolymarketContext } from '../tools/finance/polymarket-injector.js';
+import { extractSignals as extractSignalsFn } from '../tools/finance/signal-extractor.js';
+import { fetchPolymarketMarkets } from '../tools/finance/polymarket.js';
 import { resolveProvider } from '../providers.js';
 
 
@@ -118,6 +121,12 @@ export class Agent {
     currentPrompt = await injectMemoryContext(query, currentPrompt, {
       getMemoryManager: () => MemoryManager.get(),
       extractTickers: (text) => extractTickersFn(text),
+    });
+
+    // Auto-inject Polymarket prediction market context for detected asset signals
+    currentPrompt = await injectPolymarketContext(query, currentPrompt, {
+      extractSignals: (text) => extractSignalsFn(text),
+      fetchMarkets: (q, limit) => fetchPolymarketMarkets(q, limit),
     });
 
     // Track whether sequential_thinking has been used at least once this session
