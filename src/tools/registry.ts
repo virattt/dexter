@@ -1,5 +1,5 @@
 import { StructuredToolInterface } from '@langchain/core/tools';
-import { createGetFinancials, createGetMarketData, createReadFilings, createScreenStocks } from './finance/index.js';
+import { createGetFinancials, createGetMarketData, createReadFilings, createScreenStocks, polymarketTool, POLYMARKET_DESCRIPTION } from './finance/index.js';
 import { exaSearch, perplexitySearch, tavilySearch, WEB_SEARCH_DESCRIPTION, xSearchTool, X_SEARCH_DESCRIPTION } from './search/index.js';
 import { skillTool, SKILL_TOOL_DESCRIPTION } from './skill.js';
 import { webFetchTool, WEB_FETCH_DESCRIPTION } from './fetch/web-fetch.js';
@@ -64,6 +64,11 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'stock_screener',
       tool: createScreenStocks(model),
       description: SCREEN_STOCKS_DESCRIPTION,
+    },
+    {
+      name: 'polymarket_search',
+      tool: polymarketTool,
+      description: POLYMARKET_DESCRIPTION,
     },
     {
       name: 'web_fetch',
