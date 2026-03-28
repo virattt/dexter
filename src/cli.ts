@@ -42,12 +42,15 @@ import {
   createModelSelector,
   createProviderSelector,
   createSessionSelector,
+  createSkillSelector,
 } from './components/index.js';
 import { editorTheme, theme } from './theme.js';
 import type { HistoryItem } from './types.js';
 import { formatDuration, formatExchangeForScrollback } from './utils/scrollback.js';
 import type { SessionIndexEntry } from './utils/session-store.js';
 import type { SessionLlmMessage } from './utils/session-store.js';
+import { discoverSkills } from './skills/registry.js';
+import type { SkillMetadata } from './skills/types.js';
 
 function truncateAtWord(str: string, maxLength: number): string {
   if (str.length <= maxLength) {
@@ -161,6 +164,7 @@ function createScreen(
 
 const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'help',      description: 'Show available commands and keyboard shortcuts' },
+  { name: 'skills',    description: 'Browse available skills and how to invoke them' },
   { name: 'model',     description: 'Switch the LLM model or provider' },
   { name: 'sessions',  description: 'Browse and resume past conversations' },
   { name: 'think',     description: 'Toggle Ollama extended thinking on/off (thinking models only)' },
@@ -202,6 +206,23 @@ function buildHelpPanel(): Container {
   container.addChild(row('/', 'Type / to see available commands'));
   container.addChild(row('Thinking', 'Enabled automatically for qwen3, deepseek-r1, qwq models'));
   container.addChild(row('Fallback', 'Dexter uses web search when financial APIs fail'));
+
+  // Skills section — populated from discovered skills at render time
+  const skills = discoverSkills();
+  if (skills.length > 0) {
+    const MAX_SKILL_DESC = 55;
+    const skillCol = 22;
+    const skillRow = (name: string, desc: string) => {
+      const truncated = desc.length > MAX_SKILL_DESC ? `${desc.slice(0, MAX_SKILL_DESC - 1)}…` : desc;
+      return new Text(`  ${theme.accent(name.padEnd(skillCol))} ${theme.muted(truncated)}`, 0, 0);
+    };
+    container.addChild(new Spacer(1));
+    container.addChild(new Text(theme.bold('Available Skills') + theme.muted('  — invoke: "use the [name] skill for …"'), 0, 0));
+    container.addChild(new Spacer(1));
+    for (const skill of skills) {
+      container.addChild(skillRow(skill.name, skill.description));
+    }
+  }
 
   return container;
 }
@@ -648,6 +669,9 @@ export async function runCli() {
   let memoryVisible = false;
   // null = loading; string = content (may be empty)
   let memoryContent: { memory: string; finance: string } | null = null;
+  // Skills overlay state
+  let skillsVisible = false;
+  let skillsList: SkillMetadata[] = [];
   // Tracks exchanges already flushed to scrollback on completion (long answers).
   // Prevents the "flush on next submit" path from double-writing them.
   const flushedItems = new WeakSet<HistoryItem>();
@@ -789,6 +813,10 @@ export async function runCli() {
       memoryVisible = false;
       renderSelectionOverlay();
     }
+    if (skillsVisible) {
+      skillsVisible = false;
+      renderSelectionOverlay();
+    }
 
     if (query.toLowerCase() === 'exit' || query.toLowerCase() === 'quit') {
       tui.stop();
@@ -845,6 +873,13 @@ export async function runCli() {
       return;
     }
 
+    if (query === '/skills') {
+      skillsList = discoverSkills();
+      skillsVisible = true;
+      renderSelectionOverlay();
+      tui.requestRender();
+      return;
+    }
     if (query.startsWith('/watchlist')) {
       const watchlistCtrl = new WatchlistController(process.cwd());
       const sub = parseWatchlistSubcommand(query.slice('/watchlist'.length).trim());
@@ -1097,7 +1132,7 @@ export async function runCli() {
       return;
     }
 
-    if (modelSelection.isInSelectionFlow() || sessionsVisible || watchlistVisible || agentRunner.pendingApproval || agentRunner.isProcessing) {
+    if (modelSelection.isInSelectionFlow() || sessionsVisible || skillsVisible || watchlistVisible || agentRunner.pendingApproval || agentRunner.isProcessing) {
       return;
     }
 
@@ -1130,6 +1165,13 @@ export async function runCli() {
 
     // Persist the updated history after each completed exchange.
     sessionController.autosave(agentRunner.history, modelSelection.inMemoryChatHistory);
+
+    // Update running token counter in the compact status bar.
+    const totalTokens = agentRunner.history.reduce(
+      (sum, item) => sum + (item.tokenUsage?.totalTokens ?? 0),
+      0,
+    );
+    intro.setTokenCount(totalTokens);
 
     // If the answer is longer than the terminal can display, flush it to terminal
     // scrollback immediately so the user can scroll up to read it.  Show a compact
@@ -1174,6 +1216,10 @@ export async function runCli() {
         helpVisible = false;
         renderSelectionOverlay();
         tui.requestRender();
+      } else if (skillsVisible) {
+        skillsVisible = false;
+        renderSelectionOverlay();
+        tui.requestRender();
       }
       return;
     }
@@ -1185,6 +1231,11 @@ export async function runCli() {
   editor.onEscape = () => {
     if (memoryVisible) {
       memoryVisible = false;
+      renderSelectionOverlay();
+      return;
+    }
+    if (skillsVisible) {
+      skillsVisible = false;
       renderSelectionOverlay();
       return;
     }
@@ -1247,7 +1298,7 @@ export async function runCli() {
     // Hint footer: keyboard shortcuts when idle, cancel hint while running.
     const hintLine = agentRunner.isProcessing
       ? theme.muted('  esc · cancel query')
-      : theme.muted('  ↑↓ history  ·  /model  /sessions  /think  /watchlist [list|show|snapshot]  /dream [show|force]  /memory  /help  ·  ctrl+c exit');
+      : theme.muted('  ↑↓ history  ·  /help  /skills  /model  /watchlist  /memory  /dream  ·  ctrl+c exit');
     root.addChild(new Text(hintLine, 0, 0));
     root.addChild(editor);
     root.addChild(debugPanel);
@@ -1347,6 +1398,25 @@ export async function runCli() {
         'Select a past conversation to resume',
         selector,
         'Enter to resume · ↑↓ navigate · Esc to close',
+        selector,
+      );
+      return;
+    }
+
+    if (skillsVisible) {
+      const selector = createSkillSelector(skillsList, (name) => {
+        skillsVisible = false;
+        if (name) {
+          editor.setText(`Use the ${name} skill for `);
+        }
+        renderSelectionOverlay();
+        tui.requestRender();
+      });
+      renderScreenView(
+        '⬡ Dexter — Skills',
+        'Select a skill to use — press Enter to pre-fill the prompt',
+        selector,
+        'Enter to use · ↑↓ navigate · Esc to close',
         selector,
       );
       return;

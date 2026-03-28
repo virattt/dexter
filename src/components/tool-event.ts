@@ -72,8 +72,15 @@ export class ToolEventComponent extends Container {
   constructor(_tui: unknown, tool: string, args: Record<string, unknown>) {
     super();
     this.addChild(new Spacer(1));
-    this.titleText = `${formatToolName(tool)}${args ? `${theme.muted('(')}${formatArgs(tool, args)}${theme.muted(')')}` : ''}`;
-    this.header = new Text(`${theme.muted('⏺')} ${this.titleText}`, 0, 0);
+    const isSkill = tool === 'skill';
+    if (isSkill) {
+      const skillName = String(args.skill ?? 'skill');
+      this.titleText = `${theme.accent('Skill:')} ${theme.accent(skillName)}${theme.muted('()')}`;
+      this.header = new Text(`${theme.accent('⚡')} ${this.titleText}`, 0, 0);
+    } else {
+      this.titleText = `${formatToolName(tool)}${args ? `${theme.muted('(')}${formatArgs(tool, args)}${theme.muted(')')}` : ''}`;
+      this.header = new Text(`${theme.muted('⏺')} ${this.titleText}`, 0, 0);
+    }
     this.addChild(this.header);
   }
 

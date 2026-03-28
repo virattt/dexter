@@ -11,6 +11,7 @@ export class IntroComponent extends Container {
   private isCompact = false;
   private currentModel = '';
   private thinkOn = true;
+  private tokenCount = 0;
 
   constructor(model: string) {
     super();
@@ -98,13 +99,23 @@ export class IntroComponent extends Container {
     this.rebuildModelText();
   }
 
+  /** Update the running token counter shown in the compact status bar. */
+  setTokenCount(total: number) {
+    this.tokenCount = total;
+    this.rebuildModelText();
+  }
+
   private rebuildModelText() {
     const modelLabel = getModelDisplayName(this.currentModel);
     if (this.isCompact) {
       const sep = theme.muted(' │ ');
       const thinkPart = this.thinkOn ? theme.primary('💭 on') : theme.muted('💭 off');
+      const tokenPart =
+        this.tokenCount > 0
+          ? `${sep}${theme.muted(this.tokenCount >= 1000 ? `${(this.tokenCount / 1000).toFixed(1)}k tokens` : `${this.tokenCount} tokens`)}`
+          : '';
       this.modelText.setText(
-        `${theme.muted('⬡ Dexter')}${sep}${theme.primary(modelLabel)}${sep}${thinkPart}`,
+        `${theme.muted('⬡ Dexter')}${sep}${theme.primary(modelLabel)}${sep}${thinkPart}${tokenPart}`,
       );
     } else {
       this.modelText.setText(

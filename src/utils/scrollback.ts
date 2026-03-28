@@ -108,12 +108,17 @@ export function formatExchangeForScrollback(item: HistoryItem): string {
 
     if (event.type === 'tool_start') {
       const ts = event as ToolStartEvent;
-      const title = `${formatToolName(ts.tool)}${theme.muted('(')}${formatToolArgs(ts.tool, ts.args)}${theme.muted(')')}`;
+      const isSkill = ts.tool === 'skill';
+      const bullet = isSkill ? theme.accent('⚡') : theme.muted('⏺');
+      const toolLabel = isSkill
+        ? `${theme.accent('Skill:')} ${theme.accent(String(ts.args.skill ?? formatToolName(ts.tool)))}${theme.muted('()')}`
+        : `${formatToolName(ts.tool)}${theme.muted('(')}${formatToolArgs(ts.tool, ts.args)}${theme.muted(')')}`;
+      const title = toolLabel;
 
       lines.push('');
       if (display.completed && display.endEvent?.type === 'tool_end') {
         const done = display.endEvent as ToolEndEvent;
-        const summary = summarizeToolResult(done.tool, ts.args, done.result);
+        const summary = isSkill ? `Loaded ${String(ts.args.skill ?? ts.tool)} skill` : summarizeToolResult(done.tool, ts.args, done.result);
         lines.push(`${theme.success('✓')} ${title}`);
         lines.push(`${theme.muted('⎿  ')}${summary}${theme.muted(` in ${formatDuration(done.duration)}`)}`);
       } else if (display.completed && display.endEvent?.type === 'tool_error') {
@@ -121,7 +126,7 @@ export function formatExchangeForScrollback(item: HistoryItem): string {
         lines.push(`${theme.error('✗')} ${title}`);
         lines.push(`${theme.muted('⎿  ')}${theme.error(`Error: ${truncate(err.error, 80)}`)}`);
       } else {
-        lines.push(`${theme.muted('⏺')} ${title}`);
+        lines.push(`${bullet} ${title}`);
         lines.push(theme.muted('⎿  Interrupted'));
       }
       continue;
@@ -152,6 +157,9 @@ export function formatExchangeForScrollback(item: HistoryItem): string {
     lines.push(theme.muted(`✻ ${formatDuration(item.duration)}`));
   }
 
+  // Visual separator — makes it easy to scan back through a long session
+  lines.push('');
+  lines.push(theme.dim('  ' + '─'.repeat(54)));
   lines.push('');
   return lines.join('\n');
 }

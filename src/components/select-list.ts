@@ -2,6 +2,7 @@ import { Container, Input, SelectList, Text, type SelectItem, getEditorKeybindin
 import { PROVIDERS, type Model } from '../utils/model.js';
 import type { ApprovalDecision } from '../agent/types.js';
 import type { SessionIndexEntry } from '../utils/session-store.js';
+import type { SkillMetadata } from '../skills/types.js';
 import { selectListTheme, theme } from '../theme.js';
 
 class VimSelectList extends SelectList {
@@ -166,6 +167,42 @@ export function createSessionSelector(
   });
 
   const list = new VimSelectList(items, Math.min(sessions.length + 2, 12), selectListTheme);
+  list.onSelect = (item) => onSelect(item.value);
+  list.onCancel = () => onSelect(null);
+  return list;
+}
+
+export function createSkillSelector(
+  skills: SkillMetadata[],
+  onSelect: (name: string | null) => void,
+) {
+  if (skills.length === 0) {
+    const container = new Container();
+    container.addChild(new Text(theme.muted('  No skills available.'), 0, 0));
+    container.addChild(new Text(theme.muted('  esc to close'), 0, 0));
+    (container as any).handleInput = (keyData: string) => {
+      const kb = getEditorKeybindings();
+      if (kb.matches(keyData, 'selectCancel')) onSelect(null);
+    };
+    return container;
+  }
+
+  const TOTAL_WIDTH = 72;
+  const MAX_DESC = 50;
+
+  const items: SelectItem[] = skills.map((skill) => {
+    const desc =
+      skill.description.length > MAX_DESC
+        ? `${skill.description.slice(0, MAX_DESC - 1)}…`
+        : skill.description;
+    const gap = Math.max(2, TOTAL_WIDTH - skill.name.length - desc.length);
+    return {
+      value: skill.name,
+      label: `${skill.name}${' '.repeat(gap)}${theme.muted(desc)}`,
+    };
+  });
+
+  const list = new VimSelectList(items, Math.min(skills.length + 2, 14), selectListTheme);
   list.onSelect = (item) => onSelect(item.value);
   list.onCancel = () => onSelect(null);
   return list;
