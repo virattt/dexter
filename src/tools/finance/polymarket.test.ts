@@ -251,3 +251,21 @@ describe('polymarketTool', () => {
     expect(text).toContain('No active Polymarket prediction markets found');
   });
 });
+
+describe('inferTagSlugs — commodity coverage (regression)', () => {
+  it('maps gold to commodities', () => {
+    expect(inferTagSlugs('gold price')).toContain('commodities');
+  });
+  it('maps silver to commodities', () => {
+    expect(inferTagSlugs('silver forecast')).toContain('commodities');
+  });
+  it('maps copper to commodities', () => {
+    expect(inferTagSlugs('copper demand')).toContain('commodities');
+  });
+  it('maps natural gas to commodities', () => {
+    expect(inferTagSlugs('natural gas price')).toContain('commodities');
+  });
+  it('maps wheat to commodities', () => {
+    expect(inferTagSlugs('wheat supply chain')).toContain('commodities');
+  });
+});

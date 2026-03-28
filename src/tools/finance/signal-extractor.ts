@@ -72,6 +72,10 @@ export const TICKER_TO_COMPANY_NAME: Record<string, string> = {
   BABA: 'Alibaba', PG: 'Procter & Gamble', KO: 'Coca-Cola', PEP: 'PepsiCo',
   // Crypto
   BTC: 'Bitcoin', ETH: 'Ethereum', SOL: 'Solana',
+  // Commodities — use lowercase common name for Polymarket text matching
+  GOLD: 'gold', SILVER: 'silver', COPPER: 'copper', PLATINUM: 'platinum',
+  PALLADIUM: 'palladium', OIL: 'oil', CRUDE: 'oil', NATGAS: 'natural gas',
+  WHEAT: 'wheat', CORN: 'corn', SOYBEAN: 'soybeans', COFFEE: 'coffee', SUGAR: 'sugar',
 };
 
 // ---------------------------------------------------------------------------
@@ -85,7 +89,8 @@ export const SIGNAL_KEYWORDS: Record<string, string[]> = {
   macro_growth: ['recession', 'GDP', 'growth', 'downturn', 'economic', 'contraction'],
   regulatory:   ['regulation', 'ban', 'law', 'policy', 'SEC', 'antitrust', 'fine', 'penalty'],
   fda_approval: ['FDA', 'approval', 'drug', 'trial', 'phase', 'clearance'],
-  commodity:    ['oil', 'OPEC', 'price', 'barrel', 'energy', 'supply', 'crude', 'production'],
+  commodity:    ['oil', 'OPEC', 'price', 'barrel', 'energy', 'supply', 'crude', 'production',
+                 'gold', 'silver', 'copper', 'metal', 'ounce', 'commodity', 'natural gas', 'wheat', 'corn'],
   geopolitical: ['war', 'conflict', 'sanction', 'Middle East', 'Russia', 'China', 'Ukraine'],
   trade_policy: ['tariff', 'trade', 'import', 'export', 'duty'],
   etf_product:  ['ETF', 'fund', 'approval', 'launch', 'spot'],
@@ -145,6 +150,28 @@ const MACRO_KEYWORDS = [
   'fed', 'fomc', 'rate cut', 'rate hike', 'cpi', 'ppi', 'gdp',
   'recession', 'inflation', 'employment', 'jobs', 'payroll',
   'tariff', 'trade war',
+];
+
+/**
+ * Maps commodity keyword (lowercase) → internal ticker symbol used in
+ * signal templates and TICKER_TO_COMPANY_NAME. Ordered longest-first so
+ * "natural gas" is matched before "gas".
+ */
+const COMMODITY_KEYWORD_MAP: Array<[keyword: string, ticker: string]> = [
+  ['natural gas', 'NATGAS'],
+  ['gold',        'GOLD'],
+  ['silver',      'SILVER'],
+  ['copper',      'COPPER'],
+  ['platinum',    'PLATINUM'],
+  ['palladium',   'PALLADIUM'],
+  ['crude oil',   'OIL'],
+  ['crude',       'OIL'],
+  ['oil price',   'OIL'],
+  ['wheat',       'WHEAT'],
+  ['corn',        'CORN'],
+  ['soybean',     'SOYBEAN'],
+  ['coffee',      'COFFEE'],
+  ['sugar',       'SUGAR'],
 ];
 
 function substituteTemplates(phrase: string, ticker: string): string {
@@ -229,7 +256,14 @@ export function detectAssetType(query: string): { type: AssetType; ticker: strin
     }
   }
 
-  // 4. Macro keywords
+  // 4. Commodity keywords (check before macro to avoid "oil price" → macro)
+  for (const [keyword, commodityTicker] of COMMODITY_KEYWORD_MAP) {
+    if (lower.includes(keyword)) {
+      return { type: 'commodity', ticker: commodityTicker };
+    }
+  }
+
+  // 5. Macro keywords
   if (MACRO_KEYWORDS.some((kw) => lower.includes(kw))) {
     return { type: 'macro', ticker: null };
   }
@@ -300,10 +334,10 @@ const SIGNAL_MAPS: Record<AssetType, Array<{
     { name: 'US Recession',      tpl: 'US recession',        variantTpls: ['recession', 'economic recession'],         weight: 0.15, category: 'macro_growth' },
   ],
   commodity: [
-    { name: 'Supply / Demand',   tpl: 'commodity supply',     variantTpls: ['supply disruption', 'commodity price'],  weight: 0.40, category: 'commodity' },
-    { name: 'Geopolitical',      tpl: 'geopolitical conflict', variantTpls: ['geopolitical', 'conflict war'],          weight: 0.30, category: 'geopolitical' },
-    { name: 'US Recession',      tpl: 'US recession',          variantTpls: ['recession', 'economic recession'],       weight: 0.20, category: 'macro_growth' },
-    { name: 'Fed Rate Decision', tpl: 'Fed rate cut',          variantTpls: ['Federal Reserve rate', 'FOMC'],          weight: 0.10, category: 'macro_rates' },
+    { name: 'Price Level',       tpl: '{ticker} price',        variantTpls: ['{ticker}', 'commodity price'],           weight: 0.45, category: 'commodity' },
+    { name: 'Geopolitical',      tpl: 'geopolitical conflict', variantTpls: ['geopolitical', 'Middle East conflict'],   weight: 0.25, category: 'geopolitical' },
+    { name: 'Fed Rate Decision', tpl: 'Fed rate cut',          variantTpls: ['Federal Reserve rate', 'FOMC'],           weight: 0.20, category: 'macro_rates' },
+    { name: 'US Recession',      tpl: 'US recession',          variantTpls: ['recession', 'economic recession'],        weight: 0.10, category: 'macro_growth' },
   ],
   macro: [
     { name: 'Fed Rate Decision', tpl: 'Fed rate cut',          variantTpls: ['Federal Reserve rate', 'FOMC'],         weight: 0.35, category: 'macro_rates' },

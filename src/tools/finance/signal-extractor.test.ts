@@ -393,3 +393,61 @@ describe('SIGNAL_KEYWORDS', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// detectAssetType — commodity detection regression tests
+// ---------------------------------------------------------------------------
+
+describe('detectAssetType — commodity detection', () => {
+  it('detects gold as commodity', () => {
+    const result = detectAssetType('Perform a forecast of gold price for the next month');
+    expect(result.type).toBe('commodity');
+    expect(result.ticker).toBe('GOLD');
+  });
+
+  it('detects silver as commodity', () => {
+    const result = detectAssetType('What is the silver price outlook?');
+    expect(result.type).toBe('commodity');
+    expect(result.ticker).toBe('SILVER');
+  });
+
+  it('detects oil / crude as commodity', () => {
+    expect(detectAssetType('crude oil price forecast').type).toBe('commodity');
+    expect(detectAssetType('oil price this week').type).toBe('commodity');
+  });
+
+  it('detects natural gas as commodity', () => {
+    const result = detectAssetType('natural gas price trend');
+    expect(result.type).toBe('commodity');
+    expect(result.ticker).toBe('NATGAS');
+  });
+
+  it('detects copper as commodity', () => {
+    const result = detectAssetType('copper demand forecast');
+    expect(result.type).toBe('commodity');
+    expect(result.ticker).toBe('COPPER');
+  });
+
+  it('does NOT misclassify "gold" as macro', () => {
+    expect(detectAssetType('gold price prediction').type).not.toBe('macro');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractSignals — commodity signals use commodity-specific templates
+// ---------------------------------------------------------------------------
+
+describe('extractSignals — commodity signals', () => {
+  it('gold query produces "gold price" as primary search phrase', () => {
+    const signals = extractSignals('gold price forecast next month');
+    const primary = signals[0];
+    expect(primary.searchPhrase.toLowerCase()).toContain('gold');
+  });
+
+  it('commodity signals do NOT default to "commodity supply" generic phrase', () => {
+    const signals = extractSignals('gold price');
+    const phrases = signals.map((s) => s.searchPhrase.toLowerCase());
+    // The old broken template produced "commodity supply" — regression guard
+    expect(phrases).not.toContain('commodity supply');
+  });
+});
