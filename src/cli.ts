@@ -166,6 +166,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'think',     description: 'Toggle Ollama extended thinking on/off (thinking models only)' },
   { name: 'watchlist', description: 'Portfolio briefing — or: add TICKER [cost] [shares] | remove TICKER | list | show TICKER | snapshot' },
   { name: 'dream',     description: 'Consolidate memory files (merge daily notes into MEMORY.md + FINANCE.md)' },
+  { name: 'memory',    description: 'Show consolidated memory files (MEMORY.md + FINANCE.md)' },
 ];
 
 function buildHelpPanel(): Container {
@@ -637,6 +638,10 @@ export async function runCli() {
   let thinkEnabled: boolean | null = null;
   let sessionStarted = false;
   let dreamRunning = false;
+  // Memory overlay state
+  let memoryVisible = false;
+  // null = loading; string = content (may be empty)
+  let memoryContent: { memory: string; finance: string } | null = null;
   // Tracks exchanges already flushed to scrollback on completion (long answers).
   // Prevents the "flush on next submit" path from double-writing them.
   const flushedItems = new WeakSet<HistoryItem>();
@@ -772,6 +777,10 @@ export async function runCli() {
     }
     if (sessionsVisible) {
       sessionsVisible = false;
+      renderSelectionOverlay();
+    }
+    if (memoryVisible) {
+      memoryVisible = false;
       renderSelectionOverlay();
     }
 
@@ -1003,6 +1012,23 @@ export async function runCli() {
       return;
     }
 
+    if (query === '/memory' || query === '/memory show') {
+      memoryVisible = true;
+      memoryContent = null; // loading
+      renderSelectionOverlay();
+      tui.requestRender();
+      // Load both files asynchronously then re-render.
+      const memStore = new MemoryStore();
+      Promise.all([
+        memStore.readMemoryFile('MEMORY.md').catch(() => ''),
+        memStore.readMemoryFile('FINANCE.md').catch(() => ''),
+      ]).then(([memory, finance]) => {
+        memoryContent = { memory: memory.trim(), finance: finance.trim() };
+        if (memoryVisible) { renderSelectionOverlay(); tui.requestRender(); }
+      });
+      return;
+    }
+
     if (modelSelection.isInSelectionFlow() || sessionsVisible || watchlistVisible || agentRunner.pendingApproval || agentRunner.isProcessing) {
       return;
     }
@@ -1068,7 +1094,11 @@ export async function runCli() {
     const value = text.trim();
     // Empty Enter while a modal overlay is open → close it (same as Esc).
     if (!value) {
-      if (watchlistVisible) {
+      if (memoryVisible) {
+        memoryVisible = false;
+        renderSelectionOverlay();
+        tui.requestRender();
+      } else if (watchlistVisible) {
         watchlistVisible = false;
         renderSelectionOverlay();
         tui.requestRender();
@@ -1085,6 +1115,11 @@ export async function runCli() {
   };
 
   editor.onEscape = () => {
+    if (memoryVisible) {
+      memoryVisible = false;
+      renderSelectionOverlay();
+      return;
+    }
     if (helpVisible) {
       helpVisible = false;
       renderSelectionOverlay();
@@ -1144,7 +1179,7 @@ export async function runCli() {
     // Hint footer: keyboard shortcuts when idle, cancel hint while running.
     const hintLine = agentRunner.isProcessing
       ? theme.muted('  esc · cancel query')
-      : theme.muted('  ↑↓ history  ·  /model  /sessions  /think  /watchlist [list|show|snapshot]  /dream  /help  ·  ctrl+c exit');
+      : theme.muted('  ↑↓ history  ·  /model  /sessions  /think  /watchlist [list|show|snapshot]  /dream  /memory  /help  ·  ctrl+c exit');
     root.addChild(new Text(hintLine, 0, 0));
     root.addChild(editor);
     root.addChild(debugPanel);
@@ -1245,6 +1280,43 @@ export async function runCli() {
         selector,
         'Enter to resume · ↑↓ navigate · Esc to close',
         selector,
+      );
+      return;
+    }
+
+    if (memoryVisible) {
+      const panel = new Container();
+      if (memoryContent === null) {
+        panel.addChild(new Text(theme.muted('  ⏳ Loading memory files…'), 0, 0));
+      } else {
+        // MEMORY.md section
+        panel.addChild(new Text(theme.bold(theme.primary('MEMORY.md')), 0, 0));
+        panel.addChild(new Spacer(1));
+        if (memoryContent.memory) {
+          for (const line of memoryContent.memory.split('\n')) {
+            panel.addChild(new Text(`  ${line}`, 0, 0));
+          }
+        } else {
+          panel.addChild(new Text(theme.muted('  (empty)'), 0, 0));
+        }
+        panel.addChild(new Spacer(1));
+        // FINANCE.md section
+        panel.addChild(new Text(theme.bold(theme.primary('FINANCE.md')), 0, 0));
+        panel.addChild(new Spacer(1));
+        if (memoryContent.finance) {
+          for (const line of memoryContent.finance.split('\n')) {
+            panel.addChild(new Text(`  ${line}`, 0, 0));
+          }
+        } else {
+          panel.addChild(new Text(theme.muted('  (empty)'), 0, 0));
+        }
+      }
+      renderScreenView(
+        '⬡ Dexter — Memory',
+        'Consolidated long-term memory',
+        panel,
+        'Esc to close · /dream [force] to consolidate · /dream shows merge conditions',
+        editor,
       );
       return;
     }
