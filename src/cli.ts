@@ -957,6 +957,8 @@ export async function runCli() {
       intro.setModel('🌙 Dream: consolidating memories…');
       tui.requestRender();
       const dreamStart = Date.now();
+      // Keep TUI alive during the long LLM consolidation call (can take 2-5 min).
+      const dreamHeartbeat = setInterval(() => tui.requestRender(), 1500);
       let dreamAnswer = '';
       try {
         const dreamResult = await runDream(dreamStore, modelSelection.model, { force });
@@ -978,11 +980,16 @@ export async function runCli() {
         intro.setModel(`Dream error: ${msg}`);
       } finally {
         dreamRunning = false;
+        clearInterval(dreamHeartbeat);
       }
-      // Flush the command + result to scrollback so it's visible in chat history.
+      // Flush previous agent exchange to scrollback (only if not already flushed by
+      // the long-answer auto-flush path — same guard as the regular query path).
       const prevItem = agentRunner.history.at(-1);
-      if (prevItem && (prevItem.status === 'complete' || prevItem.status === 'interrupted')) {
+      if (prevItem && (prevItem.status === 'complete' || prevItem.status === 'interrupted') && !flushedItems.has(prevItem)) {
         flushExchangeToScrollback(tui, chatLog, prevItem);
+        flushedItems.add(prevItem);
+        // Small yield: let TUI settle before the second flush.
+        await new Promise<void>((resolve) => setTimeout(resolve, 50));
       }
       flushExchangeToScrollback(tui, chatLog, {
         id: `dream-${dreamStart}`,

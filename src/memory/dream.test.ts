@@ -153,6 +153,35 @@ describe('parseDreamOutput', () => {
     expect(result!.memory).toBe('- Line one.\n- Line two.');
     expect(result!.finance).toBe('- AAPL: buy.\n- MSFT: hold.');
   });
+
+  it('accepts ## (two hashes) instead of ###', () => {
+    const raw = '## MEMORY.md\nMemory content.\n\n## FINANCE.md\nFinance content.';
+    const result = parseDreamOutput(raw);
+    expect(result).not.toBeNull();
+    expect(result!.memory).toBe('Memory content.');
+    expect(result!.finance).toBe('Finance content.');
+  });
+
+  it('accepts #### (four hashes) for either section', () => {
+    const raw = '#### MEMORY.md\nMemory content.\n\n#### FINANCE.md\nFinance content.';
+    const result = parseDreamOutput(raw);
+    expect(result).not.toBeNull();
+    expect(result!.memory).toBe('Memory content.');
+  });
+
+  it('is case-insensitive for the section headers', () => {
+    const raw = '### memory.md\nContent.\n\n### finance.md\nFinance.';
+    const result = parseDreamOutput(raw);
+    expect(result).not.toBeNull();
+  });
+
+  it('handles mixed hash depths (## memory + ### finance)', () => {
+    const raw = '## MEMORY.md\nMemory.\n\n### FINANCE.md\nFinance.';
+    const result = parseDreamOutput(raw);
+    expect(result).not.toBeNull();
+    expect(result!.memory).toBe('Memory.');
+    expect(result!.finance).toBe('Finance.');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -608,5 +637,51 @@ describe('runDream — full cycle (E2E)', () => {
     await store.writeDreamMeta({ lastRunAt: Date.now() - 1000, sessionsSinceLastRun: 0, totalRuns: 1 });
     await runDream(store, 'gpt-4', { callLlm: mockLlm() });
     expect(await store.listDailyFiles()).toHaveLength(2);
+  });
+
+  // ── E2E: force with no daily files (the common user scenario) ──────────────
+
+  it('force=true with zero daily files still consolidates MEMORY.md and FINANCE.md', async () => {
+    // Seed only the two persistent files, no daily session files.
+    seedFile(tmpDir, 'MEMORY.md', '- User watchlist: AMD, ORCL.\n- Risk: moderate.');
+    seedFile(tmpDir, 'FINANCE.md', '- AMD: AI GPU thesis. Target $300.');
+    const result = await runDream(store, 'gpt-4', {
+      force: true,
+      callLlm: mockLlm('Updated memory.', 'Updated finance.'),
+    });
+    expect(result.ran).toBe(true);
+    expect(result.archivedFiles).toHaveLength(0);
+    expect(result.updatedFiles).toContain('MEMORY.md');
+    expect(result.updatedFiles).toContain('FINANCE.md');
+    expect(await store.readMemoryFile('MEMORY.md')).toContain('Updated memory.');
+    expect(await store.readMemoryFile('FINANCE.md')).toContain('Updated finance.');
+  });
+
+  it('force=true with no daily files increments totalRuns in dream meta', async () => {
+    seedFile(tmpDir, 'MEMORY.md', 'notes.');
+    seedFile(tmpDir, 'FINANCE.md', 'positions.');
+    await store.writeDreamMeta({ lastRunAt: 0, sessionsSinceLastRun: 0, totalRuns: 3 });
+    await runDream(store, 'gpt-4', { force: true, callLlm: mockLlm() });
+    const meta = await store.readDreamMeta();
+    expect(meta?.totalRuns).toBe(4);
+    expect(meta?.sessionsSinceLastRun).toBe(0);
+  });
+
+  it('LLM returning ## headers (two hashes) is parsed correctly', async () => {
+    seedRealisticFiles();
+    const twoHashLlm: CallLlmFn = async () => ({
+      content: '## MEMORY.md\nTwo-hash memory.\n\n## FINANCE.md\nTwo-hash finance.',
+    });
+    const result = await runDream(store, 'gpt-4', { force: true, callLlm: twoHashLlm });
+    expect(result.ran).toBe(true);
+    expect(await store.readMemoryFile('MEMORY.md')).toContain('Two-hash memory.');
+  });
+
+  it('LLM returning malformed output (no required headers) throws descriptive error', async () => {
+    seedRealisticFiles();
+    const badLlm: CallLlmFn = async () => ({ content: 'I could not consolidate anything.' });
+    await expect(runDream(store, 'gpt-4', { force: true, callLlm: badLlm })).rejects.toThrow(
+      /Dream consolidation failed/,
+    );
   });
 });
