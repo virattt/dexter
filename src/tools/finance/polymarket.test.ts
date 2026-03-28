@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { polymarketTool } from './polymarket.js';
+import { polymarketTool, questionMatchesQuery, inferTagSlugs } from './polymarket.js';
 
 // ---------------------------------------------------------------------------
 // Unit tests — no network, mock fetch
@@ -25,6 +25,32 @@ const MOCK_EVENT = {
   markets: [MOCK_MARKET],
 };
 
+const SPORTS_MARKET = {
+  id: '99',
+  question: 'Will the Lakers win the NBA championship?',
+  outcomes: '["Yes","No"]',
+  outcomePrices: '["0.30","0.70"]',
+  endDateIso: '2026-06-30',
+  volume24hr: 5_000_000,
+  volumeNum: 20_000_000,
+  liquidityNum: 2_000_000,
+  active: true,
+  closed: false,
+};
+
+const BITCOIN_MARKET = {
+  id: '42',
+  question: 'Will Bitcoin price exceed $100K in 2026?',
+  outcomes: '["Yes","No"]',
+  outcomePrices: '["0.65","0.35"]',
+  endDateIso: '2026-12-31',
+  volume24hr: 3_000_000,
+  volumeNum: 10_000_000,
+  liquidityNum: 1_500_000,
+  active: true,
+  closed: false,
+};
+
 function mockFetch(eventData: unknown, marketData: unknown) {
   return async (url: string | URL) => {
     const urlStr = String(url);
@@ -36,6 +62,102 @@ function mockFetch(eventData: unknown, marketData: unknown) {
     } as Response;
   };
 }
+
+/** Mock that returns sports for keyword search but Bitcoin market for tag_slug */
+function mockFetchWithTagFallback(tagSlug: string, tagData: unknown, keywordData: unknown) {
+  return async (url: string | URL) => {
+    const urlStr = String(url);
+    if (urlStr.includes(`tag_slug=${tagSlug}`)) {
+      return { ok: true, status: 200, json: async () => tagData } as Response;
+    }
+    return { ok: true, status: 200, json: async () => keywordData } as Response;
+  };
+}
+
+describe('questionMatchesQuery', () => {
+  it('returns true when question contains a query word', () => {
+    expect(questionMatchesQuery('Will the Fed cut rates in 2026?', 'Fed rate cut')).toBe(true);
+  });
+
+  it('returns true when question contains a partial query word (substring match)', () => {
+    expect(questionMatchesQuery('Will Bitcoin reach $100K?', 'Bitcoin price')).toBe(true);
+  });
+
+  it('returns false for a sports market when querying crypto', () => {
+    expect(questionMatchesQuery('Will the Lakers win the NBA championship?', 'Bitcoin price')).toBe(false);
+  });
+
+  it('returns false for a sports market when querying Fed rates', () => {
+    expect(questionMatchesQuery('Will Team A win the Super Bowl?', 'Fed rate cut')).toBe(false);
+  });
+
+  it('returns true for empty query words (no filtering)', () => {
+    expect(questionMatchesQuery('Anything goes here', '')).toBe(true);
+  });
+
+  it('ignores stop words in query', () => {
+    // "the and for" are all stop words, so zero significant words → no filtering
+    expect(questionMatchesQuery('Something completely unrelated', 'the and for')).toBe(true);
+  });
+
+  it('is case-insensitive', () => {
+    expect(questionMatchesQuery('Will NVIDIA earnings beat consensus?', 'nvidia earnings')).toBe(true);
+  });
+
+  it('filters short query words (< 3 chars)', () => {
+    // "AI" = 2 chars, filtered out → no significant words → returns true
+    expect(questionMatchesQuery('Sports championship final', 'AI')).toBe(true);
+  });
+
+  it('matches "recession" query against recession market', () => {
+    expect(questionMatchesQuery('Will the US enter a recession in 2026?', 'US recession')).toBe(true);
+  });
+
+  it('does not match "recession" query against sports market', () => {
+    expect(questionMatchesQuery('Will the Cowboys win the Super Bowl?', 'US recession')).toBe(false);
+  });
+});
+
+describe('inferTagSlugs', () => {
+  it('returns bitcoin and crypto for bitcoin query', () => {
+    const slugs = inferTagSlugs('Bitcoin price');
+    expect(slugs).toContain('bitcoin');
+    expect(slugs).toContain('crypto');
+  });
+
+  it('returns crypto slugs for eth query', () => {
+    const slugs = inferTagSlugs('ethereum price prediction');
+    expect(slugs).toContain('crypto');
+  });
+
+  it('returns economics for Fed/FOMC query', () => {
+    const slugs = inferTagSlugs('Fed rate cut');
+    expect(slugs).toContain('economics');
+  });
+
+  it('returns economics for recession query', () => {
+    const slugs = inferTagSlugs('US recession 2026');
+    expect(slugs).toContain('economics');
+  });
+
+  it('returns politics slugs for election query', () => {
+    const slugs = inferTagSlugs('US presidential election');
+    expect(slugs).toContain('politics');
+  });
+
+  it('returns technology for NVIDIA query', () => {
+    const slugs = inferTagSlugs('NVIDIA earnings');
+    expect(slugs.some(s => ['technology', 'business'].includes(s))).toBe(true);
+  });
+
+  it('returns empty array for unrecognized query', () => {
+    expect(inferTagSlugs('completely random unknown topic')).toEqual([]);
+  });
+
+  it('is case-insensitive for BTC', () => {
+    expect(inferTagSlugs('BTC halving')).toContain('bitcoin');
+  });
+});
 
 describe('polymarketTool', () => {
   it('tool name is polymarket_search', () => {
@@ -66,6 +188,29 @@ describe('polymarketTool', () => {
     // Question should appear exactly once
     const occurrences = (text.match(/Will the Fed cut rates in 2026\?/g) ?? []).length;
     expect(occurrences).toBe(1);
+  });
+
+  it('filters out sports markets when querying financial topics', async () => {
+    // Simulate keyword search returning sports (API ignores keyword)
+    globalThis.fetch = mockFetch([], [SPORTS_MARKET]) as typeof fetch;
+    const result = await polymarketTool.invoke({ query: 'Bitcoin price', limit: 5 });
+    const text = typeof result === 'string' ? result : JSON.stringify(result);
+    expect(text).not.toContain('Lakers');
+    expect(text).not.toContain('NBA');
+  });
+
+  it('uses tag-slug fallback when keyword search returns no relevant results', async () => {
+    // keyword search → returns sports (irrelevant, filtered out)
+    // tag_slug=bitcoin → returns Bitcoin market (relevant)
+    globalThis.fetch = mockFetchWithTagFallback(
+      'bitcoin',
+      [BITCOIN_MARKET],  // tag-based result
+      [SPORTS_MARKET],   // keyword result (filtered out by text filter)
+    ) as typeof fetch;
+    const result = await polymarketTool.invoke({ query: 'Bitcoin price', limit: 5 });
+    const text = typeof result === 'string' ? result : JSON.stringify(result);
+    expect(text).toContain('Bitcoin');
+    expect(text).not.toContain('Lakers');
   });
 
   it('returns a no-results message when both endpoints return empty', async () => {
