@@ -120,7 +120,8 @@ Session transcript:
 ${transcript}`;
 
   try {
-    const result = await callLlm(prompt, { model });
+    // thinkOverride:false — session summaries need concise plain-text output, not thinking tokens
+    const result = await callLlm(prompt, { model, thinkOverride: false });
     const text = typeof result.response === 'string' ? result.response.trim() : '';
     if (!text || text === 'NOTHING_TO_STORE' || text.length < 40) return;
     const today = new Date().toISOString().slice(0, 10);
@@ -961,7 +962,10 @@ export async function runCli() {
         if (dreamResult.ran) {
           const n = dreamResult.archivedFiles.length;
           const files = dreamResult.archivedFiles.map((f) => `  • ${f}`).join('\n');
-          dreamAnswer = `✨ **Dream complete** — memory consolidated\n\n**Archived ${n} daily file${n === 1 ? '' : 's'}:**\n${files}\n\n**Updated:** MEMORY.md, FINANCE.md`;
+          const archiveLine = n > 0
+            ? `**Archived ${n} daily file${n === 1 ? '' : 's'}:**\n${files}\n\n`
+            : `_No daily session files to archive — exit Dexter (ctrl+c) after conversations to generate them._\n\n`;
+          dreamAnswer = `✨ **Dream complete** — memory consolidated\n\n${archiveLine}**Updated:** MEMORY.md, FINANCE.md`;
           intro.setModel(`✨ Dream: archived ${n} file${n === 1 ? '' : 's'}, memory updated`);
         } else {
           dreamAnswer = `🌙 **Dream skipped**\n\n${dreamResult.reason}\n\nUse \`/dream force\` to run regardless of conditions.`;
