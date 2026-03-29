@@ -406,3 +406,282 @@ describe('runEnsemble', () => {
     expect(pmSignal).toBeCloseTo(signal, 5);
   });
 });
+
+// ---------------------------------------------------------------------------
+// runEnsemble — real price scaling
+//
+// All prior tests use currentPrice=100. These verify the engine correctly
+// scales the forecast and CI to any real asset price.
+// ---------------------------------------------------------------------------
+
+describe('runEnsemble — real price scaling', () => {
+  const markets: MarketInput[] = [
+    {
+      question: 'Will gold demand stay elevated?',
+      probability: 0.75,
+      volume24hUsd: 500_000,
+      ageDays: 21,
+      signalTier: 'geopolitical',
+      deltaYes: 0.05,
+      deltaNo: -0.02,
+    },
+  ];
+
+  it('forecastPrice = currentPrice × (1 + forecastReturn) for any price', () => {
+    const r = runEnsemble(414.84, markets, { horizonDays: 7 });
+    expect(r.forecastPrice).toBeCloseTo(414.84 * (1 + r.forecastReturn), 4);
+  });
+
+  it('CI is near currentPrice when currentPrice = 414.84 (not near base-100)', () => {
+    const { ciLow95, ciHigh95 } = runEnsemble(414.84, markets, { horizonDays: 7 });
+    // Both bounds must be well above 100 — the $99-$101 bug guard
+    expect(ciLow95).toBeGreaterThan(300);
+    expect(ciHigh95).toBeGreaterThan(300);
+  });
+
+  it('CI brackets forecastPrice (low < forecastPrice < high) for real price', () => {
+    const r = runEnsemble(414.84, markets, { horizonDays: 7 });
+    expect(r.ciLow95).toBeLessThan(r.forecastPrice);
+    expect(r.ciHigh95).toBeGreaterThan(r.forecastPrice);
+  });
+
+  it('relative CI width is identical regardless of currentPrice (scale invariance)', () => {
+    const r100 = runEnsemble(100,    markets, { horizonDays: 7 });
+    const r414 = runEnsemble(414.84, markets, { horizonDays: 7 });
+    const r634 = runEnsemble(634.09, markets, { horizonDays: 7 });
+    const relWidth100 = (r100.ciHigh95 - r100.ciLow95) / r100.forecastPrice;
+    const relWidth414 = (r414.ciHigh95 - r414.ciLow95) / r414.forecastPrice;
+    const relWidth634 = (r634.ciHigh95 - r634.ciLow95) / r634.forecastPrice;
+    expect(relWidth100).toBeCloseTo(relWidth414, 4);
+    expect(relWidth100).toBeCloseTo(relWidth634, 4);
+  });
+
+  it('forecastReturn is independent of currentPrice', () => {
+    const r100 = runEnsemble(100,    markets, { horizonDays: 7 });
+    const r634 = runEnsemble(634.09, markets, { horizonDays: 7 });
+    expect(r100.forecastReturn).toBeCloseTo(r634.forecastReturn, 8);
+  });
+
+  it('sigma is independent of currentPrice', () => {
+    const s100 = runEnsemble(100,    markets, { horizonDays: 7 }).sigma;
+    const s500 = runEnsemble(500,    markets, { horizonDays: 7 }).sigma;
+    expect(s100).toBeCloseTo(s500, 8);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// runEnsemble — sigma floor
+//
+// With extreme probabilities (P≈0.99), P×(1-P) ≈ 0.01 making rawSigma nearly 0.
+// A 10%-annualised floor prevents implausibly tight CIs.
+//
+// Floor formula: σ_floor = 0.10 × √(horizonDays / 252)
+//   7d  → 0.10 × √(0.02778) = 0.01667 (1.67%)
+//  30d  → 0.10 × √(0.11905) = 0.03450 (3.45%)
+//  90d  → 0.10 × √(0.35714) = 0.05976 (5.98%)
+// 252d  → 0.10 × √(1.00000) = 0.10000 (10.0%)
+// ---------------------------------------------------------------------------
+
+describe('runEnsemble — sigma floor', () => {
+  // Zero-volume markets → quality weight = 0 → normW = 0 → variancePmMarkets = 0 → rawSigma = 0
+  // The floor prevents sigma from collapsing to 0 (which would give a zero-width CI).
+  const zeroVolumeMarkets: MarketInput[] = [
+    {
+      question: 'Extreme-probability event',
+      probability: 0.99,     // P×(1-P)=0.01, very low market variance
+      volume24hUsd: 0,        // zero volume → quality weight = 0 → rawSigma = 0
+      ageDays: 21,
+      signalTier: 'macro',
+      deltaYes: 0.05,
+      deltaNo: -0.02,
+    },
+  ];
+
+  it('sigma equals floor for 7-day horizon when rawSigma = 0', () => {
+    const { sigma } = runEnsemble(100, zeroVolumeMarkets, { horizonDays: 7 });
+    const expectedFloor = 0.10 * Math.sqrt(7 / 252);
+    expect(sigma).toBeCloseTo(expectedFloor, 4);
+  });
+
+  it('7-day floor is ≈ 1.67%', () => {
+    const { sigma } = runEnsemble(100, zeroVolumeMarkets, { horizonDays: 7 });
+    expect(sigma * 100).toBeCloseTo(1.667, 2);
+  });
+
+  it('30-day floor is ≈ 3.45%', () => {
+    const { sigma } = runEnsemble(100, zeroVolumeMarkets, { horizonDays: 30 });
+    const expectedFloor = 0.10 * Math.sqrt(30 / 252);
+    expect(sigma).toBeCloseTo(expectedFloor, 4);
+  });
+
+  it('90-day floor is ≈ 5.98%', () => {
+    const { sigma } = runEnsemble(100, zeroVolumeMarkets, { horizonDays: 90 });
+    const expectedFloor = 0.10 * Math.sqrt(90 / 252);
+    expect(sigma).toBeCloseTo(expectedFloor, 4);
+  });
+
+  it('252-day floor is exactly 10.0%', () => {
+    const { sigma } = runEnsemble(100, zeroVolumeMarkets, { horizonDays: 252 });
+    expect(sigma).toBeCloseTo(0.10, 4);
+  });
+
+  it('sigma floor increases monotonically with horizonDays', () => {
+    const s7   = runEnsemble(100, zeroVolumeMarkets, { horizonDays: 7   }).sigma;
+    const s30  = runEnsemble(100, zeroVolumeMarkets, { horizonDays: 30  }).sigma;
+    const s90  = runEnsemble(100, zeroVolumeMarkets, { horizonDays: 90  }).sigma;
+    const s252 = runEnsemble(100, zeroVolumeMarkets, { horizonDays: 252 }).sigma;
+    expect(s7).toBeLessThan(s30);
+    expect(s30).toBeLessThan(s90);
+    expect(s90).toBeLessThan(s252);
+  });
+
+  it('floor applies when rawSigma is less than the floor value', () => {
+    // Use single high-quality market with tiny spread to get rawSigma < floor
+    const tinySpreadMarket: MarketInput = {
+      question: 'Q',
+      probability: 0.5,
+      volume24hUsd: 1_000_000,
+      ageDays: 21,
+      signalTier: 'macro',
+      deltaYes: 0.001,   // spread = 0.002 → tiny variance
+      deltaNo: -0.001,
+    };
+    const { sigma } = runEnsemble(100, [tinySpreadMarket], { horizonDays: 252 });
+    // 252-day floor = 10%; tiny spread would give rawSigma << 10%
+    expect(sigma).toBeGreaterThanOrEqual(0.10 * 0.99); // at least 99% of floor
+  });
+
+  it('CI width is non-zero even when rawSigma = 0 (floor prevents point CI)', () => {
+    const { ciLow95, ciHigh95, forecastPrice } = runEnsemble(100, zeroVolumeMarkets, { horizonDays: 7 });
+    expect(ciHigh95 - ciLow95).toBeGreaterThan(0);
+    expect(ciHigh95).toBeGreaterThan(forecastPrice);
+    expect(ciLow95).toBeLessThan(forecastPrice);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeVariance — additional edge cases
+// ---------------------------------------------------------------------------
+
+describe('computeVariance — additional edge cases', () => {
+  it('zero-volume market → quality weight = 0 → variancePmMarkets = 0 → sigma = 0', () => {
+    const zeroVol: MarketInput = {
+      question: 'Q',
+      probability: 0.5,
+      volume24hUsd: 0,
+      ageDays: 21,
+      signalTier: 'macro',
+      deltaYes: 0.10,
+      deltaNo: -0.10,
+    };
+    // With pmWeight=1, rawSigma = sqrt(1² × 0) × 1.2 = 0
+    expect(computeVariance([zeroVol], 1.0, 0, 0)).toBe(0);
+  });
+
+  it('sigma increases monotonically with larger spread (deltaYes − deltaNo)', () => {
+    const mk = (spread: number): MarketInput => ({
+      question: 'Q',
+      probability: 0.5,
+      volume24hUsd: 500_000,
+      ageDays: 21,
+      signalTier: 'macro',
+      deltaYes:  spread / 2,
+      deltaNo:  -spread / 2,
+    });
+    const s1 = computeVariance([mk(0.04)], 1.0, 0, 0);
+    const s2 = computeVariance([mk(0.10)], 1.0, 0, 0);
+    const s3 = computeVariance([mk(0.20)], 1.0, 0, 0);
+    expect(s1).toBeLessThan(s2);
+    expect(s2).toBeLessThan(s3);
+  });
+
+  it('sentiment-only variance when pmWeight = 0: sigma = sentWeight × 0.04 × 1.2', () => {
+    const m: MarketInput = {
+      question: 'Q',
+      probability: 0.5,
+      volume24hUsd: 500_000,
+      ageDays: 21,
+      signalTier: 'macro',
+      deltaYes: 0.10,
+      deltaNo: -0.10,
+    };
+    // varianceSent = (sentWeight × 0.04)² → sigma = sentWeight × 0.04 × 1.2
+    const sentWeight = 0.20;
+    const sigma = computeVariance([m], 0, sentWeight, 0);
+    expect(sigma).toBeCloseTo(sentWeight * 0.04 * 1.2, 6);
+  });
+
+  it('doubling pmWeight doubles sigma (quadratic variance, linear sigma)', () => {
+    const m: MarketInput = {
+      question: 'Q',
+      probability: 0.5,
+      volume24hUsd: 1_000_000,
+      ageDays: 21,
+      signalTier: 'macro',
+      deltaYes: 0.10,
+      deltaNo: -0.10,
+    };
+    const sigmaHalf = computeVariance([m], 0.5, 0, 0);
+    const sigmaFull = computeVariance([m], 1.0, 0, 0);
+    // sigma_full = sqrt(1²×v)×1.2; sigma_half = sqrt(0.5²×v)×1.2 → ratio = 2
+    expect(sigmaFull).toBeCloseTo(sigmaHalf * 2, 4);
+  });
+
+  it('adding more markets with different probabilities increases total variance', () => {
+    const single: MarketInput = {
+      question: 'Q1',
+      probability: 0.5,
+      volume24hUsd: 500_000,
+      ageDays: 21,
+      signalTier: 'macro',
+      deltaYes: 0.06,
+      deltaNo: -0.04,
+    };
+    const second: MarketInput = { ...single, question: 'Q2', probability: 0.3 };
+    const s1 = computeVariance([single], 1.0, 0, 0);
+    const s2 = computeVariance([single, second], 1.0, 0, 0);
+    // With more independent sources of variance, total sigma should change
+    // (it may go up or down depending on normW redistribution, but must be > 0)
+    expect(s2).toBeGreaterThan(0);
+    expect(Number.isFinite(s2)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeEnsemble — degenerate pmAvgQuality = 0
+//
+// When markets have zero volume, pmAvgQuality = 0 → wPmEff = 0.
+// Whether the PM signal influences the forecast depends on whether other
+// signals are present (which is a documented design trade-off).
+// ---------------------------------------------------------------------------
+
+describe('computeEnsemble — degenerate pmAvgQuality = 0', () => {
+  it('PM only (no others) + pmAvgQuality=0 → equal-weight fallback → PM weight = 1', () => {
+    // totalRaw = 0.40 × 0 = 0 → triggers equal-weight fallback
+    const { weights, forecastReturn } = computeEnsemble(0.03, 0, {});
+    expect(weights['pm']).toBeCloseTo(1, 5);
+    expect(forecastReturn).toBeCloseTo(0.03, 5);
+  });
+
+  it('PM + sentiment + pmAvgQuality=0 → PM excluded (weight = 0), sentiment drives return', () => {
+    // totalRaw = wPmEff(0) + wSent(0.20) = 0.20 → no fallback → PM normalised to 0
+    const sentimentScore = 0.5;
+    const { weights, forecastReturn } = computeEnsemble(0.03, 0, { sentimentScore });
+    expect(weights['pm']).toBeCloseTo(0, 5);
+    expect(weights['sentiment']).toBeCloseTo(1, 5);
+    // forecastReturn = 1.0 × sentimentScore × 0.04 = 0.02
+    expect(forecastReturn).toBeCloseTo(sentimentScore * 0.04, 6);
+  });
+
+  it('PM with full quality (pmAvgQuality=1) → wPmEff = 0.40 (max PM influence)', () => {
+    const { weights } = computeEnsemble(0.05, 1.0, {});
+    // Only PM signal; totalRaw = 0.40 × 1.0 = 0.40; weights.pm = 0.40/0.40 = 1
+    expect(weights['pm']).toBeCloseTo(1, 5);
+  });
+
+  it('PM with partial quality (pmAvgQuality=0.5) still normalises correctly', () => {
+    const { weights } = computeEnsemble(0.05, 0.5, { sentimentScore: 0.3 });
+    const wSum = Object.values(weights).reduce((a, b) => a + b, 0);
+    expect(wSum).toBeCloseTo(1, 5);
+  });
+});

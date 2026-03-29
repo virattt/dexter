@@ -203,3 +203,62 @@ describe('Scratchpad.getToolResults — context_summary rendering', () => {
     expect(summaryPos).toBeLessThan(toolPos);
   });
 });
+
+// ---------------------------------------------------------------------------
+// collectSourceUrls
+// ---------------------------------------------------------------------------
+
+describe('Scratchpad.collectSourceUrls', () => {
+  it('returns empty array when no tool results have URLs', () => {
+    const sp = new Scratchpad('test query');
+    sp.addToolResult('get_market_data', { ticker: 'AAPL' }, JSON.stringify({ data: { price: 150 } }));
+    expect(sp.collectSourceUrls()).toEqual([]);
+  });
+
+  it('extracts sourceUrls from top-level { sourceUrls } field', () => {
+    const sp = new Scratchpad('test query');
+    sp.addToolResult('web_search', { query: 'AAPL' }, JSON.stringify({
+      data: { results: [] },
+      sourceUrls: ['https://example.com/a', 'https://example.com/b'],
+    }));
+    expect(sp.collectSourceUrls()).toEqual(['https://example.com/a', 'https://example.com/b']);
+  });
+
+  it('extracts sourceUrls from nested { data: { sourceUrls } } field', () => {
+    const sp = new Scratchpad('test query');
+    sp.addToolResult('get_financials', { ticker: 'MSFT' }, JSON.stringify({
+      data: { revenue: 200_000_000_000, sourceUrls: ['https://fmp.com/msft'] },
+    }));
+    expect(sp.collectSourceUrls()).toContain('https://fmp.com/msft');
+  });
+
+  it('deduplicates URLs across multiple tool results', () => {
+    const sp = new Scratchpad('test query');
+    sp.addToolResult('web_search', {}, JSON.stringify({ sourceUrls: ['https://a.com', 'https://b.com'] }));
+    sp.addToolResult('web_search', {}, JSON.stringify({ sourceUrls: ['https://b.com', 'https://c.com'] }));
+    const urls = sp.collectSourceUrls();
+    expect(urls).toContain('https://a.com');
+    expect(urls).toContain('https://b.com');
+    expect(urls).toContain('https://c.com');
+    // Deduplicated: 'https://b.com' appears only once
+    expect(urls.filter(u => u === 'https://b.com')).toHaveLength(1);
+  });
+
+  it('ignores non-http strings in sourceUrls', () => {
+    const sp = new Scratchpad('test query');
+    sp.addToolResult('tool', {}, JSON.stringify({
+      sourceUrls: ['https://valid.com', 'not-a-url', 'ftp://ftp.example.com'],
+    }));
+    const urls = sp.collectSourceUrls();
+    expect(urls).toContain('https://valid.com');
+    expect(urls).not.toContain('not-a-url');
+    // ftp:// does not start with 'http' so it's excluded
+    expect(urls).not.toContain('ftp://ftp.example.com');
+  });
+
+  it('handles tool results that are plain strings (not JSON objects)', () => {
+    const sp = new Scratchpad('test query');
+    sp.addToolResult('tool', {}, 'plain text result');
+    expect(sp.collectSourceUrls()).toEqual([]);
+  });
+});

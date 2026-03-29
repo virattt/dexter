@@ -21,6 +21,9 @@ import { extractSignals as extractSignalsFn } from '../tools/finance/signal-extr
 import { fetchPolymarketMarkets } from '../tools/finance/polymarket.js';
 import { resolveProvider } from '../providers.js';
 
+/** Matches the timeout used in llm.ts — configurable via the same env var. */
+const LLM_CALL_TIMEOUT_MS = parseInt(process.env.LLM_CALL_TIMEOUT_MS ?? '120000', 10);
+
 
 const DEFAULT_MODEL = 'gpt-5.4';
 export const DEFAULT_MAX_ITERATIONS = 25;
@@ -39,6 +42,40 @@ export function stripThinkingTags(text: string): string {
 const MAX_OVERFLOW_RETRIES = 2;
 /** Flush memory to disk every N iterations regardless of context size. */
 const PERIODIC_FLUSH_INTERVAL = 5;
+
+/**
+ * Build a compact Sources footer from a deduplicated list of URLs.
+ * Only appended to answers when the model hasn't already cited inline links.
+ * Limits to 10 URLs to keep the footer scannable.
+ *
+ * Social media post URLs (Reddit, X/Twitter, etc.) are excluded — these are
+ * inputs to sentiment analysis, not authoritative research citations.
+ */
+
+/** Domains excluded from the Sources footer (social media / UGC). */
+const EXCLUDED_SOURCE_DOMAINS = [
+  'reddit.com',
+  'x.com',
+  'twitter.com',
+  'threads.net',
+  'bsky.app',
+  'bluesky.app',
+];
+
+export function buildSourcesFooter(urls: string[]): string {
+  const filtered = urls.filter(u => {
+    try {
+      const host = new URL(u).hostname.replace(/^www\./, '');
+      return !EXCLUDED_SOURCE_DOMAINS.some(d => host === d || host.endsWith(`.${d}`));
+    } catch {
+      return false;
+    }
+  });
+  const unique = [...new Set(filtered)].slice(0, 10);
+  if (unique.length === 0) return '';
+  const lines = unique.map((u, i) => `${i + 1}. ${u}`).join('\n');
+  return `\n\n---\n**Sources**\n${lines}`;
+}
 
 // ============================================================================
 // Context summary helpers (exported for unit tests)
@@ -350,11 +387,14 @@ export class Agent {
 
       const responseText = typeof response === 'string' ? response : extractTextContent(response);
 
-      // Emit thinking if there are also tool calls (skip whitespace-only responses)
+      // Emit thinking if there are also tool calls (skip whitespace-only responses).
+      // Truncate to 500 chars to prevent large JSON blobs from flooding the terminal —
+      // some models (e.g. Qwen) embed raw tool-call syntax in their text content.
       if (responseText?.trim() && typeof response !== 'string' && hasToolCalls(response)) {
         const trimmedText = responseText.trim();
         ctx.scratchpad.addThinking(trimmedText);
-        yield { type: 'thinking', message: trimmedText };
+        const displayText = trimmedText.length > 500 ? trimmedText.slice(0, 500) + '…' : trimmedText;
+        yield { type: 'thinking', message: displayText };
       }
 
       // No tool calls = final answer is in this response
@@ -475,6 +515,15 @@ export class Agent {
 
   /**
    * Emit the response text as the final answer.
+   *
+   * When the model has already returned a text answer (non-empty fallbackText),
+   * we emit it directly — no second LLM call is needed. Making an extra
+   * streamCallLlm round-trip with a large prompt can hang for minutes on
+   * heavy models and provides no benefit over the text we already have.
+   *
+   * The only case where we call streamCallLlm is max-iterations synthesis,
+   * where fallbackText is empty and we need the LLM to write a fresh summary.
+   * That call is guarded by a hard timeout so it cannot block indefinitely.
    */
   private async *handleDirectResponse(
     fallbackText: string,
@@ -486,34 +535,56 @@ export class Agent {
 
     let streamedAnswer = '';
 
-    // Attempt true streaming when we have the originating prompt
-    if (currentPrompt) {
-      try {
-        for await (const chunk of streamCallLlm(currentPrompt, {
-          model: this.model,
-          systemPrompt: this.systemPrompt,
-          signal: this.signal,
-        })) {
-          streamedAnswer += chunk;
-          yield { type: 'answer_chunk', chunk } as AnswerChunkEvent;
-        }
-      } catch {
-        // Streaming failed — fall back to the already-received full text
-        streamedAnswer = '';
-        if (fallbackText) {
-          yield { type: 'answer_chunk', chunk: stripThinkingTags(fallbackText) } as AnswerChunkEvent;
-          streamedAnswer = stripThinkingTags(fallbackText);
-        }
-      }
-    } else {
-      // No prompt available — fake-stream the already-received text
-      const text = stripThinkingTags(fallbackText);
+    const text = stripThinkingTags(fallbackText);
+
+    if (text) {
+      // We already have the answer from the non-streaming callLlm response.
+      // Fake-stream it so the TUI shows the text appearing progressively.
       const CHUNK_SIZE = 6;
       for (let i = 0; i < text.length; i += CHUNK_SIZE) {
         const chunk = text.slice(i, i + CHUNK_SIZE);
         streamedAnswer += chunk;
         yield { type: 'answer_chunk', chunk } as AnswerChunkEvent;
       }
+    } else if (currentPrompt) {
+      // No pre-existing answer (e.g. max-iterations synthesis) — request a
+      // fresh streaming response. Apply a hard timeout so we never hang.
+      const timeoutSignal = AbortSignal.timeout(LLM_CALL_TIMEOUT_MS);
+      const combinedSignal = this.signal
+        ? AbortSignal.any([this.signal, timeoutSignal])
+        : timeoutSignal;
+      try {
+        for await (const chunk of streamCallLlm(currentPrompt, {
+          model: this.model,
+          systemPrompt: this.systemPrompt,
+          signal: combinedSignal,
+        })) {
+          streamedAnswer += chunk;
+          yield { type: 'answer_chunk', chunk } as AnswerChunkEvent;
+        }
+      } catch {
+        // Synthesis timed out or failed — surface the raw tool results so the
+        // user has something to work with rather than seeing a blank answer.
+        const toolSummary = ctx.scratchpad.getToolResults().trim();
+        if (toolSummary) {
+          const fallback =
+            '**[Research interrupted — synthesis timed out]**\n\n' +
+            'The model did not complete in time. Raw research data gathered:\n\n' +
+            toolSummary.slice(0, 3000);
+          yield { type: 'answer_chunk', chunk: fallback } as AnswerChunkEvent;
+          streamedAnswer = fallback;
+        }
+      }
+    }
+
+    // Append a Sources footer when the answer used web searches or structured
+    // financial tools that returned source URLs. Skipped for empty answers and
+    // when the answer already contains a markdown link (model cited inline).
+    const sourceUrls = ctx.scratchpad.collectSourceUrls();
+    if (streamedAnswer && sourceUrls.length > 0 && !streamedAnswer.includes('](http')) {
+      const footer = buildSourcesFooter(sourceUrls);
+      streamedAnswer += footer;
+      yield { type: 'answer_chunk', chunk: footer } as AnswerChunkEvent;
     }
 
     const totalTime = Date.now() - ctx.startTime;
@@ -527,6 +598,7 @@ export class Agent {
       tokensPerSecond: ctx.tokenCounter.getTokensPerSecond(totalTime),
     };
   }
+
 
   /**
    * Clear oldest tool results if context size exceeds threshold.

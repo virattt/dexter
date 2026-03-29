@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, appendFileSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { createHash } from 'crypto';
 import { dexterPath } from '../utils/paths.js';
+import { annotateFinancialNumbers } from '../utils/number-format.js';
 
 /**
  * Record of a tool call for external consumers (e.g., DoneEvent)
@@ -469,6 +470,51 @@ export class Scratchpad {
   }
 
   /**
+   * Collect all source URLs from tool results in this scratchpad session.
+   * Extracts `sourceUrls` from structured tool results (get_financials,
+   * web_search, polymarket_search, etc.) and deduplicates them.
+   * Returns an empty array when no URLs are found.
+   */
+  collectSourceUrls(): string[] {
+    const seen = new Set<string>();
+    const urls: string[] = [];
+
+    for (const entry of this.readEntries()) {
+      if (entry.type !== 'tool_result') continue;
+
+      const result = entry.result;
+      if (!result || typeof result !== 'object') continue;
+
+      const r = result as Record<string, unknown>;
+
+      // Standard { sourceUrls: string[] } shape used by get_financials + search tools
+      if (Array.isArray(r['sourceUrls'])) {
+        for (const u of r['sourceUrls'] as unknown[]) {
+          if (typeof u === 'string' && u.startsWith('http') && !seen.has(u)) {
+            seen.add(u);
+            urls.push(u);
+          }
+        }
+      }
+
+      // Nested { data: { sourceUrls } } — some tools wrap differently
+      if (r['data'] && typeof r['data'] === 'object') {
+        const d = r['data'] as Record<string, unknown>;
+        if (Array.isArray(d['sourceUrls'])) {
+          for (const u of d['sourceUrls'] as unknown[]) {
+            if (typeof u === 'string' && u.startsWith('http') && !seen.has(u)) {
+              seen.add(u);
+              urls.push(u);
+            }
+          }
+        }
+      }
+    }
+
+    return urls;
+  }
+
+  /**
    * Convert a result back to string for API compatibility.
    * If already a string, returns as-is. Otherwise JSON stringifies.
    */
@@ -476,7 +522,11 @@ export class Scratchpad {
     if (typeof result === 'string') {
       return result;
     }
-    return JSON.stringify(result);
+    // Annotate financial numbers with human-readable suffixes (e.g. $12.3B)
+    // before the result is serialised into the LLM context. The raw numeric
+    // values are preserved alongside _fmt companions so calculations still work.
+    const annotated = annotateFinancialNumbers(result);
+    return JSON.stringify(annotated);
   }
 
   /**

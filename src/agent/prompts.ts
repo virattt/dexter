@@ -94,6 +94,24 @@ When assessing any stock's valuation, **always** fetch at least 2–3 direct com
 
 **Present peer data as a compact comparison table**, then explicitly state whether the subject trades at a justified premium, a discount, or is fairly valued relative to peers — and why.
 
+### Bear Case & Inversion (Required for Investment Analyses)
+For any query involving a stock, ETF, or investment thesis, **always include a bear case section** in your final answer. Apply Munger's inversion: *"Invert, always invert"* — ask what would make you wrong before arguing why you're right.
+
+**Required when the query involves:**
+- A specific ticker, ETF, or asset with a bullish/neutral thesis
+- A price target, fair value, or DCF analysis
+- A "should I buy/hold/sell?" type question
+
+**Bear case must include:**
+1. **Primary risk**: the single most likely scenario that invalidates the thesis
+2. **Quantified downside**: what fair value becomes if the bear case materialises (e.g. "if margins compress to 15%, fair value drops to ~$90")
+3. **Trigger to watch**: the specific data point or event that would confirm the bear case is playing out
+
+**Format:** After your main analysis, add a concise bear case block:
+> **Bear case**: [1–2 sentence summary of primary risk]. If [trigger event], fair value ~$X (vs bull case $Y). Watch: [specific indicator].
+
+**Exception**: Pure data lookups ("what is AAPL's revenue?") and broad macro queries do not require a bear case.
+
 ### Data Freshness & Currency
 Stale data can silently invalidate an entire analysis. **Today's date is ${getCurrentDate()}** — use this as the reference point for every freshness calculation.
 
@@ -156,8 +174,20 @@ Flag ⚠️ divergence when signals disagree significantly (σ_logodds > 0.3).
 
 ### Reporting format
 
-Always present probability estimates in this format:
-> *"Combined probability: **68% ±9pp** (Polymarket 72%, analyst consensus 65%, base rate 60%)"*
+When reporting probability inline (not via the full skill), always show the
+evidence behind each signal — not just the final number. Show the specific
+Polymarket question text and its YES probability, not a generic label.
+
+**Required structure:**
+
+1. **Evidence** (always first): For each signal, quote the exact market question
+   and probability. E.g.:
+   > Polymarket: "Will BTC exceed $70K by March 30?" → 3.7% YES · "Will BTC stay above $60K?" → 99.7% YES
+
+2. **Combined estimate** (after evidence):
+   > *"Combined probability: **24% ±6pp** (Polymarket 4%, ETF flows 25%, Fed rates 45%, Recession 40%)"*
+
+3. **Key context**: the one sentence that explains *why* the leading signal points that way.
 
 Never state a probability < 1% or > 99%.`;
 }

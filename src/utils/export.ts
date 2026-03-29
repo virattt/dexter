@@ -194,10 +194,12 @@ export function exportSession(
   history: HistoryItem[],
   format: 'markdown' | 'json' | 'csv',
   sessionName?: string,
+  /** Override the auto-generated file path. If omitted, a timestamped filename is used. */
+  outputPath?: string,
 ): { path: string; content: string } {
   const ext = format === 'markdown' ? 'md' : format === 'json' ? 'json' : 'csv';
   const filename = `dexter-export-${exportTimestamp()}.${ext}`;
-  const filePath = `${process.cwd()}/${filename}`;
+  const filePath = outputPath ?? `${process.cwd()}/${filename}`;
 
   let content: string;
   if (format === 'markdown') {

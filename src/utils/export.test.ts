@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { exportToMarkdown, exportToJson, exportToCsv } from './export.js';
+import { exportToMarkdown, exportToJson, exportToCsv, exportSession } from './export.js';
 import type { HistoryItem } from '../types.js';
 import type { DisplayEvent } from '../agent/types.js';
 
@@ -220,5 +220,40 @@ describe('status filtering', () => {
     const items = [makeItem(), makeIncompleteItem(), makeErrorItem()];
     const csv = exportToCsv(items);
     expect(csv).not.toContain('Should be excluded');
+  });
+});
+
+// ============================================================================
+// exportSession — outputPath override
+// ============================================================================
+
+describe('exportSession outputPath', () => {
+  it('uses auto-generated filename when outputPath is omitted', () => {
+    const { path } = exportSession([makeItem()], 'markdown');
+    expect(path).toMatch(/dexter-export-\d{4}-\d{2}-\d{2}.*\.md$/);
+    expect(path).toContain(process.cwd());
+  });
+
+  it('uses the provided outputPath when specified', () => {
+    const { path } = exportSession([makeItem()], 'markdown', undefined, '/tmp/my-report.md');
+    expect(path).toBe('/tmp/my-report.md');
+  });
+
+  it('outputPath override does not affect content', () => {
+    const { content: contentA } = exportSession([makeItem()], 'markdown');
+    const { content: contentB } = exportSession([makeItem()], 'markdown', undefined, '/tmp/override.md');
+    // Both should be valid markdown with the same query
+    expect(contentA).toContain('Analyze AAPL');
+    expect(contentB).toContain('Analyze AAPL');
+  });
+
+  it('auto-generates json filename when format is json', () => {
+    const { path } = exportSession([makeItem()], 'json');
+    expect(path).toMatch(/\.json$/);
+  });
+
+  it('outputPath override works for json format', () => {
+    const { path } = exportSession([makeItem()], 'json', undefined, '/tmp/report.json');
+    expect(path).toBe('/tmp/report.json');
   });
 });

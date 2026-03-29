@@ -18,4 +18,5 @@ export { socialSentimentTool, SOCIAL_SENTIMENT_DESCRIPTION } from './social-sent
 export { getEarningsTranscript, EARNINGS_TRANSCRIPT_DESCRIPTION } from './earnings-transcripts.js';
 export { getOnchainCrypto, ONCHAIN_CRYPTO_DESCRIPTION } from './onchain-crypto.js';
 export { polymarketForecastTool, POLYMARKET_FORECAST_DESCRIPTION } from './polymarket-forecast.js';
+export { priceDistributionChartTool, PRICE_DISTRIBUTION_CHART_DESCRIPTION, buildPriceDistributionChart, extractPriceThresholds } from './price-distribution-chart.js';
 

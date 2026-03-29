@@ -16,6 +16,7 @@ import { fetchPolymarketMarkets } from './polymarket.js';
 import { extractSignals } from './signal-extractor.js';
 import { lookupImpact, inferAssetClass } from './impact-map.js';
 import { runEnsemble, computePolymarketSignal, computeEnsemble, computeConditionalReturn, adjustYesBias, type MarketInput } from '../../utils/ensemble.js';
+import { buildPriceDistributionChart, extractPriceThresholds } from './price-distribution-chart.js';
 
 // ---------------------------------------------------------------------------
 // Description (injected into system prompt)
@@ -122,7 +123,46 @@ const schema = z.object({
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-/** Map a signal category string to a Polymarket tier. */
+/** Map a signal category to a human-readable theme label. */
+function catToLabel(category: string): string {
+  const map: Record<string, string> = {
+    macro_rates:                'Fed / Rates',
+    macro_growth:               'Growth / Recession',
+    trade_policy:               'Trade Policy',
+    tariff_increase:            'Tariffs',
+    tariff_relief:              'Tariff Relief',
+    geopolitical:               'Geopolitical',
+    geopolitical_conflict:      'Conflict Risk',
+    earnings:                   'Earnings',
+    earnings_beat:              'Earnings Beat',
+    earnings_miss:              'Earnings Risk',
+    commodity:                  'Commodity',
+    oil_spike:                  'Oil / Energy',
+    supply_chain:               'Supply Chain',
+    government_budget:          'Govt Budget',
+    regulatory:                 'Regulation',
+    fda_approval:               'FDA Approval',
+    fda_rejection:              'FDA Risk',
+    crypto_regulation_positive: 'Crypto Reg',
+    crypto_regulation_negative: 'Crypto Reg Risk',
+    btc_price_target:           'BTC Price Target',
+    election_market_friendly:   'Election',
+    etf_product:                'ETF Product',
+    recession:                  'Recession',
+    macro_data_strong:          'Strong Macro Data',
+    macro_data_weak:            'Weak Macro Data',
+    fed_rate_cut:               'Fed Rate Cut',
+    fed_rate_hike:              'Fed Rate Hike',
+  };
+  return map[category] ?? category.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Truncate string to maxLen, appending '…' if cut. */
+function truncCol(s: string, maxLen: number): string {
+  return s.length > maxLen ? s.slice(0, maxLen - 1) + '…' : s;
+}
+
+
 function categoryToTier(category: string): 'macro' | 'geopolitical' | 'electoral' {
   const lower = category.toLowerCase();
   if (lower.includes('macro') || lower.includes('fed') || lower.includes('rate') ||
@@ -202,7 +242,6 @@ export const polymarketForecastTool = new DynamicStructuredTool({
       }
 
       // Step 3: Build MarketInput array
-      const impact = lookupImpact(signals[0]?.category ?? 'default', assetClass);
       const markets: MarketInput[] = rawMarkets.map((m) => {
         const mImpact = lookupImpact(m.signalCategory, assetClass);
         return {
@@ -264,19 +303,76 @@ export const polymarketForecastTool = new DynamicStructuredTool({
         lines.push(`95% CI:          [${ciLowPct}% – ${ciHighSign}${ciHighPct}%]  (σ = ${sigmaPct}%)  ← % relative to current price`);
       }
       lines.push('');
-      lines.push(`── Polymarket Signal (w̄ = ${avgQualityStr}) ──────────────────────────────────`);
+
+      // ── Polymarket Signal Summary (grouped by theme) ───────────────────────────
+      const numThemes = rawMarkets.reduce((s, m) => { s.add(m.signalCategory); return s; }, new Set<string>()).size;
+      lines.push(`── Polymarket Signal Summary  (w̄ = ${avgQualityStr} · ${markets.length} markets · ${numThemes} themes) ─`);
 
       if (markets.length === 0) {
         lines.push('  [No Polymarket markets found for this asset]');
       } else {
-        for (const m of markets) {
-          const probPct = (m.probability * 100).toFixed(1);
-          const condReturn = computeConditionalReturn(adjustYesBias(m.probability), m.deltaYes, m.deltaNo);
-          const impactStr = pct(condReturn);
-          lines.push(`  ${m.question}   ${probPct}% YES  →  ${impactStr}%`);
+        // Group rawMarkets by signalCategory, computing per-theme net conditional return
+        type ThemeRow = {
+          category: string;
+          label: string;
+          netCondReturn: number;
+          topQuestion: string;
+          topProb: number;
+          absContrib: number; // populated after totalling
+        };
+
+        const byCategory = new Map<string, { question: string; probability: number; condReturn: number }[]>();
+        for (const m of rawMarkets) {
+          const mImpact = lookupImpact(m.signalCategory, assetClass);
+          const condReturn = computeConditionalReturn(adjustYesBias(m.probability), mImpact.deltaYes, mImpact.deltaNo);
+          if (!byCategory.has(m.signalCategory)) byCategory.set(m.signalCategory, []);
+          byCategory.get(m.signalCategory)!.push({ question: m.question, probability: m.probability, condReturn });
         }
+
+        const rows: ThemeRow[] = [];
+        for (const [cat, entries] of byCategory) {
+          const net = entries.reduce((s, e) => s + e.condReturn, 0) / entries.length;
+          // Top market = highest abs conditional return within theme
+          const top = entries.reduce((best, e) => Math.abs(e.condReturn) >= Math.abs(best.condReturn) ? e : best);
+          rows.push({ category: cat, label: catToLabel(cat), netCondReturn: net, topQuestion: top.question, topProb: top.probability, absContrib: Math.abs(net) });
+        }
+
+        // Compute contribution % (share of total absolute signal strength)
+        const totalAbs = rows.reduce((s, r) => s + r.absContrib, 0) || 1;
+        rows.sort((a, b) => b.absContrib - a.absContrib);
+
+        // Column widths
+        const W_THEME = 22;
+        const W_DIR   = 13;
+        const W_SIG   = 48;
+
+        const header = `  ${'Theme'.padEnd(W_THEME)}  ${'Direction'.padEnd(W_DIR)}  ${'Key Signal'.padEnd(W_SIG)}  Contribution`;
+        const divider = `  ${'─'.repeat(W_THEME + W_DIR + W_SIG + 18)}`;
+        lines.push(header);
+        lines.push(divider);
+
+        let bullish = 0, bearish = 0, neutral = 0;
+        for (const row of rows) {
+          const dir = row.netCondReturn > 0.0005 ? '↑ Bullish' : row.netCondReturn < -0.0005 ? '↓ Bearish' : '→ Neutral';
+          if (dir.startsWith('↑')) bullish++;
+          else if (dir.startsWith('↓')) bearish++;
+          else neutral++;
+
+          const probPct = `${(row.topProb * 100).toFixed(0)}% YES`;
+          const keySignal = truncCol(`${row.topQuestion}: ${probPct}`, W_SIG);
+          const contrib = `${((row.absContrib / totalAbs) * 100).toFixed(0)}%`;
+
+          lines.push(
+            `  ${truncCol(row.label, W_THEME).padEnd(W_THEME)}  ${dir.padEnd(W_DIR)}  ${keySignal.padEnd(W_SIG)}  ${contrib.padStart(5)}`,
+          );
+        }
+
+        lines.push(divider);
+
+        const netLean = result.pmSignal > 0.005 ? ' (bullish lean)' : result.pmSignal < -0.005 ? ' (bearish lean)' : '';
+        lines.push(`  Consensus: ${bullish} bullish · ${bearish} bearish · ${neutral} neutral    Net signal: ${pmPct}%${netLean}`);
+        lines.push(`  Polymarket drives ${pmWeightPct}% of this forecast  (remainder from sentiment / fundamentals / options)`);
       }
-      lines.push(`  Polymarket contribution:  ${pmPct}% (effective weight: ${pmWeightPct}%)`);
 
       lines.push('');
       lines.push('── Other Signals ──────────────────────────────────────────────────────────');
@@ -306,6 +402,19 @@ export const polymarketForecastTool = new DynamicStructuredTool({
         lines.push('  Options skew:       [signal omitted — not provided]');
       }
 
+      // ── Price Distribution Chart (from threshold markets) ──────────────────
+      // Extract any markets containing explicit price thresholds ("$70K", "$3,400"…)
+      // and render an implied probability bar chart when ≥2 levels are found.
+      const thresholds = extractPriceThresholds(rawMarkets);
+      if (thresholds.length >= 2) {
+        const chart = buildPriceDistributionChart(thresholds, currentPrice, ticker);
+        if (chart) {
+          lines.push('');
+          lines.push('── Price Distribution (from threshold markets) ────────────────────────────');
+          lines.push(chart);
+        }
+      }
+
       lines.push('');
       lines.push('── Warnings ───────────────────────────────────────────────────────────────');
 
@@ -321,9 +430,6 @@ export const polymarketForecastTool = new DynamicStructuredTool({
 
       lines.push('');
       lines.push('── Research basis: Reichenbach & Walther (2025) · Cordoba et al. (2024) · Tsang & Yang (2026)');
-
-      // Suppress unused variable — impact was captured for potential future use
-      void impact;
 
       return formatToolResult({ result: lines.join('\n') });
     } catch (error) {

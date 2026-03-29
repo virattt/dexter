@@ -491,3 +491,121 @@ describe('ETF signal routing', () => {
     expect(qqqPrimary).not.toBe(spyPrimary);
   });
 });
+
+// ---------------------------------------------------------------------------
+// extractSignals — weights sum to 1 for ALL asset types
+// (existing tests cover tech, healthcare, financials, energy, consumer, crypto,
+//  macro; these cover the newer sector ETF types added after the v1 build)
+// ---------------------------------------------------------------------------
+
+describe('extractSignals — weights sum to 1 for all sector ETF types', () => {
+  it('materials (SLX — steel ETF) weights sum to 1.0', () => {
+    const sum = extractSignals('SLX').reduce((s, sig) => s + sig.weight, 0);
+    expect(sum).toBeCloseTo(1.0, 5);
+  });
+
+  it('financial (KRE — regional bank ETF) weights sum to 1.0', () => {
+    const sum = extractSignals('KRE').reduce((s, sig) => s + sig.weight, 0);
+    expect(sum).toBeCloseTo(1.0, 5);
+  });
+
+  it('small_cap (IWM — Russell 2000 ETF) weights sum to 1.0', () => {
+    const sum = extractSignals('IWM').reduce((s, sig) => s + sig.weight, 0);
+    expect(sum).toBeCloseTo(1.0, 5);
+  });
+
+  it('industrial (XLI — industrials ETF) weights sum to 1.0', () => {
+    const sum = extractSignals('XLI').reduce((s, sig) => s + sig.weight, 0);
+    expect(sum).toBeCloseTo(1.0, 5);
+  });
+
+  it('defense (ITA — aerospace ETF) weights sum to 1.0', () => {
+    const sum = extractSignals('ITA').reduce((s, sig) => s + sig.weight, 0);
+    expect(sum).toBeCloseTo(1.0, 5);
+  });
+
+  it('gold / commodity (GLD — gold ETF) weights sum to 1.0', () => {
+    const sum = extractSignals('GLD').reduce((s, sig) => s + sig.weight, 0);
+    expect(sum).toBeCloseTo(1.0, 5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractSignals — correct primary signal per sector ETF
+// ---------------------------------------------------------------------------
+
+describe('extractSignals — sector ETF primary signal routing', () => {
+  it('SLX (steel ETF) primary signal is tariff_increase (tariffs protect domestic steel)', () => {
+    const signals = extractSignals('SLX');
+    expect(signals[0].category).toBe('tariff_increase');
+  });
+
+  it('KRE (regional bank ETF) primary signal is macro_rates (banks are rate-sensitive)', () => {
+    const signals = extractSignals('KRE');
+    expect(signals[0].category).toBe('macro_rates');
+  });
+
+  it('IWM (small-cap ETF) signals include macro_rates (floating-rate debt exposure)', () => {
+    const cats = extractSignals('IWM').map((s) => s.category);
+    expect(cats).toContain('macro_rates');
+  });
+
+  it('ITA (defense ETF) signals include government_budget (defense spending)', () => {
+    const cats = extractSignals('ITA').map((s) => s.category);
+    expect(cats).toContain('government_budget');
+  });
+
+  it('GLD (gold ETF) signals include macro_growth (recession = safe-haven demand)', () => {
+    const cats = extractSignals('GLD').map((s) => s.category);
+    expect(cats).toContain('macro_growth');
+  });
+
+  it('GLD signals include geopolitical (conflict = safe-haven demand)', () => {
+    const cats = extractSignals('GLD').map((s) => s.category);
+    expect(cats).toContain('geopolitical');
+  });
+
+  it('no signal has weight = 0 (zero-weight signals are meaningless noise)', () => {
+    for (const ticker of ['SLX', 'KRE', 'IWM', 'XLI', 'ITA', 'GLD']) {
+      for (const sig of extractSignals(ticker)) {
+        expect(sig.weight, `${ticker} signal "${sig.name}" has zero weight`).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// detectAssetType — sector ETFs (regression guard for QQQ and SPY routing)
+// ---------------------------------------------------------------------------
+
+describe('detectAssetType — sector ETF classification', () => {
+  it('SLX classified as materials type', () => {
+    const r = detectAssetType('SLX');
+    expect(r.type).toBe('materials');
+    expect(r.ticker).toBe('SLX');
+  });
+
+  it('KRE classified as financials type', () => {
+    const r = detectAssetType('KRE');
+    expect(r.type).toBe('financials');
+    expect(r.ticker).toBe('KRE');
+  });
+
+  it('IWM classified as small_cap type', () => {
+    const r = detectAssetType('IWM');
+    expect(r.type).toBe('small_cap');
+    expect(r.ticker).toBe('IWM');
+  });
+
+  it('ITA classified as defense type', () => {
+    const r = detectAssetType('ITA');
+    expect(r.type).toBe('defense');
+    expect(r.ticker).toBe('ITA');
+  });
+
+  it('XLI classified as industrial type', () => {
+    const r = detectAssetType('XLI');
+    expect(r.type).toBe('industrial');
+    expect(r.ticker).toBe('XLI');
+  });
+});
