@@ -3,7 +3,6 @@ import { ChatOpenAI } from '@langchain/openai';
 import { ChatAnthropic } from '@langchain/anthropic';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { ChatOllama } from '@langchain/ollama';
-import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { StructuredToolInterface } from '@langchain/core/tools';
@@ -168,12 +167,20 @@ const DEFAULT_FACTORY: ModelFactory = (name, opts) =>
     apiKey: getApiKey('OPENAI_API_KEY'),
   });
 
+let _overrideFactory: ModelFactory | null = null;
+
+/** For tests only — inject a custom model factory to intercept LLM calls. */
+export function _setModelFactory(factory: ModelFactory | null): void {
+  _overrideFactory = factory;
+}
+
 export function getChatModel(
   modelName: string = DEFAULT_MODEL,
   streaming: boolean = false,
   thinkOverride?: boolean,
 ): BaseChatModel {
   const opts: ModelOpts = { streaming };
+  if (_overrideFactory) return _overrideFactory(modelName, opts, thinkOverride);
   const provider = resolveProvider(modelName);
   const factory = MODEL_FACTORIES[provider.id] ?? DEFAULT_FACTORY;
   return factory(modelName, opts, thinkOverride);
@@ -274,12 +281,11 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
       const messages = buildAnthropicMessages(finalSystemPrompt, prompt);
       return withRetry(() => runnable.invoke(messages, invokeOpts), provider.displayName);
     } else {
-      const promptTemplate = ChatPromptTemplate.fromMessages([
-        ['system', finalSystemPrompt],
-        ['user', '{prompt}'],
-      ]);
-      const chain = promptTemplate.pipe(runnable);
-      return withRetry(() => chain.invoke({ prompt }, invokeOpts), provider.displayName);
+      // Build messages directly (same pattern as streamCallLlm) to avoid
+      // ChatPromptTemplate parsing `{...}` in system prompt or user content
+      // as input variables (e.g. JSON in skill tool results).
+      const messages = [new SystemMessage(finalSystemPrompt), new HumanMessage(prompt)];
+      return withRetry(() => runnable.invoke(messages, invokeOpts), provider.displayName);
     }
   }, timeoutMs ?? LLM_CALL_TIMEOUT_MS);
   const usage = extractUsage(result);
