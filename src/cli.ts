@@ -215,6 +215,7 @@ function buildHelpPanel(): Container {
   container.addChild(row('Thinking', 'Enabled automatically for qwen3, deepseek-r1, qwq models'));
   container.addChild(row('Fallback', 'Dexter uses web search when financial APIs fail'));
   container.addChild(row('--deep', 'Launch with --deep flag for 40-iteration complex queries'));
+  container.addChild(row('--export [path]', 'Auto-export session as Markdown on exit (omit path to auto-name)'));
 
   // Skills section — populated from discovered skills at render time
   const skills = discoverSkills();
@@ -502,14 +503,25 @@ function renderCurrentQuery(chatLog: ChatLogComponent, history: AgentRunnerContr
     chatLog.addInterrupted();
   }
 
-  // During an active run, cap visible events so the TUI stays within the viewport.
-  // Once complete, render everything so the user sees the full picture.
+  // Dynamic event cap: keep total TUI rendering ≤ termRows+2 so the query header
+  // (at absolute line index 2) never scrolls into the terminal's native scrollback.
+  // If it did, flushExchangeToScrollback() cannot clear it — causing the prompt to
+  // appear twice ("duplicate prompt" bug).
+  //
+  // Fixed overhead accounts for: intro(1)+spacer(1)+query(1)+hidden-events(1)+
+  // hint(1)+editor(3)+working-indicator(1)+safety-margin(1) = ~10 lines.
+  const termRows = process.stdout.rows ?? 40;
+  const maxContentLines = Math.max(8, termRows - 8); // budget for events + answer
   const isRunning = item.status !== 'complete' && item.status !== 'interrupted';
+  const effectiveMaxEvents = Math.min(
+    MAX_RUNNING_EVENTS,
+    Math.max(2, Math.floor((maxContentLines - 5) / 2)),
+  );
   const allEvents = item.events;
-  const hiddenCount = isRunning && allEvents.length > MAX_RUNNING_EVENTS
-    ? allEvents.length - MAX_RUNNING_EVENTS
+  const hiddenCount = isRunning && allEvents.length > effectiveMaxEvents
+    ? allEvents.length - effectiveMaxEvents
     : 0;
-  const visibleEvents = hiddenCount > 0 ? allEvents.slice(-MAX_RUNNING_EVENTS) : allEvents;
+  const visibleEvents = hiddenCount > 0 ? allEvents.slice(-effectiveMaxEvents) : allEvents;
 
   if (hiddenCount > 0) {
     chatLog.addChild(new Text(theme.muted(`  … ${hiddenCount} earlier events`), 0, 0));
@@ -578,10 +590,11 @@ function renderCurrentQuery(chatLog: ChatLogComponent, history: AgentRunnerContr
   }
 
   if (item.answer) {
-    const termRows = process.stdout.rows ?? 40;
-    // Reserve space for: header (1) + query (1) + events + stats (3) + editor (3) + margin (4)
-    const reservedRows = Math.min(visibleEvents.length * 2 + 12, termRows - 10);
-    const answerBudget = Math.max(10, termRows - reservedRows);
+    // answerBudget for running: remaining content lines after visible events.
+    // answerBudget for complete: legacy formula (matches the auto-flush threshold at line 1370).
+    const answerBudget = isRunning
+      ? Math.max(3, maxContentLines - visibleEvents.length * 2)
+      : Math.max(10, termRows - Math.min(visibleEvents.length * 2 + 12, termRows - 10));
     const answerLines = item.answer.split('\n');
     const isStreaming = item.status === 'processing';
 
@@ -683,6 +696,16 @@ export async function runCli() {
   // --deep flag: raises max agent iterations to 40 for complex multi-skill queries
   const isDeepMode = process.argv.includes('--deep');
   const maxIterations = isDeepMode ? 40 : DEFAULT_MAX_ITERATIONS;
+
+  // --export [path] flag: auto-export the session as Markdown on exit.
+  // undefined = flag not present (no export); null = flag present, auto-generate filename; string = explicit path.
+  const exportArgIdx = process.argv.indexOf('--export');
+  const exportPathArg: string | null | undefined =
+    exportArgIdx === -1
+      ? undefined
+      : process.argv[exportArgIdx + 1] && !process.argv[exportArgIdx + 1].startsWith('-')
+        ? process.argv[exportArgIdx + 1]
+        : null;
 
   const tui = new TUI(new ProcessTerminal());
   const root = new Container();
@@ -1447,6 +1470,18 @@ export async function runCli() {
       return;
     }
     tui.stop();
+    // Auto-export session if --export flag was provided
+    if (exportPathArg !== undefined) {
+      const completedHistory = agentRunner.history.filter((h) => h.status === 'complete');
+      if (completedHistory.length > 0) {
+        try {
+          const { path } = exportSession(completedHistory, 'markdown', undefined, exportPathArg ?? undefined);
+          process.stdout.write(`\nExported session to ${path}\n`);
+        } catch (e) {
+          process.stdout.write(`\nExport failed: ${e instanceof Error ? e.message : String(e)}\n`);
+        }
+      }
+    }
     // Write an end-of-session daily summary so Dream has material to consolidate,
     // then flush the session autosave, then exit.
     void writeSessionDailySummary(agentRunner.history, modelSelection.model)

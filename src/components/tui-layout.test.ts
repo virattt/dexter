@@ -348,14 +348,21 @@ describe('renderCurrentQuery — streaming answer viewport cap', () => {
   /**
    * Simulate the answer-capping logic from cli.ts renderCurrentQuery.
    * Returns the text passed to finalizeAnswer (or null if stub was shown).
+   *
+   * visibleEventCount: number of tool events already visible in the TUI.
    */
   function simulateAnswerRender(
     answer: string,
     status: 'processing' | 'complete',
     termRows = 40,
+    visibleEventCount = 0,
   ): { type: 'full' | 'tail' | 'stub'; text: string } {
-    const reservedRows = Math.min(4 + 12, termRows - 10); // simplified: 0 events
-    const answerBudget = Math.max(10, termRows - reservedRows);
+    const isRunning = status === 'processing';
+    const maxContentLines = Math.max(8, termRows - 8);
+    // Running: remaining lines after events; complete: legacy formula.
+    const answerBudget = isRunning
+      ? Math.max(3, maxContentLines - visibleEventCount * 2)
+      : Math.max(10, termRows - Math.min(visibleEventCount * 2 + 12, termRows - 10));
     const answerLines = answer.split('\n');
     const isStreaming = status === 'processing';
 
@@ -383,7 +390,8 @@ describe('renderCurrentQuery — streaming answer viewport cap', () => {
     expect(result.type).toBe('tail');
     // tail must not exceed answerBudget lines (accounting for the leading "…")
     const renderedLines = result.text.split('\n').length;
-    expect(renderedLines).toBeLessThanOrEqual(30); // answerBudget = max(10, 40-16) = 24 + 1 for "…"
+    // termRows=40: maxContentLines=32, answerBudget=max(3,32-0)=32 → tail=32 lines + "…" = 33
+    expect(renderedLines).toBeLessThanOrEqual(33);
   });
 
   test('long streaming tail starts with the ellipsis indicator', () => {
@@ -408,26 +416,111 @@ describe('renderCurrentQuery — streaming answer viewport cap', () => {
   });
 
   test('medium complete answer (over budget, under old threshold) renders stub and flushes', () => {
-    // termRows=45: answerBudget=max(10,45-16)=29
-    // 33 lines: 33 > 29 (over budget) — previously showed tail, now always stub + flush
-    const mediumAnswer = Array(33).fill('result line').join('\n');
+    // termRows=45, 0 visible events: answerBudget=max(10,45-12)=33
+    // 40 lines: 40 > 33 (over budget) → stub + flush
+    const mediumAnswer = Array(40).fill('result line').join('\n');
     const result = simulateAnswerRender(mediumAnswer, 'complete', 45);
     expect(result.type).toBe('stub');
-    expect(result.text).toContain('33 lines');
+    expect(result.text).toContain('40 lines');
     expect(result.text).toContain('scrollback');
   });
 
   test('medium complete stub is always a single line', () => {
-    const mediumAnswer = Array(33).fill('result line').join('\n');
+    const mediumAnswer = Array(40).fill('result line').join('\n');
     const result = simulateAnswerRender(mediumAnswer, 'complete', 45);
     expect(result.text.split('\n').length).toBe(1);
   });
 
   test('answer budget scales with terminal height', () => {
     const answer = Array(35).fill('line').join('\n'); // 35 lines
-    // In a 40-row terminal: budget = max(10, 40 - min(16, 30)) = 24 → 35 > 24 → tail
+    // In a 40-row terminal: maxContentLines=32, answerBudget=32 → 35 > 32 → tail
     expect(simulateAnswerRender(answer, 'processing', 40).type).toBe('tail');
-    // In an 80-row terminal: budget = max(10, 80 - min(16, 70)) = 64 → 35 < 64 → full
+    // In an 80-row terminal: maxContentLines=72, answerBudget=72 → 35 < 72 → full
     expect(simulateAnswerRender(answer, 'processing', 80).type).toBe('full');
   });
+
+  test('streaming answer budget tightens when many events are visible', () => {
+    // 10 visible events (20 lines) on a 40-row terminal:
+    // maxContentLines=32, answerBudget=max(3,32-20)=12
+    // 25-line answer > 12 → tail
+    const answer = Array(25).fill('line').join('\n');
+    expect(simulateAnswerRender(answer, 'processing', 40, 10).type).toBe('tail');
+    // 5-line answer ≤ 12 → full
+    const shortAnswer = Array(5).fill('line').join('\n');
+    expect(simulateAnswerRender(shortAnswer, 'processing', 40, 10).type).toBe('full');
+  });
 });
+
+// ─── Dynamic event cap (duplicate-prompt regression) ──────────────────────────
+// Regression guard: renderCurrentQuery must never allow total TUI lines to
+// exceed termRows+2. If it does, the query header (at line index 2) scrolls
+// into the terminal's native scrollback buffer — flushExchangeToScrollback()
+// cannot clear it, causing the prompt to appear twice.
+
+describe('renderCurrentQuery — dynamic event cap prevents query overflow', () => {
+  /**
+   * Simulate the event-capping logic from cli.ts renderCurrentQuery.
+   * MAX_RUNNING_EVENTS = 30 (constant in cli.ts).
+   * Fixed overhead ≈ 10 lines (intro, spacer, query, hidden-text, hint, editor×3, working).
+   */
+  function simulateEventCap(
+    totalEvents: number,
+    termRows: number,
+    isRunning = true,
+  ): { effectiveMaxEvents: number; hiddenCount: number; totalRenderLines: number } {
+    const MAX_RUNNING_EVENTS = 30;
+    const maxContentLines = Math.max(8, termRows - 8);
+    const effectiveMaxEvents = Math.min(
+      MAX_RUNNING_EVENTS,
+      Math.max(2, Math.floor((maxContentLines - 5) / 2)),
+    );
+    const hiddenCount = isRunning && totalEvents > effectiveMaxEvents
+      ? totalEvents - effectiveMaxEvents
+      : 0;
+    const visibleEvents = Math.min(totalEvents, effectiveMaxEvents);
+    const answerBudget = Math.max(3, maxContentLines - visibleEvents * 2);
+    // 10 = fixed overhead (intro, spacer, query, hint, editor×3, working, margins)
+    const totalRenderLines = 10 + visibleEvents * 2 + answerBudget;
+    return { effectiveMaxEvents, hiddenCount, totalRenderLines };
+  }
+
+  test('total TUI lines never exceed termRows+2 on a small 24-row terminal', () => {
+    const { totalRenderLines } = simulateEventCap(20, 24);
+    expect(totalRenderLines).toBeLessThanOrEqual(24 + 2);
+  });
+
+  test('total TUI lines never exceed termRows+2 on a standard 40-row terminal', () => {
+    const { totalRenderLines } = simulateEventCap(20, 40);
+    expect(totalRenderLines).toBeLessThanOrEqual(40 + 2);
+  });
+
+  test('total TUI lines never exceed termRows+2 on a large 80-row terminal', () => {
+    const { totalRenderLines } = simulateEventCap(30, 80);
+    expect(totalRenderLines).toBeLessThanOrEqual(80 + 2);
+  });
+
+  test('early events are hidden when count exceeds the dynamic cap', () => {
+    // 24-row terminal: effectiveMaxEvents=5 → 20 events → 15 hidden
+    const { hiddenCount } = simulateEventCap(20, 24);
+    expect(hiddenCount).toBeGreaterThan(0);
+  });
+
+  test('all events are visible when count is below the dynamic cap', () => {
+    // 40-row terminal: effectiveMaxEvents=13 → 5 events → none hidden
+    const { hiddenCount } = simulateEventCap(5, 40);
+    expect(hiddenCount).toBe(0);
+  });
+
+  test('cap is always at least 2 so the most recent events are always shown', () => {
+    // Even on a tiny terminal (8 rows)
+    const { effectiveMaxEvents } = simulateEventCap(100, 8);
+    expect(effectiveMaxEvents).toBeGreaterThanOrEqual(2);
+  });
+
+  test('cap scales up with terminal height', () => {
+    const { effectiveMaxEvents: small } = simulateEventCap(30, 24);
+    const { effectiveMaxEvents: large } = simulateEventCap(30, 80);
+    expect(large).toBeGreaterThan(small);
+  });
+});
+

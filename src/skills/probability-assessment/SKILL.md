@@ -52,6 +52,38 @@ relevant signal-category search phrases (see default signal maps below).
 
 ---
 
+## Step 2b — Extract price threshold markets for chart (asset price queries only)
+
+**If the query is about an asset price** (e.g. "Will BTC be higher?", "Gold price forecast"):
+
+After gathering Polymarket markets, identify all markets that mention a specific
+**dollar price level** in their question text — patterns like:
+- "Will BTC exceed $70,000?"
+- "Will Gold (GC) settle at >$6,200 in June?"
+- "Will BTC reach $80K by end of March?"
+
+For each such market, record `{price, probability}` where:
+- `price` = the dollar level as a number (e.g. 70000, 6200, 80000)
+- `probability` = the YES probability (0–1) — treat these as **upper-tail**
+  (P(asset price > this level))
+
+**PRE-FLIGHT CHECK — you MUST complete this before writing any output:**
+
+1. Count the distinct price levels you have from Polymarket.
+2. If you have **2 or more** distinct price levels, **CALL `price_distribution_chart` NOW**
+   — before writing the Signal Evidence section. This is **mandatory**, not optional.
+   Pass the `{price, probability}[]` array and the current asset price.
+3. Embed the chart output verbatim in the **Signal Evidence** section under
+   Polymarket, immediately before the summary table.
+4. If you have fewer than 2 price levels, note "No chart: fewer than 2 price
+   thresholds available" in the Polymarket evidence section and continue.
+
+> ⚠️ **Do NOT skip `price_distribution_chart` when you have ≥2 price levels.**
+> The chart is the most informative visual in the entire output — it shows the
+> crowd-implied price distribution at a glance. Missing it is a quality failure.
+
+---
+
 ## Step 3 — Gather remaining signals
 
 Collect as many of these as are relevant and available. Each becomes a
@@ -102,30 +134,86 @@ Flag divergence (⚠️) when σ > 0.3.
 
 ## Step 5 — Output structured assessment
 
-Produce the following table exactly:
+The output must follow this exact order: **evidence first, then the summary table, then interpretation**.
+
+### 5a — Signal Evidence (show the raw data, always first)
+
+For **every** signal you used, list the exact data points you read. Do not
+summarise or paraphrase — show the actual question text, percentage, and where
+it came from. This is the most important part of the output.
+
+```
+**Signal Evidence**
+
+Polymarket (crowd)
+  • "Will BTC exceed $70K by March 30?" → 3.7% YES  ($350K volume)
+  • "Will BTC stay above $60K through March?" → 99.7% YES  ($280K volume)
+  • Implied range: $60–70K with ~4% chance of upside breakout
+
+ETF / Product flows (weight 30%)
+  • IBIT net flow last 7 days: −$120M (net outflow)
+  • Spot BTC ETF combined AUM: −2.1% WoW
+  • Interpretation: institutional flows are bearish short-term
+
+Fed / Rates (weight 20%)
+  • "Fed cuts before July 2026?" → 15% YES  (Polymarket)
+  • 10Y yield: 4.32% (Reuters, Mar 28)
+  • Interpretation: no rate tailwind expected in 30-day window
+
+Recession risk (weight 15%)
+  • "US recession by EOY 2026?" → 36% YES  (Polymarket)
+  • Near-term 30-day recession probability: ~5% (baseline)
+  • Interpretation: macro risk elevated but not imminent
+
+Social sentiment (weight 15%)
+  • Reddit r/Bitcoin: 42% bullish / 58% bearish  (150 posts, 24h)
+  • Fear & Greed Index: 9/100  (Extreme Fear)
+  • Interpretation: contrarian signal — Extreme Fear has historically marked local lows
+```
+
+### 5b — Summary table (after evidence)
 
 ```
 📊 Probability Assessment: [Event question]
 
 | Signal                  | Probability | Weight |
 |-------------------------|-------------|--------|
-| Polymarket (crowd)      |         68% |    40% |
-| Analyst consensus       |         72% |    25% |
-| Historical base rate    |         78% |    20% |
-| Social sentiment        |         62% |    15% |
+| Polymarket (crowd)      |          4% |    35% |
+| ETF/Product flows       |         25% |    30% |
+| Fed rates               |         45% |    20% |
+| Recession risk          |         40% |    15% |
 |-------------------------|-------------|--------|
-| **Combined (log-odds)** | **72% ±7pp**|        |
+| **Combined (log-odds)** | **24% ±6pp**|        |
 
 *Signals are [consistent / ⚠️ divergent — treat with caution].*
 ```
 
-Then provide a one-paragraph interpretation:
-- What the combined probability implies for the investment thesis
-- Which signal is the most informative and why
-- Any caveats (thin Polymarket liquidity, wide analyst dispersion, etc.)
-- A suggested action framing: e.g. "If your thesis requires >60% probability
-  for the event to justify the position, the combined 72% estimate provides
-  mild support."
+### 5c — Interpretation (after table)
+
+One short paragraph:
+- What the combined probability means in plain language
+- The single most informative signal and why (reference the evidence above)
+- Any data gaps (missing signals, thin Polymarket liquidity)
+- Suggested action framing
+
+---
+
+## Step 6 — Bear case (required)
+
+Apply Munger's inversion: state what would have to be true for the bull
+scenario to fail. **Always include this block after the interpretation**:
+
+```
+**Bear case**: [1–2 sentences describing the primary scenario that invalidates
+the thesis]. If [specific trigger — e.g. "Bitcoin breaks below $58K support"],
+this assessment would revise down to ~X%. Watch: [one concrete indicator to
+monitor — e.g. "weekly close below $60K", "SEC enforcement action", "Fed
+surprise hike"].
+```
+
+Keep it concise (3 sentences max). Do not simply restate the low probability
+as the bear case — identify the *mechanism* (catalyst + path) that makes it
+play out.
 
 ---
 
