@@ -136,3 +136,49 @@ describe('polymarketForecastTool', () => {
     expect(parseResult(raw)).toContain('Grade: D');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Horizon validation — ensure long horizons are accepted (no hard 14-day cap)
+// ---------------------------------------------------------------------------
+
+describe('horizon_days validation', () => {
+  it('accepts horizon_days = 30', async () => {
+    const raw = await polymarketForecastTool.func(
+      { ticker: 'NVDA', horizon_days: 30, current_price: 135.50 },
+      undefined,
+    );
+    const result = parseResult(raw);
+    expect(result).not.toContain('error');
+    expect(result).toContain('Polymarket Forecast');
+  });
+
+  it('accepts horizon_days = 90 and emits moderate-quality note', async () => {
+    const raw = await polymarketForecastTool.func(
+      { ticker: 'NVDA', horizon_days: 90, current_price: 135.50 },
+      undefined,
+    );
+    const result = parseResult(raw);
+    expect(result).toContain('Polymarket Forecast');
+    expect(result).toContain('Horizon 90d');
+  });
+
+  it('accepts horizon_days = 180 and emits >90-day accuracy warning', async () => {
+    const raw = await polymarketForecastTool.func(
+      { ticker: 'NVDA', horizon_days: 180, current_price: 135.50 },
+      undefined,
+    );
+    const result = parseResult(raw);
+    expect(result).toContain('Polymarket Forecast');
+    expect(result).toContain('Horizon 180d > 90 days');
+  });
+
+  it('accepts horizon_days = 365', async () => {
+    const raw = await polymarketForecastTool.func(
+      { ticker: 'BTC', horizon_days: 365, current_price: 85000 },
+      undefined,
+    );
+    const result = parseResult(raw);
+    expect(result).toContain('Polymarket Forecast');
+    expect(result).not.toContain('"ok":false');
+  });
+});

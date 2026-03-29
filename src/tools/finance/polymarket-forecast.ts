@@ -22,11 +22,15 @@ import { runEnsemble, computePolymarketSignal, computeEnsemble, computeCondition
 // ---------------------------------------------------------------------------
 
 export const POLYMARKET_FORECAST_DESCRIPTION = `
-Generates a prediction-market-weighted ensemble price forecast for any asset over a 1–14 day horizon.
+Generates a prediction-market-weighted ensemble price forecast for any asset over a 1–365 day horizon.
 
 Combines Polymarket crowd probabilities with optional auxiliary signals (news sentiment, fundamental
 analyst targets, options skew) into a single calibrated forecast with a 95% confidence interval and
 a quality grade (A–D).
+
+Polymarket hosts markets from 1 day to 12 months out — all are valid inputs. Signal quality is
+highest for liquid markets resolving in 1–90 days; longer-dated or low-volume markets are
+automatically down-weighted by the quality scoring engine.
 
 ## What This Tool Does
 
@@ -38,18 +42,26 @@ a quality grade (A–D).
 
 ## When to Use
 
-- User asks "Where will NVDA trade in a week?" or "What's your price target for BTC next 7 days?"
-- User wants a near-term forecast (≤ 14 days) incorporating prediction-market data
-- User asks "What does the market imply for [TICKER]?"
+- User asks "Where will NVDA trade in a week / month / quarter?"
+- User wants a forecast incorporating prediction-market data at any horizon (days to months)
+- User asks "What does the market imply for [TICKER] by end of year?"
 - You have already fetched sentiment or fundamentals and want to incorporate them into a price forecast
 - User asks for a probability-weighted scenario analysis combining multiple market signals
 
 ## When NOT to Use
 
-- Long-term valuation (> 1 month horizon) — use the DCF skill instead
 - Real-time stock price — use \`get_market_data\`
 - Fundamental company analysis — use \`get_financials\`
+- Multi-year DCF valuation (> 2 years) — use the DCF skill instead
 - News summarisation — use \`web_search\`
+
+## Signal Quality by Horizon
+
+| Horizon | Polymarket signal strength | Notes |
+|---------|--------------------------|-------|
+| 1–30 days | ★★★ Strong | Many active markets, high volume, best accuracy |
+| 30–90 days | ★★ Moderate | Fewer markets, still actionable |
+| 90–365 days | ★ Weaker | Longer-dated markets tend to be less liquid; quality weights auto-adjust |
 
 ## Input Tips
 
@@ -93,8 +105,8 @@ polymarket_forecast(NVDA, current_price=135.50, fundamental_return=0.18, sentime
 
 const schema = z.object({
   ticker: z.string().describe('Asset ticker or name, e.g. "NVDA", "BTC", "GLD"'),
-  horizon_days: z.number().int().min(1).max(14).default(7)
-    .describe('Forecast horizon in days (1–14). Default: 7'),
+  horizon_days: z.number().int().min(1).max(365).default(7)
+    .describe('Forecast horizon in days (1–365). Default: 7. Polymarket has markets from 1 day to 12 months — all are valid. Signal quality is highest for 1–90 day horizons.'),
   current_price: z.number().optional()
     .describe('Current asset price. If omitted, tool uses a placeholder and notes it.'),
   sentiment_score: z.number().min(-1).max(1).optional()
@@ -149,8 +161,8 @@ function optionsLabel(skew: number): string {
 export const polymarketForecastTool = new DynamicStructuredTool({
   name: 'polymarket_forecast',
   description:
-    'Generate a prediction-market-weighted ensemble price forecast for an asset over 1–14 days, ' +
-    'combining Polymarket probabilities with optional sentiment, fundamental, and options signals.',
+    'Generate a prediction-market-weighted ensemble price forecast for an asset over any horizon (1–365 days), ' +
+    'combining Polymarket probabilities (markets span 1 day to 12 months) with optional sentiment, fundamental, and options signals.',
   schema,
   func: async (input) => {
     if (polymarketBreaker.isOpen()) {
@@ -231,6 +243,12 @@ export const polymarketForecastTool = new DynamicStructuredTool({
 
       if (currentPrice === undefined) {
         lines.push('⚠️  No current price provided — price shown relative to base 100');
+      }
+
+      if (horizonDays > 90) {
+        lines.push(`⚠️  Horizon ${horizonDays}d > 90 days: Polymarket signal accuracy decreases for longer horizons. Wider CI expected. Consider supplementing with DCF skill for multi-month forecasts.`);
+      } else if (horizonDays > 14) {
+        lines.push(`ℹ️  Horizon ${horizonDays}d: Polymarket markets exist at this range but signal quality is moderate. 95% CI is wider than short-term forecasts.`);
       }
 
       lines.push('');
