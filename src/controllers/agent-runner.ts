@@ -301,11 +301,19 @@ export class AgentRunnerController {
         break;
       case 'tool_end':
         this.finishToolEvent(event);
-        this.workingStateValue = { status: 'thinking' };
+        this.workingStateValue = {
+          status: 'thinking',
+          iteration: (this.workingStateValue as { iteration?: number }).iteration,
+          maxIterations: (this.workingStateValue as { maxIterations?: number }).maxIterations,
+        };
         break;
       case 'tool_error':
         this.finishToolEvent(event);
-        this.workingStateValue = { status: 'thinking' };
+        this.workingStateValue = {
+          status: 'thinking',
+          iteration: (this.workingStateValue as { iteration?: number }).iteration,
+          maxIterations: (this.workingStateValue as { maxIterations?: number }).maxIterations,
+        };
         break;
       case 'tool_approval':
         this.pushEvent({
