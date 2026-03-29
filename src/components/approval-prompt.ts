@@ -21,9 +21,25 @@ export class ApprovalPromptComponent extends Container {
     const border = theme.warning('─'.repeat(width));
     const path = (args.path as string) || '<unknown>';
 
+    // Show a short content preview so users can make an informed approval decision
+    const rawContent =
+      (args.content as string) ||
+      (args.text as string) ||
+      (args.new_string as string) ||
+      '';
+    const previewText = rawContent.trim().replace(/\s+/g, ' ').slice(0, 100);
+    const preview = previewText
+      ? (previewText.length < rawContent.trim().replace(/\s+/g, ' ').length
+          ? `"${previewText}…"`
+          : `"${previewText}"`)
+      : null;
+
     this.addChild(new Text(border, 0, 0));
     this.addChild(new Text(theme.warning(theme.bold('Permission required')), 0, 0));
     this.addChild(new Text(`${formatToolLabel(tool)} ${path}`, 0, 0));
+    if (preview) {
+      this.addChild(new Text(theme.muted(preview), 0, 0));
+    }
     this.addChild(new Text(theme.muted('Do you want to allow this?'), 0, 0));
     this.addChild(new Text('', 0, 0));
     this.addChild(this.selector);

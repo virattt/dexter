@@ -234,19 +234,26 @@ export function formatUserFacingError(raw: string, provider?: string): string {
   switch (errorType) {
     case 'context_overflow':
       return 'Context overflow: the conversation is too large for the model. ' +
-        'Try starting a new conversation or use a model with a larger context window.';
+        'Try starting a new conversation (`/exit` then `bun start`), or switch to a model with a larger context window (`/model`).';
     case 'rate_limit':
-      return `${providerLabel}API rate limit reached. Please wait a moment and try again.`;
+      return `${providerLabel}rate limit hit (HTTP 429). ` +
+        'Wait ~60 seconds and try again. ' +
+        'If it keeps happening, check your usage dashboard or switch providers with `/model`.';
     case 'billing':
-      return `${providerLabel}API key has run out of credits or has an insufficient balance. ` +
-        'Check your billing dashboard and top up, or switch to a different API key.';
+      return `${providerLabel}billing error — API key has run out of credits or has insufficient balance. ` +
+        'Top up at your provider\'s billing page, or switch to a different API key in `.env` and restart.';
     case 'auth':
-      return `${providerLabel}API key is invalid or expired. ` +
-        'Check that your API key is correct in your environment variables.';
+      return `${providerLabel}authentication failed — API key is invalid or expired. ` +
+        'Check that your key is correct in `.env` (no extra spaces or quotes). ' +
+        'Generate a new key at your provider\'s dashboard if needed.';
     case 'timeout':
-      return 'LLM request timed out. Please try again.';
+      return 'LLM request timed out. ' +
+        'This can happen on slow networks or with very large prompts. ' +
+        'Try a shorter query, or switch to a faster model with `/model`.';
     case 'overloaded':
-      return 'The AI service is temporarily overloaded. Please try again in a moment.';
+      return 'The AI service is overloaded. ' +
+        'Wait 30–60 seconds and try again. ' +
+        'You can also switch to a different provider with `/model` for immediate service.';
     case 'unknown':
     default:
       if (info?.message) {

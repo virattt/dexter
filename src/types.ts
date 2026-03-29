@@ -2,8 +2,8 @@ import type { DisplayEvent, TokenUsage } from './agent/types.js';
 
 export type WorkingState =
   | { status: 'idle' }
-  | { status: 'thinking' }
-  | { status: 'tool'; toolName: string }
+  | { status: 'thinking'; iteration?: number; maxIterations?: number }
+  | { status: 'tool'; toolName: string; iteration?: number; maxIterations?: number }
   | { status: 'approval'; toolName: string };
 
 export type HistoryItemStatus = 'processing' | 'complete' | 'error' | 'interrupted';

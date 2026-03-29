@@ -202,6 +202,15 @@ export interface TokenUsage {
 }
 
 /**
+ * Emitted at the start of each iteration so the TUI can show [iter/max · elapsed].
+ */
+export interface ProgressEvent {
+  type: 'progress';
+  iteration: number;
+  maxIterations: number;
+}
+
+/**
  * Agent completed with final result
  */
 export interface DoneEvent {
@@ -249,6 +258,7 @@ export type AgentEvent =
   | MemoryFlushEvent
   | AnswerStartEvent
   | AnswerChunkEvent
+  | ProgressEvent
   | DoneEvent;
 
 /**

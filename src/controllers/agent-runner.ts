@@ -237,8 +237,32 @@ export class AgentRunnerController {
 
   private async handleEvent(event: AgentEvent) {
     switch (event.type) {
+      case 'progress': {
+        // Propagate iteration counter into the current working state so the
+        // spinner can display [iter/max · elapsed].
+        const ws = this.workingStateValue;
+        if (ws.status === 'thinking' || ws.status === 'tool') {
+          this.workingStateValue = {
+            ...ws,
+            iteration: event.iteration,
+            maxIterations: event.maxIterations,
+          } as WorkingState;
+        } else {
+          // Store so it'll be attached when the state next transitions to thinking/tool
+          this.workingStateValue = {
+            status: 'thinking',
+            iteration: event.iteration,
+            maxIterations: event.maxIterations,
+          };
+        }
+        break;
+      }
       case 'thinking':
-        this.workingStateValue = { status: 'thinking' };
+        this.workingStateValue = {
+          status: 'thinking',
+          iteration: (this.workingStateValue as { iteration?: number }).iteration,
+          maxIterations: (this.workingStateValue as { maxIterations?: number }).maxIterations,
+        };
         this.pushEvent({
           id: `thinking-${Date.now()}`,
           event,
@@ -247,7 +271,12 @@ export class AgentRunnerController {
         break;
       case 'tool_start': {
         const toolId = `tool-${event.tool}-${Date.now()}`;
-        this.workingStateValue = { status: 'tool', toolName: event.tool };
+        this.workingStateValue = {
+          status: 'tool',
+          toolName: event.tool,
+          iteration: (this.workingStateValue as { iteration?: number }).iteration,
+          maxIterations: (this.workingStateValue as { maxIterations?: number }).maxIterations,
+        };
         this.updateLastItem((last) => ({
           ...last,
           activeToolId: toolId,

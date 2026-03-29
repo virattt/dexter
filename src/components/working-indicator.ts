@@ -71,9 +71,10 @@ export class WorkingIndicatorComponent extends Container {
   private elapsedLabel(): string {
     if (this.startTime === null) return '';
     const secs = Math.floor((Date.now() - this.startTime) / 1000);
+    if (secs < 60) return `${secs}s`;
     const m = Math.floor(secs / 60);
     const s = secs % 60;
-    return ` ${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return `${m}m${String(s).padStart(2, '0')}s`;
   }
 
   private renderIdle() {
@@ -116,6 +117,15 @@ export class WorkingIndicatorComponent extends Container {
       this.loader.setMessage('Waiting for approval... (esc to interrupt)');
       return;
     }
-    this.loader.setMessage(`${this.thinkingVerb}${this.elapsedLabel()}… (esc to interrupt)`);
+
+    // Build [iter/max · elapsed] badge when iteration info is available
+    const iterInfo =
+      (this.state.status === 'thinking' || this.state.status === 'tool') &&
+      this.state.iteration !== undefined &&
+      this.state.maxIterations !== undefined
+        ? ` [${this.state.iteration}/${this.state.maxIterations} · ${this.elapsedLabel()}]`
+        : this.elapsedLabel();
+
+    this.loader.setMessage(`${this.thinkingVerb}${iterInfo}… (esc to interrupt)`);
   }
 }

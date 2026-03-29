@@ -128,6 +128,127 @@ export function formatRelativeTime(ts: number, now: number = Date.now()): string
   return `${months[d.getUTCMonth()]} ${dayNum} ${hh}:${mm}`;
 }
 
+/**
+ * Formats a single session as a SelectItem with right-aligned metadata.
+ * Shared between the static list and the filterable session browser.
+ */
+function formatSessionItem(s: SessionIndexEntry, now: number): SelectItem {
+  const rawQuery = s.firstQuery ?? s.name.replace(/^\d{4}-\d{2}-\d{2}\s+/, '');
+  const maxQueryLen = 46;
+  const queryPreview =
+    rawQuery.length > maxQueryLen ? `${rawQuery.slice(0, maxQueryLen - 1)}…` : rawQuery;
+  const relTime = formatRelativeTime(s.lastModified, now);
+  const countLabel = `${s.queryCount} ${s.queryCount === 1 ? 'query' : 'queries'}`;
+  const meta = `${relTime} · ${countLabel}`;
+  const totalWidth = 72;
+  const gap = Math.max(2, totalWidth - queryPreview.length - meta.length);
+  return {
+    value: s.id,
+    label: `${queryPreview}${' '.repeat(gap)}${meta}`,
+  };
+}
+
+/**
+ * Interactive session browser with live regex/keyword filter.
+ *
+ * - Printable characters update the filter and re-render the list in real-time.
+ * - Backspace removes the last filter character.
+ * - ↑/↓/j/k navigate the filtered list.
+ * - Enter selects; Esc closes.
+ */
+class SessionBrowserComponent extends Container {
+  private filter = '';
+  private list: VimSelectList | null = null;
+
+  constructor(
+    private readonly allSessions: SessionIndexEntry[],
+    private readonly now: number,
+    private readonly onSelect: (id: string | null) => void,
+  ) {
+    super();
+    this.rebuild();
+  }
+
+  private getFilteredSessions(): SessionIndexEntry[] {
+    const q = this.filter.trim();
+    if (!q) return this.allSessions;
+    let re: RegExp;
+    try {
+      re = new RegExp(q, 'i');
+    } catch {
+      re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    }
+    return this.allSessions.filter((s) => {
+      const text = s.firstQuery ?? s.name ?? '';
+      return re.test(text);
+    });
+  }
+
+  private rebuild() {
+    this.clear();
+
+    // Header line: show filter text or instruction hint
+    const hint = this.filter
+      ? `🔍 ${this.filter}▌`
+      : theme.muted('Type to filter · ↑↓/jk navigate · Enter open · Esc close');
+    this.addChild(new Text(hint, 0, 0));
+    this.addChild(new Text('', 0, 0));
+
+    const filtered = this.getFilteredSessions();
+    if (filtered.length === 0) {
+      this.addChild(new Text(theme.muted(`  No sessions match "${this.filter}"`), 0, 0));
+      this.list = null;
+      return;
+    }
+
+    const items = filtered.map((s) => formatSessionItem(s, this.now));
+    this.list = new VimSelectList(items, Math.min(filtered.length + 2, 12), selectListTheme);
+    this.list.onSelect = (item) => this.onSelect(item.value);
+    this.list.onCancel = () => this.onSelect(null);
+    this.addChild(this.list);
+  }
+
+  handleInput(keyData: string): void {
+    const kb = getEditorKeybindings();
+
+    if (kb.matches(keyData, 'selectCancel')) {
+      this.onSelect(null);
+      return;
+    }
+
+    // Backspace
+    if (keyData === '\x7f' || keyData === '\b') {
+      if (this.filter.length > 0) {
+        this.filter = this.filter.slice(0, -1);
+        this.rebuild();
+      }
+      return;
+    }
+
+    // Navigation and selection go straight to the list
+    const isNavKey =
+      keyData === '\u001b[A' || // up
+      keyData === '\u001b[B' || // down
+      keyData === '\r' ||       // enter
+      keyData === 'j' ||
+      keyData === 'k';
+    if (isNavKey) {
+      this.list?.handleInput(keyData);
+      return;
+    }
+
+    // Printable characters update the filter
+    if (keyData.length === 1 && keyData.charCodeAt(0) >= 32) {
+      this.filter += keyData;
+      this.rebuild();
+      return;
+    }
+
+    // Anything else (page-up/down, etc.) goes to the list
+    this.list?.handleInput(keyData);
+  }
+}
+
 export function createSessionSelector(
   sessions: SessionIndexEntry[],
   onSelect: (id: string | null) => void,
@@ -144,32 +265,7 @@ export function createSessionSelector(
     return container;
   }
 
-  const now = Date.now();
-  const items: SelectItem[] = sessions.map((s) => {
-    // Show first query (verbatim) when available, otherwise strip the date prefix from name.
-    const rawQuery = s.firstQuery ?? s.name.replace(/^\d{4}-\d{2}-\d{2}\s+/, '');
-    const maxQueryLen = 46;
-    const queryPreview =
-      rawQuery.length > maxQueryLen ? `${rawQuery.slice(0, maxQueryLen - 1)}…` : rawQuery;
-
-    const relTime = formatRelativeTime(s.lastModified, now);
-    const countLabel = `${s.queryCount} ${s.queryCount === 1 ? 'query' : 'queries'}`;
-    const meta = `${relTime} · ${countLabel}`;
-
-    // Pad so metadata is right-aligned at a fixed column (72 chars total).
-    const totalWidth = 72;
-    const labelLeft = queryPreview;
-    const gap = Math.max(2, totalWidth - labelLeft.length - meta.length);
-    return {
-      value: s.id,
-      label: `${labelLeft}${' '.repeat(gap)}${meta}`,
-    };
-  });
-
-  const list = new VimSelectList(items, Math.min(sessions.length + 2, 12), selectListTheme);
-  list.onSelect = (item) => onSelect(item.value);
-  list.onCancel = () => onSelect(null);
-  return list;
+  return new SessionBrowserComponent(sessions, Date.now(), onSelect);
 }
 
 export function createSkillSelector(

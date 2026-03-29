@@ -30,6 +30,17 @@ const TOOLS_REQUIRING_APPROVAL = ['write_file', 'edit_file'] as const;
 export class AgentToolExecutor {
   private readonly sessionApprovedTools: Set<string>;
 
+  /**
+   * In-session request cache keyed on `toolName:stableJsonArgs`.
+   * Eliminates redundant API calls when the same ticker/query appears multiple
+   * times in a complex compound query (e.g. "compare NVDA vs AMD" may trigger
+   * two independent financial_search calls for the same ticker).
+   *
+   * Tools that are stateful, produce side-effects, or are intentionally
+   * non-deterministic are excluded — see UNCACHEABLE_TOOLS below.
+   */
+  private readonly requestCache = new Map<string, string>();
+
   constructor(
     private readonly toolMap: Map<string, StructuredToolInterface>,
     private readonly signal?: AbortSignal,
@@ -163,6 +174,26 @@ export class AgentToolExecutor {
         throw new Error(`Tool '${toolName}' not found`);
       }
 
+      // --- In-session request cache ---
+      // Skip cache for tools that are stateful, have side-effects, or are
+      // intentionally non-deterministic.
+      const UNCACHEABLE_TOOLS = new Set([
+        'browser', 'skill', 'sequential_thinking',
+        'write_file', 'edit_file', 'create_file', 'memory_store',
+      ]);
+      const isCacheable = !UNCACHEABLE_TOOLS.has(toolName);
+      const cacheKey = isCacheable
+        ? `${toolName}:${JSON.stringify(Object.fromEntries(Object.entries(toolArgs).sort()))}`
+        : null;
+
+      if (cacheKey && this.requestCache.has(cacheKey)) {
+        const cached = this.requestCache.get(cacheKey)!;
+        yield { type: 'tool_end', tool: toolName, args: toolArgs, result: cached, duration: 0 };
+        ctx.scratchpad.recordToolCall(toolName, toolQuery);
+        ctx.scratchpad.addToolResult(toolName, toolArgs, cached);
+        return;
+      }
+
       // Create a progress channel so subagent tools can stream status updates
       const channel = createProgressChannel();
       const config = {
@@ -191,6 +222,9 @@ export class AgentToolExecutor {
       const rawResult = await toolPromise;
       const result = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
       const duration = Date.now() - toolStartTime;
+
+      // Cache the result for subsequent identical calls this session
+      if (cacheKey) this.requestCache.set(cacheKey, result);
 
       yield { type: 'tool_end', tool: toolName, args: toolArgs, result, duration };
 
