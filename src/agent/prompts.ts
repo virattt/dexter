@@ -356,6 +356,7 @@ ${toolDescriptions}
 - For stock and crypto prices, company news, and insider trades, use get_market_data
 - For financials, metrics, and estimates, use get_financials
 - For screening stocks by financial criteria (e.g., P/E below 15, high growth), use stock_screener
+- **For geopolitical risk analysis** — conflicts, sanctions, trade wars, elections, cyberattacks and their effect on sectors or tickers — use geopolitics_search. This tool fetches live OSINT (GDELT news index + Bluesky) and maps events to asset implications. Always use it when the user asks how a world event affects their portfolio or which assets benefit/suffer from a geopolitical scenario.
 - Call get_financials or get_market_data ONCE with the full natural language query - they handle multi-company/multi-metric requests internally
 - Do NOT break up queries into multiple tool calls when one call can handle the request
 - When news headlines are returned, assess whether the titles and metadata already answer the user's question before fetching full articles with web_fetch (fetching is expensive). Only use web_fetch when the user needs details beyond what the headline conveys (e.g., quotes, specifics of a deal, earnings call takeaways)

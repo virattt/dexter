@@ -364,15 +364,38 @@ function formatResult(r: GeopoliticsResult): string {
 // Tool export
 // ──────────────────────────────────────────────────────────────────────────────
 
-export const GEOPOLITICS_SEARCH_DESCRIPTION = `Search geopolitical OSINT sources (GDELT news index, Bluesky) for events that may affect financial assets.
-Use this tool when the user asks about:
-- Geopolitical risk affecting a sector or ticker
-- Conflict, sanctions, trade war, cyberattack news
-- Macro risk from elections, coups, or regime change
-- How world events correlate to energy, defense, semiconductor, or commodity prices
+export const GEOPOLITICS_SEARCH_DESCRIPTION = `Search geopolitical OSINT sources (GDELT news index, Bluesky) for live events and map them to financial asset implications.
 
-The tool auto-detects event categories from the topic and maps events to asset implications with direction (risk-up / risk-down / volatility).
-No API key required (GDELT and Bluesky are free/open).`;
+## When to Use
+- User asks how a geopolitical event affects a sector or specific ticker
+- User asks which assets benefit from conflict, sanctions, trade wars, or elections
+- User asks for "safe haven" or "risk-on/risk-off" plays in a geopolitical scenario
+- User wants a geopolitical risk briefing for their portfolio or watchlist
+- Query involves: wars, military escalation, nuclear threats, cyberattacks, sanctions, OPEC, supply disruptions, regime change
+- Specifically useful for: energy stocks (Middle East/Russia), defense stocks (NATO spending), semiconductors (Taiwan), gold/commodities (safe haven), FX
+
+## When NOT to Use
+- Pure financial analysis (earnings, DCF, valuation) — use get_financials instead
+- Stock screening by financial criteria — use stock_screener
+- When the query has no geopolitical angle
+
+## Output
+Returns structured results:
+- Detected event categories (ukraine-russia, middle-east, china-taiwan, us-china-trade, sanctions, cyberattack, etc.)
+- Top recent events from GDELT + Bluesky with source attribution
+- Asset implications per ticker: direction (risk-up / risk-down / volatility) + confidence %
+- Watchlist hits — tickers the user already tracks that are affected
+- Confidence level: high / medium / low based on event volume and source diversity
+
+## Example Queries
+- "Russia Ukraine ceasefire" → energy, defense, wheat implications
+- "China Taiwan military" → TSMC, NVDA, AAPL, semiconductor supply chain
+- "OPEC production cut" → XOM, CVX, LNG, USO, airline stocks
+- "US China tariffs" → NVDA export controls, AAPL manufacturing risk, MP Materials
+- "Ransomware infrastructure attack" → CRWD, PANW, ZS, FTNT cybersecurity
+
+No API key required — GDELT and Bluesky are free and open.`;
+
 
 export const geopoliticsSearchTool = new DynamicStructuredTool({
   name: 'geopolitics_search',
