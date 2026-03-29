@@ -349,3 +349,46 @@ Dream consolidation now waits **400 ms** after the TUI paints before running,
 ensuring the interface is fully interactive before background consolidation
 begins. The `🌙 Dream running…` header indicator appears only after the user
 can see the interface — eliminating the perception of a slow startup.
+
+---
+
+## 🌐 Geopolitics OSINT (`geopolitics_search`)
+
+Dexter can now monitor geopolitical events and correlate them to financial asset
+implications using **free, open-access sources** — no X/Twitter credentials required.
+
+### Sources
+| Source | API | Auth Required |
+|--------|-----|---------------|
+| **GDELT DOC 2.0** | Global news article index (~100+ languages) | ❌ Free, keyless |
+| **Bluesky AT Protocol** | OSINT community posts | ❌ Free, public API |
+| **web_search** | Exa / Tavily fallback for breaking news | Uses existing key |
+
+### Event Categories Covered
+`ukraine-russia` · `middle-east` · `china-taiwan` · `us-china-trade` · `iran` ·
+`north-korea` · `cyberattack` · `sanctions` · `election-risk` · `energy-supply`
+
+### Asset Correlation Map
+Rule-based (no LLM, deterministic): each event category maps to a curated list of
+tickers with direction (risk-up / risk-down / volatility) and confidence scores.
+
+### Watchlist Integration
+Pass your watchlist tickers to get **watchlist-first** output — your positions are
+flagged in the results before the general implications list.
+
+### Usage Examples
+```
+What's the latest on Russia Ukraine ceasefire? How does it affect energy stocks?
+Run a geopolitics OSINT briefing on Middle East oil supply risk
+China Taiwan military exercises — impact on my NVDA position?
+Are there any new cyber threats affecting my cybersecurity holdings?
+```
+
+### Memory Namespace
+Findings are stored under `namespace="geopolitics-osint"` for future recall without
+contaminating DCF or thesis memory namespaces.
+
+### Signal Extractor Extension
+The `extractSignals()` function now recognises `defense` (LMT, RTX, NOC, GD…) and
+`cybersecurity` (CRWD, PANW, ZS, FTNT…) asset types with geopolitical-weighted
+signal categories.

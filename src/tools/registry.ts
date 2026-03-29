@@ -17,6 +17,7 @@ import { discoverSkills } from '../skills/index.js';
 import { sequentialThinkingTool, sequentialThinkingEngine, SEQUENTIAL_THINKING_DESCRIPTION } from './thinking/sequential.js';
 import { portfolioRiskTool, PORTFOLIO_RISK_DESCRIPTION } from './finance/portfolio-risk.js';
 import { waccInputsTool, WACC_INPUTS_DESCRIPTION } from './finance/wacc-inputs.js';
+import { geopoliticsSearchTool, GEOPOLITICS_SEARCH_DESCRIPTION } from './osint/geopolitics-search.js';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -86,6 +87,11 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'social_sentiment',
       tool: socialSentimentTool,
       description: SOCIAL_SENTIMENT_DESCRIPTION,
+    },
+    {
+      name: 'geopolitics_search',
+      tool: geopoliticsSearchTool,
+      description: GEOPOLITICS_SEARCH_DESCRIPTION,
     },
     {
       name: 'web_fetch',

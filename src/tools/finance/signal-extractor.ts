@@ -21,7 +21,9 @@ export type AssetType =
   | 'consumer'
   | 'crypto'
   | 'commodity'
-  | 'macro';
+  | 'macro'
+  | 'defense'
+  | 'cybersecurity';
 
 export interface SignalCategory {
   name: string;
@@ -114,7 +116,11 @@ const SECTOR_MAP: Record<string, AssetType> = {
   CRM: 'tech_software', NOW: 'tech_software', SNOW: 'tech_software',
   PLTR: 'tech_software', ADBE: 'tech_software', SAP: 'tech_software',
   TEAM: 'tech_software', NET: 'tech_software', DDOG: 'tech_software',
-  ZS: 'tech_software', CRWD: 'tech_software',
+  ZS: 'cybersecurity', CRWD: 'cybersecurity', PANW: 'cybersecurity',
+  FTNT: 'cybersecurity', S: 'cybersecurity',
+  // Defense
+  LMT: 'defense', RTX: 'defense', NOC: 'defense', GD: 'defense',
+  LHX: 'defense', BA: 'defense', HII: 'defense', LDOS: 'defense',
   // Tech — General (hardware / devices)
   AAPL: 'tech_general', DELL: 'tech_general', HPQ: 'tech_general',
   // Healthcare
@@ -344,6 +350,18 @@ const SIGNAL_MAPS: Record<AssetType, Array<{
     { name: 'US Recession',      tpl: 'US recession',          variantTpls: ['recession', 'economic recession'],      weight: 0.35, category: 'macro_growth' },
     { name: 'Trade / Tariffs',   tpl: 'tariff trade war',      variantTpls: ['tariff', 'trade war'],                  weight: 0.20, category: 'trade_policy' },
     { name: 'Geopolitical',      tpl: 'geopolitical conflict', variantTpls: ['geopolitical', 'conflict war'],         weight: 0.10, category: 'geopolitical' },
+  ],
+  defense: [
+    { name: 'Military Conflict', tpl: 'military conflict war', variantTpls: ['defense spending', 'NATO budget'],      weight: 0.40, category: 'geopolitical' },
+    { name: 'Defense Budget',    tpl: 'US defense spending',   variantTpls: ['Pentagon budget', 'military budget'],   weight: 0.30, category: 'government_budget' },
+    { name: 'Earnings',          tpl: '{ticker} earnings',     variantTpls: ['{ticker}', 'defense earnings'],         weight: 0.20, category: 'earnings' },
+    { name: 'US Recession',      tpl: 'US recession',          variantTpls: ['recession', 'economic recession'],      weight: 0.10, category: 'macro_growth' },
+  ],
+  cybersecurity: [
+    { name: 'Cyberattack',       tpl: 'cyberattack infrastructure', variantTpls: ['ransomware', 'nation-state hacker'], weight: 0.40, category: 'geopolitical' },
+    { name: 'Regulation / CISA', tpl: 'cybersecurity regulation',   variantTpls: ['CISA', 'cyber executive order'],     weight: 0.25, category: 'regulatory' },
+    { name: 'Earnings',          tpl: '{ticker} earnings',          variantTpls: ['{ticker}', 'cybersecurity earnings'], weight: 0.25, category: 'earnings' },
+    { name: 'US Recession',      tpl: 'US recession',               variantTpls: ['recession', 'economic recession'],   weight: 0.10, category: 'macro_growth' },
   ],
 };
 

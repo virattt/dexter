@@ -67,6 +67,7 @@ This fork adds the following on top of the upstream repository:
 - **Exponential backoff on rate limits**: all financial API calls (`financialdatasets.ai`, FMP) automatically retry with exponential back-off (1 s → 2 s → 4 s → 8 s) on HTTP 429 responses — no manual intervention needed
 - **Multi-source data validation**: when `financialdatasets.ai` returns annual income statements and `FMP_API_KEY` is set, FMP is queried concurrently; if `totalRevenue` or `netIncome` diverge by more than 15 % between sources, a `⚠️ Data discrepancy` warning is appended to the result so you can investigate before acting on the numbers
 - **Polymarket tag-based search**: rebuilt to use verified `tag_slug` filters (`/events?tag_slug=X`) with client-side text matching — queries about bitcoin, Fed rates, commodities, elections, and big-tech now return accurate prediction markets instead of irrelevant sports results
+- **Geopolitics OSINT** (`geopolitics_search`): monitors geopolitical events (conflict, sanctions, trade war, cyberattack) and maps them to financial asset implications — powered by GDELT (free news index) + Bluesky (open OSINT community) — no X/Twitter credentials required. Includes watchlist-first output, event→asset correlation map, and `defense`/`cybersecurity` signal categories
 
 ### Ollama / Local LLM
 - Full support for local Ollama models with no API key required
