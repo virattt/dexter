@@ -98,7 +98,23 @@ Search is triggered automatically for financial queries and returns ranked resul
 
 ## Memory Auto-Injection
 
-At the start of **every query**, Dexter automatically scans the input for stock tickers (e.g. `AAPL`, `$NVDA`, `MSFT`) and silently searches memory for prior research on those tickers. If relevant notes are found, they are prepended to the prompt as a `📚 Prior Research:` block before the agent starts working.
+At the start of **every query**, Dexter searches memory for relevant prior
+research and prepends it to the prompt as a `📚 Prior Research:` block.
+
+**Two search passes run in parallel (results are deduplicated):**
+
+1. **Ticker-based pass** — extracts equity tickers from the query text
+   (e.g. `AAPL`, `$NVDA`) and looks up prior research for each one.
+   Best for: specific stock research continuity.
+
+2. **Full-query semantic pass** — searches memory using the complete query
+   as the search string. Catches non-ticker topics: macro research, Fed
+   rate notes, commodity forecasts, sector observations, and anything else
+   that doesn't centre on a ticker symbol.
+   Best for: "gold price forecast", "Fed rate cut", "oil supply chain".
+
+The two passes are **deduplicated** — the same snippet never appears twice
+even if both passes return it.
 
 ### What it looks like
 
@@ -116,7 +132,16 @@ If memory contains a note about Apple, the agent sees:
 What is AAPL's current valuation vs its 5-year average P/E?
 ```
 
-The agent then factors in the prior context without needing to re-fetch data it has already analysed, reducing tool calls and improving continuity across sessions.
+And for a macro query like "Will the Fed cut rates in 2026?":
+```
+📚 Prior Research:
+• [context] Fed held rates at 4.25–4.50% in March 2026 meeting; Powell signalled two cuts likely H2 2026
+• [context] PCE inflation 2.6% Feb 2026 — above 2% target but trending down
+
+Will the Fed cut rates in 2026?
+```
+
+The `[context]` label is used for results from the full-query semantic pass.
 
 ### Limits
 
@@ -124,6 +149,7 @@ The agent then factors in the prior context without needing to re-fetch data it 
 |---------|---------|--------|
 | Max tickers per query | 2 | Looks up at most 2 tickers (the first two found in the query) |
 | Max results per ticker | 3 | At most 3 memory snippets per ticker |
+| Max semantic results | 3 | At most 3 results from the full-query semantic pass |
 | Snippet length | 300 chars | Each snippet is truncated to 300 characters |
 
 ### Requirements

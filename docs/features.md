@@ -185,3 +185,118 @@ coverage. For deep compound queries, use the `--deep` flag (50 iterations):
 ```
 bun start --deep
 ```
+
+---
+
+## 🛡️ Graceful Degradation at Max Iterations
+
+When the agent exhausts its iteration budget without producing a final answer,
+it now synthesises a **best-effort response** from all the data it gathered —
+rather than returning a bare "I could not complete the research" failure.
+
+The synthesis call re-uses the full scratchpad contents (prices, metrics,
+filings, search snippets) and produces a structured answer clearly marked:
+
+```
+**[Best-effort summary — research may be incomplete]**
+
+Based on the data gathered so far: …
+```
+
+This is particularly useful for long compound queries (DCF + peer comparison +
+probability assessment) where the agent collects useful data but runs out of
+steps before assembling the final narrative.
+
+---
+
+## ⚡ Parallel Tool Execution
+
+Multiple tool calls within a single agent iteration now run **concurrently**
+rather than sequentially. Three independent web searches that previously took
+~9 s (3 × 3 s) now complete in ~3 s.
+
+**How it works:**
+- All tools in a batch are launched simultaneously as concurrent async tasks.
+- Events (`tool_start`, `tool_end`) stream to the TUI in real-time as each
+  tool lands — you see all tools activate at once, then each result appears
+  as its HTTP call completes.
+- Skill deduplication (each skill runs at most once per query) is checked
+  before the batch is launched, not after.
+
+No configuration required — parallel execution is on by default.
+
+---
+
+## 📊 Portfolio Risk Metrics
+
+A dedicated `portfolio_risk` skill analyses your watchlist (or any set of
+tickers) for quantitative risk metrics:
+
+| Metric | Description |
+|--------|-------------|
+| **VaR (95%)** | Maximum expected 1-day loss at 95% confidence |
+| **CVaR / Expected Shortfall** | Average loss in the worst 5% of days |
+| **Sharpe Ratio** | Annualised risk-adjusted return (excess return / vol) |
+| **Max Drawdown** | Worst peak-to-trough decline in the lookback window |
+| **Volatility** | Annualised standard deviation of daily returns |
+| **Correlation Matrix** | Pairwise correlations — identify concentration risk |
+
+**Invocation:**
+```
+Use the portfolio_risk skill for my watchlist
+```
+or for a specific set:
+```
+Use the portfolio_risk skill for AAPL NVDA MSFT
+```
+
+The skill fetches historical prices via `financial_search`, computes metrics
+from daily returns, and outputs an interpretation with flags for high-risk
+positions (VaR > 5%, negative Sharpe, drawdown > 25%).
+
+---
+
+## 💹 DCF Skill — CAPM-Based WACC
+
+The DCF valuation skill now derives **WACC dynamically** from market data
+instead of using a static sector default.
+
+**Calculation chain:**
+1. Fetch company **beta** via `wacc_inputs` tool (tries Financial Datasets API
+   snapshot first, falls back to FMP, then sector median)
+2. Apply **CAPM** to derive cost of equity:
+   `Ke = Rfr + β × ERP` (10-year Treasury rate + equity risk premium)
+3. Compute **WACC**:
+   `WACC = E/V × Ke + D/V × Kd × (1 − T)` using the company's actual D/E ratio
+4. Cross-check against the sector WACC table — if outside range, the skill
+   flags a beta/D/E review
+
+The DCF output table now includes `betaSource`, `Ke`, equity/debt weights,
+and the final `waccPct` so you can audit every assumption.
+
+**Why this matters:** A 2% WACC error changes a DCF fair-value estimate by
+~15–25%. Fetching beta dynamically eliminates the most common source of
+unreliable DCF outputs.
+
+---
+
+## 🎯 Polymarket — Tag-Based Search
+
+The Polymarket integration was fully rebuilt to work around a discovered
+limitation: the Gamma API `keyword` parameter is **non-functional** (searching
+`keyword=gold` and `keyword=xyzxyz` return identical top-volume global markets).
+
+**New architecture:**
+1. `inferTagSlugs()` maps the query to verified Gamma tag slugs
+   (e.g. `"gold"` → `["commodities", "economy"]`)
+2. `searchEventsByTag()` fetches `/events?tag_slug=X` — the only endpoint
+   where tag filtering actually works
+3. Client-side text filter narrows results to events whose title/description
+   matches the original query
+4. Results from multiple slugs are deduplicated by event ID
+
+**Coverage:** bitcoin, ethereum, crypto, Fed rates, economic policy, tariffs,
+commodities, big-tech, elections, US politics, global events, IPOs, health.
+
+Queries about topics outside these slugs (e.g. niche sports) fall back to a
+top-volume global market sample.

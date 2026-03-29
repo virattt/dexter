@@ -66,6 +66,7 @@ This fork adds the following on top of the upstream repository:
 - **Data freshness enforcement**: agent explicitly checks whether retrieved data is recent enough
 - **Exponential backoff on rate limits**: all financial API calls (`financialdatasets.ai`, FMP) automatically retry with exponential back-off (1 s → 2 s → 4 s → 8 s) on HTTP 429 responses — no manual intervention needed
 - **Multi-source data validation**: when `financialdatasets.ai` returns annual income statements and `FMP_API_KEY` is set, FMP is queried concurrently; if `totalRevenue` or `netIncome` diverge by more than 15 % between sources, a `⚠️ Data discrepancy` warning is appended to the result so you can investigate before acting on the numbers
+- **Polymarket tag-based search**: rebuilt to use verified `tag_slug` filters (`/events?tag_slug=X`) with client-side text matching — queries about bitcoin, Fed rates, commodities, elections, and big-tech now return accurate prediction markets instead of irrelevant sports results
 
 ### Ollama / Local LLM
 - Full support for local Ollama models with no API key required
@@ -86,6 +87,12 @@ This fork adds the following on top of the upstream repository:
 - **`/watchlist snapshot`** — portfolio dashboard with ASCII horizontal bar chart (allocation %), total invested vs. current value, P&L, best/worst performers
 - All three commands gracefully degrade when `FINANCIAL_DATASETS_API_KEY` is not set
 
+### Agent Reliability & Performance
+- **Graceful degradation at max iterations**: when the agent hits the 25-iteration limit without finishing, it synthesises a best-effort answer from all gathered data instead of returning a bare failure message — partial research is clearly labelled but always delivered
+- **Parallel tool execution**: multiple tool calls within one iteration now run concurrently — three independent web searches complete in ~1× latency instead of ~3×; events stream to the TUI in real-time as each tool lands
+- **Query-specific memory injection**: every query now triggers a full-query semantic memory search in addition to the ticker-based pass — non-ticker queries like "gold forecast" or "Fed rate cut" now retrieve relevant prior research too
+- **TUI answer viewport cap**: long streaming answers are capped to the visible terminal area to prevent the same answer appearing twice (one truncated in the live TUI, one full in the scrollback buffer)
+
 ### New Skills & Research Templates
 - **Earnings Calendar** — structured table of upcoming earnings with consensus estimates, prior surprise %, and options implied move
 - **Peer Comparison** — side-by-side valuation, growth, and quality metrics against auto-discovered sector peers
@@ -93,12 +100,14 @@ This fork adds the following on top of the upstream repository:
 - **Short Thesis** — bear-case research template: valuation, debt, competitive threats, insider activity, trough-multiple price target
 - **Sector Overview** — macro backdrop, top names, valuation spread, recent catalysts, three actionable ideas
 - **Watchlist Briefing** — triggered by `/watchlist`; live price + P&L + next earnings table for your positions
+- **Portfolio Risk** — VaR (95%), CVaR, Sharpe ratio, max drawdown, annualised volatility, and full correlation matrix for watchlist positions or any ticker list
+- **DCF Valuation** (improved) — WACC now derived dynamically via CAPM (fetches beta from FMP/Yahoo, uses live Treasury rate) instead of a static sector default; output includes full WACC breakdown and sensitivity matrix
 - **Full Analysis** — flagship meta-skill that chains DCF → Peer Comparison → Short Thesis → Probability Assessment into one structured report. Invoke with: `Use the full-analysis skill for AAPL`
 
 ### Memory System & Dream Consolidation
 - **Persistent memory** stored in `.dexter/memory/` as plain Markdown (`MEMORY.md`, `FINANCE.md`, daily `YYYY-MM-DD.md` files)
 - **Four-tier priority system** (P1 critical → P4 noise) guides what the agent remembers and prunes
-- **Memory auto-injection**: at the start of every query, Dexter extracts any stock tickers mentioned (e.g. `AAPL`, `NVDA`) and silently searches memory for prior research on those tickers; if relevant notes are found, they are prepended as a `📚 Prior Research:` block so the agent can build on earlier work without re-fetching the same data (capped at 2 tickers × 3 snippets per query)
+- **Memory auto-injection**: at the start of every query, Dexter runs two memory search passes — (1) a ticker-based pass for any stock tickers in the query, and (2) a full-query semantic pass for non-ticker topics (gold, Fed rates, macro). Results from both passes are deduplicated and prepended as a `📚 Prior Research:` block so the agent builds on earlier work without re-fetching data (capped at 2 tickers × 3 snippets + 3 semantic snippets per query)
 - **Dream** — background consolidation cycle inspired by Claude Code's AutoDream: merges fragmented daily notes, replaces relative timestamps with absolute dates, deduplicates ticker data, resolves contradictions, and rewrites `MEMORY.md`/`FINANCE.md` into clean summaries
   - Auto-triggers at startup when: ≥2 daily files exist, ≥24h elapsed, ≥3 sessions since last run
   - Manual trigger: `/dream` (respects conditions) or `/dream force` (always runs)
