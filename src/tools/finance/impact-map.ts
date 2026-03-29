@@ -329,7 +329,9 @@ const SEMICONDUCTOR_TICKERS = new Set([
 const TECH_TICKERS = new Set([
   'MSFT', 'AAPL', 'GOOGL', 'GOOG', 'META', 'AMZN', 'ORCL', 'CRM', 'NOW',
   'SNOW', 'PLTR', 'ADBE', 'SAP', 'TEAM', 'NET', 'DDOG', 'ZS', 'CRWD', 'DELL', 'HPQ',
-  'XLK',  // Technology Select SPDR
+  'XLK',         // Technology Select SPDR
+  'QQQ', 'QQQM', // Nasdaq-100 ETFs — ~99% tech/growth weighting
+  'VGT', 'IGM',  // Vanguard & iShares tech ETFs
 ]);
 const ENERGY_TICKERS = new Set([
   'XLE', 'XOM', 'CVX', 'OXY', 'COP', 'SLB', 'EOG', 'PSX', 'VLO', 'MPC', 'BP', 'SHEL',

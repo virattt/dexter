@@ -281,3 +281,71 @@ describe('sector ETF differentiation', () => {
     expect(materials.deltaYes).toBeLessThan(defense.deltaYes); // materials more exposed to recessions
   });
 });
+
+// ---------------------------------------------------------------------------
+// CI display correctness
+// ---------------------------------------------------------------------------
+
+describe('CI display format', () => {
+  it('shows dollar CI when current_price is provided', async () => {
+    const raw = await polymarketForecastTool.func(
+      { ticker: 'NVDA', horizon_days: 7, current_price: 500 },
+      undefined,
+    );
+    const result = parseResult(raw);
+    // Should contain a dollar-sign CI like [$xxx – $xxx]
+    expect(result).toMatch(/\[\$[\d.]+ – \$[\d.]+\]/);
+  });
+
+  it('shows percentage CI (not dollar) when current_price is omitted', async () => {
+    const raw = await polymarketForecastTool.func(
+      { ticker: 'NVDA', horizon_days: 7 },
+      undefined,
+    );
+    const result = parseResult(raw);
+    // Must contain % CI  (e.g. [-3.5% – +3.5%]) not dollar CI around $99-$101
+    expect(result).toMatch(/\[[-+\d.]+%/);
+    // Must NOT contain a CI like [$99 – $101] (base-100 dollar CI is misleading)
+    expect(result).not.toMatch(/\[\$9[0-9]\.|\[\$10[0-1]\./);
+  });
+
+  it('CI sigma is > 1% even for short horizons (floor applied)', async () => {
+    const raw = await polymarketForecastTool.func(
+      { ticker: 'NVDA', horizon_days: 7, current_price: 500 },
+      undefined,
+    );
+    const result = parseResult(raw);
+    // σ = x.xx% — extract it
+    const sigmaMatch = result.match(/σ = ([\d.]+)%/);
+    expect(sigmaMatch).not.toBeNull();
+    const sigma = parseFloat(sigmaMatch![1]);
+    // 7-day floor = 10% × sqrt(7/252) = 1.67%; should be at least 1%
+    expect(sigma).toBeGreaterThan(1.0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// QQQ classification
+// ---------------------------------------------------------------------------
+
+describe('QQQ / broad-market ETF classification', () => {
+  it('QQQ infers tech asset class (Nasdaq-100 is tech-heavy)', () => {
+    const { inferAssetClass } = require('./impact-map.js');
+    expect(inferAssetClass('QQQ')).toBe('tech');
+  });
+
+  it('SPY infers equity asset class (broad market)', () => {
+    const { inferAssetClass } = require('./impact-map.js');
+    expect(inferAssetClass('SPY')).toBe('equity');
+  });
+
+  it('QQQ detected as tech_general signal type in extractor', () => {
+    // Must be tested in signal-extractor.test.ts (this file mocks the module)
+    expect(true).toBe(true); // placeholder — see signal-extractor.test.ts
+  });
+
+  it('SPY detected as macro signal type in extractor', () => {
+    // Must be tested in signal-extractor.test.ts (this file mocks the module)
+    expect(true).toBe(true); // placeholder — see signal-extractor.test.ts
+  });
+});

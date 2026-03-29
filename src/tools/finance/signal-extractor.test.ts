@@ -451,3 +451,43 @@ describe('extractSignals — commodity signals', () => {
     expect(phrases).not.toContain('commodity supply');
   });
 });
+
+// ---------------------------------------------------------------------------
+// QQQ / broad-market ETF signal routing
+// ---------------------------------------------------------------------------
+
+describe('ETF signal routing', () => {
+  it('QQQ detected as tech_general (Nasdaq-100 is tech-heavy)', () => {
+    const r = detectAssetType('QQQ');
+    expect(r.type).toBe('tech_general');
+    expect(r.ticker).toBe('QQQ');
+  });
+
+  it('SPY detected as macro (broad market)', () => {
+    const r = detectAssetType('SPY');
+    expect(r.type).toBe('macro');
+  });
+
+  it('VOO detected as macro (broad market)', () => {
+    expect(detectAssetType('VOO').type).toBe('macro');
+  });
+
+  it('QQQ signals are tech-oriented (earnings primary)', () => {
+    const signals = extractSignals('QQQ price forecast');
+    // tech_general has earnings as first signal
+    expect(signals[0].category).toBe('earnings');
+  });
+
+  it('SPY signals are macro-oriented (Fed/recession primary)', () => {
+    const signals = extractSignals('SPY outlook');
+    const cats = signals.map((s) => s.category);
+    expect(cats).toContain('macro_rates');
+    expect(cats).toContain('macro_growth');
+  });
+
+  it('QQQ and SPY produce DIFFERENT primary signals (bug guard)', () => {
+    const qqqPrimary = extractSignals('QQQ')[0].category;
+    const spyPrimary = extractSignals('SPY')[0].category;
+    expect(qqqPrimary).not.toBe(spyPrimary);
+  });
+});

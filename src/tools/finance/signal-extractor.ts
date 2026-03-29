@@ -23,7 +23,10 @@ export type AssetType =
   | 'commodity'
   | 'macro'
   | 'defense'
-  | 'cybersecurity';
+  | 'cybersecurity'
+  | 'materials'
+  | 'industrial'
+  | 'small_cap';
 
 export interface SignalCategory {
   name: string;
@@ -72,6 +75,15 @@ export const TICKER_TO_COMPANY_NAME: Record<string, string> = {
   SBUX: 'Starbucks', NKE: 'Nike', DIS: 'Disney', NFLX: 'Netflix',
   TSLA: 'Tesla', HD: 'Home Depot', LOW: "Lowe's",
   BABA: 'Alibaba', PG: 'Procter & Gamble', KO: 'Coca-Cola', PEP: 'PepsiCo',
+  // Sector ETFs
+  SLX: 'VanEck Steel', XME: 'SPDR Metals Mining', XLB: 'Materials Select',
+  GDX: 'VanEck Gold Miners', GDXJ: 'VanEck Junior Gold Miners',
+  XLI: 'Industrials Select', IWM: 'Russell 2000',
+  KRE: 'KBW Regional Banking', KBE: 'SPDR Bank', XLF: 'Financial Select',
+  // Tech ETFs
+  QQQ: 'Nasdaq 100', QQQM: 'Nasdaq 100', XLK: 'Technology Select', VGT: 'Vanguard tech',
+  // Broad-market ETFs
+  SPY: 'S&P 500', VOO: 'S&P 500', IVV: 'S&P 500', VTI: 'US stock market', DIA: 'Dow Jones',
   // Crypto
   BTC: 'Bitcoin', ETH: 'Ethereum', SOL: 'Solana',
   // Commodities — use lowercase common name for Polymarket text matching
@@ -141,6 +153,23 @@ const SECTOR_MAP: Record<string, AssetType> = {
   SBUX: 'consumer', NKE: 'consumer', DIS: 'consumer', NFLX: 'consumer',
   TSLA: 'consumer', HD: 'consumer', LOW: 'consumer',
   BABA: 'consumer', PG: 'consumer', KO: 'consumer', PEP: 'consumer',
+  // Materials / Metals ETFs
+  SLX: 'materials', XME: 'materials', XLB: 'materials', GDX: 'materials', GDXJ: 'materials',
+  PICK: 'materials', REMX: 'materials',
+  // Industrials ETFs
+  XLI: 'industrial', VIS: 'industrial', PAVE: 'industrial', GWX: 'industrial',
+  // Financials ETFs (KRE, KBE, XLF, etc.)
+  KRE: 'financials', KBE: 'financials', XLF: 'financials', IAI: 'financials', KBWB: 'financials',
+  // Small-cap ETFs
+  IWM: 'small_cap', VBK: 'small_cap', IJR: 'small_cap', SLY: 'small_cap',
+  // Defense ETFs
+  ITA: 'defense',
+  // Tech ETFs — QQQ/XLK are tech-heavy, not generic macro
+  QQQ: 'tech_general', QQQM: 'tech_general', XLK: 'tech_general',
+  VGT: 'tech_general', IGM: 'tech_general',
+  // Broad-market ETFs — macro signals are correct
+  SPY: 'macro', VOO: 'macro', VTI: 'macro', IVV: 'macro', DIA: 'macro',
+  SCHB: 'macro', VT: 'macro',
 };
 
 // ---------------------------------------------------------------------------
@@ -362,6 +391,27 @@ const SIGNAL_MAPS: Record<AssetType, Array<{
     { name: 'Regulation / CISA', tpl: 'cybersecurity regulation',   variantTpls: ['CISA', 'cyber executive order'],     weight: 0.25, category: 'regulatory' },
     { name: 'Earnings',          tpl: '{ticker} earnings',          variantTpls: ['{ticker}', 'cybersecurity earnings'], weight: 0.25, category: 'earnings' },
     { name: 'US Recession',      tpl: 'US recession',               variantTpls: ['recession', 'economic recession'],   weight: 0.10, category: 'macro_growth' },
+  ],
+  // US tariffs PROTECT domestic steel/metals producers → deltaYes is POSITIVE for tariff_increase
+  materials: [
+    { name: 'Trade / Tariffs',   tpl: 'steel tariff',          variantTpls: ['metal tariff', 'trade war steel'],          weight: 0.40, category: 'tariff_increase' },
+    { name: 'US Recession',      tpl: 'US recession',          variantTpls: ['recession', 'economic recession'],           weight: 0.25, category: 'macro_growth' },
+    { name: 'Commodity Prices',  tpl: 'steel price',           variantTpls: ['metal price', 'copper price'],               weight: 0.20, category: 'commodity' },
+    { name: 'Fed Rate Decision', tpl: 'Fed rate cut',          variantTpls: ['Federal Reserve rate', 'FOMC'],              weight: 0.15, category: 'macro_rates' },
+  ],
+  // Industrials: supply-chain sensitive, highly cyclical
+  industrial: [
+    { name: 'Trade / Tariffs',   tpl: 'tariff trade war',      variantTpls: ['tariff', 'trade war'],                       weight: 0.30, category: 'tariff_increase' },
+    { name: 'US Recession',      tpl: 'US recession',          variantTpls: ['recession', 'economic recession'],           weight: 0.30, category: 'macro_growth' },
+    { name: 'Fed Rate Decision', tpl: 'Fed rate cut',          variantTpls: ['Federal Reserve rate', 'FOMC'],              weight: 0.25, category: 'macro_rates' },
+    { name: 'Geopolitical',      tpl: 'geopolitical conflict', variantTpls: ['trade disruption', 'supply chain'],          weight: 0.15, category: 'geopolitical' },
+  ],
+  // Small-cap: rate-sensitive (floating-rate debt), more domestic-focused
+  small_cap: [
+    { name: 'US Recession',      tpl: 'US recession',          variantTpls: ['recession', 'economic recession'],           weight: 0.35, category: 'macro_growth' },
+    { name: 'Fed Rate Decision', tpl: 'Fed rate cut',          variantTpls: ['Federal Reserve rate', 'FOMC'],              weight: 0.30, category: 'macro_rates' },
+    { name: 'Trade / Tariffs',   tpl: 'tariff trade war',      variantTpls: ['tariff', 'trade war'],                       weight: 0.20, category: 'tariff_increase' },
+    { name: 'Geopolitical',      tpl: 'geopolitical conflict', variantTpls: ['geopolitical', 'conflict war'],              weight: 0.15, category: 'geopolitical' },
   ],
 };
 

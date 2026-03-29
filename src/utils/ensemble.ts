@@ -315,12 +315,20 @@ export function runEnsemble(
   const forecastPrice = currentPrice * (1 + forecastReturn);
 
   // Step 4: Uncertainty.
-  const sigma = computeVariance(
+  const rawSigma = computeVariance(
     markets,
     weights['pm'] ?? 0,
     weights['sentiment'] ?? 0,
     others.sentimentScore ?? 0,
   );
+
+  // Apply a minimum sigma floor based on horizon length.
+  // Prediction-market variance only captures event-resolution uncertainty, not
+  // general market volatility. A 10% annualised floor prevents implausibly tight
+  // CIs when market probabilities are extreme (P≈0.03 makes P×(1-P) ≈ 0.03).
+  const horizonFrac = Math.max(1, others.horizonDays ?? 7) / 252;
+  const sigmaFloor = 0.10 * Math.sqrt(horizonFrac); // 10% annual floor scaled to horizon
+  const sigma = Math.max(sigmaFloor, rawSigma);
 
   // Step 5: Confidence interval.
   const { low, high } = computeCI(forecastPrice, sigma);

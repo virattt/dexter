@@ -65,8 +65,9 @@ automatically down-weighted by the quality scoring engine.
 
 ## Input Tips
 
-- **Pass \`current_price\`** whenever available (from \`get_market_data\`). Without it the forecast is
-  relative to a base of 100 and the output will include a warning.
+- **ALWAYS pass \`current_price\`** (fetch with \`get_market_data\` first). Without it the 95% CI
+  is shown as percentages only (relative to base 100), NOT in dollar terms. Call order:
+  get_market_data(ticker) → polymarket_forecast(ticker, current_price=<fetched price>).
 - **Pass \`sentiment_score\`** (from \`social_sentiment\`) if you have already called that tool —
   it improves forecast quality at no extra cost.
 - **Pass \`fundamental_return\`** (analyst 1-year target implied return from \`get_financials\`) if
@@ -252,9 +253,16 @@ export const polymarketForecastTool = new DynamicStructuredTool({
       }
 
       lines.push('');
-      lines.push(`Current price:   $${basePrice}`);
-      lines.push(`Forecast price:  $${result.forecastPrice.toFixed(2)}  (${sign(result.forecastReturn)}${returnPct}%)`);
-      lines.push(`95% CI:          [$${ciLow.toFixed(2)} – $${ciHigh.toFixed(2)}]  (σ = ${sigmaPct}%)`);
+      lines.push(`Current price:   ${currentPrice !== undefined ? '$' + basePrice : 'not provided — CI shown as %'}`);
+      lines.push(`Forecast price:  ${currentPrice !== undefined ? '$' + result.forecastPrice.toFixed(2) : '(base 100) ' + result.forecastPrice.toFixed(2)}  (${sign(result.forecastReturn)}${returnPct}%)`);
+      if (currentPrice !== undefined) {
+        lines.push(`95% CI:          [$${ciLow.toFixed(2)} – $${ciHigh.toFixed(2)}]  (σ = ${sigmaPct}%)`);
+      } else {
+        const ciLowPct = ((result.ciLow95 / basePrice - 1) * 100).toFixed(2);
+        const ciHighPct = ((result.ciHigh95 / basePrice - 1) * 100).toFixed(2);
+        const ciHighSign = parseFloat(ciHighPct) >= 0 ? '+' : '';
+        lines.push(`95% CI:          [${ciLowPct}% – ${ciHighSign}${ciHighPct}%]  (σ = ${sigmaPct}%)  ← % relative to current price`);
+      }
       lines.push('');
       lines.push(`── Polymarket Signal (w̄ = ${avgQualityStr}) ──────────────────────────────────`);
 
