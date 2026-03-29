@@ -96,6 +96,40 @@ async function defaultCallLlm(prompt: string, opts: { model: string }): Promise<
 }
 
 // ---------------------------------------------------------------------------
+// Deduplication helpers (pure, exported for testing)
+// ---------------------------------------------------------------------------
+
+function normalizeInsight(line: string): string {
+  return line
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '') // strip punctuation
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Remove lines from newContent that are semantically identical to lines
+ * already present in existingContent. Comparison is normalized:
+ * lowercase, punctuation stripped, whitespace collapsed.
+ */
+export function deduplicateInsights(newContent: string, existingContent: string): string {
+  const existingNorms = new Set(
+    existingContent
+      .split('\n')
+      .map(normalizeInsight)
+      .filter((s) => s.length > 0),
+  );
+
+  return newContent
+    .split('\n')
+    .filter((line) => {
+      const norm = normalizeInsight(line);
+      return norm.length === 0 || !existingNorms.has(norm); // keep blank lines, keep novel lines
+    })
+    .join('\n');
+}
+
+// ---------------------------------------------------------------------------
 // Pure helpers (no I/O — fully unit-testable)
 // ---------------------------------------------------------------------------
 
@@ -246,9 +280,15 @@ async function consolidate(
     );
   }
 
-  // Phase 4: write consolidated files.
-  await store.writeMemoryFile('MEMORY.md', parsed.memory + '\n');
-  await store.writeMemoryFile('FINANCE.md', parsed.finance + '\n');
+  // Phase 4: read existing files, dedup, then write consolidated files.
+  const existingMemory = await store.readMemoryFile('MEMORY.md').catch(() => '');
+  const existingFinance = await store.readMemoryFile('FINANCE.md').catch(() => '');
+
+  const dedupedMemory = deduplicateInsights(parsed.memory, existingMemory);
+  const dedupedFinance = deduplicateInsights(parsed.finance, existingFinance);
+
+  await store.writeMemoryFile('MEMORY.md', dedupedMemory + '\n');
+  await store.writeMemoryFile('FINANCE.md', dedupedFinance + '\n');
 
   // Archive processed daily files (moves to archive/ subdirectory).
   const archivedFiles: string[] = [];

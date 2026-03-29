@@ -274,3 +274,118 @@ describe('AgentToolExecutor — tool_start on cache hit', () => {
     expect(starts.length).toBe(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Parallel request deduplication (pre-dispatch / pendingRequests)
+// ---------------------------------------------------------------------------
+describe('AgentToolExecutor — parallel request deduplication (pendingRequests)', () => {
+  it('two identical parallel calls share one API invocation', async () => {
+    const fakeTool = makeFakeTool('financial_search', '{"price":150}');
+    const executor = new AgentToolExecutor(new Map([['financial_search', fakeTool]]));
+    const ctx = makeCtx();
+    const args = { ticker: 'AAPL' };
+
+    // Single executeAll with two identical tool calls → both dispatched before either resolves
+    const events = await drainEvents(executor.executeAll(aiMsgTwo('financial_search', args), ctx));
+
+    expect(fakeTool.invocationCount).toBe(1);
+
+    const ends = events.filter((e) => e.type === 'tool_end') as ToolEndEvent[];
+    expect(ends).toHaveLength(2);
+    expect(ends[0].result).toBe('{"price":150}');
+    expect(ends[1].result).toBe('{"price":150}');
+  });
+
+  it('two parallel calls with different args each fire the tool', async () => {
+    const fakeTool = makeFakeTool('financial_search', 'data');
+    const executor = new AgentToolExecutor(new Map([['financial_search', fakeTool]]));
+    const ctx = makeCtx();
+
+    const events = await drainEvents(
+      executor.executeAll(
+        aiMsgTwoDiff('financial_search', { ticker: 'AAPL' }, { ticker: 'NVDA' }),
+        ctx,
+      ),
+    );
+
+    expect(fakeTool.invocationCount).toBe(2);
+    const ends = events.filter((e) => e.type === 'tool_end') as ToolEndEvent[];
+    expect(ends).toHaveLength(2);
+  });
+
+  it('after first call completes, a second sequential call uses requestCache (not pendingRequests)', async () => {
+    const fakeTool = makeFakeTool('financial_search', 'cached');
+    const executor = new AgentToolExecutor(new Map([['financial_search', fakeTool]]));
+    const ctx = makeCtx();
+    const args = { ticker: 'AAPL' };
+
+    const msg = new AIMessage({
+      content: '',
+      tool_calls: [{ id: 'c1', name: 'financial_search', args, type: 'tool_call' as const }],
+    });
+
+    // First call completes and populates requestCache
+    await drainEvents(executor.executeAll(msg, ctx));
+    expect(fakeTool.invocationCount).toBe(1);
+
+    // Second call (new executeAll) hits requestCache, tool never invoked again
+    const events = await drainEvents(executor.executeAll(msg, ctx));
+    expect(fakeTool.invocationCount).toBe(1);
+
+    const end = events.find((e) => e.type === 'tool_end') as ToolEndEvent | undefined;
+    expect(end?.result).toBe('cached');
+    expect(end?.duration).toBe(0);
+  });
+
+  it('uncacheable tools (browser) are NOT deduplicated in parallel', async () => {
+    const fakeTool = makeFakeTool('browser', 'page content');
+    const executor = new AgentToolExecutor(new Map([['browser', fakeTool]]));
+    const ctx = makeCtx();
+    const args = { url: 'https://example.com' };
+
+    const events = await drainEvents(executor.executeAll(aiMsgTwo('browser', args), ctx));
+
+    // Both calls must fire independently
+    expect(fakeTool.invocationCount).toBe(2);
+    const ends = events.filter((e) => e.type === 'tool_end') as ToolEndEvent[];
+    expect(ends).toHaveLength(2);
+  });
+
+  it('cleans up pendingRequests on error so a subsequent call can retry', async () => {
+    let callCount = 0;
+    const flakyTool = {
+      name: 'financial_search',
+      invoke: async (_args: unknown) => {
+        callCount++;
+        if (callCount === 1) throw new Error('transient API failure');
+        return 'retry succeeded';
+      },
+      lc_namespace: [],
+      schema: {},
+    } as unknown as import('@langchain/core/tools').StructuredToolInterface;
+
+    const executor = new AgentToolExecutor(new Map([['financial_search', flakyTool]]));
+    const ctx = makeCtx();
+    const args = { ticker: 'AAPL' };
+
+    const singleMsg = new AIMessage({
+      content: '',
+      tool_calls: [{ id: 'c1', name: 'financial_search', args, type: 'tool_call' as const }],
+    });
+
+    // First call errors → pendingRequests entry must be removed
+    const errEvents = await drainEvents(executor.executeAll(singleMsg, ctx));
+    expect(errEvents.some((e) => e.type === 'tool_error')).toBe(true);
+    expect(callCount).toBe(1);
+
+    // Second sequential call — pendingRequests is clean, retries and succeeds
+    const retryMsg = new AIMessage({
+      content: '',
+      tool_calls: [{ id: 'c2', name: 'financial_search', args, type: 'tool_call' as const }],
+    });
+    const retryEvents = await drainEvents(executor.executeAll(retryMsg, ctx));
+    expect(callCount).toBe(2);
+    const end = retryEvents.find((e) => e.type === 'tool_end') as ToolEndEvent | undefined;
+    expect(end?.result).toBe('retry succeeded');
+  });
+});

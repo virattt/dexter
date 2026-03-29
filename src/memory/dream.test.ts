@@ -10,6 +10,7 @@ import {
   runDream,
   incrementDreamSessionCount,
   buildConsolidationPrompt,
+  deduplicateInsights,
   type DreamSignal,
   type DreamResult,
   type CallLlmFn,
@@ -683,5 +684,65 @@ describe('runDream — full cycle (E2E)', () => {
     await expect(runDream(store, 'gpt-4', { force: true, callLlm: badLlm })).rejects.toThrow(
       /Dream consolidation failed/,
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deduplicateInsights — pure function
+// ---------------------------------------------------------------------------
+
+describe('deduplicateInsights', () => {
+  it('empty existing → returns newContent unchanged', () => {
+    const newContent = 'NVDA is bullish.\nRevenue up 120%.';
+    expect(deduplicateInsights(newContent, '')).toBe(newContent);
+  });
+
+  it('exact duplicate line → removed from output', () => {
+    const existing = 'NVDA is bullish.';
+    const newContent = 'NVDA is bullish.\nRevenue up 120%.';
+    const result = deduplicateInsights(newContent, existing);
+    expect(result).not.toContain('NVDA is bullish.');
+    expect(result).toContain('Revenue up 120%.');
+  });
+
+  it('case-insensitive duplicate → removed', () => {
+    const existing = 'nvda is bullish';
+    const newContent = 'NVDA is bullish\nRevenue up 120%.';
+    const result = deduplicateInsights(newContent, existing);
+    expect(result).not.toContain('NVDA is bullish');
+    expect(result).toContain('Revenue up 120%.');
+  });
+
+  it('punctuation-normalized duplicate → removed', () => {
+    const existing = 'NVDA is bullish';
+    const newContent = 'NVDA is bullish.\nRevenue up 120%.';
+    const result = deduplicateInsights(newContent, existing);
+    expect(result).not.toContain('NVDA is bullish.');
+    expect(result).toContain('Revenue up 120%.');
+  });
+
+  it('novel line → kept', () => {
+    const existing = 'AAPL P/E 28x.';
+    const newContent = 'MSFT Azure growing 23% YoY.';
+    expect(deduplicateInsights(newContent, existing)).toBe(newContent);
+  });
+
+  it('blank lines → preserved', () => {
+    const existing = 'Some note.';
+    const newContent = 'Novel line.\n\nAnother novel line.';
+    const result = deduplicateInsights(newContent, existing);
+    expect(result).toContain('\n\n');
+    expect(result).toContain('Novel line.');
+    expect(result).toContain('Another novel line.');
+  });
+
+  it('mixed: some duplicates + some novel → only novel lines kept', () => {
+    const existing = 'NVDA is bullish.\nAAPL P/E 28x.';
+    const newContent = 'NVDA is bullish.\nMSFT strong cloud growth.\nAAPL P/E 28x.\nNew insight here.';
+    const result = deduplicateInsights(newContent, existing);
+    expect(result).not.toContain('NVDA is bullish.');
+    expect(result).not.toContain('AAPL P/E 28x.');
+    expect(result).toContain('MSFT strong cloud growth.');
+    expect(result).toContain('New insight here.');
   });
 });

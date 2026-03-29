@@ -73,6 +73,11 @@ This fork adds the following on top of the upstream repository:
 - **Export Framework** (`/export`): export session research to `markdown`, `json`, or `csv` — saved to the current directory; markdown format includes tool usage tables and full answers
 - **Config Expansion** (`/config`): view and tune `maxIterations`, `contextThreshold`, `keepToolUses`, `cacheTtlMs`, `parallelToolLimit` at runtime — persisted to `.dexter/settings.json`
 - **Context Management Overhaul**: summarise-instead-of-drop — cleared tool results are preserved as ticker-prefixed compact summaries with key metrics (P/E, revenue, etc.), merged into a single rolling block; prevents agent re-fetching data it already has
+- **Markdown Rendering**: bold, italic, inline code, headers (h1/h2/h3), bullet lists, and URLs now render with colour/style in the TUI chat output
+- **Parallel Request Deduplication**: when multiple iterations request the same tool+args simultaneously, only one API call fires — others wait on the in-flight promise (`pendingRequests` map)
+- **Config Schema Validation**: `.dexter/settings.json` validated with Zod on load — type/range errors warn to stderr and strip the invalid field; never crashes startup
+- **Dream Dedup Guard**: Dream consolidation deduplicates insights against existing `MEMORY.md`/`FINANCE.md` before writing — running Dream twice no longer produces duplicate lines
+- **Progress Bar**: working indicator now shows `[7/25 · ███░░░░░░░ 28% · 42s]` — visual bar shows how close the agent is to the iteration limit
 
 ### Ollama / Local LLM
 - Full support for local Ollama models with no API key required

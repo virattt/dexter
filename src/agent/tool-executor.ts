@@ -41,6 +41,17 @@ export class AgentToolExecutor {
    */
   private readonly requestCache = new Map<string, string>();
 
+  /**
+   * In-flight request registry keyed on `toolName:stableJsonArgs`.
+   * When identical cacheable tool calls are dispatched in parallel (before any
+   * one of them resolves), subsequent callers attach to the existing Promise
+   * instead of firing a redundant API request.
+   *
+   * Each entry is removed once the originating call settles (success or error)
+   * and the result is promoted to `requestCache` on success.
+   */
+  private readonly pendingRequests = new Map<string, Promise<string>>();
+
   constructor(
     private readonly toolMap: Map<string, StructuredToolInterface>,
     private readonly signal?: AbortSignal,
@@ -168,6 +179,9 @@ export class AgentToolExecutor {
 
     const toolStartTime = Date.now();
 
+    // Declared before try so the catch block can clean up pendingRequests on error.
+    let cacheKey: string | null = null;
+
     try {
       const tool = this.toolMap.get(toolName);
       if (!tool) {
@@ -182,7 +196,7 @@ export class AgentToolExecutor {
         'write_file', 'edit_file', 'create_file', 'memory_store',
       ]);
       const isCacheable = !UNCACHEABLE_TOOLS.has(toolName);
-      const cacheKey = isCacheable
+      cacheKey = isCacheable
         ? `${toolName}:${JSON.stringify(Object.fromEntries(Object.entries(toolArgs).sort()))}`
         : null;
 
@@ -194,6 +208,19 @@ export class AgentToolExecutor {
         return;
       }
 
+      // --- Pre-dispatch deduplication ---
+      // If an identical cacheable request is already in-flight (dispatched in
+      // the same parallel batch), attach to its Promise instead of firing a
+      // second API call. The originating call owns the channel and channel
+      // draining; we just wait for the shared result.
+      if (cacheKey && this.pendingRequests.has(cacheKey)) {
+        const result = await this.pendingRequests.get(cacheKey)!;
+        yield { type: 'tool_end', tool: toolName, args: toolArgs, result, duration: 0 };
+        ctx.scratchpad.recordToolCall(toolName, toolQuery);
+        ctx.scratchpad.addToolResult(toolName, toolArgs, result);
+        return;
+      }
+
       // Create a progress channel so subagent tools can stream status updates
       const channel = createProgressChannel();
       const config = {
@@ -201,11 +228,13 @@ export class AgentToolExecutor {
         ...(this.signal ? { signal: this.signal } : {}),
       };
 
-      // Launch tool invocation -- closes the channel when it settles
-      const toolPromise = tool.invoke(toolArgs, config).then(
+      // Launch tool invocation -- closes the channel when it settles and
+      // converts the raw result to string immediately so the shared Promise
+      // stored in pendingRequests is always Promise<string>.
+      const resultPromise: Promise<string> = tool.invoke(toolArgs, config).then(
         (raw) => {
           channel.close();
-          return raw;
+          return typeof raw === 'string' ? raw : JSON.stringify(raw);
         },
         (err) => {
           channel.close();
@@ -213,18 +242,24 @@ export class AgentToolExecutor {
         }
       );
 
+      // Register before awaiting so any parallel call with the same key can
+      // attach to this Promise rather than firing a duplicate API request.
+      if (cacheKey) this.pendingRequests.set(cacheKey, resultPromise);
+
       // Drain progress events in real-time as the tool executes
       for await (const message of channel) {
         yield { type: 'tool_progress', tool: toolName, message } as ToolProgressEvent;
       }
 
       // Tool has finished -- collect the result
-      const rawResult = await toolPromise;
-      const result = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
+      const result = await resultPromise;
       const duration = Date.now() - toolStartTime;
 
-      // Cache the result for subsequent identical calls this session
-      if (cacheKey) this.requestCache.set(cacheKey, result);
+      // Promote from in-flight registry to completed cache
+      if (cacheKey) {
+        this.pendingRequests.delete(cacheKey);
+        this.requestCache.set(cacheKey, result);
+      }
 
       yield { type: 'tool_end', tool: toolName, args: toolArgs, result, duration };
 
@@ -234,6 +269,10 @@ export class AgentToolExecutor {
       // Add full tool result to scratchpad (Anthropic-style: no inline summarization)
       ctx.scratchpad.addToolResult(toolName, toolArgs, result);
     } catch (error) {
+      // Remove from in-flight registry so subsequent calls can retry rather
+      // than attaching to a permanently-failed Promise.
+      if (cacheKey) this.pendingRequests.delete(cacheKey);
+
       const errorMessage = error instanceof Error ? error.message : String(error);
       yield { type: 'tool_error', tool: toolName, error: errorMessage };
 

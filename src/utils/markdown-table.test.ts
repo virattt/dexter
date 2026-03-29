@@ -1,5 +1,16 @@
 import { describe, it, expect } from 'bun:test';
-import { parseMarkdownTable, renderBoxTable, transformMarkdownTables, formatResponse } from './markdown-table.js';
+import chalk from 'chalk';
+import {
+  parseMarkdownTable,
+  renderBoxTable,
+  transformMarkdownTables,
+  formatResponse,
+  transformHeaders,
+  transformItalic,
+  transformInlineCode,
+  transformLists,
+  transformURLs,
+} from './markdown-table.js';
 
 // Strip markdown formatting markers and ANSI escape codes to get visible text width.
 function visualWidth(s: string): number {
@@ -147,6 +158,121 @@ describe('formatResponse (full pipeline)', () => {
     const headerRow = lines[1];
     const dataRow = lines[3];
     expect(visualWidth(headerRow)).toBe(visualWidth(dataRow));
+  });
+});
+
+describe('transformHeaders', () => {
+  it('H1: # Title → contains bold yellow text', () => {
+    const result = transformHeaders('# Title');
+    expect(result).toContain(chalk.bold(chalk.yellow('Title')));
+  });
+
+  it('H2: ## Section → contains bold text', () => {
+    const result = transformHeaders('## Section');
+    expect(result).toBe(chalk.bold('Section'));
+  });
+
+  it('H3: ### Sub → contains bold dim text', () => {
+    const result = transformHeaders('### Sub');
+    expect(result).toBe(chalk.bold(chalk.dim('Sub')));
+  });
+
+  it('does not transform non-header lines', () => {
+    const result = transformHeaders('plain text');
+    expect(result).toBe('plain text');
+  });
+
+  it('H1 has surrounding newlines', () => {
+    const result = transformHeaders('# Title');
+    expect(result.startsWith('\n')).toBe(true);
+    expect(result.endsWith('\n')).toBe(true);
+  });
+});
+
+describe('transformItalic', () => {
+  it('*hello* → chalk italic', () => {
+    const result = transformItalic('*hello*');
+    expect(result).toBe(chalk.italic('hello'));
+  });
+
+  it('_hello_ → chalk italic', () => {
+    const result = transformItalic('_hello_');
+    expect(result).toBe(chalk.italic('hello'));
+  });
+
+  it('**bold** is NOT converted to italic', () => {
+    // Bold markers should not be treated as italic — transformItalic leaves ** untouched
+    const result = transformItalic('**bold**');
+    expect(result).toBe('**bold**');
+    // Confirm the result is unchanged (no italic ANSI codes were injected)
+    expect(result).toBe(transformItalic('**bold**'));
+  });
+
+  it('mixed bold and italic text', () => {
+    const result = formatResponse('**bold** and *italic*');
+    expect(result).toContain(chalk.bold('bold'));
+    expect(result).toContain(chalk.italic('italic'));
+  });
+
+  it('does not italicize snake_case', () => {
+    const result = transformItalic('some_variable_name');
+    expect(result).toBe('some_variable_name');
+  });
+});
+
+describe('transformInlineCode', () => {
+  it('`const x = 1` → cyan styled output', () => {
+    const result = transformInlineCode('`const x = 1`');
+    expect(result).toBe(chalk.cyan('const x = 1'));
+  });
+
+  it('removes backticks and styles content', () => {
+    const result = transformInlineCode('use `npm install`');
+    expect(result).toContain(chalk.cyan('npm install'));
+    expect(result).not.toContain('`');
+  });
+});
+
+describe('transformLists', () => {
+  it('- item → • item', () => {
+    const result = transformLists('- item');
+    expect(result).toContain('• item');
+  });
+
+  it('* item → • item', () => {
+    const result = transformLists('* item');
+    expect(result).toContain('• item');
+  });
+
+  it('ordered list: 1. item keeps number', () => {
+    const result = transformLists('1. First item');
+    expect(result).toContain('1.');
+    expect(result).toContain('First item');
+  });
+
+  it('unordered list marker is replaced with bullet', () => {
+    const result = transformLists('- Buy stocks\n- Sell bonds');
+    expect(result).toContain('• Buy stocks');
+    expect(result).toContain('• Sell bonds');
+    expect(result).not.toContain('- Buy');
+  });
+});
+
+describe('transformURLs', () => {
+  it('bare URL → cyan underlined', () => {
+    const result = transformURLs('https://fred.stlouisfed.org');
+    expect(result).toContain(chalk.cyan.underline('https://fred.stlouisfed.org'));
+  });
+
+  it('URL in markdown link syntax is not double-styled', () => {
+    const result = transformURLs('[FRED](https://fred.stlouisfed.org)');
+    // The URL after ( should not be transformed
+    expect(result).toBe('[FRED](https://fred.stlouisfed.org)');
+  });
+
+  it('http:// URLs are also styled', () => {
+    const result = transformURLs('http://example.com');
+    expect(result).toContain(chalk.cyan.underline('http://example.com'));
   });
 });
 

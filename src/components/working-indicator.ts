@@ -118,14 +118,31 @@ export class WorkingIndicatorComponent extends Container {
       return;
     }
 
-    // Build [iter/max · elapsed] badge when iteration info is available
-    const iterInfo =
+    // Build [iter/max · progress · elapsed] badge when iteration info is available
+    let iterInfo: string;
+    if (
       (this.state.status === 'thinking' || this.state.status === 'tool') &&
       this.state.iteration !== undefined &&
       this.state.maxIterations !== undefined
-        ? ` [${this.state.iteration}/${this.state.maxIterations} · ${this.elapsedLabel()}]`
-        : this.elapsedLabel();
+    ) {
+      const bar = buildProgressBar(this.state.iteration, this.state.maxIterations);
+      iterInfo = ` [${this.state.iteration}/${this.state.maxIterations} · ${bar} · ${this.elapsedLabel()}]`;
+    } else {
+      iterInfo = this.elapsedLabel();
+    }
 
     this.loader.setMessage(`${this.thinkingVerb}${iterInfo}… (esc to interrupt)`);
   }
+}
+
+/**
+ * Build a Unicode block progress bar with percentage label.
+ * e.g. buildProgressBar(7, 25) → "███░░░░░░░ 28%"
+ */
+export function buildProgressBar(iteration: number, maxIterations: number, width = 10): string {
+  const pct = Math.min(1, iteration / maxIterations);
+  const filled = Math.round(pct * width);
+  const bar = '█'.repeat(filled) + '░'.repeat(width - filled);
+  const label = `${Math.round(pct * 100)}%`;
+  return `${bar} ${label}`;
 }

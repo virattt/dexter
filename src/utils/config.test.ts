@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'bun:test';
-import { validateConfigValue } from './config.js';
+import { describe, it, expect, spyOn, beforeEach, afterEach } from 'bun:test';
+import { validateConfigValue, validateAndSanitizeConfig } from './config.js';
 
 describe('validateConfigValue — maxIterations', () => {
   it('accepts a value within range', () => {
@@ -97,5 +97,77 @@ describe('validateConfigValue — unknown keys', () => {
   it('passes through string values for unknown keys', () => {
     const result = validateConfigValue('unknownKey', 'some-string');
     expect(result.valid).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Config schema validation (Zod)
+// ---------------------------------------------------------------------------
+
+describe('Config schema validation (Zod)', () => {
+  let warnSpy: ReturnType<typeof spyOn>;
+
+  beforeEach(() => {
+    warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  it('valid config parses without warnings', () => {
+    const config = { provider: 'openai', modelId: 'gpt-5.4', maxIterations: 25 };
+    const result = validateAndSanitizeConfig(config);
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(result.provider).toBe('openai');
+    expect(result.maxIterations).toBe(25);
+  });
+
+  it('maxIterations: "abc" → warning logged, field stripped, rest returned', () => {
+    const config = { provider: 'openai', maxIterations: 'abc' };
+    const result = validateAndSanitizeConfig(config);
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[dexter] config validation warning:',
+      expect.objectContaining({ maxIterations: expect.any(Array) }),
+    );
+    expect(result.maxIterations).toBeUndefined();
+    expect(result.provider).toBe('openai');
+  });
+
+  it('maxIterations: 2 (below min 5) → warning logged, field stripped', () => {
+    const config = { maxIterations: 2, modelId: 'gpt-5.4' };
+    const result = validateAndSanitizeConfig(config);
+    expect(warnSpy).toHaveBeenCalled();
+    expect(result.maxIterations).toBeUndefined();
+    expect(result.modelId).toBe('gpt-5.4');
+  });
+
+  it('contextThreshold: 999999999 (above max) → warning logged, field stripped', () => {
+    const config = { contextThreshold: 999999999, provider: 'anthropic' };
+    const result = validateAndSanitizeConfig(config);
+    expect(warnSpy).toHaveBeenCalled();
+    expect(result.contextThreshold).toBeUndefined();
+    expect(result.provider).toBe('anthropic');
+  });
+
+  it('unknown key myCustomKey: "value" → passes through without warning', () => {
+    const config = { myCustomKey: 'value', provider: 'openai' };
+    const result = validateAndSanitizeConfig(config);
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(result.myCustomKey).toBe('value');
+  });
+
+  it('completely invalid JSON structure (array []) → returns {}', () => {
+    const result = validateAndSanitizeConfig([]);
+    expect(warnSpy).toHaveBeenCalled();
+    expect(result).toEqual({});
+  });
+
+  it('memory.embeddingProvider: "invalid" → warning logged, field stripped', () => {
+    const config = { memory: { embeddingProvider: 'invalid', embeddingModel: 'text-embedding-3-small' } };
+    const result = validateAndSanitizeConfig(config);
+    expect(warnSpy).toHaveBeenCalled();
+    expect((result.memory as Record<string, unknown> | undefined)?.embeddingProvider).toBeUndefined();
+    expect((result.memory as Record<string, unknown> | undefined)?.embeddingModel).toBe('text-embedding-3-small');
   });
 });

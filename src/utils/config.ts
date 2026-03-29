@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
+import { z } from 'zod';
 import { dexterPath } from './paths.js';
 
 const SETTINGS_FILE = dexterPath('settings.json');
@@ -17,25 +18,65 @@ const DEPRECATED_MODEL_UPGRADES: Record<string, string> = {
   'gpt-5.2': 'gpt-5.4',
 };
 
-interface Config {
-  provider?: string;
-  modelId?: string;  // Selected model ID (e.g., "gpt-5.4", "ollama:llama3.1")
-  model?: string;    // Legacy key, kept for migration
-  memory?: {
-    enabled?: boolean;
-    embeddingProvider?: 'openai' | 'gemini' | 'ollama' | 'auto';
-    embeddingModel?: string;
-    maxSessionContextTokens?: number;
-  };
-  maxIterations?: number;      // default 25, range 5-100
-  contextThreshold?: number;   // default 100000, range 10000-500000
-  keepToolUses?: number;       // default 5, range 2-20
-  cacheTtlMs?: number;         // default 900000 (15min), range 60000-86400000
-  parallelToolLimit?: number;  // default 0 (unlimited), range 0-10
-  [key: string]: unknown;
+export const ConfigSchema = z.object({
+  provider: z.string().optional(),
+  modelId: z.string().optional(),
+  model: z.string().optional(), // legacy
+  memory: z.object({
+    enabled: z.boolean().optional(),
+    embeddingProvider: z.enum(['openai', 'gemini', 'ollama', 'auto']).optional(),
+    embeddingModel: z.string().optional(),
+    maxSessionContextTokens: z.number().optional(),
+  }).optional(),
+  maxIterations: z.number().min(5).max(100).optional(),
+  contextThreshold: z.number().min(10000).max(500000).optional(),
+  keepToolUses: z.number().min(2).max(20).optional(),
+  cacheTtlMs: z.number().min(60000).max(86400000).optional(),
+  parallelToolLimit: z.number().min(0).max(10).optional(),
+}).passthrough(); // allow unknown keys without throwing
+
+export type Config = z.infer<typeof ConfigSchema> & Record<string, unknown>;
+
+/**
+ * Validates raw config against the schema.
+ * On failure: logs a warning, strips invalid fields, returns the rest.
+ * Never throws — always returns a usable Config.
+ */
+export function validateAndSanitizeConfig(raw: unknown): Config {
+  const result = ConfigSchema.safeParse(raw);
+  if (result.success) {
+    return result.data as Config;
+  }
+
+  console.warn('[dexter] config validation warning:', result.error.flatten().fieldErrors);
+
+  // Start from a shallow copy of the raw object (or empty if not an object)
+  const stripped: Record<string, unknown> =
+    typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+      ? { ...(raw as Record<string, unknown>) }
+      : {};
+
+  // Remove each field (or nested field) that failed validation
+  for (const issue of result.error.issues) {
+    const [topKey] = issue.path;
+    if (typeof topKey !== 'string') continue;
+
+    if (issue.path.length === 1) {
+      delete stripped[topKey];
+    } else if (issue.path.length >= 2 && typeof issue.path[1] === 'string') {
+      const nested = stripped[topKey];
+      if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+        const nestedCopy = { ...(nested as Record<string, unknown>) };
+        delete nestedCopy[issue.path[1] as string];
+        stripped[topKey] = nestedCopy;
+      }
+    }
+  }
+
+  return stripped as Config;
 }
 
-// Validation rules for each configurable key.
+
 const CONFIG_VALIDATION_RULES: Record<string, { min: number; max: number }> = {
   maxIterations:    { min: 5,     max: 100       },
   contextThreshold: { min: 10000, max: 500000    },
@@ -72,7 +113,7 @@ export function loadConfig(): Config {
 
   try {
     const content = readFileSync(SETTINGS_FILE, 'utf-8');
-    let config = JSON.parse(content) as Config;
+    let config = validateAndSanitizeConfig(JSON.parse(content));
 
     // Upgrade deprecated model IDs (e.g. gpt-5.2 -> gpt-5.4)
     if (config.modelId && DEPRECATED_MODEL_UPGRADES[config.modelId]) {

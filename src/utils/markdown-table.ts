@@ -245,13 +245,81 @@ export function transformBold(content: string): string {
 }
 
 /**
+ * Transform markdown headers (# / ## / ###) to styled terminal output.
+ * - `#`  → bold yellow with surrounding newlines
+ * - `##` → bold
+ * - `###` → bold dim
+ */
+export function transformHeaders(content: string): string {
+  return content.replace(/^(#{1,3})\s+(.+)$/gm, (_, hashes, text) => {
+    if (hashes === '#') {
+      return '\n' + chalk.bold(chalk.yellow(text)) + '\n';
+    } else if (hashes === '##') {
+      return chalk.bold(text);
+    } else {
+      return chalk.bold(chalk.dim(text));
+    }
+  });
+}
+
+/**
+ * Transform markdown italic (*text* and _text_) to ANSI italic.
+ * Must run after transformBold so **bold** is already replaced and only
+ * single-asterisk patterns remain.
+ */
+export function transformItalic(content: string): string {
+  // *text* — single asterisk not preceded/followed by another *
+  let result = content.replace(/(?<!\*)\*(?!\*)([^*\n]+?)(?<!\*)\*(?!\*)/g, (_, text) => chalk.italic(text));
+  // _text_ — not adjacent to word characters (avoids snake_case)
+  result = result.replace(/(?<!\w)_([^_\s][^_\n]*)_(?!\w)/g, (_, text) => chalk.italic(text));
+  return result;
+}
+
+/**
+ * Transform inline code (`code`) to cyan terminal output.
+ */
+export function transformInlineCode(content: string): string {
+  return content.replace(/`([^`\n]+)`/g, (_, code) => chalk.cyan(code));
+}
+
+/**
+ * Transform markdown list items to styled terminal output.
+ * - Unordered (`- item` or `* item`) → `• item`
+ * - Ordered (`1. item`) → number kept, item styled
+ */
+export function transformLists(content: string): string {
+  return content
+    .replace(/^[ \t]*[-*]\s+(.+)$/gm, (_, item) => chalk.white(`• ${item}`))
+    .replace(/^[ \t]*(\d+)\.\s+(.+)$/gm, (_, num, item) => `${num}. ${chalk.white(item)}`);
+}
+
+/**
+ * Transform bare URLs to cyan underlined terminal output.
+ * Does not process URLs already inside markdown link syntax [text](url).
+ */
+export function transformURLs(content: string): string {
+  return content.replace(/(?<!\()(https?:\/\/[^\s)\]]+)/g, (url) => chalk.cyan.underline(url));
+}
+
+/**
  * Apply all pre-render formatting to response content.
- * - Converts markdown tables to unicode box-drawing tables
- * - Converts **bold** to ANSI bold
+ * Processing order matters to avoid conflicts:
+ * 1. Tables (box-drawing must happen on raw markdown)
+ * 2. Headers
+ * 3. Bold (**text**)
+ * 4. Italic (*text*, _text_) — after bold so ** is already consumed
+ * 5. Inline code (`code`)
+ * 6. Lists (- / * / 1.)
+ * 7. URLs
  */
 export function formatResponse(content: string): string {
   let result = content;
   result = transformMarkdownTables(result);
+  result = transformHeaders(result);
   result = transformBold(result);
+  result = transformItalic(result);
+  result = transformInlineCode(result);
+  result = transformLists(result);
+  result = transformURLs(result);
   return result;
 }

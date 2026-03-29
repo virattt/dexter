@@ -483,3 +483,63 @@ When the context window fills up, Dexter now **summarises instead of drops**:
 - **400-char snippets**: up from 200 chars — more detail preserved per cleared tool result
 
 The configurable thresholds (`contextThreshold`, `keepToolUses`) mean you can tune this behaviour for your model's context window.
+
+---
+
+## ✨ Markdown Rendering in TUI (Feature 21)
+
+Chat answers now render full markdown in the terminal:
+
+| Element | Before | After |
+|---------|--------|-------|
+| `**bold**` | `**bold**` | **bold** |
+| `*italic*` / `_italic_` | `*italic*` | *italic* |
+| `` `code` `` | `` `code` `` | highlighted inline code |
+| `# Heading` | `# Heading` | bold yellow heading |
+| `## Section` | `## Section` | bold section |
+| `- item` | `- item` | • item |
+| `https://...` | raw URL | cyan underlined link |
+
+Markdown tables continue to render with Unicode box-drawing characters as before.
+
+---
+
+## ⚡ Parallel Request Deduplication Pre-Dispatch (Feature 22)
+
+When the agent fires multiple identical tool calls in parallel (e.g. three iterations all request `get_market_data(AAPL)` before any returns), only **one API call** is made. The others wait on the in-flight promise and receive the same result instantly.
+
+- Tracked via `pendingRequests: Map<cacheKey, Promise<string>>`  
+- On success: promoted to `requestCache` for future calls within the session  
+- On error: entry cleared so the next call retries fresh  
+- Uncacheable tools (`browser`, `skill`, etc.) are excluded as before
+
+---
+
+## 🛡️ Config Schema Validation (Feature 23)
+
+`.dexter/settings.json` is now validated with Zod on load:
+
+- **Type errors** (`maxIterations: "abc"`) → warning to stderr, field stripped, rest of config used
+- **Range errors** (`maxIterations: 2`) → warning, field stripped  
+- **Unknown keys** → pass through without warning (backwards compatible)
+- **Corrupt file** → returns `{}` (defaults apply); never crashes
+
+---
+
+## 🧠 Dream Deduplication Guard (Feature 24)
+
+Running Dream consolidation twice no longer writes duplicate insights. Before writing `MEMORY.md` and `FINANCE.md`, new content is deduplicated against existing file content using normalized comparison (lowercase, punctuation-stripped). Blank lines and structurally different lines are preserved unchanged.
+
+---
+
+## 📊 Progress Bar on Working Indicator (Feature 25)
+
+The agent status line now shows a visual progress bar:
+
+```
+⏺ Researching [7/25 · ███░░░░░░░ 28% · 42s]… (esc to interrupt)
+```
+
+- 10-segment bar filled with `█` and empty with `░`
+- Percentage calculated from `iteration / maxIterations`
+- Consistent with `/config set maxIterations` — bar always reflects the actual limit
