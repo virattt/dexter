@@ -13,7 +13,11 @@
     "gateway": "tsx src/gateway/index.ts run",
     "gateway:login": "tsx src/gateway/index.ts login",
     "typecheck": "tsc --noEmit",
-    "test": "bun test",
+    "test": "bun test --ignore 'src/**/*.integration.test.ts' --ignore 'src/**/*.e2e.test.ts'",
+    "test:unit": "bun test --ignore 'src/**/*.integration.test.ts' --ignore 'src/**/*.e2e.test.ts'",
+    "test:integration": "RUN_INTEGRATION=1 bun test --filter integration",
+    "test:e2e": "RUN_E2E=1 bun test --filter e2e",
+    "test:all": "RUN_INTEGRATION=1 RUN_E2E=1 bun test",
     "test:watch": "bun test --watch",
     "postinstall": "playwright install chromium"
   },

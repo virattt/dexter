@@ -5,11 +5,9 @@
  * Run with:  bun test --filter polymarket.integration
  * Skipped in normal `bun test` runs because they make real network calls.
  */
-import { describe, expect, it } from 'bun:test';
+import { describe, expect } from 'bun:test';
 import { polymarketTool } from './polymarket.js';
-
-const INTEGRATION = process.env.RUN_INTEGRATION === '1';
-const maybeIt = INTEGRATION ? it : it.skip;
+import { integrationIt as maybeIt } from '@/utils/test-guards.js';
 
 describe('Polymarket integration (live API)', () => {
   maybeIt('returns real prediction markets for a finance query', async () => {
