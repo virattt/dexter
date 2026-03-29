@@ -22,6 +22,7 @@ import { getFixedIncomeTool, FIXED_INCOME_DESCRIPTION } from './finance/fixed-in
 import { getOptionsChainTool, OPTIONS_CHAIN_DESCRIPTION } from './finance/options.js';
 import { getEarningsTranscript, EARNINGS_TRANSCRIPT_DESCRIPTION } from './finance/earnings-transcripts.js';
 import { getOnchainCrypto, ONCHAIN_CRYPTO_DESCRIPTION } from './finance/onchain-crypto.js';
+import { polymarketForecastTool, POLYMARKET_FORECAST_DESCRIPTION } from './finance/polymarket-forecast.js';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -86,6 +87,11 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'polymarket_search',
       tool: polymarketTool,
       description: POLYMARKET_DESCRIPTION,
+    },
+    {
+      name: 'polymarket_forecast',
+      tool: polymarketForecastTool,
+      description: POLYMARKET_FORECAST_DESCRIPTION,
     },
     {
       name: 'social_sentiment',

@@ -17,4 +17,5 @@ export { polymarketTool, POLYMARKET_DESCRIPTION } from './polymarket.js';
 export { socialSentimentTool, SOCIAL_SENTIMENT_DESCRIPTION } from './social-sentiment.js';
 export { getEarningsTranscript, EARNINGS_TRANSCRIPT_DESCRIPTION } from './earnings-transcripts.js';
 export { getOnchainCrypto, ONCHAIN_CRYPTO_DESCRIPTION } from './onchain-crypto.js';
+export { polymarketForecastTool, POLYMARKET_FORECAST_DESCRIPTION } from './polymarket-forecast.js';
 
