@@ -235,7 +235,7 @@ describe('AgentToolExecutor — uncacheable tools bypass cache', () => {
     const executor = new AgentToolExecutor(
       new Map([['write_file', fakeTool]]),
       undefined,
-      async () => 'allow',
+      async () => 'allow-once' as const,
       approved,
     );
     const ctx = makeCtx();

@@ -1647,7 +1647,10 @@ export async function runCli() {
   // Auto-trigger Dream consolidation on startup if conditions are met.
   // Increments the session counter unconditionally, then runs consolidation
   // in the background without blocking the TUI or the user's first query.
+  // The 400ms defer ensures the TUI is fully painted before Dream starts,
+  // so the user sees a responsive interface even on first launch.
   void (async () => {
+    await new Promise<void>((r) => setTimeout(r, 400));
     const dreamStore = new MemoryStore();
     try {
       await incrementDreamSessionCount(dreamStore);

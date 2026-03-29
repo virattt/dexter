@@ -35,6 +35,7 @@ export interface FinancialInsight {
   content: string;
   routing?: RoutingResult;
   source?: string;
+  namespace?: string;
   createdAt?: number;
   updatedAt?: number;
 }
@@ -55,6 +56,7 @@ function rowToInsight(row: FinancialInsightRecord): FinancialInsight {
     content: row.content,
     routing: (row.routing as RoutingResult) ?? undefined,
     source: row.source ?? undefined,
+    namespace: row.namespace ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -78,20 +80,28 @@ export class FinancialMemoryStore {
       contentHash,
       routing: params.routing,
       source: params.source,
+      namespace: params.namespace,
     });
   }
 
-  recallByTicker(ticker: string): FinancialInsight[] {
-    return this.db.searchInsightsByTicker(ticker).map(rowToInsight).filter((i) => !isExpired(i));
+  recallByTicker(ticker: string, namespace?: string): FinancialInsight[] {
+    const results = this.db.searchInsightsByTicker(ticker).map(rowToInsight).filter((i) => !isExpired(i));
+    if (namespace !== undefined) {
+      return results.filter((i) => (i.namespace ?? null) === namespace);
+    }
+    return results;
   }
 
   search(
     query: string,
-    options?: { tags?: string[]; ticker?: string; maxResults?: number },
+    options?: { tags?: string[]; ticker?: string; maxResults?: number; namespace?: string },
   ): FinancialInsight[] {
     // Fetch extra results to account for entries filtered out by TTL
     let results = this.db.searchInsightsFts(query, (options?.maxResults ?? 6) * 2).map(rowToInsight);
     results = results.filter((i) => !isExpired(i));
+    if (options?.namespace !== undefined) {
+      results = results.filter((i) => (i.namespace ?? null) === options.namespace!);
+    }
     if (options?.tags?.length) {
       results = results.filter((i) => options.tags!.some((t) => i.tags.includes(t)));
     }
@@ -102,8 +112,8 @@ export class FinancialMemoryStore {
     return results.slice(0, options?.maxResults ?? 6);
   }
 
-  getRouting(ticker: string): RoutingResult | null {
-    const insights = this.recallByTicker(ticker);
+  getRouting(ticker: string, namespace?: string): RoutingResult | null {
+    const insights = this.recallByTicker(ticker, namespace);
     const sorted = insights.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
     for (const insight of sorted) {
       if (insight.routing) return insight.routing;

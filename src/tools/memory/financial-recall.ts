@@ -21,19 +21,23 @@ This avoids wasted tool calls and lets you skip straight to the source that work
 const schema = z.object({
   ticker: z.string().describe('Ticker symbol, e.g. VWS.CO, AAPL, SAP.DE'),
   query: z.string().optional().describe('Optional semantic search query for additional context'),
+  namespace: z.string().optional().describe(
+    'Optional namespace to scope the recall (e.g. "dcf", "short-thesis"). ' +
+    'When provided, only returns insights stored under that namespace. Omit to retrieve all insights.',
+  ),
 });
 
 export const recallFinancialContextTool = new DynamicStructuredTool({
   name: 'recall_financial_context',
   description: RECALL_FINANCIAL_CONTEXT_DESCRIPTION,
   schema,
-  func: async ({ ticker, query }) => {
+  func: async ({ ticker, query, namespace }) => {
     const manager = await MemoryManager.get();
     const store = manager.getFinancialStore();
     if (!store) return 'Financial memory not available.';
 
-    const byTicker = store.recallByTicker(ticker);
-    const byQuery = query ? store.search(query, { maxResults: 4 }) : [];
+    const byTicker = store.recallByTicker(ticker, namespace);
+    const byQuery = query ? store.search(query, { maxResults: 4, namespace }) : [];
 
     // Merge and deduplicate by id
     const seen = new Set<number>();
@@ -43,9 +47,9 @@ export const recallFinancialContextTool = new DynamicStructuredTool({
       return true;
     });
 
-    if (all.length === 0) return `No prior financial context found for ${ticker}.`;
+    if (all.length === 0) return `No prior financial context found for ${ticker}${namespace ? ` [ns:${namespace}]` : ''}.`;
 
-    const routing = store.getRouting(ticker);
+    const routing = store.getRouting(ticker, namespace);
     const lines: string[] = [];
 
     if (routing) {
@@ -53,8 +57,7 @@ export const recallFinancialContextTool = new DynamicStructuredTool({
       lines.push('');
     }
 
-    lines.push(`**Stored insights for ${ticker}** (${all.length} found):`);
-    for (const insight of all.slice(0, 6)) {
+    lines.push(`**Stored insights for ${ticker}${namespace ? ` [ns:${namespace}]` : ''}** (${all.length} found):`);    for (const insight of all.slice(0, 6)) {
       const tags = insight.tags.length ? ` [${insight.tags.slice(0, 3).join(', ')}]` : '';
       const date = insight.updatedAt
         ? ` (${new Date(insight.updatedAt).toISOString().slice(0, 10)})`

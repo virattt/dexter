@@ -6,6 +6,7 @@ import { callLlm } from '../../model/llm.js';
 import { formatToolResult } from '../types.js';
 import { getCurrentDate } from '../../agent/prompts.js';
 import { tavilySearch } from '../search/tavily.js';
+import { getPreferredApi, setPreferredApi } from '../../utils/api-routing-cache.js';
 
 /**
  * Rich description for the get_financials tool.
@@ -138,12 +139,13 @@ const FINANCE_TOOLS: StructuredToolInterface[] = [
 const FINANCE_TOOL_MAP = new Map(FINANCE_TOOLS.map(t => [t.name, t]));
 
 // Build the router system prompt - simplified since LLM sees tool schemas
-function buildRouterPrompt(): string {
+function buildRouterPrompt(routingHint?: string): string {
+  const hintSection = routingHint ? `\n\n## Routing Cache\n${routingHint}\n` : '';
   return `You are a financial data routing assistant.
 Current date: ${getCurrentDate()}
 
 Given a user's natural language query about financial data, call the appropriate financial tool(s).
-
+${hintSection}
 ## Guidelines
 
 1. **Ticker Resolution**: Convert company names to ticker symbols:
@@ -203,11 +205,27 @@ export function createGetFinancials(model: string): DynamicStructuredTool {
     func: async (input, _runManager, config?: RunnableConfig) => {
       const onProgress = config?.metadata?.onProgress as ((msg: string) => void) | undefined;
 
+      // 0. Check routing cache for known ticker preferences
+      const tickerMatch = input.query.match(/\b([A-Z]{1,5}(?:\.[A-Z]{1,3})?)\b/);
+      let routingHint: string | undefined;
+      if (tickerMatch) {
+        const cachedApi = await getPreferredApi(tickerMatch[1]);
+        if (cachedApi) {
+          const hints: Record<string, string> = {
+            'fmp': 'FMP free tier works for this ticker.',
+            'yahoo': 'Yahoo Finance is preferred — skip FMP, use get_yahoo_analyst_targets / get_yahoo_analyst_recommendations.',
+            'web': 'All financial APIs unavailable for this ticker — prefer Yahoo Finance tools or rely on web search.',
+            'financial-datasets': 'Financial Datasets API works for this ticker.',
+          };
+          routingHint = `Ticker ${tickerMatch[1]}: ${hints[cachedApi] ?? cachedApi}`;
+        }
+      }
+
       // 1. Call LLM with finance tools bound (native tool calling)
       onProgress?.('Fetching...');
       const { response } = await callLlm(input.query, {
         model,
-        systemPrompt: buildRouterPrompt(),
+        systemPrompt: buildRouterPrompt(routingHint),
         tools: FINANCE_TOOLS,
       });
       const aiMessage = response as AIMessage;
@@ -219,7 +237,7 @@ export function createGetFinancials(model: string): DynamicStructuredTool {
         onProgress?.('Retrying financial data routing...');
         const { response: retryResponse } = await callLlm(
           `Use the available tools to answer: "${input.query}"`,
-          { model, systemPrompt: buildRouterPrompt(), tools: FINANCE_TOOLS },
+          { model, systemPrompt: buildRouterPrompt(routingHint), tools: FINANCE_TOOLS },
         );
         toolCalls = (retryResponse as AIMessage).tool_calls as ToolCall[];
 
@@ -279,6 +297,12 @@ export function createGetFinancials(model: string): DynamicStructuredTool {
         const ticker = (result.args as Record<string, unknown>).ticker as string | undefined;
         const key = ticker ? `${result.tool}_${ticker}` : result.tool;
         combinedData[key] = result.data;
+
+        // Update routing cache: record which API backend succeeded for this ticker
+        if (ticker) {
+          const apiHint = result.tool.includes('yahoo') ? 'yahoo' : 'fmp';
+          void setPreferredApi(ticker, apiHint);
+        }
       }
 
       // Add errors if any
@@ -299,6 +323,7 @@ export function createGetFinancials(model: string): DynamicStructuredTool {
             ? `${ticker} financial data revenue earnings P/E ratio annual results 2024 2025`
             : `${input.query} financial data annual results 2024`;
           onProgress?.('API unavailable — falling back to web search...');
+          if (ticker) void setPreferredApi(ticker, 'web');
           return await tavilySearch.invoke({ query: searchQuery });
         } catch {
           // Web fallback also failed — return the errors so the LLM can decide

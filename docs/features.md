@@ -300,3 +300,52 @@ commodities, big-tech, elections, US politics, global events, IPOs, health.
 
 Queries about topics outside these slugs (e.g. niche sports) fall back to a
 top-volume global market sample.
+
+---
+
+## 🏷️ Memory Namespaces
+
+Financial insights can now be stored in named scopes to prevent cross-workflow
+contamination. Before namespaces, running a DCF analysis and a short thesis on
+the same ticker could mix WACC assumptions with bear-case notes.
+
+**Usage (via agent):**
+
+```
+Store insight scoped to DCF:
+  store_financial_insight(ticker=AAPL, namespace="dcf",
+    content="WACC 8.1%, terminal growth 2.5%", tags=["analysis:valuation"])
+
+Recall only DCF context:
+  recall_financial_context(ticker=AAPL, namespace="dcf")
+
+Recall only short-thesis context:
+  recall_financial_context(ticker=AAPL, namespace="short-thesis")
+```
+
+Global insights (no `namespace` field) remain visible in all recall calls.
+The namespace tag `ns:<name>` is automatically appended to the insight's tags.
+
+**Standard namespaces:** `dcf`, `short-thesis`, `peer-comparison`,
+`probability-assessment`, `earnings-preview`.
+
+---
+
+## 🗂️ Ticker→API Routing Cache
+
+Dexter now persists API routing decisions to `.dexter/api-routing.json`.
+After discovering that VWS.CO requires Yahoo Finance (FMP is premium), that
+preference is saved and used on every subsequent session — no repeated probing.
+
+- **Auto-populated** from successful and failed API calls (no manual setup)
+- **TTL 30 days** — refreshed automatically when coverage changes
+- **Injected as hints** into the LLM router system prompt for smarter routing
+
+---
+
+## ⚡ Async Dream Startup
+
+Dream consolidation now waits **400 ms** after the TUI paints before running,
+ensuring the interface is fully interactive before background consolidation
+begins. The `🌙 Dream running…` header indicator appears only after the user
+can see the interface — eliminating the perception of a slow startup.

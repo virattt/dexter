@@ -29,13 +29,17 @@ const schema = z.object({
   ),
   exchange: z.string().optional().describe('Exchange MIC code, e.g. CPH, XNAS'),
   sector: z.string().optional().describe('Industry sector, e.g. energy, technology'),
+  namespace: z.string().optional().describe(
+    'Optional namespace to scope this insight (e.g. "dcf", "short-thesis", "peer-comparison"). ' +
+    'Prevents cross-contamination between different analysis workflows. Leave blank for global storage.',
+  ),
 });
 
 export const storeFinancialInsightTool = new DynamicStructuredTool({
   name: 'store_financial_insight',
   description: STORE_FINANCIAL_INSIGHT_DESCRIPTION,
   schema,
-  func: async ({ ticker, content, tags, routing, exchange, sector }) => {
+  func: async ({ ticker, content, tags, routing, exchange, sector, namespace }) => {
     const manager = await MemoryManager.get();
     const store = manager.getFinancialStore();
     if (!store) return 'Financial memory not available — insight not stored.';
@@ -52,6 +56,9 @@ export const storeFinancialInsightTool = new DynamicStructuredTool({
     if (exchange && !allTags.some((t) => t.startsWith('exchange:'))) {
       allTags.push(`exchange:${exchange.toUpperCase()}`);
     }
+    if (namespace && !allTags.some((t) => t.startsWith('ns:'))) {
+      allTags.push(`ns:${namespace}`);
+    }
 
     const id = await store.storeInsight({
       ticker,
@@ -60,6 +67,7 @@ export const storeFinancialInsightTool = new DynamicStructuredTool({
       routing: routing as RoutingResult | undefined,
       exchange,
       sector,
+      namespace,
       source: 'agent',
     });
 
@@ -71,6 +79,7 @@ export const storeFinancialInsightTool = new DynamicStructuredTool({
       );
     }
 
-    return `Stored insight #${id} for ${ticker} with tags: ${allTags.join(', ')}`;
+    const nsSuffix = namespace ? ` [ns:${namespace}]` : '';
+    return `Stored insight #${id} for ${ticker}${nsSuffix} with tags: ${allTags.join(', ')}`;
   },
 });

@@ -33,6 +33,7 @@ type FinancialInsightRow = {
   content_hash: string;
   routing: string | null;
   source: string | null;
+  namespace: string | null;
   created_at: number;
   updated_at: number;
   decay_weight: number;
@@ -78,6 +79,7 @@ CREATE TABLE IF NOT EXISTS financial_insights (
   content_hash TEXT NOT NULL,
   routing      TEXT,
   source       TEXT,
+  namespace    TEXT,
   created_at   INTEGER NOT NULL,
   updated_at   INTEGER NOT NULL,
   decay_weight REAL NOT NULL DEFAULT 1.0
@@ -227,6 +229,13 @@ export class MemoryDatabase {
       this.db.exec('ALTER TABLE chunks ADD COLUMN tickers TEXT');
     }
 
+    // Financial insights namespace column (added in v2)
+    const fiColumns = this.db.query<{ name: string }>('PRAGMA table_info(financial_insights)').all();
+    const fiColNames = new Set(fiColumns.map((c) => c.name));
+    if (!fiColNames.has('namespace')) {
+      this.db.exec('ALTER TABLE financial_insights ADD COLUMN namespace TEXT');
+    }
+
     // If sqlite-vec is enabled, restore vec table from persisted dimension and backfill.
     if (this.vecEnabled) {
       const dimRow = this.db.query<{ value: string }>('SELECT value FROM meta WHERE key = ?').get('embedding_dim');
@@ -324,6 +333,7 @@ export class MemoryDatabase {
     contentHash: string;
     routing?: string;
     source?: string;
+    namespace?: string;
   }): number {
     const existing = this.db
       .query<{ id: number }>('SELECT id FROM financial_insights WHERE content_hash = ?')
@@ -334,7 +344,7 @@ export class MemoryDatabase {
     if (existing) {
       this.db
         .query(
-          'UPDATE financial_insights SET ticker=?, exchange=?, sector=?, tags=?, content=?, routing=?, source=?, updated_at=? WHERE id=?',
+          'UPDATE financial_insights SET ticker=?, exchange=?, sector=?, tags=?, content=?, routing=?, source=?, namespace=?, updated_at=? WHERE id=?',
         )
         .run(
           params.ticker,
@@ -344,6 +354,7 @@ export class MemoryDatabase {
           params.content,
           params.routing ?? null,
           params.source ?? null,
+          params.namespace ?? null,
           now,
           existing.id,
         );
@@ -356,7 +367,7 @@ export class MemoryDatabase {
 
     this.db
       .query(
-        'INSERT INTO financial_insights (ticker, exchange, sector, tags, content, content_hash, routing, source, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
+        'INSERT INTO financial_insights (ticker, exchange, sector, tags, content, content_hash, routing, source, namespace, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
       )
       .run(
         params.ticker,
@@ -367,6 +378,7 @@ export class MemoryDatabase {
         params.contentHash,
         params.routing ?? null,
         params.source ?? null,
+        params.namespace ?? null,
         now,
         now,
       );

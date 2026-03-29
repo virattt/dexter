@@ -218,3 +218,97 @@ Context summary entries appear in the `.dexter/scratchpad/*.jsonl` debug files w
       2026-03-21.md        ← archived by Dream
     .dream-meta.json       ← Dream run state
 ```
+
+---
+
+## Memory Namespaces
+
+By default all financial insights live in a single flat namespace. When running
+multiple concurrent analyses — for example a DCF valuation and a short thesis on
+the same ticker — WACC assumptions and bear-case notes used to collide.
+
+**Namespaces** scope insights to a logical workflow bucket. Provide the optional
+`namespace` field when storing or recalling insights:
+
+```
+Store a DCF-specific insight:
+  store_financial_insight(ticker=AAPL, content="WACC 8.1%, terminal growth 2.5%",
+    namespace="dcf", tags=["analysis:valuation"])
+
+Recall only DCF context for AAPL:
+  recall_financial_context(ticker=AAPL, namespace="dcf")
+  → returns only insights stored under the "dcf" namespace
+
+Recall only short-thesis context:
+  recall_financial_context(ticker=AAPL, namespace="short-thesis")
+  → "Bear case: margin compression, rising competition from Samsung"
+```
+
+Insights stored **without** a namespace remain globally accessible (no namespace
+filter applied when `namespace` is omitted from the recall call).
+
+### Namespace conventions
+
+| Namespace | Typical use |
+|-----------|------------|
+| `dcf` | DCF / intrinsic value analysis — WACC, terminal growth, share count |
+| `short-thesis` | Bear case, short rationale, risk flags |
+| `peer-comparison` | Peer multiples, competitive positioning |
+| `probability-assessment` | Polymarket signals, analyst consensus |
+| `earnings-preview` | Near-term catalyst analysis |
+
+The namespace tag `ns:<name>` is automatically added to the insight's tags list
+for easy filtering and auditing.
+
+---
+
+## Ticker→API Routing Cache
+
+Each time a financial data call succeeds or falls back, Dexter records which API
+backend worked for that ticker in `.dexter/api-routing.json`. On the next session
+the router reads this cache and routes directly to the correct backend without
+probing failing APIs first.
+
+**Example cache file:**
+
+```json
+{
+  "version": 1,
+  "routes": {
+    "VWS.CO": { "preferred": "yahoo",  "updatedAt": "2026-04-01T10:00:00.000Z" },
+    "AAPL":   { "preferred": "fmp",    "updatedAt": "2026-04-01T10:05:00.000Z" },
+    "SAN.MC": { "preferred": "yahoo",  "updatedAt": "2026-04-01T11:00:00.000Z" },
+    "CRDO":   { "preferred": "web",    "updatedAt": "2026-04-01T12:00:00.000Z" }
+  }
+}
+```
+
+Cache entries expire after **30 days** to adapt when data provider coverage changes.
+The cache is populated automatically — no manual configuration needed.
+
+**API preference values:**
+
+| Value | Meaning |
+|-------|---------|
+| `fmp` | FMP free-tier works |
+| `yahoo` | Yahoo Finance preferred (skip FMP) |
+| `web` | All structured APIs unavailable — use web search |
+| `financial-datasets` | Financial Datasets API preferred |
+
+---
+
+## Async Dream Consolidation
+
+Dream runs in the background after the TUI is fully painted (400 ms defer), so
+the interface is immediately responsive on startup even when consolidation is
+triggered. Dream's status (`🌙 Dream running…`) appears in the header without
+blocking typing or queries.
+
+The `/dream` command always runs Dream synchronously (so you can wait for the
+result before your next query):
+
+```
+/dream         — run if conditions are met
+/dream force   — bypass conditions and run immediately
+/dream show    — display last run time and file inventory
+```
