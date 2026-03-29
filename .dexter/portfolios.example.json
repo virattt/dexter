@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "defaults": {
+    "schedule": {
+      "kind": "cron",
+      "expr": "0 8 * * 1-5",
+      "tz": "America/New_York"
+    },
+    "model": "gpt-5.4",
+    "modelProvider": "openai",
+    "benchmark": "SPY"
+  },
+  "portfolios": [
+    {
+      "id": "core-us",
+      "name": "Core US Equities",
+      "enabled": true,
+      "benchmark": "SPY",
+      "holdings": [
+        {
+          "ticker": "AAPL",
+          "weight": 0.18,
+          "notes": "largest position"
+        },
+        {
+          "ticker": "MSFT",
+          "weight": 0.16
+        }
+      ],
+      "watchlist": ["NVDA"]
+    }
+  ]
+}

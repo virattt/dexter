@@ -14,6 +14,7 @@ import { AgentToolExecutor } from './tool-executor.js';
 import { MemoryManager } from '../memory/index.js';
 import { runMemoryFlush, shouldRunMemoryFlush } from '../memory/flush.js';
 import { resolveProvider } from '../providers.js';
+import { hasAvailableEmbeddingBackend } from '../memory/embeddings.js';
 
 
 const DEFAULT_MODEL = 'gpt-5.4';
@@ -33,6 +34,7 @@ export class Agent {
   private readonly systemPrompt: string;
   private readonly signal?: AbortSignal;
   private readonly memoryEnabled: boolean;
+  private readonly supportsDexterTools: boolean;
 
   private constructor(
     config: AgentConfig,
@@ -47,6 +49,7 @@ export class Agent {
     this.systemPrompt = systemPrompt;
     this.signal = config.signal;
     this.memoryEnabled = config.memoryEnabled ?? true;
+    this.supportsDexterTools = resolveProvider(this.model).supportsDexterTools ?? true;
   }
 
   /**
@@ -54,7 +57,8 @@ export class Agent {
    */
   static async create(config: AgentConfig = {}): Promise<Agent> {
     const model = config.model ?? DEFAULT_MODEL;
-    const tools = getTools(model);
+    const provider = resolveProvider(model);
+    const tools = provider.supportsDexterTools === false ? [] : getTools(model);
     const soulContent = await loadSoulDocument();
     let memoryFiles: string[] = [];
     let memoryContext: string | null = null;
@@ -75,6 +79,7 @@ export class Agent {
       config.groupContext,
       memoryFiles,
       memoryContext,
+      { toolAccess: provider.supportsDexterTools === false ? 'disabled' : 'enabled' },
     );
     return new Agent(config, tools, systemPrompt);
   }
@@ -86,13 +91,37 @@ export class Agent {
    */
   async *run(query: string, inMemoryHistory?: InMemoryChatHistory): AsyncGenerator<AgentEvent> {
     const startTime = Date.now();
+    const ctx = createRunContext(query);
 
     if (this.tools.length === 0) {
+      if (!this.supportsDexterTools) {
+        const semanticMemoryAvailable = hasAvailableEmbeddingBackend();
+        const notice = semanticMemoryAvailable
+          ? 'Codex provider is running in tool-free mode. Responding without Dexter research tools or live data access.'
+          : 'Codex provider is running in tool-free mode. Responding without Dexter research tools. Semantic memory embeddings are also unavailable because no OpenAI, Gemini, or Ollama embedding backend is configured.';
+        yield { type: 'thinking', message: notice };
+        try {
+          const result = await this.callModel(this.buildInitialPrompt(query, inMemoryHistory), false);
+          ctx.iteration = 1;
+          ctx.tokenCounter.add(result.usage);
+          yield* this.handleDirectResponse(typeof result.response === 'string' ? result.response : '', ctx);
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          const provider = resolveProvider(this.model).displayName;
+          yield {
+            type: 'done',
+            answer: `Error: ${formatUserFacingError(errorMessage, provider)}`,
+            toolCalls: [],
+            iterations: 1,
+            totalTime: Date.now() - ctx.startTime,
+          };
+        }
+        return;
+      }
+
       yield { type: 'done', answer: 'No tools available. Please check your API key configuration.', toolCalls: [], iterations: 0, totalTime: Date.now() - startTime };
       return;
     }
-
-    const ctx = createRunContext(query);
     const memoryFlushState = { alreadyFlushed: false };
 
     // Build initial prompt with conversation history context

@@ -13,6 +13,9 @@ import { dexterPath } from '../utils/paths.js';
 import { saveCronStore } from './store.js';
 import { computeNextRunAtMs } from './schedule.js';
 import type { ActiveHours, CronJob, CronStore } from './types.js';
+import { loadPortfolioConfig, getPortfolioById } from '../portfolio/config.js';
+import { resolveEffectiveModel } from '../portfolio/model-resolution.js';
+import { runPortfolioAnalysis } from '../portfolio/runner.js';
 
 const LOG_PATH = dexterPath('gateway-debug.log');
 
@@ -107,6 +110,55 @@ export async function executeCronJob(
 
   debugLog(`[cron] executing job "${job.name}" (${job.id})`);
 
+  if (job.payload.kind === 'portfolio' && job.payload.portfolioId) {
+    try {
+      const config = loadPortfolioConfig();
+      const portfolio = getPortfolioById(config, job.payload.portfolioId);
+      if (!portfolio) {
+        throw new Error(`Portfolio "${job.payload.portfolioId}" not found.`);
+      }
+
+      const modelConfig = resolveEffectiveModel({
+        cliModel: job.payload.model,
+        cliProvider: job.payload.modelProvider,
+        portfolio,
+        sourceOverride: 'cron',
+      });
+
+      const result = await runPortfolioAnalysis({
+        portfolio,
+        modelConfig,
+        trigger: 'scheduled',
+      });
+
+      if (!result.ok) {
+        throw new Error(
+          result.diagnostics.errors.join('; ') || 'Portfolio analysis returned an unsuccessful result.',
+        );
+      }
+
+      job.state.lastRunAtMs = startedAt;
+      job.state.lastDurationMs = Date.now() - startedAt;
+      job.state.consecutiveErrors = 0;
+      job.state.lastRunStatus = 'ok';
+      job.state.lastError = undefined;
+
+      if (job.fulfillment === 'once') {
+        job.enabled = false;
+        job.state.nextRunAtMs = undefined;
+        job.updatedAtMs = Date.now();
+        saveCronStore(store);
+        return;
+      }
+
+      scheduleNextRun(job, store);
+      return;
+    } catch (err) {
+      handleJobError(job, store, err, startedAt);
+      return;
+    }
+  }
+
   // 1. Find WhatsApp delivery target
   const session = findTargetSession();
   if (!session?.lastTo || !session?.lastAccountId) {
@@ -129,7 +181,8 @@ export async function executeCronJob(
   const modelProvider = job.payload.modelProvider ?? (getSetting('provider', 'openai') as string);
 
   // 4. Build query
-  let query = `[CRON JOB: ${job.name}]\n\n${job.payload.message}`;
+  const baseMessage = job.payload.message ?? '';
+  let query = `[CRON JOB: ${job.name}]\n\n${baseMessage}`;
   if (job.fulfillment === 'ask') {
     query += '\n\nIf you find something noteworthy, also ask the user if they want to continue monitoring this.';
   }

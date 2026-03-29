@@ -54,6 +54,10 @@ yarn-error.log*
 
 # Dexter context files (offloaded tool outputs)
 .dexter/*
+!.dexter/portfolios.example.json
+!.dexter/skills/
+!.dexter/skills/openclaw-portfolio-harness/
+!.dexter/skills/openclaw-portfolio-harness/SKILL.md
 
 
 logs/

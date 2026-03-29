@@ -14,6 +14,8 @@ export interface ProviderDef {
   apiKeyEnvVar?: string;
   /** Fast model variant for lightweight tasks like summarization. */
   fastModel?: string;
+  /** Whether this provider supports Dexter's LangChain tool-calling agent loop. */
+  supportsDexterTools?: boolean;
 }
 
 export const PROVIDERS: ProviderDef[] = [
@@ -23,6 +25,14 @@ export const PROVIDERS: ProviderDef[] = [
     modelPrefix: '',
     apiKeyEnvVar: 'OPENAI_API_KEY',
     fastModel: 'gpt-4.1',
+    supportsDexterTools: true,
+  },
+  {
+    id: 'codex',
+    displayName: 'Codex',
+    modelPrefix: 'codex:',
+    fastModel: 'codex:gpt-5.4',
+    supportsDexterTools: false,
   },
   {
     id: 'anthropic',
@@ -30,6 +40,7 @@ export const PROVIDERS: ProviderDef[] = [
     modelPrefix: 'claude-',
     apiKeyEnvVar: 'ANTHROPIC_API_KEY',
     fastModel: 'claude-haiku-4-5',
+    supportsDexterTools: true,
   },
   {
     id: 'google',
@@ -37,6 +48,7 @@ export const PROVIDERS: ProviderDef[] = [
     modelPrefix: 'gemini-',
     apiKeyEnvVar: 'GOOGLE_API_KEY',
     fastModel: 'gemini-3-flash-preview',
+    supportsDexterTools: true,
   },
   {
     id: 'xai',
@@ -44,6 +56,7 @@ export const PROVIDERS: ProviderDef[] = [
     modelPrefix: 'grok-',
     apiKeyEnvVar: 'XAI_API_KEY',
     fastModel: 'grok-4-1-fast-reasoning',
+    supportsDexterTools: true,
   },
   {
     id: 'moonshot',
@@ -51,6 +64,7 @@ export const PROVIDERS: ProviderDef[] = [
     modelPrefix: 'kimi-',
     apiKeyEnvVar: 'MOONSHOT_API_KEY',
     fastModel: 'kimi-k2-5',
+    supportsDexterTools: true,
   },
   {
     id: 'deepseek',
@@ -58,6 +72,7 @@ export const PROVIDERS: ProviderDef[] = [
     modelPrefix: 'deepseek-',
     apiKeyEnvVar: 'DEEPSEEK_API_KEY',
     fastModel: 'deepseek-chat',
+    supportsDexterTools: true,
   },
   {
     id: 'openrouter',
@@ -65,11 +80,13 @@ export const PROVIDERS: ProviderDef[] = [
     modelPrefix: 'openrouter:',
     apiKeyEnvVar: 'OPENROUTER_API_KEY',
     fastModel: 'openrouter:openai/gpt-4o-mini',
+    supportsDexterTools: true,
   },
   {
     id: 'ollama',
     displayName: 'Ollama',
     modelPrefix: 'ollama:',
+    supportsDexterTools: true,
   },
 ];
 

@@ -105,6 +105,24 @@ edit_file for memory files.
 Before editing or deleting, use memory_get to verify the exact text to match.`;
 }
 
+function buildPassiveMemorySection(memoryFiles: string[], memoryContext?: string | null): string {
+  if (memoryFiles.length === 0 && !memoryContext) {
+    return '';
+  }
+
+  const fileListSection = memoryFiles.length > 0
+    ? `\nMemory files on disk: ${memoryFiles.join(', ')}`
+    : '';
+
+  const contextSection = memoryContext
+    ? `\n\n### What you know about the user\n\n${memoryContext}`
+    : '';
+
+  return `## Memory Context
+
+You have read-only memory context loaded for this session.${fileListSection}${contextSection}`;
+}
+
 // ============================================================================
 // Default System Prompt (for backward compatibility)
 // ============================================================================
@@ -206,8 +224,14 @@ export function buildSystemPrompt(
   groupContext?: GroupContext,
   memoryFiles?: string[],
   memoryContext?: string | null,
+  options?: {
+    toolAccess?: 'enabled' | 'disabled';
+  },
 ): string {
-  const toolDescriptions = buildToolDescriptions(model);
+  const toolAccess = options?.toolAccess ?? 'enabled';
+  const toolDescriptions = toolAccess === 'enabled'
+    ? buildToolDescriptions(model)
+    : 'No Dexter tools are available in this session. Answer from built-in knowledge only.';
   const profile = getChannelProfile(channel);
 
   const behaviorBullets = profile.behavior.map(b => `- ${b}`).join('\n');
@@ -217,17 +241,8 @@ export function buildSystemPrompt(
     ? `\n## Tables (for comparative/tabular data)\n\n${profile.tables}`
     : '';
 
-  return `You are Dexter, a ${profile.label} assistant with access to research tools.
-
-Current date: ${getCurrentDate()}
-
-${profile.preamble}
-
-## Available Tools
-
-${toolDescriptions}
-
-## Tool Usage Policy
+  const toolPolicySection = toolAccess === 'enabled'
+    ? `## Tool Usage Policy
 
 - Only use tools when the query actually requires external data
 - For stock and crypto prices, company news, and insider trades, use get_market_data
@@ -239,18 +254,43 @@ ${toolDescriptions}
 - For general web queries or non-financial topics, use web_search
 - Only use browser when you need JavaScript rendering or interactive navigation (clicking links, filling forms, navigating SPAs)
 - For factual questions about entities (companies, people, organizations), use tools to verify current state
-- Only respond directly for: conceptual definitions, stable historical facts, or conversational queries
+- Only respond directly for: conceptual definitions, stable historical facts, or conversational queries`
+    : `## Tool Usage Policy
 
-${buildSkillsSection()}
+- External Dexter tools are disabled for this session
+- Do not claim to have fetched live data, browsed the web, or executed any tool
+- If the user asks for current market data or filing-backed research, say that this provider mode cannot perform live tool-based research`;
 
-${buildMemorySection(memoryFiles ?? [], memoryContext)}
-
-## Heartbeat
+  const skillsSection = toolAccess === 'enabled' ? buildSkillsSection() : '';
+  const memorySection = toolAccess === 'enabled'
+    ? buildMemorySection(memoryFiles ?? [], memoryContext)
+    : buildPassiveMemorySection(memoryFiles ?? [], memoryContext);
+  const heartbeatSection = toolAccess === 'enabled'
+    ? `## Heartbeat
 
 You have a periodic heartbeat that runs on a schedule (configurable by the user).
 The heartbeat reads .dexter/HEARTBEAT.md to know what to check.
 Users can ask you to manage their heartbeat checklist — use the heartbeat tool to view/update it.
-Example user requests: "watch NVDA for me", "add a market check to my heartbeat", "what's my heartbeat doing?"
+Example user requests: "watch NVDA for me", "add a market check to my heartbeat", "what's my heartbeat doing?"`
+    : '';
+
+  return `You are Dexter, a ${profile.label} assistant${toolAccess === 'enabled' ? ' with access to research tools' : ''}.
+
+Current date: ${getCurrentDate()}
+
+${profile.preamble}
+
+## Available Tools
+
+${toolDescriptions}
+
+${toolPolicySection}
+
+${skillsSection}
+
+${memorySection}
+
+${heartbeatSection}
 
 ## Behavior
 
@@ -306,4 +346,3 @@ Continue working toward answering the query. When you have gathered sufficient d
 
   return prompt;
 }
-

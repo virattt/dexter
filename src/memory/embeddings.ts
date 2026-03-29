@@ -36,6 +36,10 @@ function resolveProvider(preferred: EmbeddingProviderId): ResolvedProvider | nul
   return null;
 }
 
+export function hasAvailableEmbeddingBackend(preferred: EmbeddingProviderId = 'auto'): boolean {
+  return resolveProvider(preferred) !== null;
+}
+
 async function embedInBatches(
   texts: string[],
   embedBatch: (batch: string[]) => Promise<number[][]>,

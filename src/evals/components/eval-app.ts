@@ -174,7 +174,8 @@ export class EvalApp extends Container {
     this.addChild(new Text('═'.repeat(70), 0, 0));
     this.addChild(new Text(theme.bold('EVALUATION COMPLETE'), 0, 0));
     this.addChild(new Text('═'.repeat(70), 0, 0));
-    this.addChild(new Text(`Experiment: ${this.state.experimentName ?? 'unknown'}`, 0, 0));
+    const experimentName = this.state.experimentName ?? 'local-only';
+    this.addChild(new Text(`Experiment: ${experimentName}`, 0, 0));
     this.addChild(new Text(`Examples evaluated: ${this.state.results.length}`, 0, 0));
     this.addChild(
       new Text(
@@ -204,7 +205,11 @@ export class EvalApp extends Container {
 
     this.addChild(new Spacer(1));
     this.addChild(new Text('─'.repeat(70), 0, 0));
-    this.addChild(new Text(theme.muted('View full results: https://smith.langchain.com'), 0, 0));
+    if (experimentName !== 'local-only') {
+      this.addChild(new Text(theme.muted('View full results: https://smith.langchain.com'), 0, 0));
+    } else {
+      this.addChild(new Text(theme.muted('LangSmith logging disabled; results shown locally only.'), 0, 0));
+    }
   }
 
   private truncate(value: string, maxLength: number): string {

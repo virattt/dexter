@@ -27,6 +27,8 @@ interface Example {
   outputs: { answer: string };
 }
 
+type LangSmithMode = 'enabled' | 'disabled';
+
 // ============================================================================
 // CSV Parser - handles multi-line quoted fields
 // ============================================================================
@@ -136,6 +138,17 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isLangSmithAuthError(error: unknown): boolean {
+  const message = getErrorMessage(error).toLowerCase();
+  return message.includes('langsmith') && message.includes('401')
+    || message.includes('invalid token')
+    || message.includes('unauthorized');
+}
+
 // ============================================================================
 // Target function - wraps Dexter agent
 // ============================================================================
@@ -227,8 +240,9 @@ function createEvaluationRunner(sampleSize?: number) {
       examples = shuffleArray(examples).slice(0, sampleSize);
     }
 
-    // Create LangSmith client
+    // Create LangSmith client. The run should continue locally if LangSmith is unavailable.
     const client = new Client();
+    let langSmithMode: LangSmithMode = process.env.LANGSMITH_API_KEY ? 'enabled' : 'disabled';
 
     // Create a unique dataset name for this run (sampling creates different datasets)
     const datasetName = sampleSize 
@@ -239,38 +253,55 @@ function createEvaluationRunner(sampleSize?: number) {
     yield {
       type: 'init',
       total: examples.length,
-      datasetName: sampleSize ? `finance_agent (sample ${sampleSize}/${totalCount})` : 'finance_agent',
+      datasetName:
+        sampleSize
+          ? `finance_agent (sample ${sampleSize}/${totalCount})`
+          : 'finance_agent',
     };
 
     // Check if dataset exists (only for full runs)
-    let dataset;
-    if (!sampleSize) {
+    let dataset: { id: string } | null = null;
+    if (langSmithMode === 'enabled' && !sampleSize) {
       try {
         dataset = await client.readDataset({ datasetName });
-      } catch {
-        // Dataset doesn't exist, will create
-        dataset = null;
+      } catch (error) {
+        if (isLangSmithAuthError(error)) {
+          langSmithMode = 'disabled';
+        } else {
+          dataset = null;
+        }
       }
     }
 
     // Create dataset if needed
-    if (!dataset) {
-      dataset = await client.createDataset(datasetName, {
-        description: sampleSize 
-          ? `Finance agent evaluation (sample of ${sampleSize})`
-          : 'Finance agent evaluation dataset',
-      });
+    if (langSmithMode === 'enabled' && !dataset) {
+      try {
+        dataset = await client.createDataset(datasetName, {
+          description: sampleSize 
+            ? `Finance agent evaluation (sample of ${sampleSize})`
+            : 'Finance agent evaluation dataset',
+        });
 
-      // Upload examples
-      await client.createExamples({
-        datasetId: dataset.id,
-        inputs: examples.map((e) => e.inputs),
-        outputs: examples.map((e) => e.outputs),
-      });
+        // Upload examples
+        await client.createExamples({
+          datasetId: dataset.id,
+          inputs: examples.map((e) => e.inputs),
+          outputs: examples.map((e) => e.outputs),
+        });
+      } catch (error) {
+        if (isLangSmithAuthError(error)) {
+          langSmithMode = 'disabled';
+        } else {
+          throw error;
+        }
+      }
     }
 
     // Generate experiment name for tracking
-    const experimentName = `dexter-eval-${Date.now().toString(36)}`;
+    let experimentName =
+      langSmithMode === 'enabled'
+        ? `dexter-eval-${Date.now().toString(36)}`
+        : null;
 
     // Run evaluation manually - process each example one by one
     for (const example of examples) {
@@ -294,24 +325,35 @@ function createEvaluationRunner(sampleSize?: number) {
         referenceOutputs: example.outputs,
       });
 
-      // Log to LangSmith for tracking
-      await client.createRun({
-        name: 'dexter-eval-run',
-        run_type: 'chain',
-        inputs: example.inputs,
-        outputs,
-        start_time: startTime,
-        end_time: endTime,
-        project_name: experimentName,
-        extra: {
-          dataset: datasetName,
-          reference_outputs: example.outputs,
-          evaluation: {
-            score: evalResult.score,
-            comment: evalResult.comment,
-          },
-        },
-      });
+      // Log to LangSmith when available. If auth fails mid-run, continue locally.
+      if (langSmithMode === 'enabled' && experimentName) {
+        try {
+          await client.createRun({
+            name: 'dexter-eval-run',
+            run_type: 'chain',
+            inputs: example.inputs,
+            outputs,
+            start_time: startTime,
+            end_time: endTime,
+            project_name: experimentName,
+            extra: {
+              dataset: datasetName,
+              reference_outputs: example.outputs,
+              evaluation: {
+                score: evalResult.score,
+                comment: evalResult.comment,
+              },
+            },
+          });
+        } catch (error) {
+          if (isLangSmithAuthError(error)) {
+            langSmithMode = 'disabled';
+            experimentName = null;
+          } else {
+            throw error;
+          }
+        }
+      }
 
       // Yield question end with result - UI updates progress bar
       yield {
@@ -325,7 +367,7 @@ function createEvaluationRunner(sampleSize?: number) {
     // Yield complete event
     yield {
       type: 'complete',
-      experimentName,
+      experimentName: experimentName ?? 'local-only',
     };
   };
 }

@@ -227,6 +227,20 @@ export function formatUserFacingError(raw: string, provider?: string): string {
     return 'LLM request failed with an unknown error.';
   }
 
+  const normalizedProvider = provider?.toLowerCase();
+  const lower = raw.toLowerCase();
+  if (normalizedProvider === 'codex' || lower.includes('codex')) {
+    if (lower.includes('enoent') || lower.includes('command not found') || lower.includes('spawn codex')) {
+      return 'Codex CLI is not installed or not on PATH. Install the `codex` CLI and try again.';
+    }
+    if (lower.includes('logged out') || lower.includes('login') || lower.includes('not logged in')) {
+      return 'Codex CLI is not logged in. Run `codex login` and try again.';
+    }
+    if (lower.includes('failed to lookup address information') || lower.includes('failed to connect to websocket')) {
+      return 'Codex CLI could not reach the OpenAI service. Check your network connection and try again.';
+    }
+  }
+
   const errorType = classifyError(raw);
   const info = parseApiErrorInfo(raw);
   const providerLabel = provider ? `${provider} ` : '';
@@ -241,8 +255,10 @@ export function formatUserFacingError(raw: string, provider?: string): string {
       return `${providerLabel}API key has run out of credits or has an insufficient balance. ` +
         'Check your billing dashboard and top up, or switch to a different API key.';
     case 'auth':
-      return `${providerLabel}API key is invalid or expired. ` +
-        'Check that your API key is correct in your environment variables.';
+      return normalizedProvider === 'codex'
+        ? 'Codex CLI authentication failed. Run `codex login` and try again.'
+        : `${providerLabel}API key is invalid or expired. ` +
+          'Check that your API key is correct in your environment variables.';
     case 'timeout':
       return 'LLM request timed out. Please try again.';
     case 'overloaded':

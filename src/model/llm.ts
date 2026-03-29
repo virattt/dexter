@@ -14,6 +14,7 @@ import type { TokenUsage } from '@/agent/types';
 import { logger } from '@/utils';
 import { classifyError, isNonRetryableError } from '@/utils/errors';
 import { resolveProvider, getProviderById } from '@/providers';
+import { callCodexCli } from './codex.js';
 
 export const DEFAULT_PROVIDER = 'openai';
 export const DEFAULT_MODEL = 'gpt-5.4';
@@ -203,6 +204,19 @@ function buildAnthropicMessages(systemPrompt: string, userPrompt: string) {
 export async function callLlm(prompt: string, options: CallLlmOptions = {}): Promise<LlmResult> {
   const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools, signal } = options;
   const finalSystemPrompt = systemPrompt || DEFAULT_SYSTEM_PROMPT;
+  const provider = resolveProvider(model);
+
+  if (provider.id === 'codex') {
+    if (outputSchema) {
+      throw new Error('Codex CLI provider does not support Dexter structured output yet.');
+    }
+    if (tools && tools.length > 0) {
+      throw new Error('Codex CLI provider does not support Dexter tool calling yet.');
+    }
+
+    const response = await callCodexCli(prompt, finalSystemPrompt, { model, signal });
+    return { response };
+  }
 
   const llm = getChatModel(model, false);
 
@@ -216,7 +230,6 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
   }
 
   const invokeOpts = signal ? { signal } : undefined;
-  const provider = resolveProvider(model);
   let result;
 
   if (provider.id === 'anthropic') {

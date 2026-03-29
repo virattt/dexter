@@ -5,7 +5,8 @@
   "type": "module",
   "main": "src/index.tsx",
   "bin": {
-    "dexter-ts": "./src/index.tsx"
+    "dexter-ts": "./src/index.tsx",
+    "dexter": "./src/index.tsx"
   },
   "scripts": {
     "start": "bun run src/index.tsx",

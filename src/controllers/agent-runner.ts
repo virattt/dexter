@@ -8,6 +8,9 @@ import type {
 } from '../agent/index.js';
 import type { DisplayEvent } from '../agent/types.js';
 import type { HistoryItem, HistoryItemStatus, WorkingState } from '../types.js';
+import { resolveProvider } from '../providers.js';
+import { assertCodexCliReady } from '../model/codex.js';
+import { formatUserFacingError } from '../utils/errors.js';
 
 type ChangeListener = () => void;
 
@@ -57,6 +60,15 @@ export class AgentRunnerController {
     return (
       this.historyValue.length > 0 && this.historyValue[this.historyValue.length - 1]?.status === 'processing'
     );
+  }
+
+  updateAgentConfig(partial: Pick<AgentConfig, 'model' | 'modelProvider'>) {
+    if (partial.model) {
+      this.agentConfig.model = partial.model;
+    }
+    if (partial.modelProvider) {
+      this.agentConfig.modelProvider = partial.modelProvider;
+    }
   }
 
   setError(error: string | null) {
@@ -112,6 +124,11 @@ export class AgentRunnerController {
     this.emitChange();
 
     try {
+      const provider = resolveProvider(this.agentConfig.model ?? 'gpt-5.4');
+      if (provider.id === 'codex') {
+        await assertCodexCliReady(this.abortController.signal);
+      }
+
       const agent = await Agent.create({
         ...this.agentConfig,
         signal: this.abortController.signal,
@@ -137,7 +154,9 @@ export class AgentRunnerController {
         return undefined;
       }
       const message = error instanceof Error ? error.message : String(error);
-      this.errorValue = message;
+      const provider = resolveProvider(this.agentConfig.model ?? 'gpt-5.4').displayName;
+      const formatted = formatUserFacingError(message, provider);
+      this.errorValue = formatted;
       this.markLastProcessing('error');
       this.workingStateValue = { status: 'idle' };
       this.emitChange();

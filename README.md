@@ -36,7 +36,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 ## ✅ Prerequisites
 
 - [Bun](https://bun.com) runtime (v1.0 or higher)
-- OpenAI API key (get [here](https://platform.openai.com/api-keys))
+- Either a local Codex CLI login or an OpenAI API key
 - Financial Datasets API key (get [here](https://financialdatasets.ai))
 - Exa API key (get [here](https://exa.ai)) - optional, for web search
 
@@ -94,6 +94,18 @@ cp env.example .env
 # EXASEARCH_API_KEY=your-exa-api-key
 # TAVILY_API_KEY=your-tavily-api-key
 ```
+
+4. Optional: use Codex CLI instead of an OpenAI API key for chat models:
+```bash
+codex login
+```
+
+Then switch Dexter to the `Codex` provider with `/model`.
+
+Notes:
+- Codex provider uses your local `codex` login, not `OPENAI_API_KEY`
+- Codex provider currently runs in tool-free mode inside Dexter, so it does not perform live market-data or filing-backed research
+- Memory embeddings still require `OPENAI_API_KEY`, `GOOGLE_API_KEY`, or `OLLAMA_BASE_URL`
 
 ## 🚀 How to Run
 

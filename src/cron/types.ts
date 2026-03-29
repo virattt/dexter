@@ -22,7 +22,9 @@ export type FulfillmentMode = 'keep' | 'once' | 'ask';
 // --- Payload ---
 
 export type CronPayload = {
-  message: string;
+  kind?: 'message' | 'portfolio';
+  message?: string;
+  portfolioId?: string;
   model?: string;
   modelProvider?: string;
 };

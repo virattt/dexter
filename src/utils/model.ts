@@ -16,6 +16,10 @@ const PROVIDER_MODELS: Record<string, Model[]> = {
     { id: 'gpt-5.4', displayName: 'GPT 5.4' },
     { id: 'gpt-4.1', displayName: 'GPT 4.1' },
   ],
+  codex: [
+    { id: 'codex:gpt-5.4', displayName: 'GPT 5.4 via Codex' },
+    { id: 'codex:gpt-5.3-codex', displayName: 'GPT 5.3 Codex' },
+  ],
   anthropic: [
     { id: 'claude-sonnet-4-6', displayName: 'Sonnet 4.6' },
     { id: 'claude-opus-4-6', displayName: 'Opus 4.6' },
@@ -56,10 +60,17 @@ export function getDefaultModelForProvider(providerId: string): string | undefin
 }
 
 export function getModelDisplayName(modelId: string): string {
-  const normalizedId = modelId.replace(/^(ollama|openrouter):/, '');
+  const normalizedId = modelId.replace(/^(ollama|openrouter|codex):/, '');
 
   for (const provider of PROVIDERS) {
-    const model = provider.models.find((entry) => entry.id === normalizedId || entry.id === modelId);
+    const model = provider.models.find((entry) => entry.id === modelId);
+    if (model) {
+      return model.displayName;
+    }
+  }
+
+  for (const provider of PROVIDERS) {
+    const model = provider.models.find((entry) => entry.id === normalizedId);
     if (model) {
       return model.displayName;
     }
