@@ -27,7 +27,42 @@ interface Config {
     embeddingModel?: string;
     maxSessionContextTokens?: number;
   };
+  maxIterations?: number;      // default 25, range 5-100
+  contextThreshold?: number;   // default 100000, range 10000-500000
+  keepToolUses?: number;       // default 5, range 2-20
+  cacheTtlMs?: number;         // default 900000 (15min), range 60000-86400000
+  parallelToolLimit?: number;  // default 0 (unlimited), range 0-10
   [key: string]: unknown;
+}
+
+// Validation rules for each configurable key.
+const CONFIG_VALIDATION_RULES: Record<string, { min: number; max: number }> = {
+  maxIterations:    { min: 5,     max: 100       },
+  contextThreshold: { min: 10000, max: 500000    },
+  keepToolUses:     { min: 2,     max: 20        },
+  cacheTtlMs:       { min: 60000, max: 86400000  },
+  parallelToolLimit:{ min: 0,     max: 10        },
+};
+
+/**
+ * Validates a config value for a known key.
+ * Unknown keys pass through without validation (returns valid: true).
+ */
+export function validateConfigValue(key: string, value: unknown): { valid: boolean; error?: string } {
+  const rule = CONFIG_VALIDATION_RULES[key];
+  if (!rule) {
+    return { valid: true };
+  }
+
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return { valid: false, error: `${key} must be a number` };
+  }
+
+  if (value < rule.min || value > rule.max) {
+    return { valid: false, error: `${key} must be between ${rule.min} and ${rule.max}` };
+  }
+
+  return { valid: true };
 }
 
 export function loadConfig(): Config {

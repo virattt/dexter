@@ -68,6 +68,11 @@ This fork adds the following on top of the upstream repository:
 - **Multi-source data validation**: when `financialdatasets.ai` returns annual income statements and `FMP_API_KEY` is set, FMP is queried concurrently; if `totalRevenue` or `netIncome` diverge by more than 15 % between sources, a `⚠️ Data discrepancy` warning is appended to the result so you can investigate before acting on the numbers
 - **Polymarket tag-based search**: rebuilt to use verified `tag_slug` filters (`/events?tag_slug=X`) with client-side text matching — queries about bitcoin, Fed rates, commodities, elections, and big-tech now return accurate prediction markets instead of irrelevant sports results
 - **Geopolitics OSINT** (`geopolitics_search`): monitors geopolitical events (conflict, sanctions, trade war, cyberattack) and maps them to financial asset implications — powered by GDELT (free news index) + Bluesky (open OSINT community) — no X/Twitter credentials required. Includes watchlist-first output, event→asset correlation map, and `defense`/`cybersecurity` signal categories
+- **Fixed Income** (`get_fixed_income`): US Treasury yields (2Y/5Y/10Y/30Y), yield curve spread (with inversion flag), Fed funds rate, CPI, and unemployment rate via FRED API — free, no key required
+- **Options Chain** (`get_options_chain`): options contracts from Yahoo Finance — top calls/puts by open interest, put/call ratio (PCR), implied volatility, and unusual volume detection — free, no key required
+- **Export Framework** (`/export`): export session research to `markdown`, `json`, or `csv` — saved to the current directory; markdown format includes tool usage tables and full answers
+- **Config Expansion** (`/config`): view and tune `maxIterations`, `contextThreshold`, `keepToolUses`, `cacheTtlMs`, `parallelToolLimit` at runtime — persisted to `.dexter/settings.json`
+- **Context Management Overhaul**: summarise-instead-of-drop — cleared tool results are preserved as ticker-prefixed compact summaries with key metrics (P/E, revenue, etc.), merged into a single rolling block; prevents agent re-fetching data it already has
 
 ### Ollama / Local LLM
 - Full support for local Ollama models with no API key required
@@ -81,6 +86,9 @@ This fork adds the following on top of the upstream repository:
 - `/think` — toggle extended thinking for supported models
 - `/watchlist` — portfolio morning briefing; subcommands: `add TICKER [cost] [shares]`, `remove TICKER`, `list`, `show TICKER`, `snapshot`
 - `/dream` — manually trigger Dream memory consolidation; `force` bypasses trigger conditions
+- `/export [markdown|csv|json]` — export session research to a file (default: markdown)
+- `/config [show]` — display current configuration
+- `/config set <key> <value>` — update a setting (maxIterations, contextThreshold, keepToolUses, cacheTtlMs, parallelToolLimit)
 
 ### Watchlist Display Enhancements
 - **`/watchlist list`** now fetches live prices in parallel and shows: current price, day %, unrealised P&L ($), return %, allocation %, plus a portfolio totals row

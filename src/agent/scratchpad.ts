@@ -301,16 +301,26 @@ export class Scratchpad {
    * Get full tool results formatted for the iteration prompt.
    * Anthropic-style: full results in context, excluding cleared entries.
    * Does NOT modify the JSONL file - clearing is in-memory only.
+   *
+   * Only the LATEST context_summary entry is rendered to prevent stacking.
+   * Earlier summaries are preserved on disk for debugging but not shown to the LLM.
    */
   getToolResults(): string {
     const entries = this.readEntries();
     let toolResultIndex = 0;
+
+    // Find index of the last context_summary so we only render that one.
+    let lastSummaryIdx = -1;
+    entries.forEach((e, i) => { if (e.type === 'context_summary') lastSummaryIdx = i; });
     
     const formattedResults: string[] = [];
-    for (const entry of entries) {
-      // Context summaries always included — they replace cleared content
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i]!;
+      // Only render the latest context_summary — earlier ones are superseded.
       if (entry.type === 'context_summary') {
-        formattedResults.push(`### [Prior Research Summary]\n${entry.content ?? ''}`);
+        if (i === lastSummaryIdx) {
+          formattedResults.push(`### [Prior Research Summary]\n${entry.content ?? ''}`);
+        }
         continue;
       }
 
@@ -372,6 +382,21 @@ export class Scratchpad {
       content: summary,
     };
     this.append(entry);
+  }
+
+  /**
+   * Returns the content of the most recent context_summary entry, or null if none exists.
+   * Used by the agent to merge a new summary into the existing one instead of stacking.
+   */
+  getLatestContextSummary(): string | null {
+    const entries = this.readEntries();
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const entry = entries[i]!;
+      if (entry.type === 'context_summary') {
+        return entry.content ?? null;
+      }
+    }
+    return null;
   }
 
   /**

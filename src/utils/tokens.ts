@@ -34,3 +34,25 @@ export const CONTEXT_THRESHOLD = 100_000;
  * Anthropic's default is 3, but we use 5 for slightly more context.
  */
 export const KEEP_TOOL_USES = 5;
+
+/**
+ * Returns the configured context threshold, falling back to the default.
+ * Reads from persisted config so users can tune it via `/config set`.
+ */
+export function getContextThreshold(): number {
+  // Import is deferred inside the function body to avoid a potential
+  // module-evaluation order issue; config.ts does not import tokens.ts.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getSetting } = require('./config.js') as typeof import('./config.js');
+  return getSetting<number>('contextThreshold', CONTEXT_THRESHOLD);
+}
+
+/**
+ * Returns the configured keepToolUses value, falling back to the default.
+ * Reads from persisted config so users can tune it via `/config set`.
+ */
+export function getKeepToolUses(): number {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getSetting } = require('./config.js') as typeof import('./config.js');
+  return getSetting<number>('keepToolUses', KEEP_TOOL_USES);
+}

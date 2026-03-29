@@ -127,13 +127,14 @@ describe('Scratchpad.addContextSummary', () => {
     expect(output).toContain('Revenue grew 12%');
   });
 
-  it('multiple summaries are all rendered', () => {
+  it('only the latest summary is rendered (earlier ones are superseded)', () => {
     const sp = new Scratchpad('test query');
     sp.addContextSummary('First summary');
     sp.addContextSummary('Second summary');
 
     const output = sp.getToolResults();
-    expect(output).toContain('First summary');
+    // Only the latest is shown to the LLM; first is superseded by the merged second.
+    expect(output).not.toContain('First summary');
     expect(output).toContain('Second summary');
   });
 });

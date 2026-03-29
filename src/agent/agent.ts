@@ -1,12 +1,13 @@
 import { AIMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlm, streamCallLlm } from '../model/llm.js';
+import { getSetting } from '../utils/config.js';
 import { getTools } from '../tools/registry.js';
 import { buildSystemPrompt, buildIterationPrompt, loadSoulDocument } from './prompts.js';
 import { extractTextContent, hasToolCalls, extractReasoningContent } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { buildHistoryContext } from '../utils/history-context.js';
-import { estimateTokens, CONTEXT_THRESHOLD, KEEP_TOOL_USES } from '../utils/tokens.js';
+import { estimateTokens, CONTEXT_THRESHOLD, KEEP_TOOL_USES, getContextThreshold, getKeepToolUses } from '../utils/tokens.js';
 import { formatUserFacingError, isContextOverflowError } from '../utils/errors.js';
 import type { AgentConfig, AgentEvent, AnswerStartEvent, AnswerChunkEvent, ContextClearedEvent, ProgressEvent, TokenUsage } from '../agent/types.js';
 import { createRunContext, type RunContext } from './run-context.js';
@@ -36,9 +37,151 @@ export function stripThinkingTags(text: string): string {
     .trim();
 }
 const MAX_OVERFLOW_RETRIES = 2;
-const OVERFLOW_KEEP_TOOL_USES = 3;
 /** Flush memory to disk every N iterations regardless of context size. */
 const PERIODIC_FLUSH_INTERVAL = 5;
+
+// ============================================================================
+// Context summary helpers (exported for unit tests)
+// ============================================================================
+
+/**
+ * Numeric fact patterns extracted from tool results before they are cleared
+ * from context. Each pattern captures a distinct type of financial data.
+ */
+export const FACT_PATTERNS: ReadonlyArray<RegExp> = [
+  /\$[\d,]+(?:\.\d{1,2})?(?:\s*[BMK](?:illion)?)?/gi,  // prices / market caps
+  /[-+]?\d+(?:\.\d+)?%/g,                                // percentages
+  /\b(?:IC|ICIR|RankIC)\s*[:=]\s*[-+]?\d+\.\d+/gi,     // factor IC values
+  /\bP\/E\s*[:=]?\s*\d+(?:\.\d+)?x?/gi,                 // P/E ratios
+  /\bEV\/EBITDA\s*[:=]?\s*\d+(?:\.\d+)?x?/gi,           // EV/EBITDA
+  /\bP\/[SB]\s*[:=]?\s*\d+(?:\.\d+)?x?/gi,              // P/S, P/B
+  /\b(?:probability|chance|likely)\s+[:=]?\s*\d+(?:\.\d+)?%/gi, // probabilities
+  /\bWACC\s*[:=]\s*\d+(?:\.\d+)?%/gi,                   // WACC
+  /\bROIC?\s*[:=]\s*\d+(?:\.\d+)?%/gi,                  // ROIC
+];
+
+/**
+ * Extract up to `maxFacts` unique key numeric facts from a text snippet.
+ * Returns them as a compact comma-separated string, or '' when none found.
+ */
+export function extractKeyFacts(text: string, maxFacts = 10): string {
+  const seen = new Set<string>();
+  const facts: string[] = [];
+  for (const re of FACT_PATTERNS) {
+    const pattern = new RegExp(re.source, re.flags);
+    for (const m of text.matchAll(pattern)) {
+      const key = m[0].toLowerCase().replace(/\s+/g, ' ').trim();
+      if (!seen.has(key) && facts.length < maxFacts) {
+        seen.add(key);
+        facts.push(m[0].trim());
+      }
+    }
+  }
+  return facts.join(', ');
+}
+
+/** Maps raw JSON field names found in financial tool results to compact labels. */
+const METRIC_KEY_MAP: Readonly<Record<string, string>> = {
+  revenue: 'rev',
+  total_revenue: 'rev',
+  net_income: 'NI',
+  earnings_per_share: 'EPS',
+  eps: 'EPS',
+  pe_ratio: 'PE',
+  price_to_earnings_ratio: 'PE',
+  ev_to_ebitda: 'EV/EBITDA',
+  enterprise_value_over_ebitda: 'EV/EBITDA',
+  market_cap: 'mktcap',
+  market_capitalization: 'mktcap',
+  gross_margin: 'GM%',
+  operating_margin: 'OpM%',
+  price_to_book: 'P/B',
+  return_on_equity: 'ROE%',
+  return_on_assets: 'ROA%',
+  debt_to_equity: 'D/E',
+};
+
+/**
+ * Parse key financial metrics from a JSON-like tool result snippet.
+ * Returns compact `label=value` strings (up to 6) for ticker table rows.
+ */
+export function extractTickerMetrics(text: string): string[] {
+  const metrics: string[] = [];
+  const seen = new Set<string>();
+  const kvPattern = /"([\w_]+)":\s*"?([^",\n\]}{]+)"?/g;
+  for (const m of text.matchAll(kvPattern)) {
+    const label = METRIC_KEY_MAP[m[1]!.toLowerCase()];
+    if (label) {
+      const val = m[2]!.trim().replace(/,$/, '');
+      const entry = `${label}=${val}`;
+      if (!seen.has(entry) && metrics.length < 6) {
+        seen.add(entry);
+        metrics.push(entry);
+      }
+    }
+  }
+  return metrics;
+}
+
+/**
+ * Build a merged context summary string from tool results about to be cleared.
+ *
+ * - Prefixes each line with the tool's ticker/query arg when present so the
+ *   LLM retains the ticker→value association (e.g. `get_financials(ticker=NVDA): …`).
+ * - Appends a compact ticker→metric table when financial key/value pairs are found.
+ * - Snippet length is 400 chars (up from the previous 200) for richer context.
+ * - When `existingSummary` is provided the new facts are merged into it instead
+ *   of appending a separate entry, preventing 3+ summary blocks stacking up.
+ *
+ * Returns null when there is nothing to summarise.
+ */
+export function buildContextSummaryText(
+  toSummarise: Array<{ toolName: string; args: Record<string, unknown>; snippet: string }>,
+  existingSummary: string | null,
+): string | null {
+  if (toSummarise.length === 0) return null;
+
+  const lines: string[] = [];
+  const tickerRows = new Map<string, string[]>();
+
+  for (const { toolName, args, snippet } of toSummarise) {
+    const ticker = typeof args['ticker'] === 'string' ? args['ticker'].toUpperCase() : null;
+    const queryArg = typeof args['query'] === 'string' ? args['query'] : null;
+
+    const argsStr = Object.entries(args).map(([k, v]) => `${k}=${v}`).join(', ');
+    const condensed = snippet.replace(/\s+/g, ' ').trim().slice(0, 400);
+    const keyFacts = extractKeyFacts(snippet);
+    const factsNote = keyFacts ? ` [KEY FACTS: ${keyFacts}]` : '';
+
+    // Prefix with ticker/query so the LLM knows which asset the data belongs to.
+    const callLabel = ticker
+      ? `${toolName}(ticker=${ticker})`
+      : queryArg
+        ? `${toolName}(query=${queryArg})`
+        : `${toolName}(${argsStr})`;
+    lines.push(`- ${callLabel}: ${condensed}…${factsNote}`);
+
+    if (ticker) {
+      const metrics = extractTickerMetrics(snippet);
+      if (metrics.length > 0 && !tickerRows.has(ticker)) {
+        tickerRows.set(ticker, metrics);
+      }
+    }
+  }
+
+  let newSummary = `The following ${toSummarise.length} earlier tool result(s) were condensed to save context:\n${lines.join('\n')}`;
+
+  if (tickerRows.size > 0) {
+    const tableLines = [...tickerRows.entries()].map(([t, m]) => `${t}: ${m.join(', ')}`);
+    newSummary += `\n\nKey metrics by ticker:\n${tableLines.join('\n')}`;
+  }
+
+  // Merge into the existing summary rather than appending a second block.
+  if (existingSummary) {
+    return `${existingSummary}\n\n---\n${newSummary}`;
+  }
+  return newSummary;
+}
 
 /**
  * The core agent class that handles the agent loop and tool execution.
@@ -60,7 +203,7 @@ export class Agent {
     systemPrompt: string,
   ) {
     this.model = config.model ?? DEFAULT_MODEL;
-    this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
+    this.maxIterations = config.maxIterations ?? getSetting<number>('maxIterations', DEFAULT_MAX_ITERATIONS);
     this.tools = tools;
     this.toolMap = new Map(tools.map(t => [t.name, t]));
     this.toolExecutor = new AgentToolExecutor(this.toolMap, config.signal, config.requestToolApproval, config.sessionApprovedTools);
@@ -165,11 +308,12 @@ export class Agent {
 
           if (isContextOverflowError(errorMessage) && overflowRetries < MAX_OVERFLOW_RETRIES) {
             overflowRetries++;
-            this.injectContextSummaryBeforeClearing(ctx, OVERFLOW_KEEP_TOOL_USES);
-            const clearedCount = ctx.scratchpad.clearOldestToolResults(OVERFLOW_KEEP_TOOL_USES);
+            const overflowKeep = Math.max(2, getKeepToolUses() - 2);
+            this.injectContextSummaryBeforeClearing(ctx, overflowKeep);
+            const clearedCount = ctx.scratchpad.clearOldestToolResults(overflowKeep);
 
             if (clearedCount > 0) {
-              yield { type: 'context_cleared', clearedCount, keptCount: OVERFLOW_KEEP_TOOL_USES };
+              yield { type: 'context_cleared', clearedCount, keptCount: overflowKeep };
               currentPrompt = buildIterationPrompt(
                 query,
                 ctx.scratchpad.getToolResults(),
@@ -395,7 +539,7 @@ export class Agent {
     const fullToolResults = ctx.scratchpad.getToolResults();
     const estimatedContextTokens = estimateTokens(this.systemPrompt + ctx.query + fullToolResults);
 
-    if (estimatedContextTokens > CONTEXT_THRESHOLD) {
+    if (estimatedContextTokens > getContextThreshold()) {
       if (
         this.memoryEnabled &&
         shouldRunMemoryFlush({
@@ -419,51 +563,31 @@ export class Agent {
         };
       }
 
-      this.injectContextSummaryBeforeClearing(ctx, KEEP_TOOL_USES);
-      const clearedCount = ctx.scratchpad.clearOldestToolResults(KEEP_TOOL_USES);
+      this.injectContextSummaryBeforeClearing(ctx, getKeepToolUses());
+      const clearedCount = ctx.scratchpad.clearOldestToolResults(getKeepToolUses());
       if (clearedCount > 0) {
         memoryFlushState.alreadyFlushed = false;
-        yield { type: 'context_cleared', clearedCount, keptCount: KEEP_TOOL_USES };
+        yield { type: 'context_cleared', clearedCount, keptCount: getKeepToolUses() };
       }
     }
   }
 
   /**
-   * Numeric fact patterns extracted from tool results before they are cleared
-   * from context. Each pattern captures a distinct type of financial data.
+   * Builds a compact rule-based summary of tool results that are about to be
+   * dropped from context and injects it as a context_summary entry so the LLM
+   * doesn't lose analysis continuity without incurring an extra LLM call.
+   *
+   * If a context_summary already exists it merges the new facts into it
+   * (via buildContextSummaryText) to prevent multiple summaries stacking up.
    */
-  private static readonly FACT_PATTERNS: ReadonlyArray<RegExp> = [
-    /\$[\d,]+(?:\.\d{1,2})?(?:\s*[BMK](?:illion)?)?/gi,  // prices / market caps
-    /[-+]?\d+(?:\.\d+)?%/g,                                // percentages
-    /\b(?:IC|ICIR|RankIC)\s*[:=]\s*[-+]?\d+\.\d+/gi,     // factor IC values
-    /\bP\/E\s*[:=]?\s*\d+(?:\.\d+)?x?/gi,                 // P/E ratios
-    /\bEV\/EBITDA\s*[:=]?\s*\d+(?:\.\d+)?x?/gi,           // EV/EBITDA
-    /\bP\/[SB]\s*[:=]?\s*\d+(?:\.\d+)?x?/gi,              // P/S, P/B
-    /\b(?:probability|chance|likely)\s+[:=]?\s*\d+(?:\.\d+)?%/gi, // probabilities
-    /\bWACC\s*[:=]\s*\d+(?:\.\d+)?%/gi,                   // WACC
-    /\bROIC?\s*[:=]\s*\d+(?:\.\d+)?%/gi,                  // ROIC
-  ];
+  private injectContextSummaryBeforeClearing(ctx: RunContext, keepCount: number): void {
+    const toSummarise = ctx.scratchpad.getContentToBeCleared(keepCount);
+    if (toSummarise.length === 0) return;
 
-  /**
-   * Extract up to `maxFacts` unique key numeric facts from a text snippet.
-   * Returns them as a compact comma-separated string, or '' when none found.
-   */
-  private static extractKeyFacts(text: string, maxFacts = 10): string {
-    const seen = new Set<string>();
-    const facts: string[] = [];
-    for (const re of Agent.FACT_PATTERNS) {
-      const pattern = new RegExp(re.source, re.flags);
-      for (const m of text.matchAll(pattern)) {
-        const key = m[0].toLowerCase().replace(/\s+/g, ' ').trim();
-        if (!seen.has(key) && facts.length < maxFacts) {
-          seen.add(key);
-          facts.push(m[0].trim());
-        }
-      }
-    }
-    return facts.join(', ');
+    const existingSummary = ctx.scratchpad.getLatestContextSummary();
+    const summary = buildContextSummaryText(toSummarise, existingSummary);
+    if (summary) ctx.scratchpad.addContextSummary(summary);
   }
-
   /**
    * Periodic auto-save: flush research findings to long-term memory every
    * PERIODIC_FLUSH_INTERVAL iterations, independent of context size.
@@ -488,32 +612,6 @@ export class Agent {
       phase: 'end',
       filesWritten: flushResult.written ? [`${new Date().toISOString().slice(0, 10)}.md`] : [],
     };
-  }
-
-  /**
-   * Builds a compact rule-based summary of tool results that are about to be
-   * dropped from context and injects it as a context_summary entry so the LLM
-   * doesn't lose analysis continuity without incurring an extra LLM call.
-   * Key numeric facts (prices, ratios, IC values, probabilities) are extracted
-   * and preserved explicitly so the agent doesn't re-fetch data it already has.
-   */
-  private injectContextSummaryBeforeClearing(ctx: RunContext, keepCount: number): void {
-    const toSummarise = ctx.scratchpad.getContentToBeCleared(keepCount);
-    if (toSummarise.length === 0) return;
-
-    const lines: string[] = [];
-    for (const { toolName, args, snippet } of toSummarise) {
-      const argsStr = Object.entries(args)
-        .map(([k, v]) => `${k}=${v}`)
-        .join(', ');
-      const condensed = snippet.replace(/\s+/g, ' ').trim().slice(0, 200);
-      const keyFacts = Agent.extractKeyFacts(snippet);
-      const factsNote = keyFacts ? ` [KEY FACTS: ${keyFacts}]` : '';
-      lines.push(`- ${toolName}(${argsStr}): ${condensed}…${factsNote}`);
-    }
-
-    const summary = `The following ${toSummarise.length} earlier tool result(s) were condensed to save context:\n${lines.join('\n')}`;
-    ctx.scratchpad.addContextSummary(summary);
   }
 
   /**

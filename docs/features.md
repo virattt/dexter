@@ -392,3 +392,94 @@ contaminating DCF or thesis memory namespaces.
 The `extractSignals()` function now recognises `defense` (LMT, RTX, NOC, GD…) and
 `cybersecurity` (CRWD, PANW, ZS, FTNT…) asset types with geopolitical-weighted
 signal categories.
+
+---
+
+## 📈 Fixed Income & Options (`get_fixed_income`, `get_options_chain`)
+
+### Fixed Income (`get_fixed_income`)
+Fetches US Treasury yields, Fed funds rate, yield curve, CPI, and unemployment from the **FRED API** (Federal Reserve — free, no key required).
+
+| Series | Description |
+|--------|-------------|
+| Treasury Yields | 2Y, 5Y, 10Y, 30Y |
+| Yield Curve | 10Y–2Y spread, inversion flag |
+| Fed Funds Rate | Current policy rate |
+| CPI | Consumer price index |
+| Unemployment | US unemployment rate |
+
+**When to use:** Interest rate analysis, recession signals (yield curve inversion), rate-sensitive sectors (REITs, utilities, financials).
+
+```
+What is the current yield curve?
+Is the yield curve inverted?
+What's the 10-year Treasury yield and how does it affect REITs?
+```
+
+### Options Chain (`get_options_chain`)
+Fetches options contracts from **Yahoo Finance** (free, no key). Returns top calls/puts by open interest, put/call ratio (PCR), and unusual volume detection.
+
+**When to use:** Hedging costs, directional sentiment (PCR), tail risk pricing, unusual activity alerts.
+
+```
+What's the options chain for AAPL?
+Is there unusual options activity in NVDA?
+What's the put/call ratio for SPY?
+How expensive are TSLA protective puts?
+```
+
+---
+
+## 📤 Export Framework (`/export`)
+
+Export your research session to a file:
+
+```
+/export             # markdown (default)
+/export markdown    # formatted report with tool tables + answers
+/export json        # structured JSON (session metadata + queries)
+/export csv         # tool usage log (one row per tool call)
+```
+
+Files are saved to the current directory as `dexter-export-YYYY-MM-DD-HH-MM-SS.<ext>`.
+
+**Markdown format** includes a summary header, per-query tool usage tables, and the full answer. Ideal for sharing research with colleagues or archiving analysis.
+
+---
+
+## ⚙️ Config Expansion (`/config`)
+
+View and tune Dexter's behaviour without editing files:
+
+```
+/config             # show all settings
+/config show        # same as above
+/config set maxIterations 40         # increase research depth
+/config set contextThreshold 150000  # larger context window
+/config set keepToolUses 8           # keep more tool results before clearing
+/config set cacheTtlMs 1800000       # 30-min cache TTL
+/config set parallelToolLimit 5      # cap concurrent tool calls
+```
+
+| Setting | Default | Range | Effect |
+|---------|---------|-------|--------|
+| `maxIterations` | 25 | 5–100 | Max agent loop iterations per query |
+| `contextThreshold` | 100000 | 10k–500k | Token threshold before context clearing |
+| `keepToolUses` | 5 | 2–20 | Tool results kept after context clear |
+| `cacheTtlMs` | 900000 | 60s–24h | In-session request cache TTL |
+| `parallelToolLimit` | 0 (unlimited) | 0–10 | Max concurrent tool calls |
+
+Settings are persisted to `.dexter/settings.json`.
+
+---
+
+## 🧠 Context Management Overhaul
+
+When the context window fills up, Dexter now **summarises instead of drops**:
+
+- **Ticker-prefixed summaries**: `get_financials(ticker=NVDA): rev=$44.9B, PE=42x` — ticker context is never lost
+- **Compact metric tables**: multi-ticker comparisons are preserved as `NVDA: PE=42x | AMD: PE=28x` rows
+- **Single merged summary**: instead of stacking multiple `[Context cleared]` blocks, all cleared results merge into one rolling summary
+- **400-char snippets**: up from 200 chars — more detail preserved per cleared tool result
+
+The configurable thresholds (`contextThreshold`, `keepToolUses`) mean you can tune this behaviour for your model's context window.

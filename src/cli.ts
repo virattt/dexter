@@ -48,10 +48,12 @@ import {
 import { editorTheme, theme } from './theme.js';
 import type { HistoryItem } from './types.js';
 import { formatDuration, formatExchangeForScrollback } from './utils/scrollback.js';
+import { exportSession } from './utils/export.js';
 import type { SessionIndexEntry } from './utils/session-store.js';
 import type { SessionLlmMessage } from './utils/session-store.js';
 import { discoverSkills } from './skills/registry.js';
 import type { SkillMetadata } from './skills/types.js';
+import { getSetting, setSetting, validateConfigValue } from './utils/config.js';
 
 function truncateAtWord(str: string, maxLength: number): string {
   if (str.length <= maxLength) {
@@ -172,6 +174,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'watchlist', description: 'Portfolio briefing — or: add TICKER [cost] [shares] | remove TICKER | list | show TICKER | snapshot' },
   { name: 'dream',     description: 'Consolidate memory files — or: show (status), force (bypass conditions)' },
   { name: 'memory',    description: 'Show consolidated memory files (MEMORY.md + FINANCE.md)' },
+  { name: 'config',    description: 'Show or set agent configuration — or: set <key> <value>' },
 ];
 
 function buildHelpPanel(): Container {
@@ -911,6 +914,38 @@ export async function runCli() {
       tui.requestRender();
       return;
     }
+
+    if (query.startsWith('/export')) {
+      const parts = query.split(/\s+/);
+      const format = (parts[1] ?? 'markdown') as 'markdown' | 'json' | 'csv';
+      const validFormats = ['markdown', 'json', 'csv'];
+      if (!validFormats.includes(format)) {
+        lastError = `Invalid export format "${format}". Use: markdown, json, csv`;
+        refreshError();
+        tui.requestRender();
+        return;
+      }
+      const exportHistory = agentRunner.history.filter((h) => h.status === 'complete');
+      if (exportHistory.length === 0) {
+        lastError = 'No completed queries to export.';
+        refreshError();
+        tui.requestRender();
+        return;
+      }
+      try {
+        const { path } = exportSession(exportHistory, format, undefined);
+        lastError = null;
+        intro.setModel(`✓ Exported to ${path}`);
+        tui.requestRender();
+        setTimeout(() => { intro.setModel(modelSelection.model); tui.requestRender(); }, 3000);
+      } catch (e) {
+        lastError = `Export failed: ${e instanceof Error ? e.message : String(e)}`;
+        refreshError();
+        tui.requestRender();
+      }
+      return;
+    }
+
     if (query.startsWith('/watchlist')) {
       const watchlistCtrl = new WatchlistController(process.cwd());
       const sub = parseWatchlistSubcommand(query.slice('/watchlist'.length).trim());
@@ -1160,6 +1195,62 @@ export async function runCli() {
         memoryContent = { memory: memory.trim(), finance: finance.trim() };
         if (memoryVisible) { renderSelectionOverlay(); tui.requestRender(); }
       });
+      return;
+    }
+
+    if (query === '/config' || query === '/config show') {
+      const configKeys: Array<{ key: string; default: number }> = [
+        { key: 'maxIterations',    default: 25 },
+        { key: 'contextThreshold', default: 100000 },
+        { key: 'keepToolUses',     default: 5 },
+        { key: 'cacheTtlMs',       default: 900000 },
+        { key: 'parallelToolLimit',default: 0 },
+      ];
+      const lines: string[] = ['Current Configuration:'];
+      for (const { key, default: def } of configKeys) {
+        const raw = getSetting<number | undefined>(key, undefined);
+        const isDefault = raw === undefined;
+        const display = raw ?? def;
+        const extra = isDefault ? ' (default)' : '';
+        const suffix = key === 'parallelToolLimit' && display === 0 ? ' (unlimited)' : '';
+        lines.push(`  ${key.padEnd(18)} ${display}${suffix}${extra}`);
+      }
+      const provider = getSetting<string | undefined>('provider', undefined);
+      const modelId  = getSetting<string | undefined>('modelId', undefined);
+      if (provider) lines.push(`  ${'provider'.padEnd(18)} ${provider}`);
+      if (modelId)  lines.push(`  ${'modelId'.padEnd(18)} ${modelId}`);
+
+      chatLog.clearAll();
+      chatLog.addQuery(query);
+      chatLog.resetToolGrouping();
+      chatLog.finalizeAnswer(lines.join('\n'));
+      tui.requestRender();
+      return;
+    }
+
+    if (query.startsWith('/config set ')) {
+      const parts = query.slice('/config set '.length).trim().split(/\s+/);
+      if (parts.length < 2) {
+        lastError = 'Usage: /config set <key> <value>';
+        refreshError();
+        tui.requestRender();
+        return;
+      }
+      const [cfgKey, rawVal] = parts;
+      const numVal = Number(rawVal);
+      const value: unknown = Number.isFinite(numVal) ? numVal : rawVal;
+      const validation = validateConfigValue(cfgKey, value);
+      if (!validation.valid) {
+        lastError = `Config error: ${validation.error}`;
+        refreshError();
+        tui.requestRender();
+        return;
+      }
+      setSetting(cfgKey, value);
+      lastError = null;
+      intro.setModel(`✓ Config: ${cfgKey} = ${String(value)}`);
+      tui.requestRender();
+      setTimeout(() => { intro.setModel(modelSelection.model); tui.requestRender(); }, 3000);
       return;
     }
 

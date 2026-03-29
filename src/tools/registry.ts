@@ -18,6 +18,8 @@ import { sequentialThinkingTool, sequentialThinkingEngine, SEQUENTIAL_THINKING_D
 import { portfolioRiskTool, PORTFOLIO_RISK_DESCRIPTION } from './finance/portfolio-risk.js';
 import { waccInputsTool, WACC_INPUTS_DESCRIPTION } from './finance/wacc-inputs.js';
 import { geopoliticsSearchTool, GEOPOLITICS_SEARCH_DESCRIPTION } from './osint/geopolitics-search.js';
+import { getFixedIncomeTool, FIXED_INCOME_DESCRIPTION } from './finance/fixed-income.js';
+import { getOptionsChainTool, OPTIONS_CHAIN_DESCRIPTION } from './finance/options.js';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -92,6 +94,16 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'geopolitics_search',
       tool: geopoliticsSearchTool,
       description: GEOPOLITICS_SEARCH_DESCRIPTION,
+    },
+    {
+      name: 'get_fixed_income',
+      tool: getFixedIncomeTool,
+      description: FIXED_INCOME_DESCRIPTION,
+    },
+    {
+      name: 'get_options_chain',
+      tool: getOptionsChainTool,
+      description: OPTIONS_CHAIN_DESCRIPTION,
     },
     {
       name: 'web_fetch',
