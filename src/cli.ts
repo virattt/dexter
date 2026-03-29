@@ -571,7 +571,32 @@ function renderCurrentQuery(chatLog: ChatLogComponent, history: AgentRunnerContr
   }
 
   if (item.answer) {
-    chatLog.finalizeAnswer(item.answer);
+    const termRows = process.stdout.rows ?? 40;
+    // Reserve space for: header (1) + query (1) + events + stats (3) + editor (3) + margin (4)
+    const reservedRows = Math.min(visibleEvents.length * 2 + 12, termRows - 10);
+    const answerBudget = Math.max(10, termRows - reservedRows);
+    const answerLines = item.answer.split('\n');
+    const isStreaming = item.status === 'processing';
+
+    if (answerLines.length > answerBudget) {
+      if (isStreaming) {
+        // During streaming: show only the tail so the TUI never overflows the viewport.
+        // Overflow would push early lines into the terminal's native scrollback,
+        // making it impossible for flushExchangeToScrollback() to clear them — causing
+        // the answer to appear twice (partial live view + full flushed version).
+        const tail = answerLines.slice(-answerBudget).join('\n');
+        chatLog.finalizeAnswer(`…\n${tail}`);
+      } else {
+        // Complete long answer: show a one-line stub.
+        // The auto-flush logic (after runQuery returns) will write the full answer
+        // to scrollback and replace this with a "scroll to read" hint.
+        // Keeping the TUI content tiny here ensures flushExchangeToScrollback()'s
+        // cursor arithmetic stays within the viewport.
+        chatLog.finalizeAnswer(`…  (${answerLines.length} lines — writing to scrollback)`);
+      }
+    } else {
+      chatLog.finalizeAnswer(item.answer);
+    }
   }
   if (item.status === 'complete') {
     chatLog.addPerformanceStats(item.duration ?? 0, item.tokenUsage, item.tokensPerSecond);

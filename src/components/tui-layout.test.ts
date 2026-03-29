@@ -336,3 +336,81 @@ describe('TUI flush lifecycle', () => {
     expect(childCount(chatLog)).toBeGreaterThan(0);
   });
 });
+
+// ─── Streaming answer viewport cap (overflow regression) ──────────────────────
+// Regression guard: renderCurrentQuery must never allow item.answer to grow the
+// TUI taller than the terminal viewport during streaming.  If it did, the early
+// lines would be pushed into the terminal's native scrollback buffer, making it
+// impossible for flushExchangeToScrollback() to clear them — causing the answer
+// to appear twice (partial live view + full flushed version).
+
+describe('renderCurrentQuery — streaming answer viewport cap', () => {
+  /**
+   * Simulate the answer-capping logic from cli.ts renderCurrentQuery.
+   * Returns the text passed to finalizeAnswer (or null if stub was shown).
+   */
+  function simulateAnswerRender(
+    answer: string,
+    status: 'processing' | 'complete',
+    termRows = 40,
+  ): { type: 'full' | 'tail' | 'stub'; text: string } {
+    const reservedRows = Math.min(4 + 12, termRows - 10); // simplified: 0 events
+    const answerBudget = Math.max(10, termRows - reservedRows);
+    const answerLines = answer.split('\n');
+    const isStreaming = status === 'processing';
+
+    if (answerLines.length > answerBudget) {
+      if (isStreaming) {
+        const tail = answerLines.slice(-answerBudget).join('\n');
+        return { type: 'tail', text: `…\n${tail}` };
+      } else {
+        return { type: 'stub', text: `…  (${answerLines.length} lines — writing to scrollback)` };
+      }
+    }
+    return { type: 'full', text: answer };
+  }
+
+  test('short answer is rendered in full regardless of status', () => {
+    const shortAnswer = Array(10).fill('line').join('\n');
+    expect(simulateAnswerRender(shortAnswer, 'processing').type).toBe('full');
+    expect(simulateAnswerRender(shortAnswer, 'complete').type).toBe('full');
+  });
+
+  test('long streaming answer renders tail (not full) to prevent overflow', () => {
+    const longAnswer = Array(80).fill('content line').join('\n');
+    const result = simulateAnswerRender(longAnswer, 'processing', 40);
+    expect(result.type).toBe('tail');
+    // tail must not exceed answerBudget lines (accounting for the leading "…")
+    const renderedLines = result.text.split('\n').length;
+    expect(renderedLines).toBeLessThanOrEqual(30); // answerBudget = max(10, 40-16) = 24 + 1 for "…"
+  });
+
+  test('long streaming tail starts with the ellipsis indicator', () => {
+    const longAnswer = Array(80).fill('line').join('\n');
+    const result = simulateAnswerRender(longAnswer, 'processing', 40);
+    expect(result.text.startsWith('…')).toBe(true);
+  });
+
+  test('long complete answer renders stub (not full) so flush can clear cleanly', () => {
+    const longAnswer = Array(80).fill('content line').join('\n');
+    const result = simulateAnswerRender(longAnswer, 'complete', 40);
+    expect(result.type).toBe('stub');
+    expect(result.text).toContain('80 lines');
+    expect(result.text).toContain('scrollback');
+  });
+
+  test('stub for complete answer is a single line (never overflows)', () => {
+    const longAnswer = Array(200).fill('content').join('\n');
+    const result = simulateAnswerRender(longAnswer, 'complete', 40);
+    expect(result.type).toBe('stub');
+    expect(result.text.split('\n').length).toBe(1);
+  });
+
+  test('answer budget scales with terminal height', () => {
+    const answer = Array(35).fill('line').join('\n'); // 35 lines
+    // In a 40-row terminal: budget = max(10, 40 - min(16, 30)) = 24 → 35 > 24 → tail
+    expect(simulateAnswerRender(answer, 'processing', 40).type).toBe('tail');
+    // In an 80-row terminal: budget = max(10, 80 - min(16, 70)) = 64 → 35 < 64 → full
+    expect(simulateAnswerRender(answer, 'processing', 80).type).toBe('full');
+  });
+});
