@@ -46,17 +46,78 @@ export class AgentToolExecutor {
     response: AIMessage,
     ctx: RunContext
   ): AsyncGenerator<ToolExecutionEvent, void> {
-    for (const toolCall of response.tool_calls!) {
-      const toolName = toolCall.name;
-      const toolArgs = toolCall.args as Record<string, unknown>;
-
-      // Deduplicate skill calls - each skill can only run once per query
-      if (toolName === 'skill') {
-        const skillName = toolArgs.skill as string;
-        if (ctx.scratchpad.hasExecutedSkill(skillName)) continue;
+    // Pre-filter: deduplicate skill calls before deciding on parallel vs sequential
+    const toolCalls = (response.tool_calls ?? []).filter((tc) => {
+      if (tc.name === 'skill') {
+        const skillName = tc.args.skill as string;
+        if (ctx.scratchpad.hasExecutedSkill(skillName)) return false;
       }
+      return true;
+    });
 
-      yield* this.executeSingle(toolName, toolArgs, ctx);
+    if (toolCalls.length === 0) return;
+
+    // Single tool: simple sequential path, no overhead
+    if (toolCalls.length === 1) {
+      yield* this.executeSingle(toolCalls[0].name, toolCalls[0].args as Record<string, unknown>, ctx);
+      return;
+    }
+
+    // Multiple tools: run all concurrently and merge their event streams.
+    // JavaScript is single-threaded so there are no data races on the scratchpad,
+    // but the HTTP calls overlap — a batch of 3 web searches takes ~1× latency
+    // instead of ~3×.
+    //
+    // Events are forwarded as they arrive; tool_start fires immediately for each
+    // tool so the TUI shows all tools activating at once, then each tool_end/error
+    // arrives as its HTTP response lands.
+    type QueueItem =
+      | { done: true }
+      | { done: false; event: ToolExecutionEvent };
+
+    const queue: QueueItem[] = [];
+    let pending = toolCalls.length;
+
+    const notifyWaiter = { fn: null as (() => void) | null };
+
+    const push = (item: QueueItem) => {
+      queue.push(item);
+      notifyWaiter.fn?.();
+      notifyWaiter.fn = null;
+    };
+
+    for (const tc of toolCalls) {
+      (async () => {
+        try {
+          for await (const event of this.executeSingle(
+            tc.name,
+            tc.args as Record<string, unknown>,
+            ctx,
+          )) {
+            push({ done: false, event });
+          }
+        } finally {
+          if (--pending === 0) push({ done: true });
+        }
+      })();
+    }
+
+    // Drain the merged event queue until all tools finish
+    while (true) {
+      while (queue.length > 0) {
+        const item = queue.shift()!;
+        if (item.done) return;
+        yield item.event;
+      }
+      // Queue is empty and some tools are still running — wait for the next push
+      await new Promise<void>((resolve) => {
+        notifyWaiter.fn = resolve;
+        // Re-check: items may have been pushed between the while-check and here
+        if (queue.length > 0) {
+          notifyWaiter.fn = null;
+          resolve();
+        }
+      });
     }
   }
 

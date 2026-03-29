@@ -292,17 +292,24 @@ export class Agent {
       }
     }
 
-    // Max iterations reached with no final response
-    const totalTime = Date.now() - ctx.startTime;
-    yield {
-      type: 'done',
-      answer: `Reached maximum iterations (${this.maxIterations}). I was unable to complete the research in the allotted steps.`,
-      toolCalls: ctx.scratchpad.getToolCallRecords(),
-      iterations: ctx.iteration,
-      totalTime,
-      tokenUsage: ctx.tokenCounter.getUsage(),
-      tokensPerSecond: ctx.tokenCounter.getTokensPerSecond(totalTime),
-    };
+    // Max iterations reached — synthesize a best-effort answer from gathered research
+    // rather than yielding a bare failure message. Any data collected is still useful.
+    const toolResults = ctx.scratchpad.getToolResults().trim();
+    const hasMeaningfulResearch = toolResults.length > 50;
+
+    const synthesisPrompt = hasMeaningfulResearch
+      ? buildIterationPrompt(
+          query,
+          toolResults,
+          ctx.scratchpad.formatToolUsageForPrompt(),
+        ) +
+          `\n\n[SYSTEM NOTE: You have reached the maximum number of research steps (${this.maxIterations}). ` +
+          `You MUST now write your best-effort final answer using ONLY the data gathered above. ` +
+          `Start your response with "**[Best-effort summary — research may be incomplete]**\\n\\n" ` +
+          `then provide the most useful analysis you can from the available data. Do NOT call any more tools.]`
+      : query;
+
+    yield* this.handleDirectResponse('', ctx, synthesisPrompt);
   }
 
   /**

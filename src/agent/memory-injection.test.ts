@@ -42,15 +42,39 @@ function makeDeps(overrides: Partial<MemoryInjectionDeps> = {}): MemoryInjection
 // ---------------------------------------------------------------------------
 
 describe('injectMemoryContext — no tickers', () => {
-  it('returns the original prompt unchanged when no tickers found', async () => {
+  it('returns the original prompt unchanged when no tickers found and semantic search is empty', async () => {
     const deps = makeDeps();
     const result = await injectMemoryContext('what is the market doing?', 'analyze it', deps);
     expect(result).toBe('analyze it');
   });
 
-  it('does not call memory search when no tickers found', async () => {
+  it('still calls the semantic search pass even when no tickers found', async () => {
     const searchCalls: string[] = [];
     const deps = makeDeps({
+      getMemoryManager: async () => ({
+        search: async (q: string) => { searchCalls.push(q); return []; },
+      }),
+    });
+    await injectMemoryContext('gold price forecast', 'prompt text', deps);
+    // semantic pass uses the full query as the search term
+    expect(searchCalls).toContain('gold price forecast');
+  });
+
+  it('injects semantic results even without any ticker', async () => {
+    const deps = makeDeps({
+      getMemoryManager: async () => ({
+        search: async () => [makeSearchResult('Gold hit $3,200 per oz')],
+      }),
+    });
+    const result = await injectMemoryContext('gold price forecast', 'my prompt', deps);
+    expect(result).toContain('Gold hit $3,200 per oz');
+    expect(result).toContain('[context]');
+  });
+
+  it('can disable the semantic pass with maxSemanticResults: 0', async () => {
+    const searchCalls: string[] = [];
+    const deps = makeDeps({
+      maxSemanticResults: 0,
       getMemoryManager: async () => ({
         search: async (q: string) => { searchCalls.push(q); return []; },
       }),
@@ -112,6 +136,7 @@ describe('injectMemoryContext — memories found', () => {
 
   it('respects maxResultsPerTicker cap', async () => {
     const deps = makeDeps({
+      maxSemanticResults: 0,        // isolate: only count ticker-pass bullets
       getMemoryManager: async () => ({
         search: async (_ticker: string, opts?: { maxResults?: number }) => {
           const count = opts?.maxResults ?? 99;
@@ -150,6 +175,7 @@ describe('injectMemoryContext — multiple tickers', () => {
     const queriedTickers: string[] = [];
     const deps = makeDeps({
       extractTickers: () => ['AAPL', 'MSFT', 'GOOG', 'NVDA'],
+      maxSemanticResults: 0,        // disable semantic pass for this ticker-cap test
       getMemoryManager: async () => ({
         search: async (ticker: string) => {
           queriedTickers.push(ticker);
@@ -166,6 +192,7 @@ describe('injectMemoryContext — multiple tickers', () => {
     const deps = makeDeps({
       extractTickers: () => ['A', 'B', 'C'],
       maxTickers: 3,
+      maxSemanticResults: 0,        // isolate: count only ticker-pass searches
       getMemoryManager: async () => ({
         search: async (ticker: string) => {
           queriedTickers.push(ticker);
@@ -235,8 +262,23 @@ describe('injectMemoryContext — error resilience', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Snippet truncation
+// Deduplication across ticker and semantic passes
 // ---------------------------------------------------------------------------
+
+describe('injectMemoryContext — deduplication', () => {
+  it('de-duplicates identical snippets returned by both ticker and semantic passes', async () => {
+    const sharedSnippet = 'AAPL reported $120B revenue';
+    const deps = makeDeps({
+      getMemoryManager: async () => ({
+        // same snippet regardless of query — simulates ticker + semantic returning same fact
+        search: async () => [makeSearchResult(sharedSnippet)],
+      }),
+    });
+    const result = await injectMemoryContext('$AAPL earnings', 'prompt', deps);
+    const occurrences = (result.match(/AAPL reported \$120B revenue/g) ?? []).length;
+    expect(occurrences).toBe(1);
+  });
+});
 
 describe('injectMemoryContext — snippet length', () => {
   it('truncates long snippets to snippetLength characters', async () => {
