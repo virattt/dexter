@@ -48,6 +48,7 @@ import {
 import { editorTheme, theme } from './theme.js';
 import type { HistoryItem } from './types.js';
 import { formatDuration, formatExchangeForScrollback } from './utils/scrollback.js';
+import { logError } from './utils/error-logger.js';
 import { exportSession } from './utils/export.js';
 import type { SessionIndexEntry } from './utils/session-store.js';
 import type { SessionLlmMessage } from './utils/session-store.js';
@@ -585,8 +586,6 @@ function renderCurrentQuery(chatLog: ChatLogComponent, history: AgentRunnerContr
     const isStreaming = item.status === 'processing';
 
     if (answerLines.length > answerBudget) {
-      // longAnswerThreshold must match the flush trigger in the post-runQuery block.
-      const longAnswerThreshold = Math.max(20, termRows - 8);
       if (isStreaming) {
         // During streaming: show only the tail so the TUI never overflows the viewport.
         // Overflow would push early lines into the terminal's native scrollback,
@@ -594,21 +593,13 @@ function renderCurrentQuery(chatLog: ChatLogComponent, history: AgentRunnerContr
         // the answer to appear twice (partial live view + full flushed version).
         const tail = answerLines.slice(-answerBudget).join('\n');
         chatLog.finalizeAnswer(`…\n${tail}`);
-      } else if (answerLines.length > longAnswerThreshold) {
-        // Long complete answer: show a one-line stub.
+      } else {
+        // Complete answer exceeding the display budget: always show a one-line stub.
         // The post-runQuery flush logic will write the full answer to the terminal
         // scrollback buffer and replace this stub with a "scroll to read" hint.
-        // Keeping TUI content minimal ensures flushExchangeToScrollback()'s cursor
-        // arithmetic stays within the viewport.
+        // Using a single-line stub (not a multi-line tail) keeps the cursor arithmetic
+        // in flushExchangeToScrollback() correct regardless of answer length.
         chatLog.finalizeAnswer(`…  (${answerLines.length} lines — writing to scrollback)`);
-      } else {
-        // Medium complete answer: over the display budget but below the flush threshold —
-        // flushExchangeToScrollback() will NOT run for this answer, so a stub here would
-        // make the response permanently invisible.  Show the tail instead so the user
-        // can at least read the end of the answer; earlier lines are in the streaming
-        // scrollback.
-        const tail = answerLines.slice(-answerBudget).join('\n');
-        chatLog.finalizeAnswer(`…\n${tail}`);
       }
     } else {
       chatLog.finalizeAnswer(item.answer);
@@ -1361,21 +1352,21 @@ export async function runCli() {
     // until the next query (current behaviour) so the user can read them inline.
     const completedItem = agentRunner.history.at(-1);
     const termRows = process.stdout.rows ?? 40;
-    const longAnswerThreshold = Math.max(20, termRows - 8);
-    if (
-      completedItem &&
-      completedItem.status === 'complete' &&
-      !flushedItems.has(completedItem) &&
-      (completedItem.answer ?? '').split('\n').length > longAnswerThreshold
-    ) {
-      flushExchangeToScrollback(tui, chatLog, completedItem);
-      flushedItems.add(completedItem);
-      const dur = formatDuration(completedItem.duration ?? 0);
-      const toks = (completedItem.tokenUsage?.totalTokens ?? 0).toLocaleString();
-      chatLog.addChild(new Text(
-        theme.muted(`  ↑ scroll terminal to read full response  ·  ${dur}  ·  ${toks} tokens`),
-        0, 0,
-      ));
+    if (completedItem && completedItem.status === 'complete' && !flushedItems.has(completedItem)) {
+      // Compute the same answerBudget used in renderChatLogItem so the threshold matches.
+      const eventCount = completedItem.events?.length ?? 0;
+      const reservedRows = Math.min(eventCount * 2 + 12, termRows - 10);
+      const answerBudget = Math.max(10, termRows - reservedRows);
+      if ((completedItem.answer ?? '').split('\n').length > answerBudget) {
+        flushExchangeToScrollback(tui, chatLog, completedItem);
+        flushedItems.add(completedItem);
+        const dur = formatDuration(completedItem.duration ?? 0);
+        const toks = (completedItem.tokenUsage?.totalTokens ?? 0).toLocaleString();
+        chatLog.addChild(new Text(
+          theme.muted(`  ↑ scroll terminal to read full response  ·  ${dur}  ·  ${toks} tokens`),
+          0, 0,
+        ));
+      }
     }
 
     refreshError();
@@ -1778,6 +1769,25 @@ export async function runCli() {
   }
   renderSelectionOverlay();
   refreshError();
+
+  // Suppress third-party console output (e.g. @langchain/tavily logs raw Response objects
+  // on HTTP errors) from bleeding into the TUI's stdout rendering.  Redirect to the
+  // structured error log instead so the output is never lost but never corrupts the UI.
+  const _origConsoleLog = console.log;
+  const _origConsoleWarn = console.warn;
+  const _origConsoleError = console.error;
+  const suppressToLog = (level: 'warn' | 'error', ...args: unknown[]) => {
+    const msg = args.map(a => (a instanceof Error ? a.message : String(a))).join(' ');
+    logError({ type: `console-${level}`, message: msg, context: 'tui-suppressed' });
+  };
+  console.log = (...args: unknown[]) => suppressToLog('warn', ...args);
+  console.warn = (...args: unknown[]) => suppressToLog('warn', ...args);
+  console.error = (...args: unknown[]) => suppressToLog('error', ...args);
+  process.once('exit', () => {
+    console.log = _origConsoleLog;
+    console.warn = _origConsoleWarn;
+    console.error = _origConsoleError;
+  });
 
   tui.start();
 
