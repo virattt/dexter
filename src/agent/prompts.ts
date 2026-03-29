@@ -357,6 +357,8 @@ ${toolDescriptions}
 - For financials, metrics, and estimates, use get_financials
 - For screening stocks by financial criteria (e.g., P/E below 15, high growth), use stock_screener
 - **For geopolitical risk analysis** — conflicts, sanctions, trade wars, elections, cyberattacks and their effect on sectors or tickers — use geopolitics_search. This tool fetches live OSINT (GDELT news index + Bluesky) and maps events to asset implications. Always use it when the user asks how a world event affects their portfolio or which assets benefit/suffer from a geopolitical scenario.
+- For earnings transcripts, management commentary, or forward guidance, use get_earnings_transcript.
+- For on-chain crypto metrics, developer activity, community sentiment, or global crypto market data, use get_onchain_crypto.
 - For fixed income, bond yields, yield curve, interest rates, or macro indicators, use get_fixed_income.
 - For options chains, implied volatility, put/call ratios, Greeks, or unusual options activity, use get_options_chain.
 - Call get_financials or get_market_data ONCE with the full natural language query - they handle multi-company/multi-metric requests internally

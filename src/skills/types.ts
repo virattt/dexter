@@ -6,6 +6,21 @@
 export type SkillSource = 'builtin' | 'user' | 'project';
 
 /**
+ * Definition of a single parameter that can be passed to a skill.
+ */
+export interface SkillParameter {
+  type: 'number' | 'string' | 'boolean';
+  description: string;
+  default?: number | string | boolean;
+  /** Only valid when type is 'number' */
+  min?: number;
+  /** Only valid when type is 'number' */
+  max?: number;
+  /** Defaults to false when absent */
+  required?: boolean;
+}
+
+/**
  * Skill metadata - lightweight info loaded at startup for system prompt injection.
  * Only contains the name and description from YAML frontmatter.
  */
@@ -18,6 +33,8 @@ export interface SkillMetadata {
   path: string;
   /** Where this skill was discovered from */
   source: SkillSource;
+  /** Optional parameter definitions declared in YAML front-matter */
+  parameters?: Record<string, SkillParameter>;
 }
 
 /**

@@ -1,6 +1,8 @@
 import { AIMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { createProgressChannel } from '../utils/progress-channel.js';
+import { loadCacheFromDisk, saveCacheToDisk } from '../utils/cross-session-cache.js';
+import { getSetting } from '../utils/config.js';
 import type {
   ApprovalDecision,
   ToolApprovalEvent,
@@ -62,6 +64,15 @@ export class AgentToolExecutor {
     sessionApprovedTools?: Set<string>,
   ) {
     this.sessionApprovedTools = sessionApprovedTools ?? new Set();
+
+    // Pre-populate in-session cache from disk (fire-and-forget)
+    loadCacheFromDisk().then((diskCache) => {
+      for (const [k, v] of diskCache) {
+        if (!this.requestCache.has(k)) {
+          this.requestCache.set(k, v);
+        }
+      }
+    }).catch(() => {});
   }
 
   async *executeAll(
@@ -259,6 +270,8 @@ export class AgentToolExecutor {
       if (cacheKey) {
         this.pendingRequests.delete(cacheKey);
         this.requestCache.set(cacheKey, result);
+        const ttlMs = getSetting('cacheTtlMs', 900000);
+        saveCacheToDisk(cacheKey, result, toolName, ttlMs);
       }
 
       yield { type: 'tool_end', tool: toolName, args: toolArgs, result, duration };

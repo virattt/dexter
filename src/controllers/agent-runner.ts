@@ -10,6 +10,8 @@ import type {
   ToolErrorEvent,
   ToolStartEvent,
 } from '../agent/index.js';
+import { logError } from '../utils/error-logger.js';
+import { classifyError } from '../utils/errors.js';
 import type { DisplayEvent } from '../agent/types.js';
 import type { HistoryItem, HistoryItemStatus, WorkingState } from '../types.js';
 import { autoStoreFromRun } from '../memory/auto-store.js';
@@ -322,6 +324,11 @@ export class AgentRunnerController {
           iteration: (this.workingStateValue as { iteration?: number }).iteration,
           maxIterations: (this.workingStateValue as { maxIterations?: number }).maxIterations,
         };
+        logError({
+          type: classifyError((event as ToolErrorEvent).error),
+          message: (event as ToolErrorEvent).error,
+          context: `tool:${(event as ToolErrorEvent).tool}`,
+        });
         break;
       case 'tool_approval':
         this.pushEvent({

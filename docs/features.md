@@ -543,3 +543,141 @@ The agent status line now shows a visual progress bar:
 - 10-segment bar filled with `█` and empty with `░`
 - Percentage calculated from `iteration / maxIterations`
 - Consistent with `/config set maxIterations` — bar always reflects the actual limit
+
+---
+
+## 📝 Earnings Transcripts (Feature 15)
+
+Fetch earnings call transcripts directly from SEC EDGAR 8-K filings:
+
+```
+What did NVDA management say on the last earnings call?
+Summarize AAPL's Q1 2025 earnings call forward guidance.
+What guidance did Tesla provide on the last earnings call?
+```
+
+- Searches EDGAR's Atom feed for recent 8-K filings for any ticker
+- Extracts **management prepared remarks**, **forward guidance phrases** (lines with "expect", "forecast", "outlook", "billion", etc.), and **top 3 Q&A exchanges**
+- Falls back to Tavily web search when EDGAR parsing fails
+- No API key required (EDGAR is free)
+
+---
+
+## 💾 Cross-Session Persistent Cache (Feature 16)
+
+Tool results are now persisted to `.dexter/cache/` between sessions:
+
+- On startup, cached results are loaded from disk and pre-populate the in-session cache
+- After each successful tool call, the result is saved to `.dexter/cache/<key>.json` with TTL
+- TTL controlled by `/config set cacheTtlMs <ms>` (default: 15 minutes)
+- Values >50 KB are not persisted (too large for disk cache)
+- Eliminates repeated API calls for daily watchlist queries, frequently-checked tickers, etc.
+
+Cache directory: `.dexter/cache/`  
+Clear manually: `rm -rf ~/.dexter/cache/`
+
+---
+
+## 🎛️ Skill Parameterization (Feature 17)
+
+Skills can now declare typed parameter schemas in their YAML front-matter, and users can override them at invocation time:
+
+**DCF skill example:**
+```
+Run a DCF valuation for MSFT with a WACC of 12% and 7-year horizon
+```
+The agent invokes the `skill` tool with `params: {"wacc": 0.12, "years": 7}`.
+
+**SKILL.md parameter schema** (added to `dcf/SKILL.md`):
+```yaml
+parameters:
+  wacc:
+    type: number
+    description: "WACC override (e.g. 0.10 for 10%)"
+    default: 0.10
+    min: 0.03
+    max: 0.30
+  growth_rate:
+    type: number
+    description: "Near-term revenue growth rate"
+    default: 0.15
+  terminal_growth_rate:
+    type: number
+    description: "Long-term terminal growth rate"
+    default: 0.025
+  years:
+    type: number
+    description: "DCF projection horizon in years"
+    default: 5
+    min: 1
+    max: 20
+```
+
+- `{{wacc}}`, `{{growth_rate}}` etc. placeholders in skill body are replaced at runtime
+- Out-of-range values are rejected with a clear error message
+- Skills without `parameters:` continue to work exactly as before
+
+---
+
+## 🔍 Chat Search `/find` (Feature 18)
+
+Search your current session's conversation history for any keyword:
+
+```
+/find AAPL
+/find WACC
+/find guidance
+```
+
+- Case-insensitive search across all queries and answers in the session
+- Matched turns shown with turn number, query, and a 200-char answer excerpt
+- Keyword highlighted in yellow in results
+- Works from any point in the session — no need to scroll manually
+
+---
+
+## 🪵 Error Logging (Feature 19)
+
+All tool errors are now persisted to `.dexter/logs/errors.jsonl`:
+
+```json
+{"timestamp":"2025-01-15T14:23:01.234Z","type":"network_dns_failure","message":"getaddrinfo ENOTFOUND api.example.com","context":"tool:get_stock_price"}
+```
+
+Improved error classification — errors are now typed as:
+| Type | Trigger |
+|------|---------|
+| `network_dns_failure` | `ENOTFOUND` |
+| `network_connection_refused` | `ECONNREFUSED` |
+| `network_connection_reset` | `ECONNRESET` |
+| `network_timeout` | `ETIMEDOUT` |
+| `network_tls_error` | TLS/SSL/certificate errors |
+| `rate_limit` | 429 / "rate limit" |
+| `auth_error` | 401 / 403 / "unauthorized" |
+
+Log file: `.dexter/logs/errors.jsonl`
+
+---
+
+## ⛓️ On-Chain Crypto Data (Feature 20)
+
+Fetch on-chain and market intelligence for cryptocurrencies via CoinGecko (free, no key required):
+
+```
+What's the on-chain health of Ethereum?
+Is Bitcoin developer activity increasing?
+What is the BTC dominance right now?
+Compare ETH and SOL community and developer metrics
+Is crypto market sentiment bullish or bearish?
+```
+
+**Metric categories:**
+| Category | Data |
+|----------|------|
+| `market` | 24h/7d/30d price change, market cap rank, ATH distance, volume, supply |
+| `sentiment` | Sentiment vote %, public interest score, CoinGecko score |
+| `developer` | GitHub forks/stars, issues, PRs merged, 4-week commit activity |
+| `community` | Twitter followers, Reddit subscribers, Telegram users |
+| `global` | Total market cap, BTC/ETH dominance, 24h volume, market cap change % |
+
+Supports BTC, ETH, SOL, BNB, XRP, ADA, DOGE, AVAX, MATIC, LINK, and any CoinGecko coin ID.

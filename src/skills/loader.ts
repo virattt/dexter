@@ -29,6 +29,7 @@ export function parseSkillFile(content: string, path: string, source: SkillSourc
     path,
     source,
     instructions: instructions.trim(),
+    ...(data.parameters !== undefined ? { parameters: data.parameters } : {}),
   };
 }
 

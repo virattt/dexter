@@ -13,6 +13,12 @@ export type ErrorType =
   | 'auth'
   | 'timeout'
   | 'overloaded'
+  | 'network_dns_failure'
+  | 'network_connection_refused'
+  | 'network_connection_reset'
+  | 'network_timeout'
+  | 'network_tls_error'
+  | 'auth_error'
   | 'unknown';
 
 type ErrorPattern = RegExp | string;
@@ -206,6 +212,13 @@ export function isOverloadedError(raw?: string): boolean {
 
 export function classifyError(raw?: string): ErrorType {
   if (!raw) return 'unknown';
+
+  // Network-level errors (checked before generic timeout/auth to be more specific)
+  if (raw.includes('ENOTFOUND')) return 'network_dns_failure';
+  if (raw.includes('ECONNREFUSED')) return 'network_connection_refused';
+  if (raw.includes('ECONNRESET')) return 'network_connection_reset';
+  if (raw.includes('ETIMEDOUT')) return 'network_timeout';
+  if (/certificate|SSL|TLS/i.test(raw)) return 'network_tls_error';
 
   if (isContextOverflowError(raw)) return 'context_overflow';
   if (isRateLimitError(raw)) return 'rate_limit';

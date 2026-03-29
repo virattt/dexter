@@ -1,6 +1,31 @@
 ---
 name: dcf-valuation
 description: Performs discounted cash flow (DCF) valuation analysis to estimate intrinsic value per share. Triggers when user asks for fair value, intrinsic value, DCF, valuation, "what is X worth", price target, undervalued/overvalued analysis, or wants to compare current price to fundamental value.
+parameters:
+  wacc:
+    type: number
+    description: "Weighted Average Cost of Capital override (e.g. 0.10 for 10%)"
+    default: 0.10
+    min: 0.03
+    max: 0.30
+  growth_rate:
+    type: number
+    description: "Near-term revenue growth rate assumption (e.g. 0.15 for 15%)"
+    default: 0.15
+    min: -0.20
+    max: 2.00
+  terminal_growth_rate:
+    type: number
+    description: "Long-term terminal growth rate (e.g. 0.025 for 2.5%)"
+    default: 0.025
+    min: 0.00
+    max: 0.10
+  years:
+    type: number
+    description: "DCF projection horizon in years"
+    default: 5
+    min: 1
+    max: 20
 ---
 
 # DCF Valuation Skill
@@ -91,7 +116,7 @@ Call the `get_financials` tool:
 
 ## Step 2: Calculate FCF Growth Rate
 
-Calculate 5-year FCF CAGR from cash flow history.
+Calculate {{years}}-year FCF CAGR from cash flow history.
 
 **Cross-validate with:** `free_cash_flow_growth` (YoY), `revenue_growth`, analyst EPS growth
 
@@ -99,6 +124,7 @@ Calculate 5-year FCF CAGR from cash flow history.
 - Stable FCF history → Use CAGR with 10-20% haircut
 - Volatile FCF → Weight analyst estimates more heavily
 - **Cap at 15%** (sustained higher growth is rare)
+- **Active assumption:** growth_rate = {{growth_rate}}
 
 ### FCF Consistency Check
 
@@ -129,7 +155,9 @@ The tool:
 2. Applies **CAPM**: `Ke = Rfr + β × ERP`
 3. Computes **WACC**: `WACC = E/V × Ke + D/V × Kd × (1 − T)`
 
-**Use the returned `wacc` value as the discount rate for Steps 4–6.**
+**Active assumption:** wacc = {{wacc}}
+
+**Use the returned `wacc` value as the discount rate for Steps 4–6.** If you have a `wacc` parameter override, use that value directly as the discount rate instead of the tool-computed value.
 
 The output also includes `betaSource`, `ke`, `deRatio`, `equityWeight`, `debtWeight`, `waccPct`, and a human-readable `note` — include these in the Key Inputs table (Step 8).
 
@@ -150,9 +178,9 @@ After getting the WACC, verify:
 
 ## Step 4: Project Future Cash Flows
 
-**Years 1–5:** Apply growth rate with 5% annual decay (multiply growth rate by 0.95, 0.90, 0.85, 0.80 for years 2–5). This reflects competitive dynamics.
+**Years 1–{{years}}:** Apply growth rate with 5% annual decay (multiply growth rate by 0.95, 0.90, 0.85, 0.80 for years 2–{{years}}). This reflects competitive dynamics.
 
-**Terminal value:** Use Gordon Growth Model. Select terminal growth rate from the table below:
+**Terminal value:** Use Gordon Growth Model. Terminal growth rate assumption: terminal_growth_rate = {{terminal_growth_rate}}. Select terminal growth rate from the table below:
 
 ### Terminal Growth Rate Selection
 
@@ -195,7 +223,7 @@ Net Debt = Total Debt
 
 ## Step 6: Sensitivity Analysis
 
-Create 3×3 matrix: WACC (base ±1%) vs terminal growth (2.0%, 2.5%, 3.0%).
+Create 3×3 matrix: WACC ({{wacc}} ±1%) vs terminal growth ({{terminal_growth_rate}} −0.5%, {{terminal_growth_rate}}, {{terminal_growth_rate}} +0.5%).
 
 ## Step 7: Validate Results
 

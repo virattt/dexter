@@ -20,6 +20,8 @@ import { waccInputsTool, WACC_INPUTS_DESCRIPTION } from './finance/wacc-inputs.j
 import { geopoliticsSearchTool, GEOPOLITICS_SEARCH_DESCRIPTION } from './osint/geopolitics-search.js';
 import { getFixedIncomeTool, FIXED_INCOME_DESCRIPTION } from './finance/fixed-income.js';
 import { getOptionsChainTool, OPTIONS_CHAIN_DESCRIPTION } from './finance/options.js';
+import { getEarningsTranscript, EARNINGS_TRANSCRIPT_DESCRIPTION } from './finance/earnings-transcripts.js';
+import { getOnchainCrypto, ONCHAIN_CRYPTO_DESCRIPTION } from './finance/onchain-crypto.js';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -104,6 +106,16 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'get_options_chain',
       tool: getOptionsChainTool,
       description: OPTIONS_CHAIN_DESCRIPTION,
+    },
+    {
+      name: 'get_earnings_transcript',
+      tool: getEarningsTranscript,
+      description: EARNINGS_TRANSCRIPT_DESCRIPTION,
+    },
+    {
+      name: 'get_onchain_crypto',
+      tool: getOnchainCrypto,
+      description: ONCHAIN_CRYPTO_DESCRIPTION,
     },
     {
       name: 'web_fetch',

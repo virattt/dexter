@@ -78,6 +78,12 @@ This fork adds the following on top of the upstream repository:
 - **Config Schema Validation**: `.dexter/settings.json` validated with Zod on load — type/range errors warn to stderr and strip the invalid field; never crashes startup
 - **Dream Dedup Guard**: Dream consolidation deduplicates insights against existing `MEMORY.md`/`FINANCE.md` before writing — running Dream twice no longer produces duplicate lines
 - **Progress Bar**: working indicator now shows `[7/25 · ███░░░░░░░ 28% · 42s]` — visual bar shows how close the agent is to the iteration limit
+- **Earnings Transcripts** (`get_earnings_transcript`): fetch management prepared remarks, forward guidance phrases, and Q&A highlights from SEC EDGAR 8-K filings — free, no key required
+- **Cross-Session Cache**: tool results are persisted to `.dexter/cache/` between sessions — startup pre-populates the in-session cache; eliminates redundant API calls for recurring queries; TTL controlled via `/config set cacheTtlMs`
+- **Skill Parameterization**: SKILL.md files can declare typed parameter schemas (`wacc`, `growth_rate`, `years`, etc.); invoke with overrides: "Run a DCF for MSFT with WACC 12% and 7-year horizon"; `{{placeholder}}` substitution in skill body; min/max validation
+- **Chat Search** (`/find`): search current session history by keyword — shows matching turn numbers, queries, and 200-char answer excerpts with keyword highlighted
+- **Error Logging**: all tool errors appended to `.dexter/logs/errors.jsonl` as structured JSON; 7 network error subtypes now classified (`network_dns_failure`, `rate_limit`, `auth_error`, etc.)
+- **On-Chain Crypto** (`get_onchain_crypto`): CoinGecko market data, sentiment scores, developer activity (GitHub commits/PRs), community size (Twitter/Reddit/Telegram), and global market stats (BTC dominance, total market cap) — free, no key required
 
 ### Ollama / Local LLM
 - Full support for local Ollama models with no API key required
@@ -94,6 +100,7 @@ This fork adds the following on top of the upstream repository:
 - `/export [markdown|csv|json]` — export session research to a file (default: markdown)
 - `/config [show]` — display current configuration
 - `/config set <key> <value>` — update a setting (maxIterations, contextThreshold, keepToolUses, cacheTtlMs, parallelToolLimit)
+- `/find <keyword>` — search current session history for any keyword; shows matching turns with highlighted excerpts
 
 ### Watchlist Display Enhancements
 - **`/watchlist list`** now fetches live prices in parallel and shows: current price, day %, unrealised P&L ($), return %, allocation %, plus a portfolio totals row

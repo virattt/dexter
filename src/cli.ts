@@ -54,6 +54,8 @@ import type { SessionLlmMessage } from './utils/session-store.js';
 import { discoverSkills } from './skills/registry.js';
 import type { SkillMetadata } from './skills/types.js';
 import { getSetting, setSetting, validateConfigValue } from './utils/config.js';
+import { searchHistory } from './utils/chat-search.js';
+import chalk from 'chalk';
 
 function truncateAtWord(str: string, maxLength: number): string {
   if (str.length <= maxLength) {
@@ -170,6 +172,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'skills',    description: 'Browse available skills and how to invoke them' },
   { name: 'model',     description: 'Switch the LLM model or provider' },
   { name: 'sessions',  description: 'Browse and resume past conversations' },
+  { name: 'find',      description: 'Search chat history for a keyword — or: find <keyword>' },
   { name: 'think',     description: 'Toggle Ollama extended thinking on/off (thinking models only)' },
   { name: 'watchlist', description: 'Portfolio briefing — or: add TICKER [cost] [shares] | remove TICKER | list | show TICKER | snapshot' },
   { name: 'dream',     description: 'Consolidate memory files — or: show (status), force (bypass conditions)' },
@@ -943,6 +946,53 @@ export async function runCli() {
         refreshError();
         tui.requestRender();
       }
+      return;
+    }
+
+    if (query.startsWith('/find')) {
+      const keyword = query.replace('/find', '').trim();
+      if (!keyword) {
+        chatLog.clearAll();
+        chatLog.addQuery(query);
+        chatLog.resetToolGrouping();
+        chatLog.finalizeAnswer('Usage: /find <keyword> — searches chat history for matching queries and answers');
+        tui.requestRender();
+        return;
+      }
+      const history = agentRunner.history.filter((h) => h.status === 'complete');
+      if (history.length === 0) {
+        chatLog.clearAll();
+        chatLog.addQuery(query);
+        chatLog.resetToolGrouping();
+        chatLog.finalizeAnswer('No chat history in current session');
+        tui.requestRender();
+        return;
+      }
+      const entries = history.map((h, idx) => ({ query: h.query, answer: h.answer, turn: idx + 1 }));
+      const matches = searchHistory(entries, keyword);
+      if (matches.length === 0) {
+        chatLog.clearAll();
+        chatLog.addQuery(query);
+        chatLog.resetToolGrouping();
+        chatLog.finalizeAnswer(`No matches found for "${keyword}" in current session`);
+        tui.requestRender();
+        return;
+      }
+      const highlightKw = (text: string): string => {
+        const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return text.replace(new RegExp(escaped, 'gi'), (m) => chalk.yellow(m));
+      };
+      const lines: string[] = [`Found ${matches.length} match${matches.length === 1 ? '' : 'es'} for "${keyword}":\n`];
+      for (const m of matches) {
+        const excerpt = m.answer.length > 200 ? `${m.answer.slice(0, 200)}...` : m.answer;
+        lines.push(`[Turn ${m.turn}]  ${highlightKw(m.query)}`);
+        lines.push(`...${highlightKw(excerpt)}...\n`);
+      }
+      chatLog.clearAll();
+      chatLog.addQuery(query);
+      chatLog.resetToolGrouping();
+      chatLog.finalizeAnswer(lines.join('\n'));
+      tui.requestRender();
       return;
     }
 
