@@ -585,6 +585,8 @@ function renderCurrentQuery(chatLog: ChatLogComponent, history: AgentRunnerContr
     const isStreaming = item.status === 'processing';
 
     if (answerLines.length > answerBudget) {
+      // longAnswerThreshold must match the flush trigger in the post-runQuery block.
+      const longAnswerThreshold = Math.max(20, termRows - 8);
       if (isStreaming) {
         // During streaming: show only the tail so the TUI never overflows the viewport.
         // Overflow would push early lines into the terminal's native scrollback,
@@ -592,13 +594,21 @@ function renderCurrentQuery(chatLog: ChatLogComponent, history: AgentRunnerContr
         // the answer to appear twice (partial live view + full flushed version).
         const tail = answerLines.slice(-answerBudget).join('\n');
         chatLog.finalizeAnswer(`…\n${tail}`);
-      } else {
-        // Complete long answer: show a one-line stub.
-        // The auto-flush logic (after runQuery returns) will write the full answer
-        // to scrollback and replace this with a "scroll to read" hint.
-        // Keeping the TUI content tiny here ensures flushExchangeToScrollback()'s
-        // cursor arithmetic stays within the viewport.
+      } else if (answerLines.length > longAnswerThreshold) {
+        // Long complete answer: show a one-line stub.
+        // The post-runQuery flush logic will write the full answer to the terminal
+        // scrollback buffer and replace this stub with a "scroll to read" hint.
+        // Keeping TUI content minimal ensures flushExchangeToScrollback()'s cursor
+        // arithmetic stays within the viewport.
         chatLog.finalizeAnswer(`…  (${answerLines.length} lines — writing to scrollback)`);
+      } else {
+        // Medium complete answer: over the display budget but below the flush threshold —
+        // flushExchangeToScrollback() will NOT run for this answer, so a stub here would
+        // make the response permanently invisible.  Show the tail instead so the user
+        // can at least read the end of the answer; earlier lines are in the streaming
+        // scrollback.
+        const tail = answerLines.slice(-answerBudget).join('\n');
+        chatLog.finalizeAnswer(`…\n${tail}`);
       }
     } else {
       chatLog.finalizeAnswer(item.answer);

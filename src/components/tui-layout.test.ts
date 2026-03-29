@@ -356,6 +356,7 @@ describe('renderCurrentQuery — streaming answer viewport cap', () => {
   ): { type: 'full' | 'tail' | 'stub'; text: string } {
     const reservedRows = Math.min(4 + 12, termRows - 10); // simplified: 0 events
     const answerBudget = Math.max(10, termRows - reservedRows);
+    const longAnswerThreshold = Math.max(20, termRows - 8);
     const answerLines = answer.split('\n');
     const isStreaming = status === 'processing';
 
@@ -363,8 +364,11 @@ describe('renderCurrentQuery — streaming answer viewport cap', () => {
       if (isStreaming) {
         const tail = answerLines.slice(-answerBudget).join('\n');
         return { type: 'tail', text: `…\n${tail}` };
-      } else {
+      } else if (answerLines.length > longAnswerThreshold) {
         return { type: 'stub', text: `…  (${answerLines.length} lines — writing to scrollback)` };
+      } else {
+        const tail = answerLines.slice(-answerBudget).join('\n');
+        return { type: 'tail', text: `…\n${tail}` };
       }
     }
     return { type: 'full', text: answer };
@@ -392,6 +396,7 @@ describe('renderCurrentQuery — streaming answer viewport cap', () => {
   });
 
   test('long complete answer renders stub (not full) so flush can clear cleanly', () => {
+    // 80 lines > longAnswerThreshold(40-8=32) → should be stub
     const longAnswer = Array(80).fill('content line').join('\n');
     const result = simulateAnswerRender(longAnswer, 'complete', 40);
     expect(result.type).toBe('stub');
@@ -400,10 +405,28 @@ describe('renderCurrentQuery — streaming answer viewport cap', () => {
   });
 
   test('stub for complete answer is a single line (never overflows)', () => {
+    // 200 lines > longAnswerThreshold → stub
     const longAnswer = Array(200).fill('content').join('\n');
     const result = simulateAnswerRender(longAnswer, 'complete', 40);
     expect(result.type).toBe('stub');
     expect(result.text.split('\n').length).toBe(1);
+  });
+
+  test('medium complete answer renders tail instead of stub when flush will not fire', () => {
+    // termRows=45: answerBudget=max(10,45-16)=29, longAnswerThreshold=max(20,45-8)=37
+    // 33 lines: 33 > 29 (over budget) but 33 < 37 (under flush threshold)
+    // Bug: old code showed stub but flush never ran → response invisible
+    // Fix: show tail so user can read the answer
+    const mediumAnswer = Array(33).fill('result line').join('\n');
+    const result = simulateAnswerRender(mediumAnswer, 'complete', 45);
+    expect(result.type).toBe('tail');
+    expect(result.text.startsWith('…')).toBe(true);
+  });
+
+  test('medium complete answer tail does not contain scrollback hint', () => {
+    const mediumAnswer = Array(33).fill('result line').join('\n');
+    const result = simulateAnswerRender(mediumAnswer, 'complete', 45);
+    expect(result.text).not.toContain('scrollback');
   });
 
   test('answer budget scales with terminal height', () => {
