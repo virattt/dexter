@@ -6,6 +6,9 @@ import type {
   AnswerChunkEvent,
   ApprovalDecision,
   DoneEvent,
+  ToolEndEvent,
+  ToolErrorEvent,
+  ToolStartEvent,
 } from '../agent/index.js';
 import type { DisplayEvent } from '../agent/types.js';
 import type { HistoryItem, HistoryItemStatus, WorkingState } from '../types.js';
@@ -295,7 +298,12 @@ export class AgentRunnerController {
         this.updateLastItem((last) => ({
           ...last,
           events: last.events.map((entry) =>
-            entry.id === last.activeToolId ? { ...entry, progressMessage: event.message } : entry,
+            // Match the first incomplete tool_start for this tool name — safe for parallel calls
+            (!entry.completed &&
+              entry.event.type === 'tool_start' &&
+              (entry.event as ToolStartEvent).tool === event.tool)
+              ? { ...entry, progressMessage: event.message }
+              : entry,
           ),
         }));
         break;
@@ -370,13 +378,27 @@ export class AgentRunnerController {
   }
 
   private finishToolEvent(event: AgentEvent) {
-    this.updateLastItem((last) => ({
-      ...last,
-      activeToolId: undefined,
-      events: last.events.map((entry) =>
-        entry.id === last.activeToolId ? { ...entry, completed: true, endEvent: event } : entry,
-      ),
-    }));
+    const toolName = (event as ToolEndEvent | ToolErrorEvent).tool;
+    this.updateLastItem((last) => {
+      // Find the first incomplete tool_start entry for this specific tool name.
+      // Using tool name (not activeToolId) is correct for parallel tool calls where
+      // multiple tool_start events fire before any tool_end, making activeToolId
+      // always point to whichever tool started last.
+      const targetEntry = last.events.find(
+        (entry) =>
+          !entry.completed &&
+          entry.event.type === 'tool_start' &&
+          (entry.event as ToolStartEvent).tool === toolName,
+      );
+      if (!targetEntry) return { ...last, activeToolId: undefined };
+      return {
+        ...last,
+        activeToolId: undefined,
+        events: last.events.map((entry) =>
+          entry.id === targetEntry.id ? { ...entry, completed: true, endEvent: event } : entry,
+        ),
+      };
+    });
   }
 
   private pushEvent(displayEvent: DisplayEvent) {
