@@ -169,8 +169,8 @@ export function getToolRegistry(model: string): RegisteredTool[] {
     );
   }
 
-  // Include J-Quants stock price tool if JQUANTS_REFRESH_TOKEN is configured
-  if (process.env.JQUANTS_REFRESH_TOKEN) {
+  // Include J-Quants stock price tool if JQUANTS_API_KEY is configured
+  if (process.env.JQUANTS_API_KEY) {
     tools.push(
       { name: 'jp_stock_price', tool: jpStockPrice, description: JP_STOCK_PRICE_DESCRIPTION },
     );

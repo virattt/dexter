@@ -4,9 +4,10 @@ import { jquants } from '../../../utils/jquants.js';
 import { formatToolResult } from '../../types.js';
 
 export const JP_STOCK_PRICE_DESCRIPTION = `
-日本株の日次株価データを取得する（J-Quants API）。
+日本株の日次株価データを取得する（J-Quants API v2）。
 終値・出来高・前日比・移動平均（5日/25日/75日）を算出。
 銘柄コードは4桁数字（例: 7203=トヨタ）。
+Freeプランのデータ範囲は約2年分。最新の株価はWeb検索で補完すること。
 `.trim();
 
 const schema = z.object({
@@ -21,27 +22,56 @@ const schema = z.object({
     .describe('終了日（YYYYMMDD形式、例: 20250331）'),
 });
 
+/** V2 API response row (short column names) */
+interface V2Bar {
+  Date: string;
+  Code: string;
+  O: number;
+  H: number;
+  L: number;
+  C: number;
+  Vo: number;
+  Va: number;
+  AdjO: number;
+  AdjH: number;
+  AdjL: number;
+  AdjC: number;
+  AdjVo: number;
+  AdjFactor: number;
+  [k: string]: unknown;
+}
+
 /**
- * Calculate simple moving averages for the given close prices.
+ * Normalize V2 short column names to readable names and calculate indicators.
  */
-function calcMovingAverages(
-  prices: Array<{ Date: string; Close: number; [k: string]: unknown }>,
-): Array<Record<string, unknown>> {
-  return prices.map((p, i) => {
+function enrichPrices(bars: V2Bar[]): Array<Record<string, unknown>> {
+  return bars.map((bar, i) => {
+    const close = bar.AdjC ?? bar.C;
+
     const sma = (window: number) => {
       if (i < window - 1) return null;
-      const slice = prices.slice(i - window + 1, i + 1);
-      return Math.round((slice.reduce((sum, x) => sum + x.Close, 0) / window) * 100) / 100;
+      const slice = bars.slice(i - window + 1, i + 1);
+      const avg = slice.reduce((sum, x) => sum + (x.AdjC ?? x.C), 0) / window;
+      return Math.round(avg * 100) / 100;
     };
 
-    const prevClose = i > 0 ? prices[i - 1]!.Close : null;
-    const change = prevClose !== null ? Math.round((p.Close - prevClose) * 100) / 100 : null;
+    const prevClose = i > 0 ? (bars[i - 1]!.AdjC ?? bars[i - 1]!.C) : null;
+    const change = prevClose !== null ? Math.round((close - prevClose) * 100) / 100 : null;
     const changePct = prevClose !== null && prevClose !== 0
-      ? Math.round(((p.Close - prevClose) / prevClose) * 10000) / 100
+      ? Math.round(((close - prevClose) / prevClose) * 10000) / 100
       : null;
 
     return {
-      ...p,
+      date: bar.Date,
+      code: bar.Code,
+      open: bar.O,
+      high: bar.H,
+      low: bar.L,
+      close: bar.C,
+      volume: bar.Vo,
+      turnover: bar.Va,
+      adj_close: bar.AdjC,
+      adj_factor: bar.AdjFactor,
       change,
       change_pct: changePct,
       sma_5: sma(5),
@@ -57,16 +87,15 @@ export const jpStockPrice = new DynamicStructuredTool({
   schema,
   func: async (input) => {
     const code = input.code.trim();
-    const { data, url } = await jquants.get('/v1/prices/daily_quotes', {
+    const { data, url } = await jquants.get('/v2/equities/bars/daily', {
       code,
       from: input.from,
       to: input.to,
     });
 
-    const quotes = (data as { daily_quotes?: unknown[] }).daily_quotes || [];
-    const enriched = calcMovingAverages(
-      quotes as Array<{ Date: string; Close: number }>,
-    );
+    // V2 returns { data: [...] }
+    const bars = (data as { data?: V2Bar[] }).data || [];
+    const enriched = enrichPrices(bars);
 
     return formatToolResult(enriched, [url]);
   },
