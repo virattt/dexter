@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it, beforeEach } from 'bun:test';
 import { polymarketTool, questionMatchesQuery, inferTagSlugs } from './polymarket.js';
+import { polymarketBreaker } from '../../utils/circuit-breaker.js';
 
 // ---------------------------------------------------------------------------
 // Unit tests — no network, mock fetch
@@ -168,6 +169,8 @@ describe('inferTagSlugs', () => {
 });
 
 describe('polymarketTool', () => {
+  beforeEach(() => { polymarketBreaker.reset(); });
+
   it('tool name is polymarket_search', () => {
     expect(polymarketTool.name).toBe('polymarket_search');
   });

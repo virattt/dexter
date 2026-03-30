@@ -1,4 +1,5 @@
-import { describe, it, expect, mock, afterAll } from 'bun:test';
+import { describe, it, expect, mock, afterAll, beforeEach } from 'bun:test';
+import { polymarketBreaker } from '../../utils/circuit-breaker.js';
 import type { PolymarketMarketResult } from './polymarket.js';
 
 // ---------------------------------------------------------------------------
@@ -36,6 +37,8 @@ function parseResult(raw: unknown): string {
 // ---------------------------------------------------------------------------
 
 describe('polymarketForecastTool', () => {
+  beforeEach(() => { polymarketBreaker.reset(); });
+
   it('result string contains "Polymarket Forecast"', async () => {
     const raw = await polymarketForecastTool.func(
       { ticker: 'NVDA', horizon_days: 7, current_price: 135.50 },

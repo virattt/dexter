@@ -57,6 +57,13 @@ export class CircuitBreaker {
     this.state = 'CLOSED';
   }
 
+  /** Fully resets the circuit to the initial closed state — use in tests to prevent state contamination. */
+  reset(): void {
+    this.failures = 0;
+    this.state = 'CLOSED';
+    this.lastFailureTime = 0;
+  }
+
   /** Call after a failed API response (error or non-2xx status). */
   onFailure(): void {
     this.failures++;
