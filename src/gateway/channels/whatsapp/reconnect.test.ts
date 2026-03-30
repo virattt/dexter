@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test } from 'bun:test';
 import { computeBackoff, DEFAULT_RECONNECT_POLICY, resolveReconnectPolicy } from './reconnect.js';
 import type { GatewayConfig } from '../../config.js';
 
