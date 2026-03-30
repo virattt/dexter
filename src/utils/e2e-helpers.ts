@@ -28,14 +28,27 @@ export interface E2EResult {
 
 /**
  * Run the Dexter agent end-to-end with the E2E model.
+ *
+ * Handles the `--deep` CLI flag: strips it from the query string and maps it
+ * to `maxIterations: 40` (in the CLI it is a process.argv flag, not part of
+ * the query, so passing it literally confuses the LLM).
+ *
  * Throws if no `done` event is received within E2E_TIMEOUT_MS.
  */
 export async function runAgentE2E(
   query: string,
   opts: { maxIterations?: number; model?: string } = {},
 ): Promise<E2EResult> {
+  // Strip --deep CLI flag and boost iteration budget accordingly
+  let actualQuery = query;
+  let defaultMaxIter = 10;
+  if (query.trimStart().startsWith('--deep ')) {
+    actualQuery = query.trimStart().slice('--deep '.length);
+    defaultMaxIter = 40;
+  }
+
   const model = opts.model ?? E2E_MODEL;
-  const maxIterations = opts.maxIterations ?? 10;
+  const maxIterations = opts.maxIterations ?? defaultMaxIter;
 
   const agent = await Agent.create({
     model,
@@ -52,7 +65,7 @@ export async function runAgentE2E(
   const timer = setTimeout(() => ac.abort(), E2E_TIMEOUT_MS);
 
   try {
-    for await (const event of agent.run(query)) {
+    for await (const event of agent.run(actualQuery)) {
       if (ac.signal.aborted) break;
       events.push(event);
       if (event.type === 'tool_start') toolsCalled.push(event.tool);

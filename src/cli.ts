@@ -58,7 +58,7 @@ import { getSetting, setSetting, validateConfigValue } from './utils/config.js';
 import { searchHistory } from './utils/chat-search.js';
 import chalk from 'chalk';
 
-function truncateAtWord(str: string, maxLength: number): string {
+export function truncateAtWord(str: string, maxLength: number): string {
   if (str.length <= maxLength) {
     return str;
   }
@@ -69,7 +69,7 @@ function truncateAtWord(str: string, maxLength: number): string {
   return `${str.slice(0, maxLength)}...`;
 }
 
-function summarizeToolResult(tool: string, args: Record<string, unknown>, result: string): string {
+export function summarizeToolResult(tool: string, args: Record<string, unknown>, result: string): string {
   if (tool === 'skill') {
     const skillName = args.skill as string;
     return `Loaded ${skillName} skill`;
@@ -105,7 +105,7 @@ function summarizeToolResult(tool: string, args: Record<string, unknown>, result
  * Skips silently if there are no exchanges, the model call fails, or the output
  * is trivially short.
  */
-async function writeSessionDailySummary(
+export async function writeSessionDailySummary(
   history: { query: string; answer: string }[],
   model: string,
 ): Promise<void> {
@@ -142,7 +142,7 @@ ${transcript}`;
   }
 }
 
-function createScreen(
+export function createScreen(
   title: string,
   description: string,
   body: any,
@@ -181,7 +181,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'config',    description: 'Show or set agent configuration — or: set <key> <value>' },
 ];
 
-function buildHelpPanel(): Container {
+export function buildHelpPanel(): Container {
   const container = new Container();
   const COL = 10; // fixed width for the left (command/key) column
 
@@ -237,24 +237,24 @@ function buildHelpPanel(): Container {
   return container;
 }
 
-function fmtPct(n: number): string {
+export function fmtPct(n: number): string {
   const sign = n >= 0 ? '+' : '';
   return `${sign}${n.toFixed(1)}%`;
 }
 
-function fmtMoney(n: number): string {
+export function fmtMoney(n: number): string {
   if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
   if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
   return `$${n.toFixed(2)}`;
 }
 
-function colorPct(n: number, text: string): string {
+export function colorPct(n: number, text: string): string {
   return n >= 0 ? theme.success(text) : theme.error(text);
 }
 
 type WatchlistEntry = import('./controllers/watchlist-controller.js').WatchlistEntry;
 
-function buildWatchlistPanel(
+export function buildWatchlistPanel(
   entries: WatchlistEntry[],
   prices: Map<string, PriceSnapshot> | null,
 ): Container {
@@ -341,7 +341,7 @@ function buildWatchlistPanel(
   return container;
 }
 
-function buildShowPanel(ticker: string, snap: PriceSnapshot): Container {
+export function buildShowPanel(ticker: string, snap: PriceSnapshot): Container {
   const container = new Container();
   const w = 62;
   const bar = '─'.repeat(w);
@@ -410,7 +410,7 @@ function buildShowPanel(ticker: string, snap: PriceSnapshot): Container {
   return container;
 }
 
-function buildSnapshotPanel(
+export function buildSnapshotPanel(
   entries: WatchlistEntry[],
   prices: Map<string, PriceSnapshot> | null,
 ): Container {
