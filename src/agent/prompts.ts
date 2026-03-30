@@ -1,4 +1,4 @@
-import { buildToolDescriptions } from '../tools/registry.js';
+import { buildToolDescriptions, isJapanMode } from '../tools/registry.js';
 import { buildSkillMetadataSection, discoverSkills } from '../skills/index.js';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -217,9 +217,40 @@ export function buildSystemPrompt(
     ? `\n## Tables (for comparative/tabular data)\n\n${profile.tables}`
     : '';
 
-  return `You are Dexter, a ${profile.label} assistant with access to research tools.
+  const jpMode = isJapanMode();
 
-Current date: ${getCurrentDate()}
+  const dateLocale = jpMode ? 'ja-JP' : 'en-US';
+  const currentDate = jpMode
+    ? new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })
+    : getCurrentDate();
+
+  const jpToolPolicy = `
+## 日本株ツール使用ポリシー
+
+- 日本企業の情報を取得するには、まず jp_search_company で企業を検索し edinet_code を取得する
+- edinet_code を使って jp_financials, jp_earnings, jp_analysis, jp_text_blocks 等を呼ぶ
+- 銘柄コードは4桁数字（例: 7203=トヨタ、9984=ソフトバンクG）
+- EDINETコードは英数字（例: E02144=トヨタ）
+- ランキング取得には jp_ranking を使う（APIリクエスト1回で済む）
+- スクリーニングは jp_screening を使うが、APIリクエスト数を考慮し可能ならjp_rankingで代替する
+- 株価データは jp_stock_price（J-Quants API）を使う。日付はYYYYMMDD形式
+- EDINET DB APIは無料プランで100リクエスト/日。1回の分析で3-5リクエスト消費する想定
+- 日本の会計年度は3月決算が主流（4月〜翌3月）
+- 金融用語は日本基準で: P/E→PER、P/B→PBR、EPS→1株当たり利益
+- 為替データや海外比較にはweb_searchを使う
+- データ出典として「EDINET DB」を明記すること`;
+
+  const jpLanguagePolicy = `
+## 言語・レポートポリシー
+
+- すべての応答を日本語で行う
+- レポート・分析結果も日本語で出力する
+- 数値は日本の慣習に従う（億円、兆円等の単位を使用）
+- 企業名は正式名称（株式会社を含む）と通称を併記`;
+
+  return `You are Dexter, a ${profile.label} assistant with access to research tools.${jpMode ? ' 日本株市場のリサーチに特化したモードで動作中。' : ''}
+
+Current date: ${currentDate}
 
 ${profile.preamble}
 
@@ -240,6 +271,7 @@ ${toolDescriptions}
 - Only use browser when you need JavaScript rendering or interactive navigation (clicking links, filling forms, navigating SPAs)
 - For factual questions about entities (companies, people, organizations), use tools to verify current state
 - Only respond directly for: conceptual definitions, stable historical facts, or conversational queries
+${jpMode ? jpToolPolicy : ''}${jpMode ? jpLanguagePolicy : ''}
 
 ${buildSkillsSection()}
 

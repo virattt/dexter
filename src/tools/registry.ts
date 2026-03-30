@@ -15,6 +15,22 @@ import { heartbeatTool, HEARTBEAT_TOOL_DESCRIPTION } from './heartbeat/heartbeat
 import { cronTool, CRON_TOOL_DESCRIPTION } from './cron/cron-tool.js';
 import { memoryGetTool, MEMORY_GET_DESCRIPTION, memorySearchTool, MEMORY_SEARCH_DESCRIPTION, memoryUpdateTool, MEMORY_UPDATE_DESCRIPTION } from './memory/index.js';
 import { discoverSkills } from '../skills/index.js';
+import {
+  jpSearchCompany, JP_SEARCH_COMPANY_DESCRIPTION,
+  jpCompanyInfo, JP_COMPANY_INFO_DESCRIPTION,
+  jpFinancials, JP_FINANCIALS_DESCRIPTION,
+  jpEarnings, JP_EARNINGS_DESCRIPTION,
+  jpAnalysis, JP_ANALYSIS_DESCRIPTION,
+  jpTextBlocks, JP_TEXT_BLOCKS_DESCRIPTION,
+  jpRanking, JP_RANKING_DESCRIPTION,
+  jpStockPrice, JP_STOCK_PRICE_DESCRIPTION,
+  jpScreening, JP_SCREENING_DESCRIPTION,
+} from './finance/jp/index.js';
+
+/** Whether Japanese market tools are enabled. */
+export function isJapanMode(): boolean {
+  return Boolean(process.env.EDINETDB_API_KEY);
+}
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -137,6 +153,27 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: xSearchTool,
       description: X_SEARCH_DESCRIPTION,
     });
+  }
+
+  // Include Japanese stock tools if EDINETDB_API_KEY is configured
+  if (process.env.EDINETDB_API_KEY) {
+    tools.push(
+      { name: 'jp_search_company', tool: jpSearchCompany, description: JP_SEARCH_COMPANY_DESCRIPTION },
+      { name: 'jp_company_info', tool: jpCompanyInfo, description: JP_COMPANY_INFO_DESCRIPTION },
+      { name: 'jp_financials', tool: jpFinancials, description: JP_FINANCIALS_DESCRIPTION },
+      { name: 'jp_earnings', tool: jpEarnings, description: JP_EARNINGS_DESCRIPTION },
+      { name: 'jp_analysis', tool: jpAnalysis, description: JP_ANALYSIS_DESCRIPTION },
+      { name: 'jp_text_blocks', tool: jpTextBlocks, description: JP_TEXT_BLOCKS_DESCRIPTION },
+      { name: 'jp_ranking', tool: jpRanking, description: JP_RANKING_DESCRIPTION },
+      { name: 'jp_screening', tool: jpScreening, description: JP_SCREENING_DESCRIPTION },
+    );
+  }
+
+  // Include J-Quants stock price tool if JQUANTS_REFRESH_TOKEN is configured
+  if (process.env.JQUANTS_REFRESH_TOKEN) {
+    tools.push(
+      { name: 'jp_stock_price', tool: jpStockPrice, description: JP_STOCK_PRICE_DESCRIPTION },
+    );
   }
 
   // Include skill tool if any skills are available
