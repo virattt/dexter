@@ -12,6 +12,7 @@ import type {
   ToolStartEvent,
 } from './types.js';
 import type { RunContext } from './run-context.js';
+import { saveApprovedTools } from '../utils/tool-permissions.js';
 
 type ToolExecutionEvent =
   | ToolStartEvent
@@ -78,6 +79,7 @@ export class AgentToolExecutor {
         for (const name of TOOLS_REQUIRING_APPROVAL) {
           this.sessionApprovedTools.add(name);
         }
+        saveApprovedTools(this.sessionApprovedTools);
       }
     }
 

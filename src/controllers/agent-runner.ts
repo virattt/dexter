@@ -8,6 +8,7 @@ import type {
 } from '../agent/index.js';
 import type { DisplayEvent } from '../agent/types.js';
 import type { HistoryItem, HistoryItemStatus, WorkingState } from '../types.js';
+import { loadApprovedTools } from '../utils/tool-permissions.js';
 
 type ChangeListener = () => void;
 
@@ -25,7 +26,7 @@ export class AgentRunnerController {
   private readonly onChange?: ChangeListener;
   private abortController: AbortController | null = null;
   private approvalResolve: ((decision: ApprovalDecision) => void) | null = null;
-  private sessionApprovedTools = new Set<string>();
+  private sessionApprovedTools = new Set<string>(loadApprovedTools());
 
   constructor(
     agentConfig: AgentConfig,
