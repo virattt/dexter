@@ -64,15 +64,15 @@ export class AgentRunnerController {
     this.emitChange();
   }
 
+  get currentConfig(): Readonly<AgentConfig> {
+    return this.agentConfig;
+  }
+
   updateAgentConfig(config: Partial<Pick<AgentConfig, 'model' | 'modelProvider' | 'maxIterations'>>) {
     this.agentConfig = {
       ...this.agentConfig,
       ...config,
     };
-
-    if (config.model) {
-      this.inMemoryChatHistory.setModel(config.model);
-    }
   }
 
   respondToApproval(decision: ApprovalDecision) {
