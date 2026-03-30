@@ -1,149 +1,155 @@
 ---
 name: trade-analysis
-description: Performs comprehensive multi-timeframe trade analysis for FX pairs, indices, and commodities. Triggers when user asks to analyze a trade setup, check a pair, evaluate an entry, find trade opportunities, or wants a full technical breakdown of any Fintokei instrument.
+description: Performs rigorous quantitative trade analysis for FX pairs, indices, and commodities. Triggers when user asks to analyze a trade setup, evaluate a pair, check a trade idea, find statistical edge, or wants a full quantitative breakdown of any Fintokei instrument.
 ---
 
-# Trade Analysis Skill
+# Quantitative Trade Analysis Skill
 
 ## Workflow Checklist
 
-Copy and track progress:
 ```
-Trade Analysis Progress:
-- [ ] Step 1: Identify instrument and gather current price
-- [ ] Step 2: Higher timeframe trend analysis (Daily/H4)
-- [ ] Step 3: Trading timeframe analysis (H1/M15)
-- [ ] Step 4: Key level identification
-- [ ] Step 5: Indicator confluence check
-- [ ] Step 6: Economic calendar risk check
-- [ ] Step 7: Trade plan formulation
-- [ ] Step 8: Present analysis with clear trade plan
+Quantitative Trade Analysis:
+- [ ] Step 1: Statistical regime identification
+- [ ] Step 2: Return distribution analysis
+- [ ] Step 3: Volatility regime classification
+- [ ] Step 4: Macro context and rate differentials
+- [ ] Step 5: Cross-asset regime check
+- [ ] Step 6: Correlation and exposure analysis
+- [ ] Step 7: Economic event risk assessment
+- [ ] Step 8: Expected value calculation and trade plan
 ```
 
-## Step 1: Identify Instrument & Current Price
+## Step 1: Statistical Regime Identification
 
-Call the `get_market_data` tool:
+Determine if the instrument is trending, mean-reverting, or random walk.
 
-**Query:** `"[INSTRUMENT] current price quote"`
+**Tool:** `get_return_distribution` with interval: "1day", lookback: 252
 
-**Extract:** Current bid/ask, daily high/low, current spread
+**Extract:**
+- Hurst exponent (H > 0.6 = trending, H < 0.4 = mean-reverting, ~0.5 = random walk)
+- Autocorrelation at lag 1-5 (significant positive = momentum, negative = mean-reversion)
+- This determines which strategy class is statistically appropriate
 
-Also call `list_instruments` if the instrument name is ambiguous.
+**Tool:** `get_zscore` with interval: "1day", lookback: 100
 
-## Step 2: Higher Timeframe Trend Analysis (Daily / H4)
+**Extract:**
+- Current z-score (> 2.0 or < -2.0 = statistical extreme)
+- Percentile rank
+- Historical mean-reversion probability at extreme z-scores
 
-Call `get_market_data` with these queries:
+**Decision matrix:**
+- H > 0.6 AND positive autocorrelation → Momentum/trend-following strategies
+- H < 0.4 AND negative autocorrelation → Mean-reversion strategies
+- H ≈ 0.5 → No statistical edge from trend or mean-reversion; rely on event-driven or macro analysis
 
-### 2.1 Daily Chart Structure
-**Query:** `"[INSTRUMENT] daily chart last 50 candles"`
+## Step 2: Return Distribution Analysis
 
-**Analyze:**
-- Overall trend direction (higher highs/higher lows or lower highs/lower lows)
-- Recent swing points
-- Distance from key round numbers
+Understand tail risk and whether standard risk models apply.
 
-### 2.2 Daily Indicators
-**Query:** `"[INSTRUMENT] daily SMA-20, SMA-50, SMA-200, RSI-14, ADX-14"`
-
-**Analyze:**
-- Price relative to MAs (above = bullish bias, below = bearish bias)
-- MA alignment (20 > 50 > 200 = strong uptrend)
-- RSI trend (above 50 = bullish momentum, below 50 = bearish)
-- ADX > 25 = trending, < 20 = ranging
-
-### 2.3 H4 Chart
-**Query:** `"[INSTRUMENT] 4h chart last 50 candles with EMA-20, EMA-50, MACD"`
+**Tool:** `get_return_distribution` (already called in Step 1)
 
 **Analyze:**
-- H4 trend alignment with Daily
-- MACD histogram direction and crossovers
-- Recent momentum shifts
+- Skewness (negative skew = fat left tail = crash risk)
+- Excess kurtosis (> 0 = fatter tails than normal)
+- Jarque-Bera test (is normal distribution assumption valid?)
+- VaR(95%) and CVaR(95%) for tail risk quantification
 
-## Step 3: Trading Timeframe Analysis (H1 / M15)
+**Implications:**
+- If kurtosis > 3: Standard VaR underestimates risk → use wider stops
+- If negative skew: Asymmetric downside → reduce position size or use options-like stop placement
+- If JB test fails: Cannot use Gaussian models for risk → use empirical distributions
 
-**Query:** `"[INSTRUMENT] 1h chart last 50 candles with RSI-14, Bollinger Bands, Stochastic"`
+## Step 3: Volatility Regime Classification
 
-**Analyze:**
-- Price action patterns (pin bars, engulfing, inside bars)
-- RSI divergences (bullish/bearish)
-- Bollinger Band squeeze or expansion
-- Stochastic overbought/oversold zones
+**Tool:** `get_volatility_regime` with interval: "1day"
 
-For scalping setups, also check M15:
-**Query:** `"[INSTRUMENT] 15min chart last 30 candles with EMA-9, EMA-21"`
+**Extract:**
+- Current regime: LOW / NORMAL / HIGH / CRISIS
+- Volatility percentile rank
+- Vol term structure (inverted = recent shock, steep = calm)
+- Vol-of-vol (high = regime change likely)
 
-## Step 4: Key Level Identification
+**Position sizing adjustment:**
+- CRISIS: 0.25-0.5% risk per trade, 2x ATR stops
+- HIGH: 0.5-1.0% risk, 1.5x ATR stops
+- NORMAL: 1.0-1.5% risk, 1x ATR stops
+- LOW: 1.0-2.0% risk, watch for breakout setups
 
-Based on the price data gathered:
+## Step 4: Macro Context
 
-1. **Support levels**: Recent swing lows, daily open, weekly open, round numbers
-2. **Resistance levels**: Recent swing highs, daily high, weekly high, round numbers
-3. **Dynamic levels**: Key EMAs (20, 50, 200), Bollinger Band boundaries
-4. **Pivot Points**: Call `get_market_data` with `"[INSTRUMENT] daily pivot points"`
+**Tool:** `get_rate_differential` with the base and quote currencies
 
-## Step 5: Indicator Confluence Check
+**Extract:**
+- Rate differential and policy divergence
+- Carry trade direction and yield
+- Medium-term macro bias
 
-Score the setup based on alignment:
-- **Trend alignment** (Daily + H4 + H1 same direction): +2 points
-- **Price at key level** (support/resistance): +1 point
-- **RSI confirmation** (not overbought for longs, not oversold for shorts): +1 point
-- **MACD confirmation** (histogram growing in trade direction): +1 point
-- **Volume/momentum confirmation**: +1 point
-- **Bollinger Band support** (price at band edge with reversal): +1 point
+**Tool:** `get_macro_regime` for both base and quote economies
 
-**Minimum score for trade: 4/7**
+**Extract:**
+- Regime state (expansion/slowdown/contraction/recovery)
+- Leading indicator trends
+- FX implications
 
-## Step 6: Economic Calendar Risk Check
+**Synthesis:**
+- Rate differential > +1% with supportive divergence → Strong fundamental bias
+- Conflicting macro regimes → Uncertainty premium, wider stops needed
+- Both economies same regime → Pair driven by relative strength, not absolute
 
-Call `get_economic_calendar`:
+## Step 5: Cross-Asset Regime
 
-**Query:** Check events for the next 24 hours for currencies related to the instrument.
+**Tool:** `get_cross_asset_regime`
+
+**Extract:**
+- Risk-on / risk-off / mixed
+- Implications for specific instrument (e.g., risk-off → JPY strong, AUD weak, gold up)
+
+## Step 6: Correlation and Exposure Analysis
+
+**Tool:** `get_correlation_matrix` with the target instrument plus correlated instruments
+
+**Examples:**
+- For EUR/USD, include: GBP/USD, USD/CHF, DXY, gold
+- For XAUUSD, include: USD/JPY, US30, EUR/USD
+- For JP225, include: USD/JPY, US500, AUD/JPY
+
+**Check:**
+- Are any of the user's current open positions highly correlated with this trade?
+- Would this trade create hidden concentrated exposure to a single factor (e.g., USD strength)?
+
+## Step 7: Economic Event Risk Assessment
+
+**Tool:** `get_economic_calendar` for the next 48 hours, filtered by relevant currencies
 
 **Rules:**
-- If HIGH impact event within 2 hours: **DO NOT ENTER** — wait for release
-- If HIGH impact event within 24 hours: Note in trade plan, consider reducing position size
-- If no major events: Proceed normally
+- HIGH impact event within 4 hours → DO NOT ENTER
+- HIGH impact event within 24 hours → Reduce position size by 50%
+- Consider the historical volatility impact of specific events (NFP, CPI, rate decisions)
 
-For indices (US30, NAS100, etc.), check US economic events.
-For gold (XAUUSD), check US events AND Fed speakers.
-For JPY pairs and JP225, check both currencies' events.
+## Step 8: Expected Value and Trade Plan
 
-## Step 7: Trade Plan Formulation
+Based on all the above analysis, formulate the trade:
 
-If confluence score >= 4 and no imminent news risk:
+**If statistical edge identified (positive Hurst signal + macro alignment):**
 
-### Entry
-- Specific price level or condition for entry
-- Entry type: limit order at level, or market on confirmation
+**Tool:** `calculate_expected_value` with scenarios:
+- Scenario 1: TP hit (probability from backtest/historical data)
+- Scenario 2: SL hit (complement probability)
+- Scenario 3: Breakeven exit (partial probability)
 
-### Stop Loss
-- Below/above the nearest key structure level
-- Minimum distance: 1.5x ATR on the trading timeframe
-- Call `get_market_data`: `"[INSTRUMENT] 1h ATR-14"` for reference
+**Tool:** `calculate_position_size` with account details and stop distance
 
-### Take Profit
-- At the next significant level in trade direction
-- Minimum 1:2 risk-reward ratio
-- Consider partial take profit at 1:1 with stop to breakeven
+## Output Format
 
-### Position Sizing
-- Calculate using `calculate_position_size` tool with the stop loss distance
-- Respect Fintokei daily loss limit
+Present a structured quantitative report:
 
-## Step 8: Output Format
-
-Present a structured summary:
-
-1. **Instrument & Bias**: Instrument name, overall bias (Bullish/Bearish/Neutral)
-2. **Multi-Timeframe Summary**:
-   - Daily: [Trend + key observation]
-   - H4: [Trend + key observation]
-   - H1: [Setup + trigger]
-3. **Key Levels Table**: Support and resistance levels
-4. **Confluence Score**: X/7 with breakdown
-5. **Trade Plan** (if score >= 4):
-   - Direction, Entry, Stop Loss, Take Profit
-   - Risk-Reward Ratio
-   - Position Size recommendation
-6. **Risk Warnings**: Economic calendar events, correlation risks, any caveats
-7. **Invalidation**: Clear condition that would invalidate the analysis
+1. **Statistical Regime**: Hurst, autocorrelation, z-score, interpretation
+2. **Distribution Profile**: Skew, kurtosis, VaR, normality test result
+3. **Volatility State**: Regime, percentile, position sizing adjustment
+4. **Macro Backdrop**: Rate differential, regime, cross-asset alignment
+5. **Correlation Risk**: Matrix highlights, exposure warnings
+6. **Event Risk**: Upcoming catalysts, impact assessment
+7. **Trade Decision**:
+   - If EV > 0: Full trade plan with entry, SL, TP, lot size, and statistical basis
+   - If EV ≤ 0: "No statistical edge identified. Stand aside."
+8. **Confidence Assessment**: HIGH / MODERATE / LOW based on data quality and signal alignment

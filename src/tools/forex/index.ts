@@ -4,6 +4,15 @@ export { getPrice, getPriceHistory, listInstruments, GET_MARKET_DATA_DESCRIPTION
 // Technical Analysis
 export { getTechnicalIndicator, getMultiIndicators, TECHNICAL_ANALYSIS_DESCRIPTION } from './technical-analysis.js';
 
+// Statistical Analysis (Quantitative)
+export { getZScore, getCorrelationMatrix, getReturnDistribution, getVolatilityRegime, STATISTICAL_ANALYSIS_DESCRIPTION } from './statistical-analysis.js';
+
+// Macro / Econometric Analysis
+export { getRateDifferential, getMacroRegime, getCrossAssetRegime, MACRO_ANALYSIS_DESCRIPTION } from './macro-analysis.js';
+
+// Quant Strategy Engine
+export { backtestStrategy, monteCarloSimulation, calculateExpectedValue, QUANT_STRATEGY_DESCRIPTION } from './quant-strategy.js';
+
 // Economic Calendar
 export { getEconomicCalendar, ECONOMIC_CALENDAR_DESCRIPTION } from './economic-calendar.js';
 

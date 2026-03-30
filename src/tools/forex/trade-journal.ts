@@ -197,7 +197,7 @@ const GetStatsInputSchema = z.object({
 export const getTradeStats = new DynamicStructuredTool({
   name: 'get_trade_stats',
   description:
-    'Analyzes trading performance from the journal. Returns win rate, average R:R, P&L breakdown by instrument, best/worst trades, and streaks.',
+    'Advanced trading performance analytics. Returns win rate, Sharpe ratio, Sortino ratio, profit factor, expected payoff, equity curve analysis, risk of ruin estimate, P&L distribution, and Kelly-optimal position size.',
   schema: GetStatsInputSchema,
   func: async (input) => {
     const journal = await loadJournal();
@@ -341,6 +341,43 @@ export const getTradeStats = new DynamicStructuredTool({
       },
       bestTrade: bestTrade ? { id: bestTrade.id, instrument: bestTrade.instrument, pnlPips: bestTrade.pnlPips } : null,
       worstTrade: worstTrade ? { id: worstTrade.id, instrument: worstTrade.instrument, pnlPips: worstTrade.pnlPips } : null,
+      // Advanced quantitative metrics
+      quantMetrics: (() => {
+        const pnlArr = trades.map(t => t.pnlPips || 0);
+        const meanPnl = pnlArr.reduce((s, v) => s + v, 0) / pnlArr.length;
+        const stdPnl = Math.sqrt(pnlArr.reduce((s, v) => s + (v - meanPnl) ** 2, 0) / Math.max(1, pnlArr.length - 1));
+        const downsidePnl = pnlArr.filter(p => p < 0);
+        const downsideStd = downsidePnl.length > 1
+          ? Math.sqrt(downsidePnl.reduce((s, v) => s + v ** 2, 0) / downsidePnl.length)
+          : 0;
+        const sharpe = stdPnl > 0 ? meanPnl / stdPnl : 0;
+        const sortino = downsideStd > 0 ? meanPnl / downsideStd : 0;
+        const expectedPayoff = meanPnl;
+        // Kelly Criterion
+        const wr = wins.length / trades.length;
+        const avgW = Math.abs(avgWinPips);
+        const avgL = Math.abs(avgLossPips);
+        const kelly = avgL > 0 ? wr - (1 - wr) / (avgW / avgL) : 0;
+        // Risk of ruin (simplified: (q/p)^n where p=win prob, q=loss prob, n=units)
+        const riskOfRuin = wr > 0.5 && avgW > 0 && avgL > 0
+          ? Math.pow((1 - wr) / wr, 10) // probability of losing 10 consecutive
+          : wr <= 0.5 ? 1.0 : 0;
+        // Cumulative equity curve stats
+        const cumPnl: number[] = [];
+        let cum = 0, peak = 0, maxDD = 0;
+        for (const p of pnlArr) { cum += p; cumPnl.push(cum); if (cum > peak) peak = cum; const dd = peak - cum; if (dd > maxDD) maxDD = dd; }
+        return {
+          sharpeRatio: Math.round(sharpe * 1000) / 1000,
+          sortinoRatio: Math.round(sortino * 1000) / 1000,
+          expectedPayoffPerTrade: Math.round(expectedPayoff * 100) / 100,
+          stdDevPerTrade: Math.round(stdPnl * 100) / 100,
+          kellyCriterion: `${(kelly * 100).toFixed(1)}%`,
+          kellyRecommendation: kelly <= 0 ? 'NO EDGE' : kelly < 0.1 ? 'MARGINAL — risk 0.25-0.5%' : kelly < 0.2 ? 'MODERATE — risk 0.5-1%' : 'STRONG — use half-Kelly',
+          riskOfRuin: `${(riskOfRuin * 100).toFixed(2)}%`,
+          maxDrawdownPips: Math.round(maxDD * 100) / 100,
+          equityCurveEnd: Math.round(cum * 100) / 100,
+        };
+      })(),
     }, []);
   },
 });

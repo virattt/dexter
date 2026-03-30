@@ -3,6 +3,9 @@ import { createGetMarketData, GET_MARKET_DATA_META_DESCRIPTION } from './forex/g
 import { getEconomicCalendar, ECONOMIC_CALENDAR_DESCRIPTION } from './forex/economic-calendar.js';
 import { getFintokeiRules, calculatePositionSize, checkAccountHealth, FINTOKEI_RULES_DESCRIPTION } from './forex/fintokei-rules.js';
 import { recordTrade, closeTrade, getTradeStats, getTradeHistory, TRADE_JOURNAL_DESCRIPTION } from './forex/trade-journal.js';
+import { getZScore, getCorrelationMatrix, getReturnDistribution, getVolatilityRegime, STATISTICAL_ANALYSIS_DESCRIPTION } from './forex/statistical-analysis.js';
+import { getRateDifferential, getMacroRegime, getCrossAssetRegime, MACRO_ANALYSIS_DESCRIPTION } from './forex/macro-analysis.js';
+import { backtestStrategy, monteCarloSimulation, calculateExpectedValue, QUANT_STRATEGY_DESCRIPTION } from './forex/quant-strategy.js';
 import { exaSearch, perplexitySearch, tavilySearch, WEB_SEARCH_DESCRIPTION, xSearchTool, X_SEARCH_DESCRIPTION } from './search/index.js';
 import { skillTool, SKILL_TOOL_DESCRIPTION } from './skill.js';
 import { webFetchTool, WEB_FETCH_DESCRIPTION } from './fetch/web-fetch.js';
@@ -30,25 +33,80 @@ export interface RegisteredTool {
 /**
  * Get all registered tools with their descriptions.
  * Conditionally includes tools based on environment configuration.
- *
- * @param model - The model name (needed for tools that require model-specific configuration)
- * @returns Array of registered tools
  */
 export function getToolRegistry(model: string): RegisteredTool[] {
   const tools: RegisteredTool[] = [
-    // Market Data (meta-tool routes to price, history, technical indicators)
+    // ── Market Data (meta-tool routes to price, history, technical indicators) ──
     {
       name: 'get_market_data',
       tool: createGetMarketData(model),
       description: GET_MARKET_DATA_META_DESCRIPTION,
     },
-    // Economic Calendar
+
+    // ── Statistical Analysis (Quantitative) ──
+    {
+      name: 'get_zscore',
+      tool: getZScore,
+      description: 'Compute z-score of price/returns relative to historical distribution. Includes percentile rank and mean-reversion probability.',
+    },
+    {
+      name: 'get_correlation_matrix',
+      tool: getCorrelationMatrix,
+      description: 'Compute pairwise return correlation matrix for 2-8 instruments. Essential for portfolio risk decomposition and exposure analysis.',
+    },
+    {
+      name: 'get_return_distribution',
+      tool: getReturnDistribution,
+      description: STATISTICAL_ANALYSIS_DESCRIPTION,
+    },
+    {
+      name: 'get_volatility_regime',
+      tool: getVolatilityRegime,
+      description: 'Detect volatility regime (LOW/NORMAL/HIGH/CRISIS) with percentile rank, vol term structure, and position sizing implications.',
+    },
+
+    // ── Macro / Econometric Analysis ──
+    {
+      name: 'get_rate_differential',
+      tool: getRateDifferential,
+      description: 'Analyze interest rate differential and policy divergence between currencies. The strongest medium-term FX driver.',
+    },
+    {
+      name: 'get_macro_regime',
+      tool: getMacroRegime,
+      description: MACRO_ANALYSIS_DESCRIPTION,
+    },
+    {
+      name: 'get_cross_asset_regime',
+      tool: getCrossAssetRegime,
+      description: 'Detect risk-on/risk-off regime via cross-asset analysis (equities, gold, JPY). Returns positioning implications.',
+    },
+
+    // ── Quant Strategy Engine ──
+    {
+      name: 'backtest_strategy',
+      tool: backtestStrategy,
+      description: QUANT_STRATEGY_DESCRIPTION,
+    },
+    {
+      name: 'monte_carlo_simulation',
+      tool: monteCarloSimulation,
+      description: 'Run Monte Carlo simulation of Fintokei challenge outcomes. Calculates P(pass), P(fail), drawdown distribution, and optimal risk parameters.',
+    },
+    {
+      name: 'calculate_expected_value',
+      tool: calculateExpectedValue,
+      description: 'Calculate expected value of a trade setup given probability-weighted scenarios. Determines if mathematical edge exists.',
+    },
+
+    // ── Economic Calendar ──
     {
       name: 'economic_calendar',
       tool: getEconomicCalendar,
       description: ECONOMIC_CALENDAR_DESCRIPTION,
     },
-    // Fintokei Rules & Risk Management
+
+    // ── Fintokei Rules & Risk Management ──
     {
       name: 'get_fintokei_rules',
       tool: getFintokeiRules,
@@ -57,14 +115,15 @@ export function getToolRegistry(model: string): RegisteredTool[] {
     {
       name: 'calculate_position_size',
       tool: calculatePositionSize,
-      description: 'Calculates optimal position size respecting per-trade risk and Fintokei daily loss limits. Part of the fintokei_rules toolset.',
+      description: 'Calculate position size respecting per-trade risk and Fintokei daily loss limits.',
     },
     {
       name: 'check_account_health',
       tool: checkAccountHealth,
-      description: 'Evaluates Fintokei account health against challenge rules. Shows drawdown status, daily loss proximity, and profit target progress.',
+      description: 'Evaluate Fintokei account health: drawdown status, daily loss proximity, profit target progress.',
     },
-    // Trade Journal
+
+    // ── Trade Journal ──
     {
       name: 'record_trade',
       tool: recordTrade,
@@ -73,19 +132,20 @@ export function getToolRegistry(model: string): RegisteredTool[] {
     {
       name: 'close_trade',
       tool: closeTrade,
-      description: 'Closes an open trade in the journal with exit price and calculates P&L.',
+      description: 'Close trade with exit price. Calculates P&L, actual R:R.',
     },
     {
       name: 'get_trade_stats',
       tool: getTradeStats,
-      description: 'Analyzes trading performance: win rate, R:R ratios, P&L by instrument, streaks, and more.',
+      description: 'Advanced performance analytics: Sharpe, Sortino, Kelly Criterion, risk of ruin, profit factor, equity curve stats.',
     },
     {
       name: 'get_trade_history',
       tool: getTradeHistory,
-      description: 'Retrieves recent trades from the journal. Filter by status (open/closed) and instrument.',
+      description: 'Retrieve recent trades. Filter by status (open/closed) and instrument.',
     },
-    // Web & Browser
+
+    // ── Web & Browser ──
     {
       name: 'web_fetch',
       tool: webFetchTool,
@@ -96,7 +156,8 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: browserTool,
       description: BROWSER_DESCRIPTION,
     },
-    // Filesystem
+
+    // ── Filesystem ──
     {
       name: 'read_file',
       tool: readFileTool,
@@ -112,7 +173,8 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: editFileTool,
       description: EDIT_FILE_DESCRIPTION,
     },
-    // Scheduling
+
+    // ── Scheduling ──
     {
       name: 'heartbeat',
       tool: heartbeatTool,
@@ -123,7 +185,8 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: cronTool,
       description: CRON_TOOL_DESCRIPTION,
     },
-    // Memory
+
+    // ── Memory ──
     {
       name: 'memory_search',
       tool: memorySearchTool,
@@ -141,66 +204,31 @@ export function getToolRegistry(model: string): RegisteredTool[] {
     },
   ];
 
-  // Include web_search if Exa, Perplexity, or Tavily API key is configured (Exa → Perplexity → Tavily)
+  // Include web_search if search API key is configured
   if (process.env.EXASEARCH_API_KEY) {
-    tools.push({
-      name: 'web_search',
-      tool: exaSearch,
-      description: WEB_SEARCH_DESCRIPTION,
-    });
+    tools.push({ name: 'web_search', tool: exaSearch, description: WEB_SEARCH_DESCRIPTION });
   } else if (process.env.PERPLEXITY_API_KEY) {
-    tools.push({
-      name: 'web_search',
-      tool: perplexitySearch,
-      description: WEB_SEARCH_DESCRIPTION,
-    });
+    tools.push({ name: 'web_search', tool: perplexitySearch, description: WEB_SEARCH_DESCRIPTION });
   } else if (process.env.TAVILY_API_KEY) {
-    tools.push({
-      name: 'web_search',
-      tool: tavilySearch,
-      description: WEB_SEARCH_DESCRIPTION,
-    });
+    tools.push({ name: 'web_search', tool: tavilySearch, description: WEB_SEARCH_DESCRIPTION });
   }
 
-  // Include x_search if X Bearer Token is configured
   if (process.env.X_BEARER_TOKEN) {
-    tools.push({
-      name: 'x_search',
-      tool: xSearchTool,
-      description: X_SEARCH_DESCRIPTION,
-    });
+    tools.push({ name: 'x_search', tool: xSearchTool, description: X_SEARCH_DESCRIPTION });
   }
 
-  // Include skill tool if any skills are available
   const availableSkills = discoverSkills();
   if (availableSkills.length > 0) {
-    tools.push({
-      name: 'skill',
-      tool: skillTool,
-      description: SKILL_TOOL_DESCRIPTION,
-    });
+    tools.push({ name: 'skill', tool: skillTool, description: SKILL_TOOL_DESCRIPTION });
   }
 
   return tools;
 }
 
-/**
- * Get just the tool instances for binding to the LLM.
- *
- * @param model - The model name
- * @returns Array of tool instances
- */
 export function getTools(model: string): StructuredToolInterface[] {
   return getToolRegistry(model).map((t) => t.tool);
 }
 
-/**
- * Build the tool descriptions section for the system prompt.
- * Formats each tool's rich description with a header.
- *
- * @param model - The model name
- * @returns Formatted string with all tool descriptions
- */
 export function buildToolDescriptions(model: string): string {
   return getToolRegistry(model)
     .map((t) => `### ${t.name}\n\n${t.description}`)

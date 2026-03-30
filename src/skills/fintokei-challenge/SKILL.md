@@ -1,149 +1,144 @@
 ---
 name: fintokei-challenge
-description: Fintokei challenge management and tracking. Triggers when user asks about their challenge progress, account health, drawdown status, daily loss remaining, how to pass the challenge, challenge strategy, or wants to evaluate their Fintokei account status.
+description: Quantitative Fintokei challenge management using Monte Carlo simulation and statistical optimization. Triggers when user asks about challenge probability, optimal strategy for passing, account health, drawdown risk, or how to optimize their Fintokei challenge approach.
 ---
 
-# Fintokei Challenge Management Skill
+# Fintokei Challenge Optimization Skill
 
 ## Workflow Checklist
 
 ```
-Fintokei Challenge Check:
-- [ ] Step 1: Gather account information
-- [ ] Step 2: Check account health against rules
-- [ ] Step 3: Analyze recent trading performance
-- [ ] Step 4: Calculate remaining risk budget
-- [ ] Step 5: Generate recommendations
-- [ ] Step 6: Present challenge dashboard
+Fintokei Challenge Optimization:
+- [ ] Step 1: Gather account and performance data
+- [ ] Step 2: Statistical performance audit
+- [ ] Step 3: Monte Carlo challenge simulation
+- [ ] Step 4: Optimal strategy calculation
+- [ ] Step 5: Risk budget allocation
+- [ ] Step 6: Present quantitative challenge dashboard
 ```
 
 ## Step 1: Gather Account Information
 
-Ask the user for (or recall from memory):
-- **Plan type**: ProTrader, SwiftTrader, or StartTrader
-- **Current phase**: Phase 1 (Challenge), Phase 2 (Verification), or Funded
-- **Account size**: Initial balance (e.g., 2,000,000 JPY)
-- **Current balance**: Current equity
-- **Today's P&L**: Profit/loss for today
+Collect or recall from memory:
+- Plan type (ProTrader / SwiftTrader / StartTrader)
+- Current phase (1, 2, or funded)
+- Initial balance and current balance
+- Today's P&L
 
-If the user hasn't provided this, use `memory_search` to check if it was stored previously.
+Call `get_fintokei_rules` for exact challenge constraints.
+Call `check_account_health` for current status.
 
-Then call `get_fintokei_rules` to get the exact rules for their plan:
-**Tool call:** `get_fintokei_rules` with `plan: "[their_plan]"`
+## Step 2: Statistical Performance Audit
 
-## Step 2: Check Account Health
+Call `get_trade_stats` with `period: "last_30_days"` for the most robust sample.
 
-Call `check_account_health` with the gathered information:
-
-**Parameters:**
-- accountBalance: [current balance]
-- accountCurrency: JPY (or USD)
-- initialBalance: [initial balance]
-- currentPnl: [current balance - initial balance]
-- todayPnl: [today's P&L]
-- plan: [their plan]
-- phase: [current phase number]
-
-## Step 3: Analyze Recent Trading Performance
-
-Call `get_trade_stats` to review recent performance:
-
-**Query 1:** `get_trade_stats` with `period: "this_week"` — Weekly performance snapshot
-**Query 2:** `get_trade_stats` with `period: "last_30_days"` — Monthly trend
-
-**Key metrics to evaluate:**
-- Win rate (target: > 50% for 1:2+ R:R trades)
-- Average R:R ratio (target: > 1.5)
+**Key metrics to extract:**
+- Win rate, average win, average loss (in pips and %)
+- Sharpe ratio (target: > 0.5 per session)
+- Sortino ratio (target: > 1.0 — penalizes only downside volatility)
 - Profit factor (target: > 1.5)
-- Trading frequency (avoid overtrading)
-- Performance by instrument (find strengths)
-- Long vs short performance (identify directional bias)
+- Kelly Criterion (determines maximum safe position size)
+- Expected payoff per trade (must be positive)
+- Max drawdown from equity curve
+- Risk of ruin estimate
 
-## Step 4: Calculate Remaining Risk Budget
+**If Kelly Criterion is negative:** The trader has no statistical edge. Recommend stopping trading and analyzing what's going wrong before continuing the challenge.
 
-Based on account health results:
+## Step 3: Monte Carlo Challenge Simulation
 
-### Daily Budget
-- Daily loss limit amount = initialBalance × (maxDailyLoss% / 100)
-- Remaining daily budget = dailyLossLimit - |todayLoss|
-- Maximum position risk for next trade = MIN(remainingDailyBudget, accountBalance × 1%)
+**This is the core quantitative analysis.** Using the trader's actual statistics, simulate thousands of possible challenge outcomes.
 
-### Total Drawdown Budget
-- Max drawdown amount = initialBalance × (maxTotalDrawdown% / 100)
-- Current drawdown = initialBalance - currentBalance
-- Remaining drawdown budget = maxDrawdown - currentDrawdown
-- Days to maintain at minimum risk if in drawdown
+Call `monte_carlo_simulation` with:
+- winRate: from Step 2 (e.g., 0.55)
+- avgWinPct: from Step 2 (convert pips to % of account)
+- avgLossPct: from Step 2 (convert pips to % of account, negative)
+- tradesPerDay: from trade history (calculate average)
+- tradingDays: remaining trading days (or 30 for new challenges)
+- profitTargetPct: from Fintokei rules (8% for ProTrader Phase 1)
+- maxDrawdownPct: from Fintokei rules (10%)
+- dailyLossLimitPct: from Fintokei rules (5%)
 
-### Profit Target Remaining
-- Target amount = initialBalance × (profitTarget% / 100)
-- Remaining to target = targetAmount - currentPnl
-- Required daily average = remaining ÷ estimated trading days left
+**Analyze results:**
+- P(pass challenge): target > 50%, ideal > 70%
+- P(fail by drawdown): the primary risk
+- P(fail by daily limit): indicates overtrading or overleveraging
+- Median days to pass: for realistic timeline expectations
+- P95 max drawdown: worst-case scenario in 95th percentile
 
-## Step 5: Generate Recommendations
+## Step 4: Optimal Strategy Calculation
 
-Based on the analysis, provide specific recommendations:
+Based on Monte Carlo results, calculate:
 
-### If Account is HEALTHY (drawdown < 5%)
-- Normal risk per trade: 1-2%
-- Focus on A and B+ setups
-- Maintain current strategy
+### Optimal Risk Per Trade
+- Start with Kelly Criterion from Step 2
+- Apply half-Kelly (standard conservative approach)
+- Verify with Monte Carlo: does half-Kelly produce P(pass) > 50%?
+- If not, iterate: try 0.3x Kelly, 0.4x Kelly until optimal found
 
-### If Account is in WARNING (drawdown 5-7%)
-- Reduce risk to 0.5-1% per trade
-- Only take A+ setups with 1:3+ R:R
-- Avoid correlated pairs
-- Consider reducing trading frequency
+### Optimal Trades Per Day
+- More trades = faster to target BUT higher daily limit risk
+- Run Monte Carlo with different tradesPerDay (1, 2, 3, 5) and compare P(pass)
+- Find the sweet spot that maximizes P(pass)
 
-### If Account is in DANGER (drawdown 7-9%)
-- Reduce risk to 0.25-0.5% per trade
-- Only take the highest conviction setups
-- Maximum 1-2 trades per day
-- No trades before high-impact news
-- Consider stopping for the day if 1 loss occurs
+### Strategy Selection
+Based on Hurst exponent and autocorrelation of the instruments traded:
+- If instruments are trending: momentum strategies maximize payoff
+- If instruments are mean-reverting: mean-reversion z-score strategies
+- If mixed: diversify strategy types
 
-### If Close to Target (>80% of profit target reached)
-- Reduce risk to preserve gains
-- Take partial profits more aggressively
-- Consider stopping early if target reached with buffer
-- Don't give back profits trying to overshoot
+## Step 5: Risk Budget Allocation
 
-## Step 6: Output Format — Challenge Dashboard
+### Daily Risk Budget
+- Max daily loss: initialBalance × dailyLossLimit%
+- Safe daily budget: 60-70% of max (buffer for slippage)
+- Per-trade allocation: safeDailyBudget / tradesPerDay
 
-Present a clear dashboard:
+### Drawdown Recovery Protocol
+If currently in drawdown, calculate:
+- Required gain to recover: DD / (1 - DD)
+- Trades needed: requiredGain / expectedPayoffPerTrade
+- Days needed: tradesNeeded / tradesPerDay
+- Probability of recovery: run Monte Carlo from current equity level
+
+### Near-Target Protocol
+If > 70% to profit target:
+- Reduce risk to 0.5x current level
+- Goal: protect gains, not maximize returns
+- Calculate minimum trades needed at reduced risk to reach target
+
+## Step 6: Output — Quantitative Challenge Dashboard
 
 ```
-📊 FINTOKEI CHALLENGE DASHBOARD
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FINTOKEI CHALLENGE — QUANTITATIVE ANALYSIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Plan: [ProTrader/SwiftTrader/StartTrader]
-Phase: [Phase 1 / Phase 2 / Funded]
-Status: [HEALTHY / WARNING / DANGER]
+ACCOUNT STATUS
+  Plan: ProTrader | Phase 1 | Status: [HEALTHY/WARNING/DANGER]
+  Balance: ¥X,XXX,XXX / ¥X,XXX,XXX initial
+  Drawdown: X.X% / 10% max | Daily: X.X% / 5% max
+  Target Progress: XX.X% of 8% target
 
-💰 Account
-  Initial Balance:  ¥X,XXX,XXX
-  Current Balance:  ¥X,XXX,XXX
-  P&L:             +/-¥XX,XXX (X.X%)
+PERFORMANCE STATISTICS (Last 30 days)
+  Trades: XX | Win Rate: XX.X% | Profit Factor: X.XX
+  Sharpe: X.XXX | Sortino: X.XXX | Expected Payoff: X.XX pips
+  Kelly Criterion: X.X% | Recommended Risk: X.X%
 
-📉 Drawdown Status
-  Current:     X.X% / 10% max
-  Daily Loss:  X.X% / 5% max
-  ████████░░ [visual bar]
+MONTE CARLO SIMULATION (10,000 paths)
+  ┌─────────────────────────────────────┐
+  │ P(Pass Challenge):    XX.X%         │
+  │ P(Fail Drawdown):     XX.X%         │
+  │ P(Fail Daily Limit):  XX.X%         │
+  │ Median Days to Pass:  XX days       │
+  │ P95 Max Drawdown:     X.X%          │
+  └─────────────────────────────────────┘
 
-🎯 Profit Target
-  Target:      X% = ¥XXX,XXX
-  Progress:    XX.X% complete
-  Remaining:   ¥XX,XXX
-  ████░░░░░░ [visual bar]
+OPTIMAL PARAMETERS
+  Risk per trade: X.X% (half-Kelly)
+  Trades per day: X (optimal for P(pass))
+  Stop loss: X.X × ATR | Take profit: X.X × ATR
 
-📈 This Week's Performance
-  Trades: X | Win Rate: XX% | Avg R:R: X.X
-  P&L: +/-¥XX,XXX
-
-⚠️ Risk Budget
-  Max risk per trade: ¥XX,XXX (X.X%)
-  Recommended lots:   X.XX (with 20-pip SL)
-
-💡 Recommendations
-  - [Specific, actionable advice]
-  - [...]
+ACTIONABLE RECOMMENDATIONS
+  1. [Specific, data-driven recommendation]
+  2. [...]
+  3. [...]
 ```

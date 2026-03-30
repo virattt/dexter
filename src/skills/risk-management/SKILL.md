@@ -1,157 +1,175 @@
 ---
 name: risk-management
-description: Advanced risk management analysis for Fintokei trading. Triggers when user asks about position sizing, risk per trade, lot size calculation, correlation risk, portfolio heat, maximum exposure, drawdown recovery, or optimal risk percentage for their account.
+description: Quantitative risk management using Kelly Criterion, Monte Carlo simulation, correlation decomposition, and volatility-adjusted position sizing. Triggers when user asks about position sizing, risk per trade, lot size, correlation risk, portfolio heat, drawdown recovery, optimal risk percentage, or Kelly fraction.
 ---
 
-# Risk Management Skill
+# Quantitative Risk Management Skill
 
 ## Workflow Checklist
 
 ```
-Risk Management Analysis:
-- [ ] Step 1: Gather account context
-- [ ] Step 2: Calculate optimal position sizing
-- [ ] Step 3: Analyze correlation risk
-- [ ] Step 4: Evaluate portfolio heat
-- [ ] Step 5: Drawdown recovery analysis (if applicable)
-- [ ] Step 6: Present risk management plan
+Quantitative Risk Management:
+- [ ] Step 1: Account context and performance statistics
+- [ ] Step 2: Kelly Criterion position sizing
+- [ ] Step 3: Volatility-adjusted risk calibration
+- [ ] Step 4: Correlation factor decomposition
+- [ ] Step 5: Portfolio heat and risk concentration analysis
+- [ ] Step 6: Drawdown recovery modeling (if applicable)
+- [ ] Step 7: Present risk management framework
 ```
 
-## Step 1: Gather Account Context
+## Step 1: Account Context
 
-Collect or recall from memory:
-- Account balance and currency (JPY/USD)
-- Fintokei plan and phase
-- Current open positions (check trade journal)
-- Today's P&L
-- Current drawdown level
+Call `get_trade_history` with status: "open" — get current exposure.
+Call `get_trade_stats` with period: "last_30_days" — get performance statistics.
+Call `check_account_health` — get drawdown status.
 
-Call `get_trade_history` with `status: "open"` to see current exposure.
-Call `check_account_health` if drawdown information is available.
+## Step 2: Kelly Criterion Position Sizing
 
-## Step 2: Calculate Optimal Position Sizing
+The Kelly Criterion gives the mathematically optimal fraction of capital to risk:
 
-### Per-Trade Risk Rules for Fintokei
+```
+f* = (p × b - q) / b
+where:
+  f* = optimal fraction of capital
+  p  = win probability
+  q  = 1 - p (loss probability)
+  b  = average win / average loss (payoff ratio)
+```
 
-| Account Status | Max Risk/Trade | Max Daily Risk | Strategy |
-|---------------|---------------|----------------|----------|
-| Healthy (DD < 3%) | 1-2% | 5% | Normal trading |
-| Caution (DD 3-5%) | 0.5-1% | 3% | Selective setups |
-| Warning (DD 5-7%) | 0.25-0.5% | 2% | A+ setups only |
-| Danger (DD 7-9%) | 0.1-0.25% | 1% | Survival mode |
-| Critical (DD > 9%) | Do not trade | 0% | Stop trading |
+**From trade stats, extract:**
+- Win rate (p)
+- Average win / average loss ratio (b)
+- Kelly fraction (f*)
 
-For each requested trade, call `calculate_position_size` with:
-- Account balance
-- Appropriate risk percentage based on status
-- Instrument
-- Stop loss distance in pips
-- Daily loss limit and current daily P&L
+**Adjustments for Fintokei:**
+- Full Kelly is too aggressive for prop trading challenges
+- Use fractional Kelly: 0.25x to 0.5x depending on account health
+  - HEALTHY (DD < 3%): 0.5x Kelly
+  - CAUTION (DD 3-5%): 0.3x Kelly
+  - WARNING (DD 5-7%): 0.2x Kelly
+  - DANGER (DD > 7%): 0.1x Kelly or stop trading
 
-### Stop Loss Guidelines by Instrument Category
+**For each instrument the user wants to trade:**
+Call `calculate_position_size` with the Kelly-derived risk percentage and the specific stop loss distance.
 
-**FX Majors (EUR/USD, GBP/USD, etc.):**
-- Scalp: 8-15 pips
-- Intraday: 15-30 pips
-- Swing: 30-80 pips
-- Minimum: 1.5x ATR on trading timeframe
+## Step 3: Volatility-Adjusted Risk Calibration
 
-**FX Crosses (GBP/JPY, EUR/AUD, etc.):**
-- Typically 1.5-2x the major pair SL due to higher volatility
-- GBP/JPY: 20-50 pips intraday, 50-150 pips swing
-- EUR/AUD: 15-40 pips intraday, 40-100 pips swing
+Different volatility regimes require different position sizes even with the same Kelly fraction.
 
-**Gold (XAUUSD):**
-- Scalp: 30-80 pips ($3-8)
-- Intraday: 80-200 pips ($8-20)
-- Swing: 200-500 pips ($20-50)
+**Tool:** `get_volatility_regime` for each instrument in the portfolio
 
-**Indices (US30, NAS100, etc.):**
-- US30: 20-50 points intraday, 50-150 points swing
-- NAS100: 15-40 points intraday, 40-100 points swing
-- JP225: 50-200 points intraday
+**Adjustment table:**
 
-## Step 3: Analyze Correlation Risk
+| Vol Regime | Vol Percentile | Risk Multiplier | Stop Multiplier |
+|-----------|---------------|----------------|-----------------|
+| LOW       | < 25th        | 1.2x base      | 1.0x ATR        |
+| NORMAL    | 25-75th       | 1.0x base      | 1.0x ATR        |
+| HIGH      | 75-90th       | 0.6x base      | 1.5x ATR        |
+| CRISIS    | > 90th        | 0.3x base      | 2.0x ATR        |
 
-### Key Correlations to Monitor
+**Applied risk:**
+```
+adjustedRisk = baseKellyRisk × volMultiplier × drawdownMultiplier
+```
 
-**Highly Correlated (avoid simultaneous positions in same direction):**
-- EUR/USD and GBP/USD (positive ~0.80)
-- EUR/USD and USD/CHF (negative ~-0.85)
-- AUD/USD and NZD/USD (positive ~0.90)
-- US30 and US500 and NAS100 (positive ~0.85-0.95)
-- XAUUSD and USD (negative correlation)
+## Step 4: Correlation Factor Decomposition
+
+**Tool:** `get_correlation_matrix` with all instruments in current + planned portfolio
+
+**Factor exposure analysis:**
+Decompose positions into common factor exposures:
+- USD factor: sum of all USD-linked positions
+- JPY factor: sum of all JPY-linked positions
+- Risk factor: sum of all risk-on/risk-off positions
+- Commodity factor: gold + oil exposure
 
 **Rules:**
-- If 2 correlated pairs are traded in the same effective direction, treat combined risk as 1.5x
-- Maximum 3 correlated positions at once
-- For indices: count US30 + US500 + NAS100 as a single risk unit
+- If correlation > 0.7 between two positions: treat as 1.5x single position risk
+- If correlation > 0.9: treat as nearly identical — one position should be closed
+- Net factor exposure should not exceed 3x single-position risk
+- For Fintokei: maximum portfolio heat = 5% of account
 
-### Portfolio Heat Calculation
+## Step 5: Portfolio Heat Analysis
 
-Portfolio Heat = Sum of all open position risks (as % of account)
+Portfolio Heat = Σ(position risk as % of account), adjusted for correlations.
 
-| Heat Level | Action |
-|-----------|--------|
-| < 3% | Green — room for more trades |
-| 3-5% | Yellow — limit new entries |
-| 5-8% | Orange — close weakest positions first |
-| > 8% | Red — reduce immediately |
+For each open position:
+1. Current distance to stop loss (in pips)
+2. Position size (lots)
+3. Pip value
+4. Risk amount = distance × lots × pip value
+5. Risk % = risk amount / account balance
 
-## Step 4: Evaluate Portfolio Heat
+**Aggregate:**
+- Raw heat: sum of all risk %
+- Correlation-adjusted heat: apply correlation multipliers from Step 4
+- Available heat: max portfolio heat (5%) - current heat
 
-For each open position from trade journal:
-1. Calculate current risk (distance to SL × lot size)
-2. Convert to account percentage
-3. Sum for total portfolio heat
-4. Apply correlation multiplier for correlated positions
+**Traffic light system:**
+- GREEN (< 3%): Room for new positions
+- YELLOW (3-5%): Limit new entries, only add if strong edge
+- ORANGE (5-7%): Reduce weakest positions
+- RED (> 7%): Immediate reduction required
 
-## Step 5: Drawdown Recovery Analysis
+## Step 6: Drawdown Recovery Modeling
 
-If the account is in drawdown:
+If account is in drawdown:
 
-### Recovery Math
-- From 3% DD: Need 3.1% gain to recover
-- From 5% DD: Need 5.3% gain to recover
-- From 8% DD: Need 8.7% gain to recover
-- From 10% DD: FAILED (Fintokei challenge over)
-
-### Recovery Strategy
-Calculate:
-- Number of trades needed to recover at current win rate and average R:R
-- Estimated trading days needed
-- Safe daily risk budget during recovery
-
-**Recovery Formula:**
+### Mathematical framework
 ```
-Required_Gain = Drawdown / (1 - Drawdown)
-Trades_to_Recover = Required_Gain / (AvgWin × WinRate - AvgLoss × LossRate)
+Recovery required = DD / (1 - DD)
+Expected trades to recover = recovery / (expectedPayoff × adjustedRisk)
+Expected days = tradesNeeded / tradesPerDay
 ```
 
-### Recovery Rules
-1. Never increase risk to "make it back quickly" — this is the #1 challenge killer
-2. Focus on the process, not the P&L
-3. Reduce risk as drawdown increases (see table in Step 2)
-4. Consider taking a 1-2 day break to reset mentally if drawdown > 5%
+### Monte Carlo recovery simulation
+Call `monte_carlo_simulation` with:
+- Current win rate and avg win/loss
+- Start from current equity level (not 100%)
+- Target: recover to breakeven (not profit target)
+- Track: P(recovery within N days) for N = 5, 10, 20, 30
 
-## Step 6: Output Format
+### Recovery protocol
+- **Mild DD (< 3%):** Normal trading, slight risk reduction
+- **Moderate DD (3-5%):** Reduce risk by 40%, extend timeline expectations
+- **Severe DD (5-8%):** Reduce risk by 60%, only trade highest-conviction setups, consider 1-day break
+- **Critical DD (8-9%):** Reduce risk by 80%, maximum 1 trade per day, stop after any loss
+- **Terminal DD (> 9%):** Stop trading. 1% remaining buffer is not enough to trade safely.
 
-Present a structured risk management plan:
+**Golden rule:** NEVER increase risk to "recover faster." Mathematically, this accelerates account destruction.
 
-1. **Account Status Summary**: Health level, drawdown, daily budget
-2. **Position Sizing Table**: For common instruments with recommended lot sizes
-3. **Current Portfolio Heat**: Open positions and combined risk
-4. **Correlation Alert**: Any correlated positions that need attention
-5. **Recovery Plan** (if in drawdown): Timeline, required trades, safe risk levels
-6. **Risk Rules**: Clear, actionable rules to follow
+## Step 7: Output — Risk Management Framework
 
-### Position Sizing Quick Reference Table
+```
+QUANTITATIVE RISK MANAGEMENT FRAMEWORK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-| Instrument | SL (pips) | Max Lots | Risk Amount | R:R 1:2 TP |
-|-----------|----------|---------|-------------|------------|
-| EUR/USD | 20 | X.XX | ¥XX,XXX | 40 pips |
-| GBP/JPY | 35 | X.XX | ¥XX,XXX | 70 pips |
-| XAUUSD | 100 | X.XX | ¥XX,XXX | 200 pips |
-| US30 | 30 | X.XX | ¥XX,XXX | 60 points |
+KELLY CRITERION ANALYSIS
+  Win Rate: XX.X% | Payoff Ratio: X.XX | Kelly: X.X%
+  Applied Fraction: 0.Xx (based on account health)
+  Effective Risk/Trade: X.X%
 
-Customize the table based on the user's actual account status and typical instruments.
+VOLATILITY-ADJUSTED SIZING
+  | Instrument | Vol Regime | ATR  | Adj Risk | Lot Size | SL Distance |
+  |-----------|-----------|------|----------|----------|-------------|
+  | EUR/USD   | NORMAL    | 0.XX | X.X%     | X.XX     | XX pips     |
+  | XAUUSD    | HIGH      | XX.X | X.X%     | X.XX     | XXX pips    |
+
+PORTFOLIO RISK DECOMPOSITION
+  Raw Heat: X.X% | Correlation-Adjusted: X.X% | Available: X.X%
+  USD Exposure: X.Xx | JPY Exposure: X.Xx | Risk Factor: X.Xx
+
+CORRELATION MATRIX (significant pairs only)
+  EUR/USD ↔ GBP/USD: 0.82 (STRONG — reduce combined exposure)
+
+DRAWDOWN STATUS
+  Current: X.X% | Recovery needed: X.X% | Est. trades: XX
+  P(recovery in 10 days): XX% | P(recovery in 20 days): XX%
+
+RULES FOR TODAY
+  1. Max risk per trade: X.X% = ¥XX,XXX
+  2. Max trades: X
+  3. Stop trading if daily P&L reaches: -¥XX,XXX
+  4. [Any additional instrument-specific rules]
+```
