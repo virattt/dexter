@@ -1,7 +1,7 @@
 {
-  "name": "dexter-ts",
-  "version": "2026.3.25",
-  "description": "Dexter - AI agent for deep financial research.",
+  "name": "dexter-forex",
+  "version": "2026.3.30",
+  "description": "Dexter for Forex - AI agent for FX, indices & gold trade analysis optimized for Fintokei.",
   "type": "module",
   "main": "src/index.tsx",
   "bin": {

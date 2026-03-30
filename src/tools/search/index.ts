@@ -7,23 +7,25 @@ Search the web for current information on any topic. Returns relevant search res
 
 ## When to Use
 
-- Historical stock prices for equities (use get_market_data)
-- Factual questions about entities (companies, people, organizations) where status can change
-- Current events, breaking news, recent developments
-- Technology updates, product announcements, industry trends
-- Verifying claims about real-world state (public/private, active/defunct, current leadership)
-- Research on topics outside of structured financial data
+- Market news, breaking developments, central bank announcements
+- Factual questions about brokers, regulations, or trading platforms
+- Current events affecting forex, indices, or commodity markets
+- Forex broker reviews, Fintokei updates, prop trading industry news
+- Technology updates, trading tool announcements
+- Verifying claims about real-world state
 
 ## When NOT to Use
 
-- Structured financial data (company financials, SEC filings, analyst estimates, key ratios - use get_financials instead)
-- Pure conceptual/definitional questions ("What is a DCF?")
+- Market prices, charts, or technical indicators (use get_market_data instead)
+- Economic calendar events (use economic_calendar instead)
+- Fintokei challenge rules (use get_fintokei_rules instead)
+- Pure conceptual/definitional questions ("What is a pip?")
 
 ## Usage Notes
 
 - Provide specific, well-formed search queries for best results
 - Returns up to 5 results with URLs and content snippets
-- Use for supplementary research when get_financials doesn't cover the topic
+- Use for supplementary research when structured tools don't cover the topic
 `.trim();
 
 export { tavilySearch } from './tavily.js';

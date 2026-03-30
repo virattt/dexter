@@ -2,14 +2,14 @@
 export { getToolRegistry, getTools, buildToolDescriptions } from './registry.js';
 export type { RegisteredTool } from './registry.js';
 
-// Individual tool exports (for backward compatibility and direct access)
-export { createGetFinancials } from './finance/index.js';
+// Individual tool exports (for direct access)
+export { createGetMarketData } from './forex/index.js';
 export { tavilySearch } from './search/index.js';
 
 // Tool descriptions
 export {
-  GET_FINANCIALS_DESCRIPTION,
-} from './finance/get-financials.js';
+  GET_MARKET_DATA_META_DESCRIPTION,
+} from './forex/get-market-data.js';
 export {
   WEB_SEARCH_DESCRIPTION,
 } from './search/index.js';

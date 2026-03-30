@@ -1,5 +1,8 @@
 import { StructuredToolInterface } from '@langchain/core/tools';
-import { createGetFinancials, createGetMarketData, createReadFilings, createScreenStocks } from './finance/index.js';
+import { createGetMarketData, GET_MARKET_DATA_META_DESCRIPTION } from './forex/get-market-data.js';
+import { getEconomicCalendar, ECONOMIC_CALENDAR_DESCRIPTION } from './forex/economic-calendar.js';
+import { getFintokeiRules, calculatePositionSize, checkAccountHealth, FINTOKEI_RULES_DESCRIPTION } from './forex/fintokei-rules.js';
+import { recordTrade, closeTrade, getTradeStats, getTradeHistory, TRADE_JOURNAL_DESCRIPTION } from './forex/trade-journal.js';
 import { exaSearch, perplexitySearch, tavilySearch, WEB_SEARCH_DESCRIPTION, xSearchTool, X_SEARCH_DESCRIPTION } from './search/index.js';
 import { skillTool, SKILL_TOOL_DESCRIPTION } from './skill.js';
 import { webFetchTool, WEB_FETCH_DESCRIPTION } from './fetch/web-fetch.js';
@@ -7,10 +10,6 @@ import { browserTool, BROWSER_DESCRIPTION } from './browser/browser.js';
 import { readFileTool, READ_FILE_DESCRIPTION } from './filesystem/read-file.js';
 import { writeFileTool, WRITE_FILE_DESCRIPTION } from './filesystem/write-file.js';
 import { editFileTool, EDIT_FILE_DESCRIPTION } from './filesystem/edit-file.js';
-import { GET_FINANCIALS_DESCRIPTION } from './finance/get-financials.js';
-import { GET_MARKET_DATA_DESCRIPTION } from './finance/get-market-data.js';
-import { READ_FILINGS_DESCRIPTION } from './finance/read-filings.js';
-import { SCREEN_STOCKS_DESCRIPTION } from './finance/screen-stocks.js';
 import { heartbeatTool, HEARTBEAT_TOOL_DESCRIPTION } from './heartbeat/heartbeat-tool.js';
 import { cronTool, CRON_TOOL_DESCRIPTION } from './cron/cron-tool.js';
 import { memoryGetTool, MEMORY_GET_DESCRIPTION, memorySearchTool, MEMORY_SEARCH_DESCRIPTION, memoryUpdateTool, MEMORY_UPDATE_DESCRIPTION } from './memory/index.js';
@@ -37,26 +36,56 @@ export interface RegisteredTool {
  */
 export function getToolRegistry(model: string): RegisteredTool[] {
   const tools: RegisteredTool[] = [
-    {
-      name: 'get_financials',
-      tool: createGetFinancials(model),
-      description: GET_FINANCIALS_DESCRIPTION,
-    },
+    // Market Data (meta-tool routes to price, history, technical indicators)
     {
       name: 'get_market_data',
       tool: createGetMarketData(model),
-      description: GET_MARKET_DATA_DESCRIPTION,
+      description: GET_MARKET_DATA_META_DESCRIPTION,
+    },
+    // Economic Calendar
+    {
+      name: 'economic_calendar',
+      tool: getEconomicCalendar,
+      description: ECONOMIC_CALENDAR_DESCRIPTION,
+    },
+    // Fintokei Rules & Risk Management
+    {
+      name: 'get_fintokei_rules',
+      tool: getFintokeiRules,
+      description: FINTOKEI_RULES_DESCRIPTION,
     },
     {
-      name: 'read_filings',
-      tool: createReadFilings(model),
-      description: READ_FILINGS_DESCRIPTION,
+      name: 'calculate_position_size',
+      tool: calculatePositionSize,
+      description: 'Calculates optimal position size respecting per-trade risk and Fintokei daily loss limits. Part of the fintokei_rules toolset.',
     },
     {
-      name: 'stock_screener',
-      tool: createScreenStocks(model),
-      description: SCREEN_STOCKS_DESCRIPTION,
+      name: 'check_account_health',
+      tool: checkAccountHealth,
+      description: 'Evaluates Fintokei account health against challenge rules. Shows drawdown status, daily loss proximity, and profit target progress.',
     },
+    // Trade Journal
+    {
+      name: 'record_trade',
+      tool: recordTrade,
+      description: TRADE_JOURNAL_DESCRIPTION,
+    },
+    {
+      name: 'close_trade',
+      tool: closeTrade,
+      description: 'Closes an open trade in the journal with exit price and calculates P&L.',
+    },
+    {
+      name: 'get_trade_stats',
+      tool: getTradeStats,
+      description: 'Analyzes trading performance: win rate, R:R ratios, P&L by instrument, streaks, and more.',
+    },
+    {
+      name: 'get_trade_history',
+      tool: getTradeHistory,
+      description: 'Retrieves recent trades from the journal. Filter by status (open/closed) and instrument.',
+    },
+    // Web & Browser
     {
       name: 'web_fetch',
       tool: webFetchTool,
@@ -67,6 +96,7 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: browserTool,
       description: BROWSER_DESCRIPTION,
     },
+    // Filesystem
     {
       name: 'read_file',
       tool: readFileTool,
@@ -82,6 +112,7 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: editFileTool,
       description: EDIT_FILE_DESCRIPTION,
     },
+    // Scheduling
     {
       name: 'heartbeat',
       tool: heartbeatTool,
@@ -92,6 +123,7 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: cronTool,
       description: CRON_TOOL_DESCRIPTION,
     },
+    // Memory
     {
       name: 'memory_search',
       tool: memorySearchTool,
