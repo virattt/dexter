@@ -77,7 +77,8 @@ export function createApprovalSelector(onSelect: (decision: ApprovalDecision) =>
   const items: SelectItem[] = [
     { value: 'allow-once', label: '1. Yes' },
     { value: 'allow-session', label: '2. Yes, allow all edits this session' },
-    { value: 'deny', label: '3. No' },
+    { value: 'allow-always', label: '3. Yes, always allow edits' },
+    { value: 'deny', label: '4. No' },
   ];
   const list = new VimSelectList(items, 5, selectListTheme);
   list.onSelect = (item) => onSelect(item.value as ApprovalDecision);

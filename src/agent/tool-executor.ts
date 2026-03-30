@@ -75,11 +75,13 @@ export class AgentToolExecutor {
         yield { type: 'tool_denied', tool: toolName, args: toolArgs };
         return;
       }
-      if (decision === 'allow-session') {
+      if (decision === 'allow-session' || decision === 'allow-always') {
         for (const name of TOOLS_REQUIRING_APPROVAL) {
           this.sessionApprovedTools.add(name);
         }
-        saveApprovedTools(this.sessionApprovedTools);
+        if (decision === 'allow-always') {
+          saveApprovedTools(this.sessionApprovedTools);
+        }
       }
     }
 
