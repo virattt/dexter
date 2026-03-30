@@ -1,18 +1,17 @@
-import { describe, test, expect, mock, beforeEach } from 'bun:test';
+import { describe, test, expect, beforeEach } from 'bun:test';
+import { createSkillTool, SKILL_TOOL_DESCRIPTION } from './skill.js';
 import type { Skill, SkillMetadata } from '../skills/types.js';
 
-// Configure mock skill state
-let mockGetSkillFn: (name: string) => Skill | null = () => null;
+// Injectable mock functions — reset before each test via beforeEach
+let mockGetSkillFn: (name: string) => Skill | undefined = () => undefined;
 let mockDiscoverSkillsFn: () => SkillMetadata[] = () => [];
 
-mock.module('../skills/index.js', () => ({
-  getSkill: (name: string) => mockGetSkillFn(name),
-  discoverSkills: () => mockDiscoverSkillsFn(),
-  buildSkillMetadataSection: mock(() => ''),
-  clearSkillCache: mock(() => {}),
-}));
-
-const { skillTool, SKILL_TOOL_DESCRIPTION } = await import('./skill.js');
+// createSkillTool receives closures so reassigning the let-variables above
+// inside individual tests is picked up by the already-created tool.
+let skillTool = createSkillTool(
+  (name) => mockGetSkillFn(name),
+  () => mockDiscoverSkillsFn(),
+);
 
 function makeSkill(overrides: Partial<Skill> = {}): Skill {
   return {
@@ -27,8 +26,13 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
 }
 
 beforeEach(() => {
-  mockGetSkillFn = () => null;
+  mockGetSkillFn = () => undefined;
   mockDiscoverSkillsFn = () => [];
+  // Recreate so each test starts fresh (closures re-bound to current variables)
+  skillTool = createSkillTool(
+    (name) => mockGetSkillFn(name),
+    () => mockDiscoverSkillsFn(),
+  );
 });
 
 describe('SKILL_TOOL_DESCRIPTION', () => {
