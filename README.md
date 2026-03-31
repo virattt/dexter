@@ -1,50 +1,54 @@
 # Dexter for Forex
 
-Dexter for Forex is an autonomous trade analysis agent specialized in FX, stock indices, gold, and other CFD instruments — optimized for Fintokei prop trading challenges. It performs multi-timeframe analysis, risk management, position sizing, and trade journaling. Think Claude Code, but built specifically for forex and CFD trade analysis.
+Dexter for Forexは、FX・株価指数・ゴールド等のCFD銘柄に特化した自律型定量トレード分析エージェントです。Fintokeiプロップトレーディングチャレンジに最適化されています。統計分析、計量経済モデル、モンテカルロシミュレーション、ケリー基準によるポジションサイジングなど、クオンツレベルの分析をターミナル上で実行します。
 
-## Table of Contents
+## 目次
 
-- [Overview](#overview)
-- [Prerequisites](#prerequisites)
-- [How to Install](#how-to-install)
-- [How to Run](#how-to-run)
-- [Tools & Capabilities](#tools--capabilities)
-- [Skills](#skills)
-- [Fintokei Integration](#fintokei-integration)
-- [How to Debug](#how-to-debug)
-- [How to Use with WhatsApp](#how-to-use-with-whatsapp)
-- [How to Contribute](#how-to-contribute)
-- [License](#license)
-
-
-## Overview
-
-Dexter for Forex takes trade ideas and market questions, then performs comprehensive analysis using live market data, technical indicators, and economic calendars — always within the context of Fintokei challenge rules.
-
-**Key Capabilities:**
-- **Multi-Timeframe Analysis**: Automatically analyzes Daily, H4, H1, and lower timeframes for confluence
-- **Technical Indicators**: SMA, EMA, RSI, MACD, Bollinger Bands, ATR, ADX, Ichimoku, Stochastic, and more
-- **Economic Calendar**: Checks upcoming high-impact events before recommending trades
-- **Fintokei Risk Management**: Position sizing respecting daily loss limits, drawdown limits, and profit targets
-- **Trade Journal**: Record, track, and analyze trading performance with detailed statistics
-- **Account Health Monitor**: Real-time challenge progress tracking with actionable recommendations
-- **Persistent Memory**: Remembers your Fintokei plan, preferred instruments, and trading style across sessions
-
-**Supported Instruments:**
-- **FX Majors**: EUR/USD, GBP/USD, USD/JPY, USD/CHF, AUD/USD, USD/CAD, NZD/USD
-- **FX Minors/Crosses**: EUR/GBP, EUR/JPY, GBP/JPY, AUD/JPY, and 15+ more
-- **Stock Indices**: JP225 (Nikkei), US30 (Dow), US500 (S&P), NAS100 (Nasdaq), GER40 (DAX), UK100 (FTSE), FRA40, AUS200, HK50
-- **Commodities**: XAUUSD (Gold), XAGUSD (Silver), USOIL (WTI), UKOIL (Brent)
+- [概要](#概要)
+- [前提条件](#前提条件)
+- [インストール方法](#インストール方法)
+- [実行方法](#実行方法)
+- [ツールと分析機能](#ツールと分析機能)
+- [スキル](#スキル)
+- [Fintokei対応](#fintokei対応)
+- [デバッグ方法](#デバッグ方法)
+- [WhatsAppでの利用](#whatsappでの利用)
+- [コントリビューション](#コントリビューション)
+- [ライセンス](#ライセンス)
 
 
-## Prerequisites
+## 概要
 
-- [Bun](https://bun.com) runtime (v1.0 or higher)
-- LLM API key (OpenAI, Anthropic, Google, xAI, or others)
-- Twelve Data API key (get free at [twelvedata.com](https://twelvedata.com/)) — for market data, indicators, and economic calendar
-- Exa API key (optional, for web search) — get at [exa.ai](https://exa.ai)
+Dexter for Forexはトレードアイデアや市場に関する質問を受け取り、統計学・計量経済学・確率論を用いた包括的な定量分析を実行します。常にFintokeiチャレンジのルール内で分析を行います。
 
-#### Installing Bun
+**主要機能：**
+- **統計レジーム判定**: Hurst指数、自己相関分析によりトレンド/平均回帰/ランダムウォークを統計的に分類
+- **リターン分布分析**: 歪度、尖度、VaR/CVaR、Jarque-Bera正規性検定でテールリスクを定量化
+- **ボラティリティレジーム分類**: LOW/NORMAL/HIGH/CRISISの4段階判定、vol-of-volによるレジーム変化予測
+- **マクロ計量経済分析**: 金利差、先行指標複合スコア、マクロレジーム分類（GDP/PMI/CPI/失業率/小売）
+- **クロスアセットレジーム検出**: S&P500/金/JPY/AUD/JPYの加重スコアからリスクオン/オフを判定
+- **戦略バックテスト**: 5つの定量戦略をヒストリカルデータで検証（Sharpe/Sortino/最大DD/プロフィットファクター/ケリー基準）
+- **モンテカルロシミュレーション**: 10,000パスでFintokeiチャレンジ通過確率をシミュレーション
+- **期待値計算**: 確率加重シナリオから数学的エッジの有無を判定
+- **ケリー基準ポジションサイジング**: 数学的に最適な賭け金をFintokei制約下で計算
+- **トレードジャーナル**: Sharpe比率/Sortino比率/破産確率を含む高度なパフォーマンス分析
+- **持続的メモリ**: Fintokeiプラン、好みの銘柄、トレーディングスタイルをセッション間で記憶
+
+**対応銘柄：**
+- **FXメジャー**: EUR/USD, GBP/USD, USD/JPY, USD/CHF, AUD/USD, USD/CAD, NZD/USD
+- **FXマイナー/クロス**: EUR/GBP, EUR/JPY, GBP/JPY, AUD/JPY 他15ペア以上
+- **株価指数**: JP225（日経）, US30（ダウ）, US500（S&P）, NAS100（ナスダック）, GER40（DAX）, UK100（FTSE）, FRA40, AUS200, HK50
+- **コモディティ**: XAUUSD（金）, XAGUSD（銀）, USOIL（WTI）, UKOIL（ブレント）
+
+
+## 前提条件
+
+- [Bun](https://bun.com) ランタイム（v1.0以上）
+- LLM APIキー（OpenAI, Anthropic, Google, xAI等いずれか1つ）
+- Twelve Data APIキー（[twelvedata.com](https://twelvedata.com/) で無料取得）— 市場データ・指標・経済カレンダー用
+- Exa APIキー（任意、Web検索用）— [exa.ai](https://exa.ai) で取得
+
+#### Bunのインストール
 
 **macOS/Linux:**
 ```bash
@@ -56,110 +60,145 @@ curl -fsSL https://bun.com/install | bash
 powershell -c "irm bun.sh/install.ps1|iex"
 ```
 
-After installation, restart your terminal and verify:
+インストール後、ターミナルを再起動して確認：
 ```bash
 bun --version
 ```
 
-## How to Install
+## インストール方法
 
-1. Clone the repository:
+1. リポジトリをクローン：
 ```bash
 git clone https://github.com/yuya-sugita/dexter-for-forex.git
 cd dexter-for-forex
 ```
 
-2. Install dependencies:
+2. 依存関係をインストール：
 ```bash
 bun install
 ```
 
-3. Set up environment variables:
+3. 環境変数を設定：
 ```bash
 cp env.example .env
 
-# Edit .env and add your API keys:
-# OPENAI_API_KEY=your-openai-api-key        (or ANTHROPIC_API_KEY, GOOGLE_API_KEY, etc.)
-# TWELVE_DATA_API_KEY=your-twelve-data-key   (market data & indicators)
-# EXASEARCH_API_KEY=your-exa-api-key         (optional: web search)
+# .env を編集してAPIキーを追加：
+# OPENAI_API_KEY=your-openai-api-key        (または ANTHROPIC_API_KEY 等)
+# TWELVE_DATA_API_KEY=your-twelve-data-key   (市場データ・指標用)
+# EXASEARCH_API_KEY=your-exa-api-key         (任意: Web検索)
 ```
 
-## How to Run
+## 実行方法
 
-Run Dexter in interactive mode:
+対話モードで起動：
 ```bash
 bun start
 ```
 
-Or with watch mode for development:
+開発用ウォッチモード：
 ```bash
 bun dev
 ```
 
-### Example Queries
+### クエリの例
 
 ```
-> EUR/USDを分析して、エントリーポイントを教えて
-> ゴールドの日足と4時間足のトレンドを確認して
-> 今日のドル円に影響する経済指標は？
-> Fintokeiチャレンジの残りのリスク予算を計算して
-> 口座残高200万円、リスク1%でGBP/JPYの適正ロット数は？
-> 今週のトレード成績をまとめて
-> US30のRSIとMACDを4時間足で確認して
+> EUR/USDの統計レジームを判定して（Hurst指数、自己相関）
+> ゴールドのリターン分布を分析して（歪度、尖度、VaR）
+> USD/JPYとEUR/USDとGBP/USDの相関行列を出して
+> 日米の金利差と政策ダイバージェンスを分析して
+> 日本のマクロレジームを先行指標から判定して
+> EUR/USDで平均回帰戦略をバックテストして
+> 勝率55%、平均勝ち1.5%、平均負け-0.75%でFintokeiチャレンジのモンテカルロを回して
+> 現在のボラティリティレジームに基づいてポジションサイジングを計算して
+> 今週のトレード成績をSharpe/Sortino付きで分析して
 ```
 
 
-## Tools & Capabilities
+## ツールと分析機能
 
-| Tool | Description |
-|------|-------------|
-| `get_market_data` | Current prices, historical OHLCV, and technical indicators for all Fintokei instruments |
-| `economic_calendar` | Upcoming economic events with impact levels and affected instruments |
-| `get_fintokei_rules` | Challenge rules, profit targets, drawdown limits by plan type |
-| `calculate_position_size` | Position sizing respecting per-trade risk and daily loss limits |
-| `check_account_health` | Account status against challenge rules with recommendations |
-| `record_trade` | Record new trades in the journal |
-| `close_trade` | Close trades with P&L calculation |
-| `get_trade_stats` | Performance analysis (win rate, R:R, profit factor, streaks) |
-| `get_trade_history` | Review recent trades and open positions |
-| `web_search` | Web search for market news and analysis |
-| `web_fetch` | Fetch and extract content from web pages |
-| `browser` | Browser automation for interactive web content |
-| `memory_*` | Persistent memory for user preferences and trading history |
+### 統計分析エンジン
+
+| ツール | 分析内容 |
+|--------|----------|
+| `get_zscore` | z-スコア、パーセンタイルランク、平均回帰確率 |
+| `get_correlation_matrix` | 2-8銘柄間のリターン相関行列（ポートフォリオリスク分解用） |
+| `get_return_distribution` | 歪度、尖度、VaR/CVaR、Hurst指数、自己相関、Jarque-Bera検定 |
+| `get_volatility_regime` | ボラティリティレジーム判定（LOW/NORMAL/HIGH/CRISIS）、vol期間構造 |
+
+### マクロ計量経済分析
+
+| ツール | 分析内容 |
+|--------|----------|
+| `get_rate_differential` | 金利差分析、キャリートレード利回り、政策ダイバージェンス |
+| `get_macro_regime` | GDP/PMI/CPI/失業率/小売の複合分析からマクロレジーム判定 |
+| `get_cross_asset_regime` | S&P500/金/JPY/AUD/JPYからリスクオン/オフ検出 |
+
+### クオンツ戦略エンジン
+
+| ツール | 分析内容 |
+|--------|----------|
+| `backtest_strategy` | 5戦略のバックテスト（Sharpe/Sortino/最大DD/ケリー基準付き） |
+| `monte_carlo_simulation` | Fintokeiチャレンジ通過確率のモンテカルロシミュレーション |
+| `calculate_expected_value` | 確率加重シナリオからの期待値計算 |
+
+### 市場データ・テクニカル指標
+
+| ツール | 分析内容 |
+|--------|----------|
+| `get_market_data` | リアルタイム価格、OHLCV履歴、テクニカル指標（メタツール） |
+| `economic_calendar` | 経済指標カレンダー（影響度・対象通貨ペア付き） |
+
+### Fintokeiリスク管理
+
+| ツール | 分析内容 |
+|--------|----------|
+| `get_fintokei_rules` | チャレンジルール（利益目標、DD上限、日次ロス制限） |
+| `calculate_position_size` | ケリー基準ベースのポジションサイジング |
+| `check_account_health` | アカウントヘルスチェック（DD状況、目標進捗） |
+
+### トレードジャーナル
+
+| ツール | 分析内容 |
+|--------|----------|
+| `record_trade` / `close_trade` | トレード記録・決済（R:R自動計算） |
+| `get_trade_stats` | Sharpe/Sortino/ケリー基準/破産確率を含む高度な統計分析 |
+| `get_trade_history` | トレード履歴・オープンポジション一覧 |
 
 
-## Skills
+## スキル
 
-Skills are specialized workflows that provide step-by-step analysis for complex tasks:
+スキルは複雑な分析タスクに対するステップバイステップのワークフローです：
 
-| Skill | Trigger | Description |
-|-------|---------|-------------|
-| `trade-analysis` | "analyze EUR/USD", "check this setup", "find trade opportunities" | Multi-timeframe analysis with confluence scoring, key levels, and complete trade plans |
-| `fintokei-challenge` | "challenge progress", "account health", "how to pass" | Challenge dashboard with drawdown status, profit target progress, and risk recommendations |
-| `risk-management` | "position sizing", "correlation risk", "portfolio heat" | Advanced risk analysis including correlation monitoring, portfolio heat, and drawdown recovery plans |
-
-
-## Fintokei Integration
-
-Dexter understands Fintokei challenge rules out of the box:
-
-**Supported Plans:**
-- **ProTrader** (2-step): Phase 1 (8% target, 5% daily / 10% total DD) → Phase 2 (5% target) → Funded (80% split)
-- **SwiftTrader** (1-step): 10% target, 5% daily / 10% total DD → Funded (80% split)
-- **StartTrader** (instant): No challenge, 50-90% scaling split, 5% daily / 10% total DD
-
-**Account sizes**: ¥200,000 / ¥500,000 / ¥1,000,000 / ¥2,000,000 / ¥5,000,000
-
-**Risk management features:**
-- Position sizing that respects both per-trade risk AND daily loss limits
-- Account health monitoring with HEALTHY / WARNING / DANGER / FAILED states
-- Drawdown recovery strategy with required trade calculations
-- Correlation risk warnings for simultaneous positions
+| スキル | トリガー | ワークフロー |
+|--------|---------|-------------|
+| `trade-analysis` | 「分析して」「セットアップを評価して」「エッジを探して」 | 8ステップ定量分析：レジーム判定→分布分析→ボラティリティ→マクロ→クロスアセット→相関→イベント→期待値 |
+| `fintokei-challenge` | 「チャレンジの確率」「通過戦略」「アカウント状況」 | モンテカルロベースのチャレンジ最適化：統計監査→MC Sim→最適パラメータ→リスク予算配分 |
+| `risk-management` | 「ポジションサイジング」「相関リスク」「ケリー基準」 | ケリー基準＋ボラティリティ調整＋相関ファクター分解＋ドローダウン回復モデリング |
 
 
-## How to Debug
+## Fintokei対応
 
-All tool calls are logged to `.dexter/scratchpad/` as JSONL files:
+DexterはFintokeiチャレンジのルールを制約付き最適化問題として扱います：
+
+**対応プラン：**
+- **ProTrader**（2ステップ）: Phase 1（8%目標、5%日次/10%全体DD）→ Phase 2（5%目標）→ Funded（80%分配）
+- **SwiftTrader**（1ステップ）: 10%目標、5%日次/10%全体DD → Funded（80%分配）
+- **StartTrader**（即時ファンド）: チャレンジなし、50-90%スケーリング分配
+
+**口座サイズ**: ¥200,000 / ¥500,000 / ¥1,000,000 / ¥2,000,000 / ¥5,000,000
+
+**定量的リスク管理機能：**
+- ケリー基準とボラティリティレジームに基づくポジションサイジング
+- モンテカルロシミュレーションによるチャレンジ通過確率の事前計算
+- 相関行列によるファクターエクスポージャー分解
+- ドローダウン回復の確率モデリング
+- HEALTHY / WARNING / DANGER / FAILEDの自動ステータス判定
+
+
+## デバッグ方法
+
+すべてのツール呼び出しは `.dexter/scratchpad/` にJSONLファイルとして記録されます：
 
 ```
 .dexter/scratchpad/
@@ -167,39 +206,39 @@ All tool calls are logged to `.dexter/scratchpad/` as JSONL files:
 └── ...
 ```
 
-Each file tracks: queries, tool calls with results, and agent reasoning.
+各ファイルにはクエリ、ツール呼び出しと結果、エージェントの推論が記録されます。
 
-Trade journal data is stored in `.dexter/journal/trades.json`.
+トレードジャーナルのデータは `.dexter/journal/trades.json` に保存されます。
 
 
-## How to Use with WhatsApp
+## WhatsAppでの利用
 
-Chat with Dexter through WhatsApp:
+WhatsApp経由でDexterとチャット：
 
 ```bash
-# Link your WhatsApp account (scan QR code)
+# WhatsAppアカウントをリンク（QRコードスキャン）
 bun run gateway:login
 
-# Start the gateway
+# ゲートウェイを起動
 bun run gateway
 ```
 
-Then message yourself on WhatsApp with trade analysis questions.
+WhatsApp上で自分自身にメッセージを送り、分析クエリを入力します。
 
-For detailed setup, see the [WhatsApp Gateway README](src/gateway/channels/whatsapp/README.md).
-
-
-## How to Contribute
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-**Important**: Please keep pull requests small and focused.
+詳細なセットアップについては [WhatsApp Gateway README](src/gateway/channels/whatsapp/README.md) を参照。
 
 
-## License
+## コントリビューション
 
-This project is licensed under the MIT License.
+1. リポジトリをフォーク
+2. フィーチャーブランチを作成
+3. 変更をコミット
+4. ブランチにプッシュ
+5. プルリクエストを作成
+
+**重要**: プルリクエストは小さく、フォーカスを絞ってください。
+
+
+## ライセンス
+
+このプロジェクトはMITライセンスの下でライセンスされています。

@@ -1,155 +1,155 @@
 ---
 name: trade-analysis
-description: Performs rigorous quantitative trade analysis for FX pairs, indices, and commodities. Triggers when user asks to analyze a trade setup, evaluate a pair, check a trade idea, find statistical edge, or wants a full quantitative breakdown of any Fintokei instrument.
+description: FXペア、株価指数、コモディティの厳密な定量トレード分析を実行する。トレードセットアップの分析、ペアの評価、トレードアイデアの検証、統計的エッジの探索、Fintokei銘柄の定量的ブレイクダウンを求められた時にトリガーされる。
 ---
 
-# Quantitative Trade Analysis Skill
+# 定量トレード分析スキル
 
-## Workflow Checklist
+## ワークフローチェックリスト
 
 ```
-Quantitative Trade Analysis:
-- [ ] Step 1: Statistical regime identification
-- [ ] Step 2: Return distribution analysis
-- [ ] Step 3: Volatility regime classification
-- [ ] Step 4: Macro context and rate differentials
-- [ ] Step 5: Cross-asset regime check
-- [ ] Step 6: Correlation and exposure analysis
-- [ ] Step 7: Economic event risk assessment
-- [ ] Step 8: Expected value calculation and trade plan
+定量トレード分析:
+- [ ] ステップ1: 統計レジームの特定
+- [ ] ステップ2: リターン分布分析
+- [ ] ステップ3: ボラティリティレジーム分類
+- [ ] ステップ4: マクロコンテキストと金利差
+- [ ] ステップ5: クロスアセットレジーム確認
+- [ ] ステップ6: 相関とエクスポージャー分析
+- [ ] ステップ7: 経済イベントリスク評価
+- [ ] ステップ8: 期待値計算とトレードプラン
 ```
 
-## Step 1: Statistical Regime Identification
+## ステップ1: 統計レジームの特定
 
-Determine if the instrument is trending, mean-reverting, or random walk.
+対象銘柄がトレンド状態、平均回帰状態、またはランダムウォーク状態かを判定する。
 
-**Tool:** `get_return_distribution` with interval: "1day", lookback: 252
+**ツール:** `get_return_distribution` (interval: "1day", lookback: 252)
 
-**Extract:**
-- Hurst exponent (H > 0.6 = trending, H < 0.4 = mean-reverting, ~0.5 = random walk)
-- Autocorrelation at lag 1-5 (significant positive = momentum, negative = mean-reversion)
-- This determines which strategy class is statistically appropriate
+**抽出：**
+- Hurst指数（H > 0.6 = トレンド、H < 0.4 = 平均回帰、≈ 0.5 = ランダムウォーク）
+- ラグ1-5の自己相関（有意な正 = モメンタム、負 = 平均回帰）
+- これにより統計的に適切な戦略クラスが決定される
 
-**Tool:** `get_zscore` with interval: "1day", lookback: 100
+**ツール:** `get_zscore` (interval: "1day", lookback: 100)
 
-**Extract:**
-- Current z-score (> 2.0 or < -2.0 = statistical extreme)
-- Percentile rank
-- Historical mean-reversion probability at extreme z-scores
+**抽出：**
+- 現在のz-score（> 2.0 or < -2.0 = 統計的極値）
+- パーセンタイルランク
+- 極端なz-scoreでの過去の平均回帰確率
 
-**Decision matrix:**
-- H > 0.6 AND positive autocorrelation → Momentum/trend-following strategies
-- H < 0.4 AND negative autocorrelation → Mean-reversion strategies
-- H ≈ 0.5 → No statistical edge from trend or mean-reversion; rely on event-driven or macro analysis
+**判断マトリクス：**
+- H > 0.6 かつ正の自己相関 → モメンタム/トレンドフォロー戦略
+- H < 0.4 かつ負の自己相関 → 平均回帰戦略
+- H ≈ 0.5 → トレンドや平均回帰からの統計的エッジなし。イベントドリブンかマクロ分析に依拠
 
-## Step 2: Return Distribution Analysis
+## ステップ2: リターン分布分析
 
-Understand tail risk and whether standard risk models apply.
+テールリスクと標準リスクモデルの適用可能性を理解する。
 
-**Tool:** `get_return_distribution` (already called in Step 1)
+**ツール:** `get_return_distribution`（ステップ1で既に呼び出し済み）
 
-**Analyze:**
-- Skewness (negative skew = fat left tail = crash risk)
-- Excess kurtosis (> 0 = fatter tails than normal)
-- Jarque-Bera test (is normal distribution assumption valid?)
-- VaR(95%) and CVaR(95%) for tail risk quantification
+**分析：**
+- 歪度（負の歪度 = ファットレフトテール = クラッシュリスク）
+- 超過尖度（> 0 = 正規分布より太いテール）
+- Jarque-Bera検定（正規分布の仮定は有効か？）
+- VaR(95%)とCVaR(95%)によるテールリスク定量化
 
-**Implications:**
-- If kurtosis > 3: Standard VaR underestimates risk → use wider stops
-- If negative skew: Asymmetric downside → reduce position size or use options-like stop placement
-- If JB test fails: Cannot use Gaussian models for risk → use empirical distributions
+**含意：**
+- 尖度 > 3の場合: 標準VaRはリスクを過小評価 → より広いストップを使用
+- 負の歪度: 非対称なダウンサイド → ポジションサイズ縮小またはオプション的なストップ配置
+- JB検定不合格: リスクにガウスモデルを使用不可 → 経験的分布を使用
 
-## Step 3: Volatility Regime Classification
+## ステップ3: ボラティリティレジーム分類
 
-**Tool:** `get_volatility_regime` with interval: "1day"
+**ツール:** `get_volatility_regime` (interval: "1day")
 
-**Extract:**
-- Current regime: LOW / NORMAL / HIGH / CRISIS
-- Volatility percentile rank
-- Vol term structure (inverted = recent shock, steep = calm)
-- Vol-of-vol (high = regime change likely)
+**抽出：**
+- 現在のレジーム: LOW / NORMAL / HIGH / CRISIS
+- ボラティリティパーセンタイルランク
+- Vol期間構造（逆転 = 直近ショック、急勾配 = 平穏）
+- Vol-of-vol（高い = レジーム変化の可能性）
 
-**Position sizing adjustment:**
-- CRISIS: 0.25-0.5% risk per trade, 2x ATR stops
-- HIGH: 0.5-1.0% risk, 1.5x ATR stops
-- NORMAL: 1.0-1.5% risk, 1x ATR stops
-- LOW: 1.0-2.0% risk, watch for breakout setups
+**ポジションサイジング調整：**
+- CRISIS: リスク0.25-0.5%/トレード、2×ATRストップ
+- HIGH: リスク0.5-1.0%、1.5×ATRストップ
+- NORMAL: リスク1.0-1.5%、1×ATRストップ
+- LOW: リスク1.0-2.0%、ブレイクアウトセットアップに注視
 
-## Step 4: Macro Context
+## ステップ4: マクロコンテキスト
 
-**Tool:** `get_rate_differential` with the base and quote currencies
+**ツール:** `get_rate_differential`（ベース通貨とクォート通貨で）
 
-**Extract:**
-- Rate differential and policy divergence
-- Carry trade direction and yield
-- Medium-term macro bias
+**抽出：**
+- 金利差と政策ダイバージェンス
+- キャリートレードの方向と利回り
+- 中期的マクロバイアス
 
-**Tool:** `get_macro_regime` for both base and quote economies
+**ツール:** `get_macro_regime`（ベースとクォート両方の経済で）
 
-**Extract:**
-- Regime state (expansion/slowdown/contraction/recovery)
-- Leading indicator trends
-- FX implications
+**抽出：**
+- レジーム状態（拡大/減速/縮小/回復）
+- 先行指標のトレンド
+- FXへの含意
 
-**Synthesis:**
-- Rate differential > +1% with supportive divergence → Strong fundamental bias
-- Conflicting macro regimes → Uncertainty premium, wider stops needed
-- Both economies same regime → Pair driven by relative strength, not absolute
+**統合：**
+- 金利差 > +1%で支持的ダイバージェンス → 強いファンダメンタルバイアス
+- マクロレジームの矛盾 → 不確実性プレミアム、より広いストップが必要
+- 両経済が同一レジーム → ペアは絶対値ではなく相対強度で動く
 
-## Step 5: Cross-Asset Regime
+## ステップ5: クロスアセットレジーム
 
-**Tool:** `get_cross_asset_regime`
+**ツール:** `get_cross_asset_regime`
 
-**Extract:**
-- Risk-on / risk-off / mixed
-- Implications for specific instrument (e.g., risk-off → JPY strong, AUD weak, gold up)
+**抽出：**
+- リスクオン / リスクオフ / 混合
+- 特定銘柄への含意（例: リスクオフ → JPY強、AUD弱、金上昇）
 
-## Step 6: Correlation and Exposure Analysis
+## ステップ6: 相関とエクスポージャー分析
 
-**Tool:** `get_correlation_matrix` with the target instrument plus correlated instruments
+**ツール:** `get_correlation_matrix`（対象銘柄＋相関銘柄）
 
-**Examples:**
-- For EUR/USD, include: GBP/USD, USD/CHF, DXY, gold
-- For XAUUSD, include: USD/JPY, US30, EUR/USD
-- For JP225, include: USD/JPY, US500, AUD/JPY
+**例：**
+- EUR/USDの場合: GBP/USD, USD/CHF, DXY, 金を含める
+- XAUUSDの場合: USD/JPY, US30, EUR/USDを含める
+- JP225の場合: USD/JPY, US500, AUD/JPYを含める
 
-**Check:**
-- Are any of the user's current open positions highly correlated with this trade?
-- Would this trade create hidden concentrated exposure to a single factor (e.g., USD strength)?
+**チェック：**
+- ユーザーの現在のオープンポジションとこのトレードの相関は高いか？
+- このトレードが単一ファクター（例: USD強含み）への隠れた集中エクスポージャーを作らないか？
 
-## Step 7: Economic Event Risk Assessment
+## ステップ7: 経済イベントリスク評価
 
-**Tool:** `get_economic_calendar` for the next 48 hours, filtered by relevant currencies
+**ツール:** `get_economic_calendar`（今後48時間、関連通貨でフィルタ）
 
-**Rules:**
-- HIGH impact event within 4 hours → DO NOT ENTER
-- HIGH impact event within 24 hours → Reduce position size by 50%
-- Consider the historical volatility impact of specific events (NFP, CPI, rate decisions)
+**ルール：**
+- HIGH影響イベントが4時間以内 → エントリーしない
+- HIGH影響イベントが24時間以内 → ポジションサイズを50%削減
+- 特定イベント（NFP、CPI、金利決定）の過去のボラティリティインパクトを考慮
 
-## Step 8: Expected Value and Trade Plan
+## ステップ8: 期待値とトレードプラン
 
-Based on all the above analysis, formulate the trade:
+上記すべての分析に基づきトレードを策定する：
 
-**If statistical edge identified (positive Hurst signal + macro alignment):**
+**統計的エッジが確認された場合（正のHurstシグナル + マクロの整合）：**
 
-**Tool:** `calculate_expected_value` with scenarios:
-- Scenario 1: TP hit (probability from backtest/historical data)
-- Scenario 2: SL hit (complement probability)
-- Scenario 3: Breakeven exit (partial probability)
+**ツール:** `calculate_expected_value`（シナリオ付き）：
+- シナリオ1: TP到達（バックテスト/過去データからの確率）
+- シナリオ2: SL到達（補完確率）
+- シナリオ3: ブレイクイーベン退出（部分的確率）
 
-**Tool:** `calculate_position_size` with account details and stop distance
+**ツール:** `calculate_position_size`（口座詳細とストップ距離で）
 
-## Output Format
+## 出力フォーマット
 
-Present a structured quantitative report:
+構造化された定量レポートを提示：
 
-1. **Statistical Regime**: Hurst, autocorrelation, z-score, interpretation
-2. **Distribution Profile**: Skew, kurtosis, VaR, normality test result
-3. **Volatility State**: Regime, percentile, position sizing adjustment
-4. **Macro Backdrop**: Rate differential, regime, cross-asset alignment
-5. **Correlation Risk**: Matrix highlights, exposure warnings
-6. **Event Risk**: Upcoming catalysts, impact assessment
-7. **Trade Decision**:
-   - If EV > 0: Full trade plan with entry, SL, TP, lot size, and statistical basis
-   - If EV ≤ 0: "No statistical edge identified. Stand aside."
-8. **Confidence Assessment**: HIGH / MODERATE / LOW based on data quality and signal alignment
+1. **統計レジーム**: Hurst、自己相関、z-score、解釈
+2. **分布プロファイル**: 歪度、尖度、VaR、正規性検定結果
+3. **ボラティリティ状態**: レジーム、パーセンタイル、ポジションサイジング調整
+4. **マクロ背景**: 金利差、レジーム、クロスアセットの整合性
+5. **相関リスク**: マトリクスのハイライト、エクスポージャー警告
+6. **イベントリスク**: 今後のカタリスト、影響評価
+7. **トレード判断**:
+   - EV > 0の場合: エントリー、SL、TP、ロットサイズ、統計的根拠を含む完全なトレードプラン
+   - EV ≤ 0の場合: 「統計的エッジが確認されず。見送り。」
+8. **確信度評価**: データ品質とシグナルの整合性に基づきHIGH / MODERATE / LOW

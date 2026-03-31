@@ -1,175 +1,175 @@
 ---
 name: risk-management
-description: Quantitative risk management using Kelly Criterion, Monte Carlo simulation, correlation decomposition, and volatility-adjusted position sizing. Triggers when user asks about position sizing, risk per trade, lot size, correlation risk, portfolio heat, drawdown recovery, optimal risk percentage, or Kelly fraction.
+description: ケリー基準、モンテカルロシミュレーション、相関分解、ボラティリティ調整ポジションサイジングを用いた定量リスク管理。ポジションサイジング、トレードあたりのリスク、ロットサイズ、相関リスク、ポートフォリオヒート、ドローダウン回復、最適リスク割合、ケリーフラクションについて質問された時にトリガーされる。
 ---
 
-# Quantitative Risk Management Skill
+# 定量リスク管理スキル
 
-## Workflow Checklist
+## ワークフローチェックリスト
 
 ```
-Quantitative Risk Management:
-- [ ] Step 1: Account context and performance statistics
-- [ ] Step 2: Kelly Criterion position sizing
-- [ ] Step 3: Volatility-adjusted risk calibration
-- [ ] Step 4: Correlation factor decomposition
-- [ ] Step 5: Portfolio heat and risk concentration analysis
-- [ ] Step 6: Drawdown recovery modeling (if applicable)
-- [ ] Step 7: Present risk management framework
+定量リスク管理:
+- [ ] ステップ1: アカウントコンテキストとパフォーマンス統計
+- [ ] ステップ2: ケリー基準ポジションサイジング
+- [ ] ステップ3: ボラティリティ調整リスクキャリブレーション
+- [ ] ステップ4: 相関ファクター分解
+- [ ] ステップ5: ポートフォリオヒートとリスク集中分析
+- [ ] ステップ6: ドローダウン回復モデリング（該当する場合）
+- [ ] ステップ7: リスク管理フレームワークの提示
 ```
 
-## Step 1: Account Context
+## ステップ1: アカウントコンテキスト
 
-Call `get_trade_history` with status: "open" — get current exposure.
-Call `get_trade_stats` with period: "last_30_days" — get performance statistics.
-Call `check_account_health` — get drawdown status.
+`get_trade_history`をstatus: "open"で呼び出し — 現在のエクスポージャーを取得。
+`get_trade_stats`をperiod: "last_30_days"で呼び出し — パフォーマンス統計を取得。
+`check_account_health`を呼び出し — ドローダウン状況を取得。
 
-## Step 2: Kelly Criterion Position Sizing
+## ステップ2: ケリー基準ポジションサイジング
 
-The Kelly Criterion gives the mathematically optimal fraction of capital to risk:
+ケリー基準は資本のリスクに対する数学的に最適なフラクションを与える：
 
 ```
 f* = (p × b - q) / b
-where:
-  f* = optimal fraction of capital
-  p  = win probability
-  q  = 1 - p (loss probability)
-  b  = average win / average loss (payoff ratio)
+ここで:
+  f* = 資本の最適フラクション
+  p  = 勝率
+  q  = 1 - p（敗率）
+  b  = 平均勝ち / 平均負け（ペイオフレシオ）
 ```
 
-**From trade stats, extract:**
-- Win rate (p)
-- Average win / average loss ratio (b)
-- Kelly fraction (f*)
+**トレード統計から抽出：**
+- 勝率（p）
+- 平均勝ち / 平均負けレシオ（b）
+- ケリーフラクション（f*）
 
-**Adjustments for Fintokei:**
-- Full Kelly is too aggressive for prop trading challenges
-- Use fractional Kelly: 0.25x to 0.5x depending on account health
-  - HEALTHY (DD < 3%): 0.5x Kelly
-  - CAUTION (DD 3-5%): 0.3x Kelly
-  - WARNING (DD 5-7%): 0.2x Kelly
-  - DANGER (DD > 7%): 0.1x Kelly or stop trading
+**Fintokei向け調整：**
+- フルケリーはプロップトレーディングチャレンジには積極的すぎる
+- アカウントヘルスに応じてフラクショナルケリーを使用: 0.25x〜0.5x
+  - HEALTHY（DD < 3%）: 0.5x ケリー
+  - CAUTION（DD 3-5%）: 0.3x ケリー
+  - WARNING（DD 5-7%）: 0.2x ケリー
+  - DANGER（DD > 7%）: 0.1x ケリーまたはトレード停止
 
-**For each instrument the user wants to trade:**
-Call `calculate_position_size` with the Kelly-derived risk percentage and the specific stop loss distance.
+**ユーザーがトレードしたい各銘柄について：**
+`calculate_position_size`をケリー導出のリスク割合と特定のストップロス距離で呼び出す。
 
-## Step 3: Volatility-Adjusted Risk Calibration
+## ステップ3: ボラティリティ調整リスクキャリブレーション
 
-Different volatility regimes require different position sizes even with the same Kelly fraction.
+同じケリーフラクションでも、異なるボラティリティレジームでは異なるポジションサイズが必要。
 
-**Tool:** `get_volatility_regime` for each instrument in the portfolio
+**ツール:** ポートフォリオ内の各銘柄に対して`get_volatility_regime`
 
-**Adjustment table:**
+**調整テーブル：**
 
-| Vol Regime | Vol Percentile | Risk Multiplier | Stop Multiplier |
+| Volレジーム | Volパーセンタイル | リスク乗数 | ストップ乗数 |
 |-----------|---------------|----------------|-----------------|
-| LOW       | < 25th        | 1.2x base      | 1.0x ATR        |
-| NORMAL    | 25-75th       | 1.0x base      | 1.0x ATR        |
-| HIGH      | 75-90th       | 0.6x base      | 1.5x ATR        |
-| CRISIS    | > 90th        | 0.3x base      | 2.0x ATR        |
+| LOW       | < 25パーセンタイル | 1.2x ベース | 1.0x ATR |
+| NORMAL    | 25-75パーセンタイル | 1.0x ベース | 1.0x ATR |
+| HIGH      | 75-90パーセンタイル | 0.6x ベース | 1.5x ATR |
+| CRISIS    | > 90パーセンタイル | 0.3x ベース | 2.0x ATR |
 
-**Applied risk:**
+**適用リスク：**
 ```
 adjustedRisk = baseKellyRisk × volMultiplier × drawdownMultiplier
 ```
 
-## Step 4: Correlation Factor Decomposition
+## ステップ4: 相関ファクター分解
 
-**Tool:** `get_correlation_matrix` with all instruments in current + planned portfolio
+**ツール:** 現在のポートフォリオ＋計画中のポジションのすべての銘柄で`get_correlation_matrix`
 
-**Factor exposure analysis:**
-Decompose positions into common factor exposures:
-- USD factor: sum of all USD-linked positions
-- JPY factor: sum of all JPY-linked positions
-- Risk factor: sum of all risk-on/risk-off positions
-- Commodity factor: gold + oil exposure
+**ファクターエクスポージャー分析：**
+ポジションを共通ファクターエクスポージャーに分解：
+- USDファクター: すべてのUSD連動ポジションの合計
+- JPYファクター: すべてのJPY連動ポジションの合計
+- リスクファクター: すべてのリスクオン/リスクオフポジションの合計
+- コモディティファクター: ゴールド＋原油エクスポージャー
 
-**Rules:**
-- If correlation > 0.7 between two positions: treat as 1.5x single position risk
-- If correlation > 0.9: treat as nearly identical — one position should be closed
-- Net factor exposure should not exceed 3x single-position risk
-- For Fintokei: maximum portfolio heat = 5% of account
+**ルール：**
+- 2つのポジション間の相関 > 0.7: 1.5倍の単一ポジションリスクとして扱う
+- 相関 > 0.9: ほぼ同一 — 一方のポジションを閉じるべき
+- ネットファクターエクスポージャーは単一ポジションリスクの3倍を超えてはならない
+- Fintokeiの場合: 最大ポートフォリオヒート = 口座の5%
 
-## Step 5: Portfolio Heat Analysis
+## ステップ5: ポートフォリオヒート分析
 
-Portfolio Heat = Σ(position risk as % of account), adjusted for correlations.
+ポートフォリオヒート = Σ（口座に対するポジションリスク%）、相関調整済み。
 
-For each open position:
-1. Current distance to stop loss (in pips)
-2. Position size (lots)
-3. Pip value
-4. Risk amount = distance × lots × pip value
-5. Risk % = risk amount / account balance
+各オープンポジションについて：
+1. ストップロスまでの現在距離（pips単位）
+2. ポジションサイズ（ロット）
+3. pip価値
+4. リスク金額 = 距離 × ロット × pip価値
+5. リスク% = リスク金額 / 口座残高
 
-**Aggregate:**
-- Raw heat: sum of all risk %
-- Correlation-adjusted heat: apply correlation multipliers from Step 4
-- Available heat: max portfolio heat (5%) - current heat
+**集計：**
+- 生ヒート: すべてのリスク%の合計
+- 相関調整済みヒート: ステップ4の相関乗数を適用
+- 利用可能ヒート: 最大ポートフォリオヒート（5%） - 現在のヒート
 
-**Traffic light system:**
-- GREEN (< 3%): Room for new positions
-- YELLOW (3-5%): Limit new entries, only add if strong edge
-- ORANGE (5-7%): Reduce weakest positions
-- RED (> 7%): Immediate reduction required
+**信号システム：**
+- 緑（< 3%）: 新規ポジションの余裕あり
+- 黄（3-5%）: 新規エントリーを制限、強いエッジがある場合のみ追加
+- 橙（5-7%）: 最も弱いポジションを縮小
+- 赤（> 7%）: 即時縮小が必要
 
-## Step 6: Drawdown Recovery Modeling
+## ステップ6: ドローダウン回復モデリング
 
-If account is in drawdown:
+口座がドローダウン中の場合：
 
-### Mathematical framework
+### 数学的フレームワーク
 ```
-Recovery required = DD / (1 - DD)
-Expected trades to recover = recovery / (expectedPayoff × adjustedRisk)
-Expected days = tradesNeeded / tradesPerDay
+回復に必要なゲイン = DD / (1 - DD)
+回復に必要な期待トレード数 = 必要ゲイン / (期待ペイオフ × 調整済みリスク)
+必要日数 = 必要トレード数 / 1日のトレード数
 ```
 
-### Monte Carlo recovery simulation
-Call `monte_carlo_simulation` with:
-- Current win rate and avg win/loss
-- Start from current equity level (not 100%)
-- Target: recover to breakeven (not profit target)
-- Track: P(recovery within N days) for N = 5, 10, 20, 30
+### モンテカルロ回復シミュレーション
+`monte_carlo_simulation`を以下で呼び出し：
+- 現在の勝率と平均勝ち/負け
+- 現在のエクイティレベルからスタート（100%からではない）
+- 目標: ブレイクイーブンまで回復（利益目標ではない）
+- 追跡: N日以内の回復確率 P(recovery)、N = 5, 10, 20, 30
 
-### Recovery protocol
-- **Mild DD (< 3%):** Normal trading, slight risk reduction
-- **Moderate DD (3-5%):** Reduce risk by 40%, extend timeline expectations
-- **Severe DD (5-8%):** Reduce risk by 60%, only trade highest-conviction setups, consider 1-day break
-- **Critical DD (8-9%):** Reduce risk by 80%, maximum 1 trade per day, stop after any loss
-- **Terminal DD (> 9%):** Stop trading. 1% remaining buffer is not enough to trade safely.
+### 回復プロトコル
+- **軽度DD（< 3%）:** 通常トレード、わずかにリスク縮小
+- **中度DD（3-5%）:** リスクを40%縮小、タイムライン期待値を延長
+- **重度DD（5-8%）:** リスクを60%縮小、最も確信度の高いセットアップのみトレード、1日の休止を検討
+- **危機的DD（8-9%）:** リスクを80%縮小、1日最大1トレード、損失後はトレード停止
+- **致命的DD（> 9%）:** トレード停止。残り1%のバッファでは安全にトレードできない。
 
-**Golden rule:** NEVER increase risk to "recover faster." Mathematically, this accelerates account destruction.
+**黄金律:** 「より早く回復する」ためにリスクを増やしてはならない。数学的に、これは口座の崩壊を加速させる。
 
-## Step 7: Output — Risk Management Framework
+## ステップ7: 出力 — リスク管理フレームワーク
 
 ```
-QUANTITATIVE RISK MANAGEMENT FRAMEWORK
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+定量リスク管理フレームワーク
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-KELLY CRITERION ANALYSIS
-  Win Rate: XX.X% | Payoff Ratio: X.XX | Kelly: X.X%
-  Applied Fraction: 0.Xx (based on account health)
-  Effective Risk/Trade: X.X%
+ケリー基準分析
+  勝率: XX.X% | ペイオフレシオ: X.XX | ケリー: X.X%
+  適用フラクション: 0.Xx（アカウントヘルスに基づく）
+  実効リスク/トレード: X.X%
 
-VOLATILITY-ADJUSTED SIZING
-  | Instrument | Vol Regime | ATR  | Adj Risk | Lot Size | SL Distance |
-  |-----------|-----------|------|----------|----------|-------------|
-  | EUR/USD   | NORMAL    | 0.XX | X.X%     | X.XX     | XX pips     |
-  | XAUUSD    | HIGH      | XX.X | X.X%     | X.XX     | XXX pips    |
+ボラティリティ調整サイジング
+  | 銘柄     | Volレジーム | ATR  | 調整リスク | ロット | SL距離     |
+  |---------|-----------|------|----------|------|------------|
+  | EUR/USD | NORMAL    | 0.XX | X.X%     | X.XX | XX pips    |
+  | XAUUSD  | HIGH      | XX.X | X.X%     | X.XX | XXX pips   |
 
-PORTFOLIO RISK DECOMPOSITION
-  Raw Heat: X.X% | Correlation-Adjusted: X.X% | Available: X.X%
-  USD Exposure: X.Xx | JPY Exposure: X.Xx | Risk Factor: X.Xx
+ポートフォリオリスク分解
+  生ヒート: X.X% | 相関調整済み: X.X% | 利用可能: X.X%
+  USDエクスポージャー: X.Xx | JPYエクスポージャー: X.Xx | リスクファクター: X.Xx
 
-CORRELATION MATRIX (significant pairs only)
-  EUR/USD ↔ GBP/USD: 0.82 (STRONG — reduce combined exposure)
+相関行列（有意なペアのみ）
+  EUR/USD ↔ GBP/USD: 0.82（強 — 合計エクスポージャーを縮小）
 
-DRAWDOWN STATUS
-  Current: X.X% | Recovery needed: X.X% | Est. trades: XX
-  P(recovery in 10 days): XX% | P(recovery in 20 days): XX%
+ドローダウンステータス
+  現在: X.X% | 回復に必要: X.X% | 推定トレード数: XX
+  P(10日以内に回復): XX% | P(20日以内に回復): XX%
 
-RULES FOR TODAY
-  1. Max risk per trade: X.X% = ¥XX,XXX
-  2. Max trades: X
-  3. Stop trading if daily P&L reaches: -¥XX,XXX
-  4. [Any additional instrument-specific rules]
+本日のルール
+  1. トレードあたり最大リスク: X.X% = ¥XX,XXX
+  2. 最大トレード数: X
+  3. 日次P&Lがここに達したらトレード停止: -¥XX,XXX
+  4. [銘柄固有の追加ルール]
 ```

@@ -1,144 +1,144 @@
 ---
 name: fintokei-challenge
-description: Quantitative Fintokei challenge management using Monte Carlo simulation and statistical optimization. Triggers when user asks about challenge probability, optimal strategy for passing, account health, drawdown risk, or how to optimize their Fintokei challenge approach.
+description: モンテカルロシミュレーションと統計最適化を用いたFintokeiチャレンジの定量的管理。チャレンジ通過確率、最適戦略、アカウントヘルス、ドローダウンリスク、チャレンジ攻略の最適化について質問された時にトリガーされる。
 ---
 
-# Fintokei Challenge Optimization Skill
+# Fintokeiチャレンジ最適化スキル
 
-## Workflow Checklist
-
-```
-Fintokei Challenge Optimization:
-- [ ] Step 1: Gather account and performance data
-- [ ] Step 2: Statistical performance audit
-- [ ] Step 3: Monte Carlo challenge simulation
-- [ ] Step 4: Optimal strategy calculation
-- [ ] Step 5: Risk budget allocation
-- [ ] Step 6: Present quantitative challenge dashboard
-```
-
-## Step 1: Gather Account Information
-
-Collect or recall from memory:
-- Plan type (ProTrader / SwiftTrader / StartTrader)
-- Current phase (1, 2, or funded)
-- Initial balance and current balance
-- Today's P&L
-
-Call `get_fintokei_rules` for exact challenge constraints.
-Call `check_account_health` for current status.
-
-## Step 2: Statistical Performance Audit
-
-Call `get_trade_stats` with `period: "last_30_days"` for the most robust sample.
-
-**Key metrics to extract:**
-- Win rate, average win, average loss (in pips and %)
-- Sharpe ratio (target: > 0.5 per session)
-- Sortino ratio (target: > 1.0 — penalizes only downside volatility)
-- Profit factor (target: > 1.5)
-- Kelly Criterion (determines maximum safe position size)
-- Expected payoff per trade (must be positive)
-- Max drawdown from equity curve
-- Risk of ruin estimate
-
-**If Kelly Criterion is negative:** The trader has no statistical edge. Recommend stopping trading and analyzing what's going wrong before continuing the challenge.
-
-## Step 3: Monte Carlo Challenge Simulation
-
-**This is the core quantitative analysis.** Using the trader's actual statistics, simulate thousands of possible challenge outcomes.
-
-Call `monte_carlo_simulation` with:
-- winRate: from Step 2 (e.g., 0.55)
-- avgWinPct: from Step 2 (convert pips to % of account)
-- avgLossPct: from Step 2 (convert pips to % of account, negative)
-- tradesPerDay: from trade history (calculate average)
-- tradingDays: remaining trading days (or 30 for new challenges)
-- profitTargetPct: from Fintokei rules (8% for ProTrader Phase 1)
-- maxDrawdownPct: from Fintokei rules (10%)
-- dailyLossLimitPct: from Fintokei rules (5%)
-
-**Analyze results:**
-- P(pass challenge): target > 50%, ideal > 70%
-- P(fail by drawdown): the primary risk
-- P(fail by daily limit): indicates overtrading or overleveraging
-- Median days to pass: for realistic timeline expectations
-- P95 max drawdown: worst-case scenario in 95th percentile
-
-## Step 4: Optimal Strategy Calculation
-
-Based on Monte Carlo results, calculate:
-
-### Optimal Risk Per Trade
-- Start with Kelly Criterion from Step 2
-- Apply half-Kelly (standard conservative approach)
-- Verify with Monte Carlo: does half-Kelly produce P(pass) > 50%?
-- If not, iterate: try 0.3x Kelly, 0.4x Kelly until optimal found
-
-### Optimal Trades Per Day
-- More trades = faster to target BUT higher daily limit risk
-- Run Monte Carlo with different tradesPerDay (1, 2, 3, 5) and compare P(pass)
-- Find the sweet spot that maximizes P(pass)
-
-### Strategy Selection
-Based on Hurst exponent and autocorrelation of the instruments traded:
-- If instruments are trending: momentum strategies maximize payoff
-- If instruments are mean-reverting: mean-reversion z-score strategies
-- If mixed: diversify strategy types
-
-## Step 5: Risk Budget Allocation
-
-### Daily Risk Budget
-- Max daily loss: initialBalance × dailyLossLimit%
-- Safe daily budget: 60-70% of max (buffer for slippage)
-- Per-trade allocation: safeDailyBudget / tradesPerDay
-
-### Drawdown Recovery Protocol
-If currently in drawdown, calculate:
-- Required gain to recover: DD / (1 - DD)
-- Trades needed: requiredGain / expectedPayoffPerTrade
-- Days needed: tradesNeeded / tradesPerDay
-- Probability of recovery: run Monte Carlo from current equity level
-
-### Near-Target Protocol
-If > 70% to profit target:
-- Reduce risk to 0.5x current level
-- Goal: protect gains, not maximize returns
-- Calculate minimum trades needed at reduced risk to reach target
-
-## Step 6: Output — Quantitative Challenge Dashboard
+## ワークフローチェックリスト
 
 ```
-FINTOKEI CHALLENGE — QUANTITATIVE ANALYSIS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Fintokeiチャレンジ最適化:
+- [ ] ステップ1: アカウントとパフォーマンスデータの収集
+- [ ] ステップ2: 統計的パフォーマンス監査
+- [ ] ステップ3: モンテカルロチャレンジシミュレーション
+- [ ] ステップ4: 最適戦略の計算
+- [ ] ステップ5: リスク予算配分
+- [ ] ステップ6: 定量チャレンジダッシュボードの提示
+```
 
-ACCOUNT STATUS
-  Plan: ProTrader | Phase 1 | Status: [HEALTHY/WARNING/DANGER]
-  Balance: ¥X,XXX,XXX / ¥X,XXX,XXX initial
-  Drawdown: X.X% / 10% max | Daily: X.X% / 5% max
-  Target Progress: XX.X% of 8% target
+## ステップ1: アカウント情報の収集
 
-PERFORMANCE STATISTICS (Last 30 days)
-  Trades: XX | Win Rate: XX.X% | Profit Factor: X.XX
-  Sharpe: X.XXX | Sortino: X.XXX | Expected Payoff: X.XX pips
-  Kelly Criterion: X.X% | Recommended Risk: X.X%
+メモリから収集または思い出す：
+- プランタイプ（ProTrader / SwiftTrader / StartTrader）
+- 現在のフェーズ（1、2、またはFunded）
+- 初期残高と現在残高
+- 本日の損益
 
-MONTE CARLO SIMULATION (10,000 paths)
+`get_fintokei_rules`でチャレンジの正確な制約を取得。
+`check_account_health`で現在のステータスを取得。
+
+## ステップ2: 統計的パフォーマンス監査
+
+`get_trade_stats` (period: "last_30_days") で最も頑健なサンプルを取得。
+
+**抽出すべき主要メトリクス：**
+- 勝率、平均勝ち、平均負け（pips単位と%単位）
+- Sharpe比率（目標: セッションあたり > 0.5）
+- Sortino比率（目標: > 1.0 — ダウンサイドボラティリティのみをペナルティ）
+- プロフィットファクター（目標: > 1.5）
+- ケリー基準（安全な最大ポジションサイズを決定）
+- トレードあたりの期待ペイオフ（正であること必須）
+- エクイティカーブからの最大ドローダウン
+- 破産確率の推定
+
+**ケリー基準が負の場合:** トレーダーに統計的エッジがない。チャレンジを続ける前にトレードを中止し、何が問題かを分析することを推奨。
+
+## ステップ3: モンテカルロチャレンジシミュレーション
+
+**これが核心の定量分析。** トレーダーの実際の統計を使用し、数千の可能なチャレンジ結果をシミュレーション。
+
+`monte_carlo_simulation`を以下のパラメータで呼び出し：
+- winRate: ステップ2から（例: 0.55）
+- avgWinPct: ステップ2から（pipsを口座の%に変換）
+- avgLossPct: ステップ2から（pipsを口座の%に変換、負の値）
+- tradesPerDay: トレード履歴から（平均を計算）
+- tradingDays: 残りの取引日数（新規チャレンジなら30）
+- profitTargetPct: Fintokeiルールから（ProTrader Phase 1なら8%）
+- maxDrawdownPct: Fintokeiルールから（10%）
+- dailyLossLimitPct: Fintokeiルールから（5%）
+
+**結果を分析：**
+- P(チャレンジ通過): 目標 > 50%、理想 > 70%
+- P(ドローダウンで失敗): 主要リスク
+- P(日次制限で失敗): オーバートレードまたはオーバーレバレッジの指標
+- 通過までの中央値日数: 現実的なタイムライン期待値
+- P95最大ドローダウン: 95パーセンタイルの最悪シナリオ
+
+## ステップ4: 最適戦略の計算
+
+モンテカルロ結果に基づき計算：
+
+### 最適トレードリスク
+- ステップ2のケリー基準から開始
+- ハーフケリー（標準的な保守的アプローチ）を適用
+- モンテカルロで検証: ハーフケリーでP(通過) > 50%か？
+- そうでなければ反復: 0.3x Kelly、0.4x Kellyを試し最適値を見つける
+
+### 最適トレード回数/日
+- トレード回数が多い = 目標到達が速いがが日次制限リスクも高い
+- 異なるtradesPerDay（1, 2, 3, 5）でモンテカルロを実行しP(通過)を比較
+- P(通過)を最大化するスイートスポットを見つける
+
+### 戦略選択
+トレード対象銘柄のHurst指数と自己相関に基づき：
+- 銘柄がトレンド状態: モメンタム戦略がペイオフを最大化
+- 銘柄が平均回帰状態: z-score平均回帰戦略
+- 混合: 戦略タイプを分散
+
+## ステップ5: リスク予算配分
+
+### 日次リスク予算
+- 最大日次損失: 初期残高 × dailyLossLimit%
+- 安全な日次予算: 最大の60-70%（スリッページのバッファ）
+- トレードあたりの配分: 安全日次予算 / 1日のトレード数
+
+### ドローダウン回復プロトコル
+現在ドローダウン中の場合、計算：
+- 回復に必要なゲイン: DD / (1 - DD)
+- 必要なトレード数: 必要ゲイン / トレードあたりの期待ペイオフ
+- 必要な日数: 必要トレード数 / 1日のトレード数
+- 回復確率: 現在のエクイティレベルからモンテカルロを実行
+
+### 目標接近プロトコル
+利益目標の70%以上に到達している場合：
+- リスクを現在レベルの0.5倍に縮小
+- 目標: 利益の保護、リターンの最大化ではない
+- 縮小リスクで目標到達に必要な最小トレード数を計算
+
+## ステップ6: 出力 — 定量チャレンジダッシュボード
+
+```
+FINTOKEI チャレンジ — 定量分析
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+アカウントステータス
+  プラン: ProTrader | Phase 1 | ステータス: [HEALTHY/WARNING/DANGER]
+  残高: ¥X,XXX,XXX / ¥X,XXX,XXX 初期
+  ドローダウン: X.X% / 10%上限 | 日次: X.X% / 5%上限
+  目標進捗: 8%目標のXX.X%
+
+パフォーマンス統計（直近30日）
+  トレード数: XX | 勝率: XX.X% | プロフィットファクター: X.XX
+  Sharpe: X.XXX | Sortino: X.XXX | 期待ペイオフ: X.XX pips
+  ケリー基準: X.X% | 推奨リスク: X.X%
+
+モンテカルロシミュレーション（10,000パス）
   ┌─────────────────────────────────────┐
-  │ P(Pass Challenge):    XX.X%         │
-  │ P(Fail Drawdown):     XX.X%         │
-  │ P(Fail Daily Limit):  XX.X%         │
-  │ Median Days to Pass:  XX days       │
-  │ P95 Max Drawdown:     X.X%          │
+  │ P(チャレンジ通過):    XX.X%         │
+  │ P(DD失敗):           XX.X%         │
+  │ P(日次制限失敗):     XX.X%         │
+  │ 通過中央値日数:       XX日          │
+  │ P95最大DD:           X.X%          │
   └─────────────────────────────────────┘
 
-OPTIMAL PARAMETERS
-  Risk per trade: X.X% (half-Kelly)
-  Trades per day: X (optimal for P(pass))
-  Stop loss: X.X × ATR | Take profit: X.X × ATR
+最適パラメータ
+  トレードリスク: X.X%（ハーフケリー）
+  1日のトレード数: X（P(通過)最適値）
+  ストップロス: X.X × ATR | テイクプロフィット: X.X × ATR
 
-ACTIONABLE RECOMMENDATIONS
-  1. [Specific, data-driven recommendation]
+実行可能な推奨事項
+  1. [具体的、データ駆動の推奨]
   2. [...]
   3. [...]
 ```
