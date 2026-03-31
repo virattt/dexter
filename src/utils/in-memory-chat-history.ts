@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { HumanMessage, AIMessage, type BaseMessage } from '@langchain/core/messages';
 import { callLlm, DEFAULT_MODEL } from '../model/llm.js';
 import {
   DEFAULT_HISTORY_LIMIT,
@@ -236,6 +237,33 @@ Select which previous messages are relevant to understanding or answering the cu
       return [
         { role: 'user', content: message.query },
         { role: 'assistant', content: assistantContent ?? '' },
+      ];
+    });
+  }
+
+  /**
+   * Returns recent completed turns as proper LangChain BaseMessage objects.
+   * Used by the message-array agent loop for cross-query history.
+   * Recent turns get full answers; older turns get summaries.
+   */
+  getRecentTurnsAsMessages(limit: number = this.maxTurns): BaseMessage[] {
+    const boundedLimit = Math.max(0, limit);
+    if (boundedLimit === 0) {
+      return [];
+    }
+
+    const completedMessages = this.messages.filter((message) => message.answer !== null);
+    const recentMessages = completedMessages.slice(-boundedLimit);
+
+    return recentMessages.flatMap((message, index) => {
+      const isRecentTurn = index >= recentMessages.length - FULL_ANSWER_TURNS;
+      const assistantContent = isRecentTurn
+        ? message.answer
+        : (message.summary ?? message.answer);
+
+      return [
+        new HumanMessage(message.query),
+        new AIMessage(assistantContent ?? ''),
       ];
     });
   }

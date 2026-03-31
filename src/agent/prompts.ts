@@ -274,9 +274,10 @@ ${formatBullets}${tablesSection}${groupContext ? '\n\n' + buildGroupSection(grou
 
 /**
  * Build user prompt for agent iteration with full tool results.
- * Anthropic-style: full results in context for accurate decision-making.
- * Context clearing happens at threshold, not inline summarization.
- * 
+ *
+ * @deprecated The message-array agent loop no longer uses this function.
+ * Kept for backward compatibility with tests and potential fallback paths.
+ *
  * @param originalQuery - The user's original query
  * @param fullToolResults - Formatted full tool results (or placeholder for cleared)
  * @param toolUsageStatus - Optional tool usage status for graceful exit mechanism
