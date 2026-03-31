@@ -258,43 +258,4 @@ ${formatBullets}${tablesSection}${groupContext ? '\n\n' + buildGroupSection(grou
 // User Prompts
 // ============================================================================
 
-/**
- * Build user prompt for agent iteration with full tool results.
- *
- * @deprecated The message-array agent loop no longer uses this function.
- * Kept for backward compatibility with tests and potential fallback paths.
- *
- * @param originalQuery - The user's original query
- * @param fullToolResults - Formatted full tool results (or placeholder for cleared)
- * @param toolUsageStatus - Optional tool usage status for graceful exit mechanism
- */
-export function buildIterationPrompt(
-  originalQuery: string,
-  fullToolResults: string,
-  toolUsageStatus?: string | null,
-  isPostCompaction?: boolean,
-): string {
-  let prompt = `Query: ${originalQuery}`;
-
-  if (fullToolResults.trim()) {
-    const sectionHeader = isPostCompaction
-      ? 'Research context (includes summary of earlier results):'
-      : 'Data retrieved from tool calls:';
-    prompt += `
-
-${sectionHeader}
-${fullToolResults}`;
-  }
-
-  // Add tool usage status if available (graceful exit mechanism)
-  if (toolUsageStatus) {
-    prompt += `\n\n${toolUsageStatus}`;
-  }
-
-  prompt += `
-
-Continue working toward answering the query. When you have gathered sufficient data to answer, write your complete answer directly and do not call more tools. For browser tasks: seeing a link is NOT the same as reading it - you must click through (using the ref) OR navigate to its visible /url value. NEVER guess at URLs - use ONLY URLs visible in snapshots.`;
-
-  return prompt;
-}
 

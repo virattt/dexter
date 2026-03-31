@@ -367,42 +367,6 @@ export class Scratchpad {
   }
 
   /**
-   * Clear oldest tool results from context (in-memory only).
-   * Anthropic-style: removes oldest tool results, keeping most recent N.
-   * The JSONL file is NOT modified - this only affects what gets sent to the LLM.
-   * 
-   * @param keepCount - Number of most recent tool results to keep
-   * @returns Number of tool results that were cleared
-   */
-  clearOldestToolResults(keepCount: number): number {
-    const entries = this.readEntries();
-    const toolResultIndices: number[] = [];
-    
-    let index = 0;
-    for (const entry of entries) {
-      if (entry.type === 'tool_result') {
-        // Only consider entries not already cleared
-        if (!this.clearedToolIndices.has(index)) {
-          toolResultIndices.push(index);
-        }
-        index++;
-      }
-    }
-    
-    // Calculate how many to clear
-    const toClearCount = Math.max(0, toolResultIndices.length - keepCount);
-    
-    if (toClearCount === 0) return 0;
-    
-    // Clear oldest entries (first N indices)
-    for (let i = 0; i < toClearCount; i++) {
-      this.clearedToolIndices.add(toolResultIndices[i]);
-    }
-    
-    return toClearCount;
-  }
-
-  /**
    * Get count of active (non-cleared) tool results.
    */
   getActiveToolResultCount(): number {
@@ -439,13 +403,6 @@ export class Scratchpad {
     this.compactionBoundaryIndex = toolResultCount - 1;
     // Old clearing state is superseded by the summary
     this.clearedToolIndices.clear();
-  }
-
-  /**
-   * Whether a compaction summary is active.
-   */
-  hasCompactionSummary(): boolean {
-    return this.compactionSummary !== null;
   }
 
   /**

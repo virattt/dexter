@@ -87,13 +87,7 @@ export function estimateContextTokens(
 // ---------------------------------------------------------------------------
 
 /**
- * Maximum token budget for context data in final answer generation.
- */
-export const TOKEN_BUDGET = 150_000;
-
-/**
- * Static threshold for legacy clearing fallback.
- * Used when model-aware threshold is not applicable.
+ * Static threshold used as fallback by memory flush.
  */
 export const CONTEXT_THRESHOLD = 100_000;
 

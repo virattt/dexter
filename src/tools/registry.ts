@@ -216,12 +216,6 @@ export function getTools(model: string): StructuredToolInterface[] {
  * @param model - The model name
  * @returns Formatted string with all tool descriptions
  */
-export function buildToolDescriptions(model: string): string {
-  return getToolRegistry(model)
-    .map((t) => `### ${t.name}\n\n${t.description}`)
-    .join('\n\n');
-}
-
 /**
  * Build compact tool descriptions for token-optimized system prompts.
  * Uses 1-2 sentence descriptions instead of full multi-paragraph ones.
