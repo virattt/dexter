@@ -8,7 +8,8 @@ import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { buildHistoryContext } from '../utils/history-context.js';
 import { estimateTokens, CONTEXT_THRESHOLD, KEEP_TOOL_USES } from '../utils/tokens.js';
 import { formatUserFacingError, isContextOverflowError } from '../utils/errors.js';
-import type { AgentConfig, AgentEvent, ContextClearedEvent, TokenUsage } from '../agent/types.js';
+import type { AgentConfig, AgentEvent, CompactionEvent, ContextClearedEvent, TokenUsage } from '../agent/types.js';
+import { compactContext, MAX_CONSECUTIVE_COMPACTION_FAILURES, MIN_TOOL_RESULTS_FOR_COMPACTION } from './compact.js';
 import { createRunContext, type RunContext } from './run-context.js';
 import { AgentToolExecutor } from './tool-executor.js';
 import { MemoryManager } from '../memory/index.js';
@@ -33,6 +34,7 @@ export class Agent {
   private readonly systemPrompt: string;
   private readonly signal?: AbortSignal;
   private readonly memoryEnabled: boolean;
+  private compactionFailures: number = 0;
 
   private constructor(
     config: AgentConfig,
@@ -125,7 +127,8 @@ export class Agent {
               currentPrompt = buildIterationPrompt(
                 query,
                 ctx.scratchpad.getToolResults(),
-                ctx.scratchpad.formatToolUsageForPrompt()
+                ctx.scratchpad.formatToolUsageForPrompt(),
+                ctx.scratchpad.hasCompactionSummary(),
               );
               continue;
             }
@@ -183,9 +186,10 @@ export class Agent {
 
       // Build iteration prompt with full tool results (Anthropic-style)
       currentPrompt = buildIterationPrompt(
-        query, 
+        query,
         ctx.scratchpad.getToolResults(),
-        ctx.scratchpad.formatToolUsageForPrompt()
+        ctx.scratchpad.formatToolUsageForPrompt(),
+        ctx.scratchpad.hasCompactionSummary(),
       );
     }
 
@@ -237,45 +241,103 @@ export class Agent {
   }
 
   /**
-   * Clear oldest tool results if context size exceeds threshold.
+   * Manage context size when it exceeds the threshold.
+   * Strategy: memory flush → compaction (LLM summary) → fallback to clearing.
    */
   private async *manageContextThreshold(
     ctx: RunContext,
     query: string,
     memoryFlushState: { alreadyFlushed: boolean },
-  ): AsyncGenerator<ContextClearedEvent | AgentEvent, void> {
+  ): AsyncGenerator<ContextClearedEvent | CompactionEvent | AgentEvent, void> {
     const fullToolResults = ctx.scratchpad.getToolResults();
     const estimatedContextTokens = estimateTokens(this.systemPrompt + ctx.query + fullToolResults);
 
-    if (estimatedContextTokens > CONTEXT_THRESHOLD) {
-      if (
-        this.memoryEnabled &&
-        shouldRunMemoryFlush({
-          estimatedContextTokens,
-          alreadyFlushed: memoryFlushState.alreadyFlushed,
-        })
-      ) {
-        yield { type: 'memory_flush', phase: 'start' };
-        const flushResult = await runMemoryFlush({
+    if (estimatedContextTokens <= CONTEXT_THRESHOLD) {
+      return;
+    }
+
+    // Step 1: Memory flush (existing — extract durable facts before compaction)
+    if (
+      this.memoryEnabled &&
+      shouldRunMemoryFlush({
+        estimatedContextTokens,
+        alreadyFlushed: memoryFlushState.alreadyFlushed,
+      })
+    ) {
+      yield { type: 'memory_flush', phase: 'start' };
+      const flushResult = await runMemoryFlush({
+        model: this.model,
+        systemPrompt: this.systemPrompt,
+        query,
+        toolResults: fullToolResults,
+        signal: this.signal,
+      }).catch(() => ({ flushed: false, written: false as const }));
+      memoryFlushState.alreadyFlushed = flushResult.flushed;
+      yield {
+        type: 'memory_flush',
+        phase: 'end',
+        filesWritten: flushResult.written ? [`${new Date().toISOString().slice(0, 10)}.md`] : [],
+      };
+    }
+
+    // Step 2: Attempt compaction (Claudia-style LLM summarization)
+    if (
+      this.compactionFailures < MAX_CONSECUTIVE_COMPACTION_FAILURES &&
+      ctx.scratchpad.getActiveToolResultCount() >= MIN_TOOL_RESULTS_FOR_COMPACTION
+    ) {
+      yield { type: 'compaction', phase: 'start', preCompactTokens: estimatedContextTokens };
+
+      try {
+        const result = await compactContext({
           model: this.model,
           systemPrompt: this.systemPrompt,
           query,
           toolResults: fullToolResults,
           signal: this.signal,
-        }).catch(() => ({ flushed: false, written: false as const }));
-        memoryFlushState.alreadyFlushed = flushResult.flushed;
-        yield {
-          type: 'memory_flush',
-          phase: 'end',
-          filesWritten: flushResult.written ? [`${new Date().toISOString().slice(0, 10)}.md`] : [],
-        };
-      }
+        });
 
-      const clearedCount = ctx.scratchpad.clearOldestToolResults(KEEP_TOOL_USES);
-      if (clearedCount > 0) {
+        // Store summary in scratchpad — replaces all current tool results
+        ctx.scratchpad.setCompactionSummary(result.summary);
+
+        if (result.usage) {
+          ctx.tokenCounter.add(result.usage);
+        }
+
+        // Reset counters on success
+        this.compactionFailures = 0;
         memoryFlushState.alreadyFlushed = false;
-        yield { type: 'context_cleared', clearedCount, keptCount: KEEP_TOOL_USES };
+
+        const postCompactTokens = estimateTokens(
+          this.systemPrompt + ctx.query + ctx.scratchpad.getToolResults(),
+        );
+
+        yield {
+          type: 'compaction',
+          phase: 'end',
+          success: true,
+          preCompactTokens: estimatedContextTokens,
+          postCompactTokens,
+          compactionModel: resolveProvider(this.model).fastModel ?? this.model,
+        };
+
+        return; // Compaction succeeded — skip fallback clearing
+      } catch {
+        this.compactionFailures++;
+        yield {
+          type: 'compaction',
+          phase: 'end',
+          success: false,
+          preCompactTokens: estimatedContextTokens,
+        };
+        // Fall through to legacy clearing
       }
+    }
+
+    // Step 3: Fallback — legacy clearing (existing behavior)
+    const clearedCount = ctx.scratchpad.clearOldestToolResults(KEEP_TOOL_USES);
+    if (clearedCount > 0) {
+      memoryFlushState.alreadyFlushed = false;
+      yield { type: 'context_cleared', clearedCount, keptCount: KEEP_TOOL_USES };
     }
   }
 

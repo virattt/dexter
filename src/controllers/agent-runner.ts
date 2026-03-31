@@ -226,6 +226,7 @@ export class AgentRunnerController {
         break;
       case 'tool_limit':
       case 'context_cleared':
+      case 'compaction':
         this.pushEvent({
           id: `${event.type}-${Date.now()}`,
           event,

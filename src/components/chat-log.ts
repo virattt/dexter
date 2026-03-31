@@ -274,6 +274,28 @@ export class ChatLogComponent extends Container {
     );
   }
 
+  addCompaction(success: boolean, preTokens?: number, postTokens?: number) {
+    if (success && preTokens && postTokens) {
+      const saved = preTokens - postTokens;
+      const pct = Math.round((saved / preTokens) * 100);
+      this.addChild(
+        new Text(
+          `${theme.muted(`⏺ Context compacted (${pct}% reduction, ~${Math.round(saved / 1000)}K tokens saved)`)}`,
+          0,
+          0,
+        ),
+      );
+    } else if (!success) {
+      this.addChild(
+        new Text(
+          `${theme.muted('⏺ Compaction failed, falling back to context clearing')}`,
+          0,
+          0,
+        ),
+      );
+    }
+  }
+
   addPerformanceStats(duration: number, tokenUsage?: TokenUsage, tokensPerSecond?: number) {
     const parts = [formatDuration(duration)];
     if (tokenUsage && tokenUsage.totalTokens > 20_000) {

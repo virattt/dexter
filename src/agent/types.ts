@@ -185,6 +185,22 @@ export interface TokenUsage {
 }
 
 /**
+ * Context compaction lifecycle event (Claudia-style LLM summarization).
+ */
+export interface CompactionEvent {
+  type: 'compaction';
+  phase: 'start' | 'end';
+  /** Whether compaction succeeded (only present on 'end' phase). */
+  success?: boolean;
+  /** Estimated tokens before compaction. */
+  preCompactTokens?: number;
+  /** Estimated tokens after compaction. */
+  postCompactTokens?: number;
+  /** Model used for the compaction call. */
+  compactionModel?: string;
+}
+
+/**
  * Agent completed with final result
  */
 export interface DoneEvent {
@@ -210,6 +226,7 @@ export type AgentEvent =
   | ToolDeniedEvent
   | ToolLimitEvent
   | ContextClearedEvent
+  | CompactionEvent
   | MemoryRecalledEvent
   | MemoryFlushEvent
   | DoneEvent;

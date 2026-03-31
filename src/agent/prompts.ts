@@ -284,14 +284,18 @@ ${formatBullets}${tablesSection}${groupContext ? '\n\n' + buildGroupSection(grou
 export function buildIterationPrompt(
   originalQuery: string,
   fullToolResults: string,
-  toolUsageStatus?: string | null
+  toolUsageStatus?: string | null,
+  isPostCompaction?: boolean,
 ): string {
   let prompt = `Query: ${originalQuery}`;
 
   if (fullToolResults.trim()) {
+    const sectionHeader = isPostCompaction
+      ? 'Research context (includes summary of earlier results):'
+      : 'Data retrieved from tool calls:';
     prompt += `
 
-Data retrieved from tool calls:
+${sectionHeader}
 ${fullToolResults}`;
   }
 

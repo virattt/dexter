@@ -147,6 +147,10 @@ function renderHistory(chatLog: ChatLogComponent, history: AgentRunnerController
       if (event.type === 'context_cleared') {
         chatLog.addContextCleared(event.clearedCount, event.keptCount);
       }
+
+      if (event.type === 'compaction' && event.phase === 'end') {
+        chatLog.addCompaction(event.success ?? false, event.preCompactTokens, event.postCompactTokens);
+      }
     }
 
     if (item.answer) {
