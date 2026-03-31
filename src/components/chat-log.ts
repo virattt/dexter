@@ -274,6 +274,27 @@ export class ChatLogComponent extends Container {
     );
   }
 
+  addQueuedMessage(text: string) {
+    this.addChild(new Spacer(1));
+    this.addChild(
+      new Text(
+        `${theme.muted(`❯ ${text}`)}`,
+        0,
+        0,
+      ),
+    );
+  }
+
+  addQueueDrain(count: number) {
+    this.addChild(
+      new Text(
+        `${theme.muted(`⏺ Picked up ${count} queued message${count !== 1 ? 's' : ''}`)}`,
+        0,
+        0,
+      ),
+    );
+  }
+
   addMicrocompact(cleared: number, tokensSaved: number) {
     this.addChild(
       new Text(

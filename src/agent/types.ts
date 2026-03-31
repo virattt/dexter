@@ -1,4 +1,5 @@
 import type { GroupContext } from './prompts.js';
+import type { MessageQueue } from '../utils/message-queue.js';
 
 // ============================================================================
 // Channel Profiles
@@ -55,6 +56,8 @@ export interface AgentConfig {
   sessionApprovedTools?: Set<string>;
   /** Enable/disable persistent memory integration for this run */
   memoryEnabled?: boolean;
+  /** Message queue for mid-run injection of new user messages. */
+  messageQueue?: MessageQueue;
 }
 
 /**
@@ -193,6 +196,17 @@ export interface TokenUsage {
 }
 
 /**
+ * Queued messages were drained and injected into the conversation.
+ */
+export interface QueueDrainEvent {
+  type: 'queue_drain';
+  /** Number of messages drained from the queue. */
+  messageCount: number;
+  /** The merged text injected as a HumanMessage. */
+  mergedText: string;
+}
+
+/**
  * Microcompact: per-turn lightweight trimming of old ToolMessage content.
  */
 export interface MicrocompactEvent {
@@ -245,6 +259,7 @@ export type AgentEvent =
   | ToolDeniedEvent
   | ToolLimitEvent
   | ContextClearedEvent
+  | QueueDrainEvent
   | MicrocompactEvent
   | CompactionEvent
   | MemoryRecalledEvent

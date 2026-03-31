@@ -7,7 +7,8 @@ import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { estimateTokens, estimateContextTokens, getAutoCompactThreshold, KEEP_TOOL_USES } from '../utils/tokens.js';
 import { formatUserFacingError, isContextOverflowError } from '../utils/errors.js';
-import type { AgentConfig, AgentEvent, CompactionEvent, ContextClearedEvent, MicrocompactEvent, TokenUsage } from '../agent/types.js';
+import type { AgentConfig, AgentEvent, CompactionEvent, ContextClearedEvent, MicrocompactEvent, QueueDrainEvent, TokenUsage } from '../agent/types.js';
+import type { MessageQueue } from '../utils/message-queue.js';
 import { compactContext, MAX_CONSECUTIVE_COMPACTION_FAILURES, MIN_TOOL_RESULTS_FOR_COMPACTION } from './compact.js';
 import { microcompactMessages } from './microcompact.js';
 import { createRunContext, type RunContext } from './run-context.js';
@@ -40,6 +41,7 @@ export class Agent {
   private readonly systemPrompt: string;
   private readonly signal?: AbortSignal;
   private readonly memoryEnabled: boolean;
+  private readonly messageQueue?: MessageQueue;
   private compactionFailures: number = 0;
 
   private constructor(
@@ -62,6 +64,7 @@ export class Agent {
     this.systemPrompt = systemPrompt;
     this.signal = config.signal;
     this.memoryEnabled = config.memoryEnabled ?? true;
+    this.messageQueue = config.messageQueue;
   }
 
   static async create(config: AgentConfig = {}): Promise<Agent> {
@@ -215,6 +218,13 @@ export class Agent {
       if (toolUsageWarning) {
         messages.push(new HumanMessage(toolUsageWarning));
       }
+
+      // Drain queued messages: user may have sent follow-ups while agent was working
+      const drainResult = this.drainQueue();
+      if (drainResult) {
+        messages.push(new HumanMessage(drainResult.text));
+        yield { type: 'queue_drain', messageCount: drainResult.count, mergedText: drainResult.text } as QueueDrainEvent;
+      }
     }
 
     // Max iterations reached
@@ -352,6 +362,26 @@ export class Agent {
     );
 
     return { toolMessages, denied };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Message queue
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Drain all queued messages, merge into a single text block.
+   * Returns null if the queue is empty or not configured.
+   */
+  private drainQueue(): { text: string; count: number } | null {
+    if (!this.messageQueue || this.messageQueue.isEmpty()) {
+      return null;
+    }
+    const messages = this.messageQueue.dequeueAll();
+    if (messages.length === 0) return null;
+    return {
+      text: messages.map(m => m.text).join('\n\n'),
+      count: messages.length,
+    };
   }
 
   // ---------------------------------------------------------------------------
