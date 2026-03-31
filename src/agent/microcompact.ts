@@ -14,10 +14,13 @@ import { ToolMessage, type BaseMessage } from '@langchain/core/messages';
 export const MC_CLEARED_MESSAGE = '[Old tool result content cleared]';
 
 /** Fire when compactable ToolMessages exceed this count. */
-export const COUNT_TRIGGER_THRESHOLD = 15;
+export const COUNT_TRIGGER_THRESHOLD = 8;
 
 /** Keep this many most recent compactable ToolMessages. */
-export const COUNT_KEEP_RECENT = 5;
+export const COUNT_KEEP_RECENT = 4;
+
+/** Fire when total compactable ToolMessage content exceeds this many estimated tokens. */
+export const TOKEN_TRIGGER_THRESHOLD = 80_000;
 
 /** Tool names whose results can be safely cleared (read-only tools). */
 const COMPACTABLE_TOOLS = new Set([
@@ -33,7 +36,7 @@ export interface MicrocompactResult {
   /** Estimated tokens saved by clearing. */
   estimatedTokensSaved: number;
   /** Which trigger fired, or null if nothing was cleared. */
-  trigger: 'count' | null;
+  trigger: 'count' | 'token' | null;
 }
 
 /**
@@ -60,7 +63,21 @@ export function microcompactMessages(messages: BaseMessage[]): MicrocompactResul
     }
   }
 
-  if (compactableIndices.length <= COUNT_TRIGGER_THRESHOLD) {
+  // Check count-based trigger
+  const countTriggered = compactableIndices.length > COUNT_TRIGGER_THRESHOLD;
+
+  // Check token-based trigger (catches few-but-large results)
+  let totalTokens = 0;
+  if (!countTriggered) {
+    for (const idx of compactableIndices) {
+      const content = (messages[idx] as ToolMessage).content;
+      const text = typeof content === 'string' ? content : JSON.stringify(content);
+      totalTokens += Math.ceil(text.length / 3.5);
+    }
+  }
+  const tokenTriggered = !countTriggered && totalTokens > TOKEN_TRIGGER_THRESHOLD;
+
+  if (!countTriggered && !tokenTriggered) {
     return { messages, cleared: 0, estimatedTokensSaved: 0, trigger: null };
   }
 
@@ -92,6 +109,6 @@ export function microcompactMessages(messages: BaseMessage[]): MicrocompactResul
     messages: newMessages,
     cleared: clearIndices.length,
     estimatedTokensSaved: tokensSaved,
-    trigger: 'count',
+    trigger: countTriggered ? 'count' : 'token',
   };
 }

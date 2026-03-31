@@ -6,6 +6,8 @@ import { buildSystemPrompt, loadSoulDocument } from './prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { estimateTokens, estimateContextTokens, getAutoCompactThreshold, KEEP_TOOL_USES } from '../utils/tokens.js';
+import { exceedsSizeCap, persistLargeResult, buildPersistedContent } from '../utils/tool-result-storage.js';
+import { enforceResultBudget } from '../utils/tool-result-budget.js';
 import { formatUserFacingError, isContextOverflowError } from '../utils/errors.js';
 import type { AgentConfig, AgentEvent, CompactionEvent, ContextClearedEvent, MicrocompactEvent, QueueDrainEvent, TokenUsage } from '../agent/types.js';
 import type { MessageQueue } from '../utils/message-queue.js';
@@ -129,6 +131,9 @@ export class Agent {
         yield { type: 'microcompact', cleared: mcResult.cleared, tokensSaved: mcResult.estimatedTokensSaved } as MicrocompactEvent;
       }
 
+      // Strip old reasoning from AIMessages (keep last 2 for continuity)
+      this.stripOldThinking(messages, 2);
+
       let response: AIMessage;
       let usage: TokenUsage | undefined;
 
@@ -191,7 +196,25 @@ export class Agent {
       messages.push(response);
 
       // Execute tools concurrently where safe, collect ToolMessages by ID
-      const { toolMessages, denied } = yield* this.executeToolsAndCollectMessages(response, ctx);
+      let { toolMessages, denied } = yield* this.executeToolsAndCollectMessages(response, ctx);
+
+      // Cap large results (persist to disk, inject preview)
+      toolMessages = toolMessages.map(tm => {
+        const content = typeof tm.content === 'string' ? tm.content : JSON.stringify(tm.content);
+        if (exceedsSizeCap(content)) {
+          const { preview, filePath } = persistLargeResult(tm.name ?? 'unknown', tm.tool_call_id, content);
+          return new ToolMessage({
+            content: buildPersistedContent(filePath, preview, content.length),
+            tool_call_id: tm.tool_call_id,
+            name: tm.name,
+          });
+        }
+        return tm;
+      });
+
+      // Enforce per-turn total budget
+      toolMessages = enforceResultBudget(toolMessages);
+
       messages.push(...toolMessages);
 
       if (denied) {
@@ -412,6 +435,36 @@ export class Agent {
    * Remove oldest AI+Tool message rounds, keeping SystemMessage, history,
    * HumanMessage, and the most recent N rounds.
    */
+  /**
+   * Strip text content from old AIMessages, keeping only the most recent N.
+   * Preserves tool_calls structure (required for ToolMessage pairing).
+   */
+  private stripOldThinking(messages: BaseMessage[], keepLast: number): void {
+    // Collect indices of AIMessages with text content
+    const aiIndices: number[] = [];
+    for (let i = 0; i < messages.length; i++) {
+      if (messages[i] instanceof AIMessage) {
+        aiIndices.push(i);
+      }
+    }
+
+    // Only strip if we have more than keepLast AIMessages
+    const toStrip = aiIndices.slice(0, -keepLast);
+    for (const idx of toStrip) {
+      const msg = messages[idx] as AIMessage;
+      // Only strip if it has tool_calls (reasoning before tools — safe to clear)
+      if (msg.tool_calls && msg.tool_calls.length > 0 && msg.content) {
+        messages[idx] = new AIMessage({
+          content: '',
+          tool_calls: msg.tool_calls,
+          invalid_tool_calls: msg.invalid_tool_calls,
+          usage_metadata: msg.usage_metadata,
+          response_metadata: msg.response_metadata,
+        });
+      }
+    }
+  }
+
   private truncateMessages(messages: BaseMessage[], keepRounds: number): number {
     let roundStartIndex = 0;
     for (let i = 0; i < messages.length; i++) {

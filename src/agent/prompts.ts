@@ -1,4 +1,4 @@
-import { buildToolDescriptions } from '../tools/registry.js';
+import { buildCompactToolDescriptions } from '../tools/registry.js';
 import { buildSkillMetadataSection, discoverSkills } from '../skills/index.js';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -207,7 +207,7 @@ export function buildSystemPrompt(
   memoryFiles?: string[],
   memoryContext?: string | null,
 ): string {
-  const toolDescriptions = buildToolDescriptions(model);
+  const toolDescriptions = buildCompactToolDescriptions(model);
   const profile = getChannelProfile(channel);
 
   const behaviorBullets = profile.behavior.map(b => `- ${b}`).join('\n');
@@ -229,28 +229,14 @@ ${toolDescriptions}
 
 ## Tool Usage Policy
 
-- Only use tools when the query actually requires external data
-- For stock and crypto prices, company news, and insider trades, use get_market_data
-- For financials, metrics, and estimates, use get_financials
-- For screening stocks by financial criteria (e.g., P/E below 15, high growth), use stock_screener
-- Call get_financials or get_market_data ONCE with the full natural language query - they handle multi-company/multi-metric requests internally
-- Do NOT break up queries into multiple tool calls when one call can handle the request
-- When news headlines are returned, assess whether the titles and metadata already answer the user's question before fetching full articles with web_fetch (fetching is expensive). Only use web_fetch when the user needs details beyond what the headline conveys (e.g., quotes, specifics of a deal, earnings call takeaways)
-- For general web queries or non-financial topics, use web_search
-- Only use browser when you need JavaScript rendering or interactive navigation (clicking links, filling forms, navigating SPAs)
-- For factual questions about entities (companies, people, organizations), use tools to verify current state
-- Only respond directly for: conceptual definitions, stable historical facts, or conversational queries
+- Call get_financials or get_market_data ONCE with the full natural language query — they handle multi-company/multi-metric requests internally. Do NOT break up queries into multiple calls.
+- Only use web_fetch when headlines are insufficient (need quotes, deal specifics, earnings details).
+- Tool results are automatically capped. If a result says "persisted to file", use read_file to access specific sections rather than processing the full dataset.
+- Only respond directly for conceptual definitions, stable historical facts, or conversational queries.
 
 ${buildSkillsSection()}
 
 ${buildMemorySection(memoryFiles ?? [], memoryContext)}
-
-## Heartbeat
-
-You have a periodic heartbeat that runs on a schedule (configurable by the user).
-The heartbeat reads .dexter/HEARTBEAT.md to know what to check.
-Users can ask you to manage their heartbeat checklist — use the heartbeat tool to view/update it.
-Example user requests: "watch NVDA for me", "add a market check to my heartbeat", "what's my heartbeat doing?"
 
 ## Behavior
 
