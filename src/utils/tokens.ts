@@ -51,39 +51,8 @@ export function getAutoCompactThreshold(model: string): number {
   return getEffectiveContextWindow(model) - AUTOCOMPACT_BUFFER_TOKENS;
 }
 
-/**
- * Estimate context tokens using actual API data when available.
- *
- * Anchors on the last API response's actual token count,
- * then estimate only the delta (new tool results added since that call).
- * Falls back to pure character estimation when no API data is available.
- *
- * @param lastApiInputTokens - Input tokens from the most recent API response (0 if unavailable)
- * @param lastApiOutputTokens - Output tokens from the most recent API response (0 if unavailable)
- * @param newContentSinceLastCall - Text added to context since the last API call (e.g., new tool results)
- * @param fullContextText - Full context text (used as fallback when no API data)
- */
-export function estimateContextTokens(
-  lastApiInputTokens: number,
-  lastApiOutputTokens: number,
-  newContentSinceLastCall: string,
-  fullContextText: string,
-): number {
-  if (lastApiInputTokens > 0) {
-    // Anchor on real API data + estimate only the delta
-    // The next call's input ≈ last input + last output + new tool results
-    // (output becomes part of context for the next turn in multi-turn APIs,
-    //  but Dexter rebuilds from scratch each iteration, so we just need
-    //  last input + the new tool results added since)
-    return lastApiInputTokens + estimateTokens(newContentSinceLastCall);
-  }
-
-  // No API data yet — fall back to pure estimation
-  return estimateTokens(fullContextText);
-}
-
 // ---------------------------------------------------------------------------
-// Legacy constants (kept for backward compatibility with clearing fallback)
+// Legacy constants
 // ---------------------------------------------------------------------------
 
 /**

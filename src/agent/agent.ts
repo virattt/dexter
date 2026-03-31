@@ -5,7 +5,7 @@ import { getTools, getToolConcurrencyMap } from '../tools/registry.js';
 import { buildSystemPrompt, loadSoulDocument } from './prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
-import { estimateTokens, estimateContextTokens, getAutoCompactThreshold, KEEP_TOOL_USES } from '../utils/tokens.js';
+import { estimateTokens, getAutoCompactThreshold, KEEP_TOOL_USES } from '../utils/tokens.js';
 import { exceedsSizeCap, persistLargeResult, buildPersistedContent } from '../utils/tool-result-storage.js';
 import { enforceResultBudget } from '../utils/tool-result-budget.js';
 import { formatUserFacingError, isContextOverflowError } from '../utils/errors.js';
