@@ -122,6 +122,8 @@ function renderHistory(chatLog: ChatLogComponent, history: AgentRunnerController
         } else if (display.completed && display.endEvent?.type === 'tool_error') {
           const toolError = display.endEvent as ToolErrorEvent;
           component.setError(toolError.error);
+        } else if (item.status === 'interrupted') {
+          // Don't start spinner for tools in interrupted items
         } else if (display.progressMessage) {
           component.setActive(display.progressMessage);
         }

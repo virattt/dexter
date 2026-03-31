@@ -56,6 +56,7 @@ interface ToolDisplayComponent {
   setLimitWarning(warning?: string): void;
   setApproval(decision: 'allow-once' | 'allow-session' | 'deny'): void;
   setDenied(path: string, tool: string): void;
+  dispose?(): void;
 }
 
 class BrowserSessionComponent extends Container implements ToolDisplayComponent {
@@ -145,6 +146,10 @@ export class ChatLogComponent extends Container {
   }
 
   clearAll() {
+    // Stop any running spinners before clearing
+    for (const component of this.toolById.values()) {
+      component.dispose?.();
+    }
     this.clear();
     this.toolById.clear();
     this.currentBrowserSession = null;
