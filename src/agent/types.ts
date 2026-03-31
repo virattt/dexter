@@ -84,6 +84,8 @@ export interface ToolStartEvent {
   type: 'tool_start';
   tool: string;
   args: Record<string, unknown>;
+  /** Unique tool_call ID from the AIMessage (for concurrent execution ordering). */
+  toolCallId?: string;
 }
 
 /**
@@ -95,6 +97,8 @@ export interface ToolEndEvent {
   args: Record<string, unknown>;
   result: string;
   duration: number;
+  /** Unique tool_call ID from the AIMessage (for concurrent execution ordering). */
+  toolCallId?: string;
 }
 
 /**
@@ -104,6 +108,8 @@ export interface ToolErrorEvent {
   type: 'tool_error';
   tool: string;
   error: string;
+  /** Unique tool_call ID from the AIMessage (for concurrent execution ordering). */
+  toolCallId?: string;
 }
 
 /**
@@ -144,6 +150,8 @@ export interface ToolDeniedEvent {
   type: 'tool_denied';
   tool: string;
   args: Record<string, unknown>;
+  /** Unique tool_call ID from the AIMessage (for concurrent execution ordering). */
+  toolCallId?: string;
 }
 
 /**
@@ -185,7 +193,18 @@ export interface TokenUsage {
 }
 
 /**
- * Context compaction lifecycle event (Claudia-style LLM summarization).
+ * Microcompact: per-turn lightweight trimming of old ToolMessage content.
+ */
+export interface MicrocompactEvent {
+  type: 'microcompact';
+  /** Number of ToolMessages whose content was cleared. */
+  cleared: number;
+  /** Estimated tokens saved by clearing. */
+  tokensSaved: number;
+}
+
+/**
+ * Context compaction lifecycle event (LLM summarization).
  */
 export interface CompactionEvent {
   type: 'compaction';
@@ -226,6 +245,7 @@ export type AgentEvent =
   | ToolDeniedEvent
   | ToolLimitEvent
   | ContextClearedEvent
+  | MicrocompactEvent
   | CompactionEvent
   | MemoryRecalledEvent
   | MemoryFlushEvent

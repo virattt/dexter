@@ -1,5 +1,5 @@
 /**
- * Context compaction module — Claudia-style LLM summarization.
+ * Context compaction module — LLM summarization.
  *
  * Instead of dropping old tool results (losing information permanently),
  * this module asks a fast LLM to summarize all accumulated tool results
@@ -22,7 +22,7 @@ export const MAX_CONSECUTIVE_COMPACTION_FAILURES = 3;
 export const MIN_TOOL_RESULTS_FOR_COMPACTION = 3;
 
 // ---------------------------------------------------------------------------
-// Compaction prompt (adapted from Claudia's BASE_COMPACT_PROMPT)
+// Compaction prompt
 // ---------------------------------------------------------------------------
 
 const NO_TOOLS_PREAMBLE = `CRITICAL: Respond with TEXT ONLY. Do NOT call any tools.
@@ -120,7 +120,7 @@ ${toolResults}${NO_TOOLS_TRAILER}`;
 }
 
 // ---------------------------------------------------------------------------
-// Summary formatting (from Claudia's formatCompactSummary)
+// Summary formatting
 // ---------------------------------------------------------------------------
 
 /**

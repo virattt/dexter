@@ -26,6 +26,8 @@ export interface RegisteredTool {
   tool: StructuredToolInterface;
   /** Rich description for system prompt (includes when to use, when not to use, etc.) */
   description: string;
+  /** Whether this tool can safely execute concurrently with other concurrent-safe tools. */
+  concurrencySafe: boolean;
 }
 
 /**
@@ -41,71 +43,85 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'get_financials',
       tool: createGetFinancials(model),
       description: GET_FINANCIALS_DESCRIPTION,
+      concurrencySafe: true,
     },
     {
       name: 'get_market_data',
       tool: createGetMarketData(model),
       description: GET_MARKET_DATA_DESCRIPTION,
+      concurrencySafe: true,
     },
     {
       name: 'read_filings',
       tool: createReadFilings(model),
       description: READ_FILINGS_DESCRIPTION,
+      concurrencySafe: true,
     },
     {
       name: 'stock_screener',
       tool: createScreenStocks(model),
       description: SCREEN_STOCKS_DESCRIPTION,
+      concurrencySafe: true,
     },
     {
       name: 'web_fetch',
       tool: webFetchTool,
       description: WEB_FETCH_DESCRIPTION,
+      concurrencySafe: true,
     },
     {
       name: 'browser',
       tool: browserTool,
       description: BROWSER_DESCRIPTION,
+      concurrencySafe: true,
     },
     {
       name: 'read_file',
       tool: readFileTool,
       description: READ_FILE_DESCRIPTION,
+      concurrencySafe: true,
     },
     {
       name: 'write_file',
       tool: writeFileTool,
       description: WRITE_FILE_DESCRIPTION,
+      concurrencySafe: false,
     },
     {
       name: 'edit_file',
       tool: editFileTool,
       description: EDIT_FILE_DESCRIPTION,
+      concurrencySafe: false,
     },
     {
       name: 'heartbeat',
       tool: heartbeatTool,
       description: HEARTBEAT_TOOL_DESCRIPTION,
+      concurrencySafe: true,
     },
     {
       name: 'cron',
       tool: cronTool,
       description: CRON_TOOL_DESCRIPTION,
+      concurrencySafe: true,
     },
     {
       name: 'memory_search',
       tool: memorySearchTool,
       description: MEMORY_SEARCH_DESCRIPTION,
+      concurrencySafe: true,
     },
     {
       name: 'memory_get',
       tool: memoryGetTool,
       description: MEMORY_GET_DESCRIPTION,
+      concurrencySafe: true,
     },
     {
       name: 'memory_update',
       tool: memoryUpdateTool,
       description: MEMORY_UPDATE_DESCRIPTION,
+      concurrencySafe: false,
     },
   ];
 
@@ -115,18 +131,21 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'web_search',
       tool: exaSearch,
       description: WEB_SEARCH_DESCRIPTION,
+      concurrencySafe: true,
     });
   } else if (process.env.PERPLEXITY_API_KEY) {
     tools.push({
       name: 'web_search',
       tool: perplexitySearch,
       description: WEB_SEARCH_DESCRIPTION,
+      concurrencySafe: true,
     });
   } else if (process.env.TAVILY_API_KEY) {
     tools.push({
       name: 'web_search',
       tool: tavilySearch,
       description: WEB_SEARCH_DESCRIPTION,
+      concurrencySafe: true,
     });
   }
 
@@ -136,6 +155,7 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'x_search',
       tool: xSearchTool,
       description: X_SEARCH_DESCRIPTION,
+      concurrencySafe: true,
     });
   }
 
@@ -146,10 +166,18 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'skill',
       tool: skillTool,
       description: SKILL_TOOL_DESCRIPTION,
+      concurrencySafe: false,
     });
   }
 
   return tools;
+}
+
+/**
+ * Build a name → concurrencySafe map for the tool executor.
+ */
+export function getToolConcurrencyMap(model: string): Map<string, boolean> {
+  return new Map(getToolRegistry(model).map(t => [t.name, t.concurrencySafe]));
 }
 
 /**

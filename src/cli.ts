@@ -148,6 +148,10 @@ function renderHistory(chatLog: ChatLogComponent, history: AgentRunnerController
         chatLog.addContextCleared(event.clearedCount, event.keptCount);
       }
 
+      if (event.type === 'microcompact') {
+        chatLog.addMicrocompact(event.cleared, event.tokensSaved);
+      }
+
       if (event.type === 'compaction' && event.phase === 'end') {
         chatLog.addCompaction(event.success ?? false, event.preCompactTokens, event.postCompactTokens);
       }

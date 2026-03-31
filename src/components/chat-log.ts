@@ -274,6 +274,16 @@ export class ChatLogComponent extends Container {
     );
   }
 
+  addMicrocompact(cleared: number, tokensSaved: number) {
+    this.addChild(
+      new Text(
+        `${theme.muted(`⏺ Microcompact: cleared ${cleared} old tool result${cleared !== 1 ? 's' : ''} (~${Math.round(tokensSaved / 1000)}K tokens)`)}`,
+        0,
+        0,
+      ),
+    );
+  }
+
   addCompaction(success: boolean, preTokens?: number, postTokens?: number) {
     if (success && preTokens && postTokens) {
       const saved = preTokens - postTokens;

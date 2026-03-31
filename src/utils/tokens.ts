@@ -1,6 +1,6 @@
 /**
  * Token estimation utilities for context management.
- * Uses actual API token counts when available (Claudia-style),
+ * Uses actual API token counts when available,
  * falling back to character-based estimation.
  */
 
@@ -20,7 +20,7 @@ export function estimateTokens(text: string): number {
 }
 
 // ---------------------------------------------------------------------------
-// Model-aware threshold (Claudia-style)
+// Model-aware threshold
 // ---------------------------------------------------------------------------
 
 /** Buffer tokens before the context limit to trigger compaction. */
@@ -34,7 +34,7 @@ const DEFAULT_CONTEXT_WINDOW = 128_000;
 
 /**
  * Get the effective context window size for a model, accounting for
- * reserved output tokens (matches Claudia's getEffectiveContextWindowSize).
+ * reserved output tokens.
  */
 export function getEffectiveContextWindow(model: string): number {
   const provider = resolveProvider(model);
@@ -45,7 +45,7 @@ export function getEffectiveContextWindow(model: string): number {
 /**
  * Get the auto-compact threshold for a model.
  * This is the token count at which compaction should trigger.
- * Matches Claudia's formula: effectiveWindow - 13K buffer.
+ * Formula: effectiveWindow - 13K buffer.
  */
 export function getAutoCompactThreshold(model: string): number {
   return getEffectiveContextWindow(model) - AUTOCOMPACT_BUFFER_TOKENS;
@@ -54,7 +54,7 @@ export function getAutoCompactThreshold(model: string): number {
 /**
  * Estimate context tokens using actual API data when available.
  *
- * Claudia's approach: anchor on the last API response's actual token count,
+ * Anchors on the last API response's actual token count,
  * then estimate only the delta (new tool results added since that call).
  * Falls back to pure character estimation when no API data is available.
  *

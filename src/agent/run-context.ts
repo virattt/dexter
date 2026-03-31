@@ -14,7 +14,7 @@ export interface RunContext {
    * Input token count from the most recent API response.
    * This is the actual context size reported by the API — far more accurate
    * than character-based estimation. Used by manageContextThreshold() to
-   * anchor token estimates on real data (Claudia-style).
+   * anchor token estimates on real data.
    */
   lastApiInputTokens: number;
 }

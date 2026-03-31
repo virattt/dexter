@@ -227,6 +227,7 @@ export class AgentRunnerController {
       case 'tool_limit':
       case 'context_cleared':
       case 'compaction':
+      case 'microcompact':
         this.pushEvent({
           id: `${event.type}-${Date.now()}`,
           event,
