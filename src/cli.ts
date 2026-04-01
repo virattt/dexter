@@ -197,7 +197,7 @@ export async function runCli() {
   const finalizedToolIds = new Set<string>();
 
   agentRunner = new AgentRunnerController(
-    { model: modelSelection.model, modelProvider: modelSelection.provider, maxIterations: 10, channel: 'cli' },
+    { model: modelSelection.model, modelProvider: modelSelection.provider, maxIterations: 10 },
     modelSelection.inMemoryChatHistory,
     () => {
       // Incremental history update — only render new events

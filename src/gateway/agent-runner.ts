@@ -2,7 +2,6 @@ import { Agent } from '../agent/agent.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { createMessageQueue, type MessageQueue, type QueuePriority } from '../utils/message-queue.js';
 import { HEARTBEAT_OK_TOKEN } from './heartbeat/suppression.js';
-import { applyComplianceGuardrails } from '../compliance/guardrails.js';
 import type { AgentEvent } from '../agent/types.js';
 import type { GroupContext } from '../agent/prompts.js';
 
@@ -125,14 +124,6 @@ export async function runAgentForMessage(req: AgentRunRequest): Promise<string> 
         }
       }
     }
-
-    const compliance = applyComplianceGuardrails({
-      answer: finalAnswer,
-      query: req.query,
-      channel: req.channel ?? 'whatsapp',
-      isHeartbeat: req.isHeartbeat,
-    });
-    finalAnswer = compliance.answer;
 
     if (finalAnswer && session) {
       await session.history.saveAnswer(finalAnswer);

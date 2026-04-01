@@ -1,7 +1,6 @@
 import { Agent } from '../agent/agent.js';
 import type { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { defaultQueue } from '../utils/message-queue.js';
-import { applyComplianceGuardrails } from '../compliance/guardrails.js';
 import type {
   AgentConfig,
   AgentEvent,
@@ -134,10 +133,10 @@ export class AgentRunnerController {
       });
       const stream = agent.run(query, this.inMemoryChatHistory);
       for await (const event of stream) {
-        await this.handleEvent(event);
         if (event.type === 'done') {
-          finalAnswer = this.historyValue[this.historyValue.length - 1]?.answer ?? '';
+          finalAnswer = (event as DoneEvent).answer;
         }
+        await this.handleEvent(event);
       }
 
       // Post-run: if messages arrived after the agent's last drain, start a new turn
@@ -262,18 +261,12 @@ export class AgentRunnerController {
         break;
       case 'done': {
         const done = event as DoneEvent;
-        const compliance = applyComplianceGuardrails({
-          answer: done.answer,
-          query: this.historyValue[this.historyValue.length - 1]?.query,
-          channel: this.agentConfig.channel ?? 'cli',
-        });
-        const safeAnswer = compliance.answer;
-        if (safeAnswer) {
-          await this.inMemoryChatHistory.saveAnswer(safeAnswer).catch(() => {});
+        if (done.answer) {
+          await this.inMemoryChatHistory.saveAnswer(done.answer).catch(() => {});
         }
         this.updateLastItem((last) => ({
           ...last,
-          answer: safeAnswer,
+          answer: done.answer,
           status: 'complete',
           duration: done.totalTime,
           tokenUsage: done.tokenUsage,
