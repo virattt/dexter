@@ -3,7 +3,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import type { SkillMetadata, Skill, SkillSource } from './types.js';
 import { extractSkillMetadata, loadSkillFromPath } from './loader.js';
-import { dexterPath } from '../utils/paths.js';
+import { sapiensPath } from '../utils/paths.js';
 
 // Get the directory of this file to locate builtin skills
 const __filename = fileURLToPath(import.meta.url);
@@ -14,7 +14,7 @@ const __dirname = dirname(__filename);
  */
 const SKILL_DIRECTORIES: { path: string; source: SkillSource }[] = [
   { path: __dirname, source: 'builtin' },
-  { path: join(process.cwd(), dexterPath('skills')), source: 'project' },
+  { path: join(process.cwd(), sapiensPath('skills')), source: 'project' },
 ];
 
 // Cache for discovered skills (metadata only)

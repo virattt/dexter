@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, appendFileSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { createHash } from 'crypto';
-import { dexterPath } from '../utils/paths.js';
+import { sapiensPath } from '../utils/paths.js';
 
 /**
  * Record of a tool call for external consumers (e.g., DoneEvent)
@@ -55,7 +55,7 @@ const DEFAULT_LIMIT_CONFIG: ToolLimitConfig = {
 /**
  * Append-only scratchpad for tracking agent work on a query.
  * Uses JSONL format (newline-delimited JSON) for resilient appending.
- * Files are persisted in .dexter/scratchpad/ for debugging/history.
+ * Files are persisted in .sapiens/scratchpad/ for debugging/history.
  * 
  * This is the single source of truth for all agent work on a query.
  * 
@@ -64,7 +64,7 @@ const DEFAULT_LIMIT_CONFIG: ToolLimitConfig = {
  * - Query similarity detection to help prevent retry loops
  */
 export class Scratchpad {
-  private readonly scratchpadDir = dexterPath('scratchpad');
+  private readonly scratchpadDir = sapiensPath('scratchpad');
   private readonly filepath: string;
   private readonly limitConfig: ToolLimitConfig;
 

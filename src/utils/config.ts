@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
-import { dexterPath } from './paths.js';
+import { sapiensPath } from './paths.js';
 
-const SETTINGS_FILE = dexterPath('settings.json');
+const SETTINGS_FILE = sapiensPath('settings.json');
 
 // Map legacy model IDs to provider IDs for migration
 const MODEL_TO_PROVIDER_MAP: Record<string, string> = {

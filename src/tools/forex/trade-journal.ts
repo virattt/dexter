@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
-import { dexterPath } from '../../utils/paths.js';
+import { sapiensPath } from '../../utils/paths.js';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -27,7 +27,7 @@ Trade journaling and performance analysis tool for Fintokei traders. Records tra
 
 ## Usage Notes
 
-- Trades are stored as JSON in .dexter/journal/trades.json
+- Trades are stored as JSON in .sapiens/journal/trades.json
 - Each trade has a unique ID for tracking
 - Supports partial closes and trade modifications
 - Performance stats auto-calculate from recorded trades
@@ -59,7 +59,7 @@ interface TradeJournal {
   lastUpdated: string;
 }
 
-const JOURNAL_DIR = dexterPath('journal');
+const JOURNAL_DIR = sapiensPath('journal');
 const JOURNAL_FILE = join(JOURNAL_DIR, 'trades.json');
 
 async function loadJournal(): Promise<TradeJournal> {

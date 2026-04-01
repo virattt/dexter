@@ -1,11 +1,11 @@
 import { join } from 'node:path';
 
-const DEXTER_DIR = '.dexter';
+const SAPIENS_DIR = '.sapiens';
 
-export function getDexterDir(): string {
-  return DEXTER_DIR;
+export function getSapiensDir(): string {
+  return SAPIENS_DIR;
 }
 
-export function dexterPath(...segments: string[]): string {
-  return join(getDexterDir(), ...segments);
+export function sapiensPath(...segments: string[]): string {
+  return join(getSapiensDir(), ...segments);
 }

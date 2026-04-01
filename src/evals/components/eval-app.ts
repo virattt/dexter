@@ -118,7 +118,7 @@ export class EvalApp extends Container {
     this.clear();
 
     if (this.state.status === 'loading') {
-      this.addChild(new Text(theme.bold(theme.primary('Dexter Eval')), 0, 0));
+      this.addChild(new Text(theme.bold(theme.primary('Sapiens Eval')), 0, 0));
       this.addChild(new Text(theme.muted('Loading dataset...'), 0, 0));
       return;
     }
@@ -133,7 +133,7 @@ export class EvalApp extends Container {
 
   private renderRunningState() {
     const datasetLabel = this.state.datasetName ? ` • ${this.state.datasetName}` : '';
-    this.addChild(new Text(`${theme.bold(theme.primary('Dexter Eval'))}${theme.muted(datasetLabel)}`, 0, 0));
+    this.addChild(new Text(`${theme.bold(theme.primary('Sapiens Eval'))}${theme.muted(datasetLabel)}`, 0, 0));
     this.addChild(new Spacer(1));
 
     this.progress.setProgress(this.state.completed, this.state.total);

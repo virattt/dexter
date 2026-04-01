@@ -3,12 +3,12 @@ import fs from 'node:fs';
 import type { WaSocket } from './session.js';
 import { loadGatewayConfig, resolveWhatsAppAccount } from '../../config.js';
 import { normalizeE164, toWhatsappJid } from '../../utils.js';
-import { dexterPath } from '../../../utils/paths.js';
+import { sapiensPath } from '../../../utils/paths.js';
 
 function debugLog(msg: string) {
   try {
-    const logDir = dexterPath('debug', 'logs');
-    const logPath = dexterPath('debug', 'logs', 'gateway-outbound.log');
+    const logDir = sapiensPath('debug', 'logs');
+    const logPath = sapiensPath('debug', 'logs', 'gateway-outbound.log');
     fs.mkdirSync(logDir, { recursive: true });
     fs.appendFileSync(logPath, `${new Date().toISOString()} ${msg}\n`);
   } catch {
@@ -40,7 +40,7 @@ function getActive(accountId?: string): ActiveListener {
   }
   const first = listeners.values().next().value as ActiveListener | undefined;
   if (!first) {
-    throw new Error('No active WhatsApp listener. Run dexter gateway run.');
+    throw new Error('No active WhatsApp listener. Run sapiens gateway run.');
   }
   return first;
 }

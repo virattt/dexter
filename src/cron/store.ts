@@ -1,10 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { dexterPath } from '../utils/paths.js';
+import { sapiensPath } from '../utils/paths.js';
 import type { CronStore } from './types.js';
 
-const CRON_STORE_PATH = dexterPath('cron', 'jobs.json');
+const CRON_STORE_PATH = sapiensPath('cron', 'jobs.json');
 
 const EMPTY_STORE: CronStore = { version: 1, jobs: [] };
 

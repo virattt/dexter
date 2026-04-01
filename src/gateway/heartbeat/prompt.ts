@@ -1,14 +1,14 @@
 import { readFile } from 'node:fs/promises';
 import { HEARTBEAT_OK_TOKEN } from './suppression.js';
-import { dexterPath } from '../../utils/paths.js';
+import { sapiensPath } from '../../utils/paths.js';
 
-const HEARTBEAT_MD_PATH = dexterPath('HEARTBEAT.md');
+const HEARTBEAT_MD_PATH = sapiensPath('HEARTBEAT.md');
 
 const DEFAULT_CHECKLIST = `- Major index moves (S&P 500, NASDAQ, Dow) — alert if any move more than 2% in a session
 - Breaking financial news — major earnings surprises, Fed announcements, significant market events`;
 
 /**
- * Load .dexter/HEARTBEAT.md content.
+ * Load .sapiens/HEARTBEAT.md content.
  * Returns the content string, or null if the file doesn't exist.
  */
 export async function loadHeartbeatDocument(): Promise<string | null> {

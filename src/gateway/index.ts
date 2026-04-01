@@ -39,9 +39,9 @@ async function promptSetupMode(cfg: GatewayConfig, linkedPhone: string): Promise
     console.log('');
     console.log(`Linked phone: ${linkedPhone}`);
     console.log('');
-    console.log('How will you use Dexter with WhatsApp?');
-    console.log('  1) Self-chat  — message yourself to talk to Dexter');
-    console.log('  2) Bot phone  — this is a dedicated Dexter phone, others message it');
+    console.log('How will you use Sapiens with WhatsApp?');
+    console.log('  1) Self-chat  — message yourself to talk to Sapiens');
+    console.log('  2) Bot phone  — this is a dedicated Sapiens phone, others message it');
 
     let mode = '';
     while (mode !== '1' && mode !== '2') {
@@ -57,7 +57,7 @@ async function promptSetupMode(cfg: GatewayConfig, linkedPhone: string): Promise
 
     // Bot mode: collect allowed sender phone numbers
     console.log('');
-    console.log('Enter the phone number(s) allowed to message Dexter (E.164 format, e.g. +15551234567).');
+    console.log('Enter the phone number(s) allowed to message Sapiens (E.164 format, e.g. +15551234567).');
     console.log('Separate multiple numbers with commas, or type * to allow anyone.');
 
     let phones: string[] = [];
@@ -124,7 +124,7 @@ async function run(): Promise<void> {
   }
 
   const server = await startGateway();
-  console.log('Dexter gateway running. Press Ctrl+C to stop.');
+  console.log('Sapiens gateway running. Press Ctrl+C to stop.');
 
   const shutdown = async () => {
     await server.stop();

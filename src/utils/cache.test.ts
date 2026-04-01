@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { buildCacheKey, readCache, writeCache } from './cache.js';
 
-const TEST_CACHE_DIR = '.dexter/cache';
+const TEST_CACHE_DIR = '.sapiens/cache';
 
 // ---------------------------------------------------------------------------
 // buildCacheKey

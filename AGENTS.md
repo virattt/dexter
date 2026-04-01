@@ -1,7 +1,7 @@
 # リポジトリガイドライン
 
-- リポジトリ: https://github.com/yuya-sugita/dexter-for-forex
-- Dexter for ForexはFX・株価指数・コモディティの定量トレード分析に特化したCLIベースのAIエージェント。Fintokeiプロップトレーディングに最適化。TypeScript、Ink（CLI用React）、LangChainで構築。
+- リポジトリ: https://github.com/yuya-sugita/sapiens
+- SapiensはFX・株価指数・コモディティの定量トレード分析に特化したCLIベースのAIエージェント。Fintokeiプロップトレーディングに最適化。TypeScript、Ink（CLI用React）、LangChainで構築。
 
 ## プロジェクト構成
 
@@ -18,8 +18,8 @@
   - スキル: `src/skills/`（SKILL.mdベースの拡張可能ワークフロー: 定量トレード分析、Fintokeiチャレンジ最適化、リスク管理）
   - ユーティリティ: `src/utils/`（env、設定、キャッシュ、トークン推定、マークダウンテーブル）
   - 評価: `src/evals/`（LangSmith評価ランナー + Ink UI）
-- 設定: `.dexter/settings.json`（モデル/プロバイダ選択の永続化）
-- トレードジャーナル: `.dexter/journal/trades.json`（トレード記録）
+- 設定: `.sapiens/settings.json`（モデル/プロバイダ選択の永続化）
+- トレードジャーナル: `.sapiens/journal/trades.json`（トレード記録）
 - 環境変数: `.env`（APIキー、`env.example`参照）
 - スクリプト: `scripts/release.sh`
 
@@ -126,6 +126,6 @@
 ## セキュリティ
 
 - APIキーは `.env`（gitignore済み）に保存。ユーザーはCLIでインタラクティブにキーを入力することも可能。
-- 設定は `.dexter/settings.json`（gitignore済み）に保存。
-- トレードジャーナルは `.dexter/journal/`（gitignore済み）に保存。
+- 設定は `.sapiens/settings.json`（gitignore済み）に保存。
+- トレードジャーナルは `.sapiens/journal/`（gitignore済み）に保存。
 - 実際のAPIキー、トークン、資格情報を絶対に公開・コミットしない。

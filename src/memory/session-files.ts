@@ -1,5 +1,5 @@
 /**
- * Parses Dexter's chat_history.json into indexable text chunks for memory search.
+ * Parses Sapiens's chat_history.json into indexable text chunks for memory search.
  *
  * Each conversation turn (user message + agent response) becomes a searchable
  * entry so that past conversations are recallable even if never explicitly saved

@@ -34,7 +34,7 @@ export async function createWaSocket(params: {
     version,
     logger,
     printQRInTerminal: params.printQr,
-    browser: ['dexter', 'cli', '1.0.0'],
+    browser: ['sapiens', 'cli', '1.0.0'],
     markOnlineOnConnect: false,
     syncFullHistory: false,
   });

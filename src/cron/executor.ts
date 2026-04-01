@@ -9,12 +9,12 @@ import { assertOutboundAllowed, sendMessageWhatsApp } from '../gateway/channels/
 import { resolveSessionStorePath, loadSessionStore, type SessionEntry } from '../gateway/sessions/store.js';
 import { cleanMarkdownForWhatsApp } from '../gateway/utils.js';
 import { getSetting } from '../utils/config.js';
-import { dexterPath } from '../utils/paths.js';
+import { sapiensPath } from '../utils/paths.js';
 import { saveCronStore } from './store.js';
 import { computeNextRunAtMs } from './schedule.js';
 import type { ActiveHours, CronJob, CronStore } from './types.js';
 
-const LOG_PATH = dexterPath('gateway-debug.log');
+const LOG_PATH = sapiensPath('gateway-debug.log');
 
 function debugLog(msg: string) {
   appendFileSync(LOG_PATH, `${new Date().toISOString()} ${msg}\n`);

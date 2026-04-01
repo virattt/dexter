@@ -2,9 +2,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import { normalizeE164 } from './utils.js';
-import { dexterPath } from '../utils/paths.js';
+import { sapiensPath } from '../utils/paths.js';
 
-const DEFAULT_GATEWAY_PATH = dexterPath('gateway.json');
+const DEFAULT_GATEWAY_PATH = sapiensPath('gateway.json');
 const DmPolicySchema = z.enum(['pairing', 'allowlist', 'open', 'disabled']);
 const GroupPolicySchema = z.enum(['open', 'allowlist', 'disabled']);
 const ReconnectSchema = z.object({
@@ -133,7 +133,7 @@ export type WhatsAppAccountConfig = {
 };
 
 export function getGatewayConfigPath(overridePath?: string): string {
-  return overridePath ?? process.env.DEXTER_GATEWAY_CONFIG ?? DEFAULT_GATEWAY_PATH;
+  return overridePath ?? process.env.SAPIENS_GATEWAY_CONFIG ?? DEFAULT_GATEWAY_PATH;
 }
 
 export function loadGatewayConfig(overridePath?: string): GatewayConfig {
@@ -196,7 +196,7 @@ export function resolveWhatsAppAccount(
   accountId: string,
 ): WhatsAppAccountConfig {
   const account = cfg.channels.whatsapp.accounts?.[accountId] ?? {};
-  const authDir = account.authDir ?? dexterPath('credentials', 'whatsapp', accountId);
+  const authDir = account.authDir ?? sapiensPath('credentials', 'whatsapp', accountId);
   const rawAllowFrom = account.allowFrom ?? cfg.channels.whatsapp.allowFrom ?? [];
   const allowFrom = Array.from(
     new Set(

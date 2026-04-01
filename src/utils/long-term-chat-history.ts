@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
-import { getDexterDir } from './paths.js';
+import { getSapiensDir } from './paths.js';
 
 /**
  * Represents a conversation entry (user message + agent response pair)
@@ -24,7 +24,7 @@ const MESSAGES_FILE = 'chat_history.json';
 /**
  * Manages persistent storage of conversation history for input history navigation.
  * Uses stack ordering (most recent first) for O(1) access to latest entries.
- * Stores messages in .dexter/messages/chat_history.json
+ * Stores messages in .sapiens/messages/chat_history.json
  */
 export class LongTermChatHistory {
   private filePath: string;
@@ -32,7 +32,7 @@ export class LongTermChatHistory {
   private loaded = false;
 
   constructor(baseDir: string = process.cwd()) {
-    this.filePath = join(baseDir, getDexterDir(), MESSAGES_DIR, MESSAGES_FILE);
+    this.filePath = join(baseDir, getSapiensDir(), MESSAGES_DIR, MESSAGES_FILE);
   }
 
   /**

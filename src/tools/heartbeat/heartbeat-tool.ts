@@ -2,16 +2,16 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { z } from 'zod';
-import { dexterPath } from '../../utils/paths.js';
+import { sapiensPath } from '../../utils/paths.js';
 import { loadGatewayConfig, saveGatewayConfig } from '../../gateway/config.js';
 import { buildHeartbeatQuery } from '../../gateway/heartbeat/prompt.js';
 import { loadCronStore, saveCronStore } from '../../cron/store.js';
 
-const HEARTBEAT_MD_PATH = dexterPath('HEARTBEAT.md');
+const HEARTBEAT_MD_PATH = sapiensPath('HEARTBEAT.md');
 const HEARTBEAT_JOB_NAME = 'Heartbeat';
 
 export const HEARTBEAT_TOOL_DESCRIPTION = `
-Manage your periodic heartbeat checklist (.dexter/HEARTBEAT.md).
+Manage your periodic heartbeat checklist (.sapiens/HEARTBEAT.md).
 The heartbeat runs on a schedule and uses this checklist to decide what to check.
 When you add items, the heartbeat is automatically enabled in the gateway config.
 
@@ -83,7 +83,7 @@ async function syncHeartbeatCronJob(): Promise<void> {
 export const heartbeatTool = new DynamicStructuredTool({
   name: 'heartbeat',
   description:
-    'View or update the heartbeat checklist (.dexter/HEARTBEAT.md) that controls periodic monitoring.',
+    'View or update the heartbeat checklist (.sapiens/HEARTBEAT.md) that controls periodic monitoring.',
   schema: heartbeatSchema,
   func: async (input) => {
     if (input.action === 'view') {

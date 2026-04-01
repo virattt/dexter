@@ -163,7 +163,7 @@ export class ChatLogComponent extends Container {
   }
 
   addInterrupted() {
-    this.addChild(new Text(`${theme.muted('⎿  Interrupted · What should Dexter do instead?')}`, 0, 0));
+    this.addChild(new Text(`${theme.muted('⎿  Interrupted · What should Sapiens do instead?')}`, 0, 0));
   }
 
   startTool(toolCallId: string, toolName: string, args: Record<string, unknown>) {
