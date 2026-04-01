@@ -33,7 +33,8 @@ Screens for stocks matching financial criteria. Takes a natural language query d
 - Call ONCE with the complete natural language query describing your screening criteria
 - The tool translates your criteria into exact API filters automatically
 - Returns matching tickers with the metric values used for screening
-- Supports operators: gt, gte, lt, lte, eq, between
+- Supports operators: gt, gte, lt, lte, eq, in
+- For range queries (e.g., "between 10 and 20"), use two filters: gte + lte
 `.trim();
 
 // In-memory cache for screener filters (static model fields, rarely change)
@@ -52,8 +53,8 @@ async function getScreenerFilters(): Promise<Record<string, unknown>> {
 const ScreenerFilterSchema = z.object({
   filters: z.array(z.object({
     field: z.string().describe('Exact metric field name from the available metrics list'),
-    operator: z.enum(['gt', 'gte', 'lt', 'lte', 'eq', 'between']).describe('Comparison operator'),
-    value: z.union([z.number(), z.string(), z.array(z.number()), z.array(z.string())]).describe('Numeric threshold, string for company fields (sector/industry), or [min, max] array for "between" operator'),
+    operator: z.enum(['gt', 'gte', 'lt', 'lte', 'eq', 'in']).describe('Comparison operator'),
+    value: z.union([z.number(), z.string(), z.array(z.number()), z.array(z.string())]).describe('Numeric threshold, string for company fields (sector/industry), or array for "in" operator'),
   })).describe('Array of screening filters to apply'),
   currency: z.string().default('USD').describe('Currency code (e.g., "USD")'),
   limit: z.number().default(5).describe('Maximum number of results to return'),
@@ -85,13 +86,15 @@ ${escapedMetrics}
    - "below", "under", "less than" → lt or lte
    - "above", "over", "greater than", "more than" → gt or gte
    - "equal to", "exactly" → eq
-   - "between X and Y" → between (value as [min, max])
-3. Use reasonable defaults:
+   - "between X and Y" → use TWO filters: gte for the lower bound + lte for the upper bound
+   - "one of", "in" → in (value as array)
+3. **Decimal scaling**: Margins and ratios (gross_margin, net_margin, operating_margin, return_on_equity, return_on_assets, return_on_invested_capital, dividend_yield, free_cash_flow_yield, payout_ratio, revenue_growth, earnings_growth, earnings_per_share_growth, ebitda_growth, free_cash_flow_growth, operating_income_growth, book_value_growth) are stored as decimals, NOT percentages. For example, "ROE above 15%" → return_on_equity gt 0.15, "gross margin above 40%" → gross_margin gt 0.4
+4. Use reasonable defaults:
    - If the user says "low P/E" without a number, use a sensible threshold (e.g., lt 15)
-   - If the user says "high growth" without a number, use a sensible threshold (e.g., gt 20)
-4. Set limit to 25 unless the user specifies otherwise
-5. Default currency to USD unless specified
-6. Company fields (sector, industry) use GICS classification and require string values with the "eq" or "in" operator (case-insensitive). Common GICS sectors: Communication Services, Consumer Discretionary, Consumer Staples, Energy, Financials, Health Care, Industrials, Information Technology, Materials, Real Estate, Utilities. Map user intent to the correct GICS value (e.g., "tech stocks" → sector eq "Information Technology", "oil and gas" → industry eq "Oil, Gas & Consumable Fuels")
+   - If the user says "high growth" without a number, use a sensible threshold (e.g., gt 0.20)
+5. Set limit to 25 unless the user specifies otherwise
+6. Default currency to USD unless specified
+7. Company fields (sector, industry) use GICS classification and require string values with the "eq" or "in" operator (case-insensitive). Common GICS sectors: Communication Services, Consumer Discretionary, Consumer Staples, Energy, Financials, Health Care, Industrials, Information Technology, Materials, Real Estate, Utilities. Map user intent to the correct GICS value (e.g., "tech stocks" → sector eq "Information Technology", "oil and gas" → industry eq "Oil, Gas & Consumable Fuels")
 
 Return only the structured output fields.`;
 }
