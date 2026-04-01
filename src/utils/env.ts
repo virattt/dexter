@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { config } from 'dotenv';
 import { getProviderById } from '@/providers';
+import { hasOpenAiCredentialsIncludingCodex } from '@/utils/codex-auth';
 
 // Load .env on module import
 config({ quiet: true });
@@ -20,6 +21,9 @@ export function checkApiKeyExistsForProvider(providerId: string): boolean {
 }
 
 export function checkApiKeyExists(apiKeyName: string): boolean {
+  if (apiKeyName === 'OPENAI_API_KEY' && hasOpenAiCredentialsIncludingCodex()) {
+    return true;
+  }
   const value = process.env[apiKeyName];
   if (value && value.trim() && !value.trim().startsWith('your-')) {
     return true;
