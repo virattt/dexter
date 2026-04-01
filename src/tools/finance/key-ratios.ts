@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { api, stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
+import { TTL_1H, TTL_6H } from './utils.js';
 
 const REDUNDANT_FINANCIAL_FIELDS = ['accession_number', 'currency', 'period'] as const;
 
@@ -19,7 +20,7 @@ export const getKeyRatios = new DynamicStructuredTool({
   func: async (input) => {
     const ticker = input.ticker.trim().toUpperCase();
     const params = { ticker };
-    const { data, url } = await api.get('/financial-metrics/snapshot/', params);
+    const { data, url } = await api.get('/financial-metrics/snapshot/', params, { cacheable: true, ttlMs: TTL_1H });
     return formatToolResult(data.snapshot || {}, [url]);
   },
 });
@@ -81,7 +82,7 @@ export const getHistoricalKeyRatios = new DynamicStructuredTool({
       report_period_lt: input.report_period_lt,
       report_period_lte: input.report_period_lte,
     };
-    const { data, url } = await api.get('/financial-metrics/', params);
+    const { data, url } = await api.get('/financial-metrics/', params, { cacheable: true, ttlMs: TTL_6H });
     return formatToolResult(
       stripFieldsDeep(data.financial_metrics || [], REDUNDANT_FINANCIAL_FIELDS),
       [url]

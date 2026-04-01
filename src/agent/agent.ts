@@ -2,7 +2,7 @@ import { AIMessage, AIMessageChunk, SystemMessage, HumanMessage, ToolMessage, ty
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { callLlmWithMessages, streamLlmWithMessages } from '../model/llm.js';
 import { getTools, getToolConcurrencyMap } from '../tools/registry.js';
-import { buildSystemPrompt, loadSoulDocument } from './prompts.js';
+import { buildSystemPrompt, loadSoulDocument, loadRulesDocument } from './prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 import { estimateTokens, getAutoCompactThreshold, KEEP_TOOL_USES } from '../utils/tokens.js';
@@ -74,6 +74,7 @@ export class Agent {
     const tools = getTools(model);
     const concurrencyMap = getToolConcurrencyMap(model);
     const soulContent = await loadSoulDocument();
+    const rulesContent = await loadRulesDocument();
     let memoryFiles: string[] = [];
     let memoryContext: string | null = null;
 
@@ -93,6 +94,7 @@ export class Agent {
       config.groupContext,
       memoryFiles,
       memoryContext,
+      rulesContent,
     );
     return new Agent(config, tools, systemPrompt, concurrencyMap);
   }

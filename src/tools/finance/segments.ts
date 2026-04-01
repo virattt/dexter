@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { api, stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
+import { TTL_24H } from './utils.js';
 
 const REDUNDANT_FINANCIAL_FIELDS = ['accession_number', 'currency', 'period'] as const;
 
@@ -29,7 +30,7 @@ export const getSegmentedRevenues = new DynamicStructuredTool({
       period: input.period,
       limit: input.limit,
     };
-    const { data, url } = await api.get('/financials/segmented-revenues/', params);
+    const { data, url } = await api.get('/financials/segmented-revenues/', params, { cacheable: true, ttlMs: TTL_24H });
     return formatToolResult(
       stripFieldsDeep(data.segmented_revenues || {}, REDUNDANT_FINANCIAL_FIELDS),
       [url]

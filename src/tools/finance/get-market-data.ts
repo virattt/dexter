@@ -5,6 +5,8 @@ import { z } from 'zod';
 import { callLlm } from '../../model/llm.js';
 import { formatToolResult } from '../types.js';
 import { getCurrentDate } from '../../agent/prompts.js';
+import { withTimeout, SUB_TOOL_TIMEOUT_MS } from './utils.js';
+import { MARKET_DATA_FORMATTERS } from './formatters.js';
 
 /**
  * Rich description for the get_market_data tool.
@@ -159,7 +161,7 @@ export function createGetMarketData(model: string): DynamicStructuredTool {
             if (!tool) {
               throw new Error(`Tool '${tc.name}' not found`);
             }
-            const rawResult = await tool.invoke(tc.args);
+            const rawResult = await withTimeout(tool.invoke(tc.args), SUB_TOOL_TIMEOUT_MS, tc.name);
             const result = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
             const parsed = JSON.parse(result);
             return {
@@ -195,7 +197,10 @@ export function createGetMarketData(model: string): DynamicStructuredTool {
         // Use tool name as key, or tool_ticker for multiple calls to same tool
         const ticker = (result.args as Record<string, unknown>).ticker as string | undefined;
         const key = ticker ? `${result.tool}_${ticker}` : result.tool;
-        combinedData[key] = result.data;
+        const formatter = MARKET_DATA_FORMATTERS[result.tool];
+        combinedData[key] = formatter
+          ? formatter(result.data, result.args as Record<string, unknown>)
+          : result.data;
       }
 
       // Add errors if any

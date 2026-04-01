@@ -48,6 +48,19 @@ export async function loadSoulDocument(): Promise<string | null> {
 }
 
 /**
+ * Load user-defined research rules from .dexter/RULES.md.
+ * Returns null if the file doesn't exist (rules are optional).
+ */
+export async function loadRulesDocument(): Promise<string | null> {
+  const rulesPath = dexterPath('RULES.md');
+  try {
+    return await readFile(rulesPath, 'utf-8');
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Build the skills section for the system prompt.
  * Only includes skill metadata if skills are available.
  */
@@ -206,6 +219,7 @@ export function buildSystemPrompt(
   groupContext?: GroupContext,
   memoryFiles?: string[],
   memoryContext?: string | null,
+  rulesContent?: string | null,
 ): string {
   const toolDescriptions = buildCompactToolDescriptions(model);
   const profile = getChannelProfile(channel);
@@ -242,6 +256,15 @@ ${buildMemorySection(memoryFiles ?? [], memoryContext)}
 
 ${behaviorBullets}
 
+${rulesContent ? `## Research Rules
+
+The following rules were set by the user. Follow them on every query.
+
+${rulesContent}
+
+To manage these rules, the user can say "add a rule", "show my rules", "remove rule about X".
+Rules are stored in .dexter/RULES.md — use write_file or edit_file to modify them.
+` : ''}
 ${soulContent ? `## Identity
 
 ${soulContent}

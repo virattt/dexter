@@ -66,7 +66,7 @@ export const getCryptoTickers = new DynamicStructuredTool({
   description: `Retrieves the list of available cryptocurrency tickers that can be used with the crypto price tools.`,
   schema: z.object({}),
   func: async () => {
-    const { data, url } = await api.get('/crypto/prices/tickers/', {});
+    const { data, url } = await api.get('/crypto/prices/tickers/', {}, { cacheable: true, ttlMs: 24 * 60 * 60 * 1000 });
     return formatToolResult(data.tickers || [], [url]);
   },
 });
