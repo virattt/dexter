@@ -1,6 +1,6 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { callApi } from './api.js';
+import { api } from './api.js';
 import { formatToolResult } from '../types.js';
 
 // Types for filing item metadata
@@ -63,7 +63,7 @@ export const getFilings = new DynamicStructuredTool({
       limit: input.limit,
       filing_type: input.filing_type,
     };
-    const { data, url } = await callApi('/filings/', params);
+    const { data, url } = await api.get('/filings/', params);
     return formatToolResult(data.filings || [], [url]);
   },
 });
@@ -95,7 +95,7 @@ export const get10KFilingItems = new DynamicStructuredTool({
       item: input.items, // API expects 'item' not 'items'
     };
     // SEC filings are legally immutable once filed
-    const { data, url } = await callApi('/filings/items/', params, { cacheable: true });
+    const { data, url } = await api.get('/filings/items/', params, { cacheable: true });
     return formatToolResult(data, [url]);
   },
 });
@@ -127,7 +127,7 @@ export const get10QFilingItems = new DynamicStructuredTool({
       item: input.items, // API expects 'item' not 'items'
     };
     // SEC filings are legally immutable once filed
-    const { data, url } = await callApi('/filings/items/', params, { cacheable: true });
+    const { data, url } = await api.get('/filings/items/', params, { cacheable: true });
     return formatToolResult(data, [url]);
   },
 });
@@ -152,7 +152,7 @@ export const get8KFilingItems = new DynamicStructuredTool({
       accession_number: input.accession_number,
     };
     // SEC filings are legally immutable once filed
-    const { data, url } = await callApi('/filings/items/', params, { cacheable: true });
+    const { data, url } = await api.get('/filings/items/', params, { cacheable: true });
     return formatToolResult(data, [url]);
   },
 });

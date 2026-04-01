@@ -228,7 +228,7 @@ const schema = z.object({
   limit: z
     .number()
     .int()
-    .positive()
+    .min(1)
     .optional()
     .default(15)
     .describe('Maximum number of results to return (default: 15)'),
@@ -323,7 +323,7 @@ Uses the official X API v2 (read-only, last 7 days).
 
 ## When NOT to Use
 
-- Structured financial data (use financial_search instead)
+- Structured financial data (use get_financials instead)
 - Historical data beyond 7 days (X recent search is limited to last 7 days)
 - General web research (use web_search instead)
 

@@ -11,6 +11,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from '
 import { join, dirname } from 'path';
 import { createHash } from 'crypto';
 import { logger } from './logger.js';
+import { dexterPath } from './paths.js';
 
 // ============================================================================
 // Types
@@ -28,7 +29,7 @@ interface CacheEntry {
   cachedAt: string;
 }
 
-const CACHE_DIR = '.dexter/cache';
+const CACHE_DIR = dexterPath('cache');
 
 // ============================================================================
 // Helpers

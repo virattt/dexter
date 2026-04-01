@@ -1,9 +1,11 @@
-import { Container, Spacer, Text } from '@mariozechner/pi-tui';
+import { Container, Spacer, Text, type TUI } from '@mariozechner/pi-tui';
 import type { ApprovalDecision } from '../agent/types.js';
 import { theme } from '../theme.js';
 
 function formatToolName(name: string): string {
-  return name
+  // Strip common verb prefixes for cleaner display (get_financials → Financials)
+  const stripped = name.replace(/^(get)_/, '');
+  return stripped
     .split('_')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
@@ -20,10 +22,14 @@ function truncateAtWord(str: string, maxLength: number): string {
   return `${str.slice(0, maxLength)}...`;
 }
 
-function formatArgs(args: Record<string, unknown>): string {
-  if (Object.keys(args).length === 1 && 'query' in args) {
+function formatArgs(tool: string, args: Record<string, unknown>): string {
+  if ('query' in args) {
     const query = String(args.query);
     return theme.muted(`"${truncateAtWord(query, 60)}"`);
+  }
+  if (tool === 'memory_update') {
+    const text = String(args.content ?? args.old_text ?? '').replace(/\n/g, ' ');
+    if (text) return theme.muted(truncateAtWord(text, 80));
   }
   return theme.muted(
     Object.entries(args)
@@ -50,15 +56,21 @@ function approvalLabel(decision: ApprovalDecision): string {
   }
 }
 
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+
 export class ToolEventComponent extends Container {
+  private readonly tui: TUI;
   private readonly header: Text;
   private completedDetails: Text[] = [];
   private activeDetail: Text | null = null;
+  private spinnerInterval: ReturnType<typeof setInterval> | null = null;
+  private spinnerFrame: number = 0;
 
-  constructor(_tui: unknown, tool: string, args: Record<string, unknown>) {
+  constructor(tui: TUI, tool: string, args: Record<string, unknown>) {
     super();
+    this.tui = tui;
     this.addChild(new Spacer(1));
-    const title = `${formatToolName(tool)}${args ? `${theme.muted('(')}${formatArgs(args)}${theme.muted(')')}` : ''}`;
+    const title = `${formatToolName(tool)}${args ? `${theme.muted('(')}${formatArgs(tool, args)}${theme.muted(')')}` : ''}`;
     this.header = new Text(`⏺ ${title}`, 0, 0);
     this.addChild(this.header);
   }
@@ -66,8 +78,14 @@ export class ToolEventComponent extends Container {
   setActive(progressMessage?: string) {
     this.clearDetail();
     const message = progressMessage || 'Searching...';
-    this.activeDetail = new Text(`${theme.muted('⎿  ')}${message}`, 0, 0);
+    this.activeDetail = new Text(`${theme.muted(`⎿  ${SPINNER_FRAMES[0]}`)} ${message}`, 0, 0);
     this.addChild(this.activeDetail);
+    this.spinnerFrame = 0;
+    this.spinnerInterval = setInterval(() => {
+      this.spinnerFrame = (this.spinnerFrame + 1) % SPINNER_FRAMES.length;
+      this.activeDetail?.setText(`${theme.muted(`⎿  ${SPINNER_FRAMES[this.spinnerFrame]}`)} ${message}`);
+      this.tui.requestRender();
+    }, 80);
   }
 
   setComplete(summary: string, duration: number) {
@@ -114,7 +132,15 @@ export class ToolEventComponent extends Container {
     this.addChild(detail);
   }
 
+  dispose() {
+    this.clearDetail();
+  }
+
   private clearDetail() {
+    if (this.spinnerInterval) {
+      clearInterval(this.spinnerInterval);
+      this.spinnerInterval = null;
+    }
     if (this.activeDetail) {
       this.removeChild(this.activeDetail);
       this.activeDetail = null;

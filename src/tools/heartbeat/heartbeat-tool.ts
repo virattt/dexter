@@ -1,14 +1,19 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { homedir } from 'node:os';
+import { dirname } from 'node:path';
 import { z } from 'zod';
+import { dexterPath } from '../../utils/paths.js';
+import { loadGatewayConfig, saveGatewayConfig } from '../../gateway/config.js';
+import { buildHeartbeatQuery } from '../../gateway/heartbeat/prompt.js';
+import { loadCronStore, saveCronStore } from '../../cron/store.js';
 
-const HEARTBEAT_MD_PATH = join(homedir(), '.dexter', 'HEARTBEAT.md');
+const HEARTBEAT_MD_PATH = dexterPath('HEARTBEAT.md');
+const HEARTBEAT_JOB_NAME = 'Heartbeat';
 
 export const HEARTBEAT_TOOL_DESCRIPTION = `
-Manage your periodic heartbeat checklist (~/.dexter/HEARTBEAT.md).
+Manage your periodic heartbeat checklist (.dexter/HEARTBEAT.md).
 The heartbeat runs on a schedule and uses this checklist to decide what to check.
+When you add items, the heartbeat is automatically enabled in the gateway config.
 
 ## When to Use
 
@@ -36,10 +41,49 @@ const heartbeatSchema = z.object({
     .describe('New HEARTBEAT.md content (required for update)'),
 });
 
+/**
+ * Ensure the heartbeat section exists and is enabled in gateway.json.
+ * Preserves any existing heartbeat settings (interval, active hours, model, etc.).
+ */
+function ensureHeartbeatEnabled(): void {
+  const cfg = loadGatewayConfig();
+  if (cfg.gateway.heartbeat?.enabled) return;
+
+  cfg.gateway.heartbeat = {
+    enabled: true,
+    intervalMinutes: cfg.gateway.heartbeat?.intervalMinutes ?? 10,
+    activeHours: cfg.gateway.heartbeat?.activeHours,
+    model: cfg.gateway.heartbeat?.model,
+    modelProvider: cfg.gateway.heartbeat?.modelProvider,
+    maxIterations: cfg.gateway.heartbeat?.maxIterations ?? 6,
+  };
+  saveGatewayConfig(cfg);
+}
+
+/**
+ * Sync the heartbeat cron job's message with the current HEARTBEAT.md content.
+ */
+async function syncHeartbeatCronJob(): Promise<void> {
+  const store = loadCronStore();
+  const job = store.jobs.find((j) => j.name === HEARTBEAT_JOB_NAME);
+  if (!job) return;
+
+  const query = await buildHeartbeatQuery();
+  if (query === null) {
+    // HEARTBEAT.md is empty — disable the cron job
+    job.enabled = false;
+    job.updatedAtMs = Date.now();
+  } else {
+    job.payload.message = query;
+    job.updatedAtMs = Date.now();
+  }
+  saveCronStore(store);
+}
+
 export const heartbeatTool = new DynamicStructuredTool({
   name: 'heartbeat',
   description:
-    'View or update the heartbeat checklist (~/.dexter/HEARTBEAT.md) that controls periodic monitoring.',
+    'View or update the heartbeat checklist (.dexter/HEARTBEAT.md) that controls periodic monitoring.',
   schema: heartbeatSchema,
   func: async (input) => {
     if (input.action === 'view') {
@@ -61,7 +105,16 @@ export const heartbeatTool = new DynamicStructuredTool({
       writeFileSync(HEARTBEAT_MD_PATH, input.content, 'utf-8');
 
       const lines = input.content.split('\n').filter((l) => l.trim().startsWith('-'));
-      const summary = lines.length > 0
+      const hasItems = lines.length > 0;
+
+      if (hasItems) {
+        ensureHeartbeatEnabled();
+      }
+
+      // Sync the cron job with updated content
+      await syncHeartbeatCronJob();
+
+      const summary = hasItems
         ? `Updated heartbeat checklist (${lines.length} item${lines.length === 1 ? '' : 's'}).`
         : 'Updated heartbeat checklist.';
       return summary;

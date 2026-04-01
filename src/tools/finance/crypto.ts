@@ -1,6 +1,6 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { callApi } from './api.js';
+import { api } from './api.js';
 import { formatToolResult } from '../types.js';
 
 const CryptoPriceSnapshotInputSchema = z.object({
@@ -17,7 +17,7 @@ export const getCryptoPriceSnapshot = new DynamicStructuredTool({
   schema: CryptoPriceSnapshotInputSchema,
   func: async (input) => {
     const params = { ticker: input.ticker };
-    const { data, url } = await callApi('/crypto/prices/snapshot/', params);
+    const { data, url } = await api.get('/crypto/prices/snapshot/', params);
     return formatToolResult(data.snapshot || {}, [url]);
   },
 });
@@ -56,7 +56,7 @@ export const getCryptoPrices = new DynamicStructuredTool({
     const endDate = new Date(input.end_date + 'T00:00:00');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const { data, url } = await callApi('/crypto/prices/', params, { cacheable: endDate < today });
+    const { data, url } = await api.get('/crypto/prices/', params, { cacheable: endDate < today });
     return formatToolResult(data.prices || [], [url]);
   },
 });
@@ -66,7 +66,7 @@ export const getCryptoTickers = new DynamicStructuredTool({
   description: `Retrieves the list of available cryptocurrency tickers that can be used with the crypto price tools.`,
   schema: z.object({}),
   func: async () => {
-    const { data, url } = await callApi('/crypto/prices/tickers/', {});
+    const { data, url } = await api.get('/crypto/prices/tickers/', {});
     return formatToolResult(data.tickers || [], [url]);
   },
 });

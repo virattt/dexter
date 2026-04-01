@@ -7,38 +7,38 @@ import { formatToolResult } from '../types.js';
 import { getCurrentDate } from '../../agent/prompts.js';
 
 /**
- * Rich description for the financial_search tool.
+ * Rich description for the get_financials tool.
  * Used in the system prompt to guide the LLM on when and how to use this tool.
  */
-export const FINANCIAL_SEARCH_DESCRIPTION = `
-Intelligent meta-tool for financial data research. Takes a natural language query and automatically routes to appropriate financial data sources for company financials, SEC filings, analyst estimates, and more.
+export const GET_FINANCIALS_DESCRIPTION = `
+Intelligent meta-tool for retrieving company financial data. Takes a natural language query and automatically routes to appropriate financial data sources.
 
 ## When to Use
 
 - Company facts (sector, industry, market cap, number of employees, listing date, exchange, location, weighted average shares, website)
 - Company financials (income statements, balance sheets, cash flow statements)
-- Financial metrics (P/E ratio, market cap, EPS, dividend yield, enterprise value)
+- Financial metrics and key ratios (P/E ratio, market cap, EPS, dividend yield, enterprise value, ROE, ROA, margins)
+- Historical metrics and trend analysis across multiple periods
 - Analyst estimates and price targets
-- Company news and recent headlines
-- Insider trading activity
-- Current stock prices for equities
-- Historical stock prices over date ranges
-- Cryptocurrency prices
 - Revenue segment breakdowns
+- Earnings data (EPS/revenue beat-miss, earnings surprises)
 - Multi-company comparisons (pass the full query, it handles routing internally)
 
 ## When NOT to Use
 
+- Stock or cryptocurrency prices (use get_market_data instead)
+- Company news or insider trading activity (use get_market_data instead)
 - General web searches or non-financial topics (use web_search instead)
 - Questions that don't require external financial data (answer directly from knowledge)
 - Non-public company information
 - Real-time trading or order execution
+- Reading SEC filing content (use read_filings instead)
+- Stock screening by criteria (use stock_screener)
 
 ## Usage Notes
 
 - Call ONCE with the complete natural language query - the tool handles complexity internally
 - For comparisons like "compare AAPL vs MSFT revenue", pass the full query as-is
-- For price move explanations and catalysts, this tool can return both price and news headlines
 - Handles ticker resolution automatically (Apple -> AAPL, Microsoft -> MSFT)
 - Handles date inference (e.g., "last quarter", "past 5 years", "YTD")
 - Returns structured JSON data with source URLs for verification
@@ -51,37 +51,25 @@ function formatSubToolName(name: string): string {
 
 // Import all finance tools directly (avoid circular deps with index.ts)
 import { getIncomeStatements, getBalanceSheets, getCashFlowStatements, getAllFinancialStatements } from './fundamentals.js';
-import { getKeyRatios } from './key-ratios.js';
+import { getKeyRatios, getHistoricalKeyRatios } from './key-ratios.js';
 import { getAnalystEstimates } from './estimates.js';
 import { getSegmentedRevenues } from './segments.js';
-import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
-import { getInsiderTrades } from './insider_trades.js';
-import { getStockPrice, getStockPrices, getStockTickers } from './stock-price.js';
-import { getHistoricalKeyRatios } from './key-ratios.js';
-import { getCompanyNews } from './news.js';
+import { getEarnings } from './earnings.js';
 
 // All finance tools available for routing
 const FINANCE_TOOLS: StructuredToolInterface[] = [
-  // Price Data
-  getStockPrice,
-  getStockPrices,
-  getStockTickers,
-  getCryptoPriceSnapshot,
-  getCryptoPrices,
-  getCryptoTickers,
   // Fundamentals
   getIncomeStatements,
   getBalanceSheets,
   getCashFlowStatements,
   getAllFinancialStatements,
+  // Earnings
+  getEarnings,
   // Key Ratios, Snapshots & Estimates
   getKeyRatios,
   getHistoricalKeyRatios,
   getAnalystEstimates,
-  // News
-  getCompanyNews,
   // Other Data
-  getInsiderTrades,
   getSegmentedRevenues,
 ];
 
@@ -108,16 +96,12 @@ Given a user's natural language query about financial data, call the appropriate
    - "YTD" → report_period_gte Jan 1 of current year
 
 3. **Tool Selection**:
-   - For a current stock quote/snapshot (price, market cap now) → get_stock_price
-   - For historical stock prices over a date range → get_stock_prices
-   - For "historical" or "over time" data, use date-range tools
-   - For latest financial metrics snapshot (P/E, margins, ROE, EPS, growth rates) → get_key_ratios
-   - For historical P/E ratio, historical market cap, valuation metrics over time → get_historical_key_ratios
+   - For latest financial metrics snapshot (P/E, margins, ROE, EPS, growth rates) → get_financial_metrics_snapshot
+   - For historical P/E ratio, historical market cap, valuation metrics over time → get_key_ratios
    - For revenue, earnings, profitability → get_income_statements
+   - For latest earnings release snapshot, EPS/revenue beat-miss, earnings surprises → get_earnings
    - For debt, assets, equity → get_balance_sheets
    - For cash flow, free cash flow → get_cash_flow_statements
-   - For news, catalysts, "why did X move", recent announcements → get_company_news
-   - For "why did X go up/down" → combine get_stock_price + get_company_news
    - For comprehensive analysis → get_all_financial_statements
 
 4. **Efficiency**:
@@ -133,32 +117,30 @@ Given a user's natural language query about financial data, call the appropriate
 Call the appropriate tool(s) now.`;
 }
 
-// Input schema for the financial_search tool
-const FinancialSearchInputSchema = z.object({
+// Input schema for the get_financials tool
+const GetFinancialsInputSchema = z.object({
   query: z.string().describe('Natural language query about financial data'),
 });
 
 /**
- * Create a financial_search tool configured with the specified model.
+ * Create a get_financials tool configured with the specified model.
  * Uses native LLM tool calling for routing queries to finance tools.
  */
-export function createFinancialSearch(model: string): DynamicStructuredTool {
+export function createGetFinancials(model: string): DynamicStructuredTool {
   return new DynamicStructuredTool({
-    name: 'financial_search',
-    description: `Intelligent agentic search for financial data. Takes a natural language query and automatically routes to appropriate financial data tools. Use for:
+    name: 'get_financials',
+    description: `Intelligent meta-tool for retrieving company financial data. Takes a natural language query and automatically routes to appropriate financial data tools. Use for:
 - Company financials (income statements, balance sheets, cash flow)
-- Financial metrics (P/E ratio, market cap, EPS, dividend yield)
+- Financial metrics and key ratios (P/E ratio, market cap, EPS, dividend yield, ROE, margins)
+- Historical metrics and trend analysis
 - Analyst estimates and price targets
-- Company news and recent headlines
-- Insider trading activity
-- Current and historical stock prices
-- Cryptocurrency prices.`,
-    schema: FinancialSearchInputSchema,
+- Earnings data and revenue segments`,
+    schema: GetFinancialsInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
       const onProgress = config?.metadata?.onProgress as ((msg: string) => void) | undefined;
 
       // 1. Call LLM with finance tools bound (native tool calling)
-      onProgress?.('Searching...');
+      onProgress?.('Fetching...');
       const { response } = await callLlm(input.query, {
         model,
         systemPrompt: buildRouterPrompt(),

@@ -56,6 +56,7 @@ interface ToolDisplayComponent {
   setLimitWarning(warning?: string): void;
   setApproval(decision: 'allow-once' | 'allow-session' | 'deny'): void;
   setDenied(path: string, tool: string): void;
+  dispose?(): void;
 }
 
 class BrowserSessionComponent extends Container implements ToolDisplayComponent {
@@ -145,6 +146,10 @@ export class ChatLogComponent extends Container {
   }
 
   clearAll() {
+    // Stop any running spinners before clearing
+    for (const component of this.toolById.values()) {
+      component.dispose?.();
+    }
     this.clear();
     this.toolById.clear();
     this.currentBrowserSession = null;
@@ -274,13 +279,66 @@ export class ChatLogComponent extends Container {
     );
   }
 
-  addPerformanceStats(duration: number, tokenUsage?: TokenUsage, tokensPerSecond?: number) {
-    if (!tokenUsage) {
-      return;
+  addQueuedMessage(text: string) {
+    this.addChild(new Spacer(1));
+    this.addChild(
+      new Text(
+        `${theme.muted(`❯ ${text}`)}`,
+        0,
+        0,
+      ),
+    );
+  }
+
+  addQueueDrain(count: number) {
+    this.addChild(
+      new Text(
+        `${theme.muted(`⏺ Picked up ${count} queued message${count !== 1 ? 's' : ''}`)}`,
+        0,
+        0,
+      ),
+    );
+  }
+
+  addMicrocompact(cleared: number, tokensSaved: number) {
+    this.addChild(
+      new Text(
+        `${theme.muted(`⏺ Microcompact: cleared ${cleared} old tool result${cleared !== 1 ? 's' : ''} (~${Math.round(tokensSaved / 1000)}K tokens)`)}`,
+        0,
+        0,
+      ),
+    );
+  }
+
+  addCompaction(success: boolean, preTokens?: number, postTokens?: number) {
+    if (success && preTokens && postTokens) {
+      const saved = preTokens - postTokens;
+      const pct = Math.round((saved / preTokens) * 100);
+      this.addChild(
+        new Text(
+          `${theme.muted(`⏺ Context compacted (${pct}% reduction, ~${Math.round(saved / 1000)}K tokens saved)`)}`,
+          0,
+          0,
+        ),
+      );
+    } else if (!success) {
+      this.addChild(
+        new Text(
+          `${theme.muted('⏺ Compaction failed, falling back to context clearing')}`,
+          0,
+          0,
+        ),
+      );
     }
-    const parts = [formatDuration(duration), `${tokenUsage.totalTokens.toLocaleString()} tokens`];
-    if (tokensPerSecond !== undefined) {
-      parts.push(`(${tokensPerSecond.toFixed(1)} tok/s)`);
+  }
+
+  addPerformanceStats(duration: number, tokenUsage?: TokenUsage, tokensPerSecond?: number) {
+    const parts = [formatDuration(duration)];
+    if (tokenUsage && tokenUsage.totalTokens > 20_000) {
+      parts.push(`${tokenUsage.totalTokens.toLocaleString()} tokens`);
+      if (tokensPerSecond !== undefined) {
+        parts.push(`(${tokensPerSecond.toFixed(1)} tok/s)`);
+      }
     }
     this.addChild(new Spacer(1));
     this.addChild(new Text(`${theme.muted('✻ ')}${theme.muted(parts.join(' · '))}`, 0, 0));

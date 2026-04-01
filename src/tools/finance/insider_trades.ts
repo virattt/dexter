@@ -1,6 +1,6 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { callApi, stripFieldsDeep } from './api.js';
+import { api, stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
 
 const REDUNDANT_INSIDER_FIELDS = ['issuer'] as const;
@@ -49,7 +49,7 @@ export const getInsiderTrades = new DynamicStructuredTool({
       filing_date_gt: input.filing_date_gt,
       filing_date_lt: input.filing_date_lt,
     };
-    const { data, url } = await callApi('/insider-trades/', params);
+    const { data, url } = await api.get('/insider-trades/', params);
     return formatToolResult(
       stripFieldsDeep(data.insider_trades || [], REDUNDANT_INSIDER_FIELDS),
       [url]

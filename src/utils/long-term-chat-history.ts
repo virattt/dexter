@@ -1,6 +1,7 @@
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
+import { getDexterDir } from './paths.js';
 
 /**
  * Represents a conversation entry (user message + agent response pair)
@@ -17,7 +18,6 @@ interface MessagesFile {
   messages: ConversationEntry[];
 }
 
-const DEXTER_DIR = '.dexter';
 const MESSAGES_DIR = 'messages';
 const MESSAGES_FILE = 'chat_history.json';
 
@@ -32,7 +32,7 @@ export class LongTermChatHistory {
   private loaded = false;
 
   constructor(baseDir: string = process.cwd()) {
-    this.filePath = join(baseDir, DEXTER_DIR, MESSAGES_DIR, MESSAGES_FILE);
+    this.filePath = join(baseDir, getDexterDir(), MESSAGES_DIR, MESSAGES_FILE);
   }
 
   /**

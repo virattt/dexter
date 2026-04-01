@@ -1,10 +1,10 @@
-import { buildToolDescriptions } from '../tools/registry.js';
+import { buildCompactToolDescriptions } from '../tools/registry.js';
 import { buildSkillMetadataSection, discoverSkills } from '../skills/index.js';
 import { readFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getChannelProfile } from './channels.js';
+import { dexterPath } from '../utils/paths.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -30,7 +30,7 @@ export function getCurrentDate(): string {
  * Load SOUL.md content from user override or bundled file.
  */
 export async function loadSoulDocument(): Promise<string | null> {
-  const userSoulPath = join(homedir(), '.dexter', 'SOUL.md');
+  const userSoulPath = dexterPath('SOUL.md');
   try {
     return await readFile(userSoulPath, 'utf-8');
   } catch {
@@ -70,6 +70,39 @@ ${skillList}
 - When a skill is relevant, invoke it IMMEDIATELY as your first action
 - Skills provide specialized workflows for complex tasks (e.g., DCF valuation)
 - Do not invoke a skill that has already been invoked for the current query`;
+}
+
+function buildMemorySection(memoryFiles: string[], memoryContext?: string | null): string {
+  const fileListSection = memoryFiles.length > 0
+    ? `\nMemory files on disk: ${memoryFiles.join(', ')}`
+    : '';
+
+  const contextSection = memoryContext
+    ? `\n\n### What you know about the user\n\n${memoryContext}`
+    : '';
+
+  return `## Memory
+
+You have persistent memory stored as Markdown files in .dexter/memory/.${fileListSection}${contextSection}
+
+### Recalling memories
+Use memory_search to recall stored facts, preferences, or notes. The search covers all
+memory files (long-term and daily logs) AND past conversation transcripts.
+
+**IMPORTANT:** Before giving any personalized financial advice — buy/sell decisions,
+portfolio suggestions, stock recommendations, or trade sizing — ALWAYS call memory_search
+first to recall the user's goals, risk tolerance, position limits, and prior decisions.
+The user expects you to know them. Do not give generic advice when personalized context exists.
+
+Follow up with memory_get to read full sections when you need exact text.
+
+### Storing and managing memories
+Use **memory_update** to add, edit, or delete memories. Do NOT use write_file or
+edit_file for memory files.
+- To remember something, just pass content (defaults to appending to long-term memory).
+- For daily notes, pass file="daily".
+- For edits/deletes, pass action="edit" or action="delete" with old_text.
+Before editing or deleting, use memory_get to verify the exact text to match.`;
 }
 
 // ============================================================================
@@ -166,8 +199,15 @@ export function buildGroupSection(ctx: GroupContext): string {
  * @param soulContent - Optional SOUL.md identity content
  * @param channel - Delivery channel (e.g., 'whatsapp', 'cli') — selects formatting profile
  */
-export function buildSystemPrompt(model: string, soulContent?: string | null, channel?: string, groupContext?: GroupContext): string {
-  const toolDescriptions = buildToolDescriptions(model);
+export function buildSystemPrompt(
+  model: string,
+  soulContent?: string | null,
+  channel?: string,
+  groupContext?: GroupContext,
+  memoryFiles?: string[],
+  memoryContext?: string | null,
+): string {
+  const toolDescriptions = buildCompactToolDescriptions(model);
   const profile = getChannelProfile(channel);
 
   const behaviorBullets = profile.behavior.map(b => `- ${b}`).join('\n');
@@ -189,24 +229,14 @@ ${toolDescriptions}
 
 ## Tool Usage Policy
 
-- Only use tools when the query actually requires external data
-- For stock prices, financials, metrics, estimates, insider trades, and company news headlines, use financial_search
-- Call financial_search ONCE with the full natural language query - it handles multi-company/multi-metric requests internally
-- Do NOT break up queries into multiple tool calls when one call can handle the request
-- When news headlines are returned, assess whether the titles and metadata already answer the user's question before fetching full articles with web_fetch (fetching is expensive). Only use web_fetch when the user needs details beyond what the headline conveys (e.g., quotes, specifics of a deal, earnings call takeaways)
-- For general web queries or non-financial topics, use web_search
-- Only use browser when you need JavaScript rendering or interactive navigation (clicking links, filling forms, navigating SPAs)
-- For factual questions about entities (companies, people, organizations), use tools to verify current state
-- Only respond directly for: conceptual definitions, stable historical facts, or conversational queries
+- Call get_financials or get_market_data ONCE with the full natural language query — they handle multi-company/multi-metric requests internally. Do NOT break up queries into multiple calls.
+- Only use web_fetch when headlines are insufficient (need quotes, deal specifics, earnings details).
+- Tool results are automatically capped. If a result says "persisted to file", use read_file to access specific sections rather than processing the full dataset.
+- Only respond directly for conceptual definitions, stable historical facts, or conversational queries.
 
 ${buildSkillsSection()}
 
-## Heartbeat
-
-You have a periodic heartbeat that runs on a schedule (configurable by the user).
-The heartbeat reads ~/.dexter/HEARTBEAT.md to know what to check.
-Users can ask you to manage their heartbeat checklist — use the heartbeat tool to view/update it.
-Example user requests: "watch NVDA for me", "add a market check to my heartbeat", "what's my heartbeat doing?"
+${buildMemorySection(memoryFiles ?? [], memoryContext)}
 
 ## Behavior
 
@@ -228,38 +258,4 @@ ${formatBullets}${tablesSection}${groupContext ? '\n\n' + buildGroupSection(grou
 // User Prompts
 // ============================================================================
 
-/**
- * Build user prompt for agent iteration with full tool results.
- * Anthropic-style: full results in context for accurate decision-making.
- * Context clearing happens at threshold, not inline summarization.
- * 
- * @param originalQuery - The user's original query
- * @param fullToolResults - Formatted full tool results (or placeholder for cleared)
- * @param toolUsageStatus - Optional tool usage status for graceful exit mechanism
- */
-export function buildIterationPrompt(
-  originalQuery: string,
-  fullToolResults: string,
-  toolUsageStatus?: string | null
-): string {
-  let prompt = `Query: ${originalQuery}`;
-
-  if (fullToolResults.trim()) {
-    prompt += `
-
-Data retrieved from tool calls:
-${fullToolResults}`;
-  }
-
-  // Add tool usage status if available (graceful exit mechanism)
-  if (toolUsageStatus) {
-    prompt += `\n\n${toolUsageStatus}`;
-  }
-
-  prompt += `
-
-Continue working toward answering the query. When you have gathered sufficient data to answer, write your complete answer directly and do not call more tools. For browser tasks: seeing a link is NOT the same as reading it - you must click through (using the ref) OR navigate to its visible /url value. NEVER guess at URLs - use ONLY URLs visible in snapshots.`;
-
-  return prompt;
-}
 

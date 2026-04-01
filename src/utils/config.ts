@@ -1,7 +1,8 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
+import { dexterPath } from './paths.js';
 
-const SETTINGS_FILE = '.dexter/settings.json';
+const SETTINGS_FILE = dexterPath('settings.json');
 
 // Map legacy model IDs to provider IDs for migration
 const MODEL_TO_PROVIDER_MAP: Record<string, string> = {
@@ -20,6 +21,12 @@ interface Config {
   provider?: string;
   modelId?: string;  // Selected model ID (e.g., "gpt-5.4", "ollama:llama3.1")
   model?: string;    // Legacy key, kept for migration
+  memory?: {
+    enabled?: boolean;
+    embeddingProvider?: 'openai' | 'gemini' | 'ollama' | 'auto';
+    embeddingModel?: string;
+    maxSessionContextTokens?: number;
+  };
   [key: string]: unknown;
 }
 

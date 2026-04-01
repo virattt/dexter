@@ -1,4 +1,4 @@
-import { AIMessage } from '@langchain/core/messages';
+import { AIMessage, AIMessageChunk, BaseMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatAnthropic } from '@langchain/anthropic';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
@@ -240,4 +240,124 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
     return { response: (result as { content: string }).content, usage };
   }
   return { response: result as AIMessage, usage };
+}
+
+// ---------------------------------------------------------------------------
+// Multi-turn message array API
+// ---------------------------------------------------------------------------
+
+/**
+ * Annotate the first SystemMessage with Anthropic's cache_control for prompt
+ * caching (~90% input token savings on repeated calls).
+ */
+function annotateSystemMessageForCaching(messages: BaseMessage[]): BaseMessage[] {
+  if (messages.length === 0 || messages[0]._getType() !== 'system') {
+    return messages;
+  }
+
+  const systemMsg = messages[0];
+  const text = typeof systemMsg.content === 'string'
+    ? systemMsg.content
+    : JSON.stringify(systemMsg.content);
+
+  const annotated = new SystemMessage({
+    content: [
+      {
+        type: 'text' as const,
+        text,
+        cache_control: { type: 'ephemeral' },
+      },
+    ],
+  });
+
+  return [annotated, ...messages.slice(1)];
+}
+
+interface CallLlmWithMessagesOptions {
+  model?: string;
+  tools?: StructuredToolInterface[];
+  signal?: AbortSignal;
+}
+
+/**
+ * Call an LLM with a full message array (multi-turn tool-calling).
+ *
+ * Unlike callLlm() which takes a single prompt string, this function accepts
+ * a BaseMessage[] array containing SystemMessage, HumanMessage, AIMessage,
+ * and ToolMessage objects. This enables the agent loop where
+ * conversation history (including model reasoning and tool results) persists
+ * across iterations.
+ *
+ * All LangChain providers support BaseMessage[] via BaseChatModel.invoke().
+ */
+export async function callLlmWithMessages(
+  messages: BaseMessage[],
+  options: CallLlmWithMessagesOptions = {},
+): Promise<LlmResult> {
+  const { model = DEFAULT_MODEL, tools, signal } = options;
+
+  const llm = getChatModel(model, false);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let runnable: Runnable<any, any> = llm;
+
+  if (tools && tools.length > 0 && llm.bindTools) {
+    runnable = llm.bindTools(tools);
+  }
+
+  const invokeOpts = signal ? { signal } : undefined;
+  const provider = resolveProvider(model);
+
+  // For Anthropic: annotate SystemMessage with cache_control for prompt caching
+  const finalMessages = provider.id === 'anthropic'
+    ? annotateSystemMessageForCaching(messages)
+    : messages;
+
+  const result = await withRetry(
+    () => runnable.invoke(finalMessages, invokeOpts),
+    provider.displayName,
+  );
+
+  const usage = extractUsage(result);
+  return { response: result as AIMessage, usage };
+}
+
+// ---------------------------------------------------------------------------
+// Streaming multi-turn API
+// ---------------------------------------------------------------------------
+
+/**
+ * Stream an LLM response as AIMessageChunk objects.
+ *
+ * Uses LangChain's .stream() method. Chunks can be accumulated via .concat()
+ * to progressively build complete tool_calls. Falls back to blocking invoke
+ * if streaming is not supported by the provider.
+ */
+export async function* streamLlmWithMessages(
+  messages: BaseMessage[],
+  options: CallLlmWithMessagesOptions = {},
+): AsyncGenerator<AIMessageChunk, void> {
+  const { model = DEFAULT_MODEL, tools, signal } = options;
+
+  const llm = getChatModel(model, true);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let runnable: Runnable<any, any> = llm;
+
+  if (tools && tools.length > 0 && llm.bindTools) {
+    runnable = llm.bindTools(tools);
+  }
+
+  const invokeOpts = signal ? { signal } : undefined;
+  const provider = resolveProvider(model);
+
+  const finalMessages = provider.id === 'anthropic'
+    ? annotateSystemMessageForCaching(messages)
+    : messages;
+
+  const stream = await runnable.stream(finalMessages, invokeOpts);
+
+  for await (const chunk of stream) {
+    yield chunk as AIMessageChunk;
+  }
 }

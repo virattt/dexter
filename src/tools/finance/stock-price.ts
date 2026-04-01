@@ -1,6 +1,6 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { callApi } from './api.js';
+import { api } from './api.js';
 import { formatToolResult } from '../types.js';
 
 export const STOCK_PRICE_DESCRIPTION = `
@@ -21,7 +21,7 @@ export const getStockPrice = new DynamicStructuredTool({
   func: async (input) => {
     const ticker = input.ticker.trim().toUpperCase();
     const params = { ticker };
-    const { data, url } = await callApi('/prices/snapshot/', params);
+    const { data, url } = await api.get('/prices/snapshot/', params);
     return formatToolResult(data.snapshot || {}, [url]);
   },
 });
@@ -54,7 +54,7 @@ export const getStockPrices = new DynamicStructuredTool({
     const endDate = new Date(input.end_date + 'T00:00:00');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const { data, url } = await callApi('/prices/', params, { cacheable: endDate < today });
+    const { data, url } = await api.get('/prices/', params, { cacheable: endDate < today });
     return formatToolResult(data.prices || [], [url]);
   },
 });
@@ -64,7 +64,7 @@ export const getStockTickers = new DynamicStructuredTool({
   description: 'Retrieves the list of available stock tickers that can be used with the stock price tools.',
   schema: z.object({}),
   func: async () => {
-    const { data, url } = await callApi('/prices/snapshot/tickers/', {});
+    const { data, url } = await api.get('/prices/snapshot/tickers/', {});
     return formatToolResult(data.tickers || [], [url]);
   },
 });
