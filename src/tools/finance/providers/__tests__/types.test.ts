@@ -29,7 +29,10 @@ describe('FinancialSummaryRecord', () => {
     expect(record.netSales).toBe(10000000);
   });
 
-  test('CompanyInfo has correct market union type', () => {
+});
+
+describe('CompanyInfo', () => {
+  test('has correct market union type', () => {
     const prime: CompanyInfo = { code: '7203', name: 'トヨタ自動車', market: 'Prime' };
     const growth: CompanyInfo = { code: '1234', name: 'テスト株式会社', market: 'Growth' };
     expect(prime.market).toBe('Prime');

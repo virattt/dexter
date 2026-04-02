@@ -5,7 +5,7 @@
 
 export interface FinancialSummaryRecord {
   fiscalYearEnd: string | null;
-  period: string | null;           // 'FY' | '4Q' | 'Annual' | 'Q1'〜'Q4'
+  period: 'FY' | '4Q' | 'Annual' | 'Q1' | 'Q2' | 'Q3' | 'Q4' | null;
   disclosureDate: string | null;
   // P&L
   netSales: number | null;
