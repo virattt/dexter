@@ -7,6 +7,9 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'model', description: 'Switch LLM provider and model' },
   { name: 'rules', description: 'Show your research rules' },
   { name: 'clear', description: 'Clear the conversation' },
+  { name: 'memory', description: 'Show what Dexter remembers about you' },
+  { name: 'heartbeat', description: 'Show your heartbeat monitoring checklist' },
+  { name: 'history', description: 'Show recent conversation summaries' },
   { name: 'help', description: 'Show keyboard shortcuts and tips' },
 ];
 

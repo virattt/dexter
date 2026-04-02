@@ -2,14 +2,22 @@ import { Container, Text } from '@mariozechner/pi-tui';
 import { theme } from '../theme.js';
 import type { SlashCommand } from '../commands/index.js';
 
+// Strip ANSI escape codes to get visible character count
+function visibleLength(str: string): number {
+  return str.replace(/\x1b\[[0-9;]*m/g, '').length;
+}
+
 /**
  * Contextual hint bar displayed below the input editor.
  * Shows keyboard shortcuts, slash command suggestions, and transient messages.
- * Expands to multiple lines when showing command suggestions.
+ * Supports left-aligned hints + right-aligned esc hints on a single line.
  */
 export class HintBarComponent extends Container {
   private hintText: Text;
   private showingSuggestions: boolean = false;
+  private leftHint: string = '';
+  private rightHint: string = '';
+  private currentHintMode: 'left' | 'right' | 'both' | 'none' = 'none';
 
   constructor() {
     super();
@@ -17,8 +25,50 @@ export class HintBarComponent extends Container {
     this.addChild(this.hintText);
   }
 
-  setHint(text: string): void {
-    this.hintText.setText(text ? theme.muted(`  ${text}`) : '');
+  private updateHintLine(): void {
+    if (!this.leftHint && !this.rightHint) {
+      this.currentHintMode = 'none';
+      this.hintText.setText('');
+      return;
+    }
+    if (this.rightHint && !this.leftHint) {
+      this.currentHintMode = 'right';
+      this.hintText.setText(this.rightHint);
+      return;
+    }
+    if (this.leftHint && !this.rightHint) {
+      this.currentHintMode = 'left';
+      this.hintText.setText(this.leftHint);
+      return;
+    }
+    // Both: placeholder, render() handles positioning
+    this.currentHintMode = 'both';
+    this.hintText.setText(this.leftHint);
+  }
+
+  render(width: number): string[] {
+    if (this.showingSuggestions) {
+      return super.render(width);
+    }
+
+    if (this.currentHintMode === 'none') {
+      return [''];
+    }
+
+    if (this.currentHintMode === 'both') {
+      const leftLen = visibleLength(this.leftHint);
+      const rightLen = visibleLength(this.rightHint);
+      const padding = Math.max(1, width - leftLen - rightLen);
+      return [this.leftHint + ' '.repeat(padding) + this.rightHint];
+    }
+
+    if (this.currentHintMode === 'right') {
+      const rightLen = visibleLength(this.rightHint);
+      const padding = Math.max(0, width - rightLen);
+      return [' '.repeat(padding) + this.rightHint];
+    }
+
+    return super.render(width);
   }
 
   /**
@@ -48,7 +98,8 @@ export class HintBarComponent extends Container {
   }
 
   /**
-   * Build a contextual hint based on current app state.
+   * Build contextual hints based on current app state.
+   * Left side: general hints. Right side: esc action hints.
    */
   update(state: {
     isProcessing: boolean;
@@ -58,34 +109,28 @@ export class HintBarComponent extends Container {
     escPendingExit: boolean;
     queueLength: number;
   }): void {
+    this.leftHint = '';
+    this.rightHint = '';
+
+    // Right-side esc hints (transient)
     if (state.escPendingClear) {
-      this.setHint('esc again to clear');
-      return;
+      this.rightHint = theme.muted('esc again to clear');
+    } else if (state.escPendingExit) {
+      this.rightHint = theme.muted('esc again to exit');
     }
 
-    if (state.escPendingExit) {
-      this.setHint('esc again to exit');
-      return;
-    }
-
+    // Left-side contextual hints
     if (state.isProcessing) {
       const queueNote = state.queueLength > 0
         ? ` · ${state.queueLength} message${state.queueLength !== 1 ? 's' : ''} queued`
         : '';
-      this.setHint(`esc to interrupt${queueNote}`);
-      return;
+      this.leftHint = theme.muted(` esc to interrupt${queueNote}`);
+    } else if (state.hasPendingApproval) {
+      this.leftHint = theme.muted(' enter to approve · esc to deny');
+    } else if (!state.hasInput && !state.escPendingExit) {
+      this.leftHint = theme.muted(' / for commands');
     }
 
-    if (state.hasPendingApproval) {
-      this.setHint('enter to approve · esc to deny');
-      return;
-    }
-
-    if (!state.hasInput) {
-      this.setHint('/ for commands · esc to exit');
-      return;
-    }
-
-    this.setHint('');
+    this.updateHintLine();
   }
 }

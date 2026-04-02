@@ -249,6 +249,28 @@ export async function runCli() {
         chatLog.clearAll();
         tui.requestRender();
         break;
+      case 'memory':
+        await agentRunner.runQuery('Show me what you know about me from memory. Use memory_search and memory_get.');
+        break;
+      case 'heartbeat':
+        await agentRunner.runQuery('Show me my current heartbeat checklist from .dexter/HEARTBEAT.md');
+        break;
+      case 'history': {
+        const messages = modelSelection.inMemoryChatHistory.getMessages();
+        chatLog.addChild(new Spacer(1));
+        if (messages.length === 0) {
+          chatLog.addChild(new Text(theme.muted('No conversation history yet.'), 0, 0));
+        } else {
+          chatLog.addChild(new Text(theme.muted('Recent conversations:'), 0, 0));
+          for (const msg of messages) {
+            const summary = msg.summary ?? msg.answer?.slice(0, 100) ?? '(pending)';
+            chatLog.addChild(new Text(theme.muted(`  ${msg.id + 1}. ${msg.query}`), 0, 0));
+            chatLog.addChild(new Text(theme.muted(`     ${summary}`), 0, 0));
+          }
+        }
+        tui.requestRender();
+        break;
+      }
       case 'help':
         chatLog.addChild(new Spacer(1));
         chatLog.addChild(new Text(theme.muted(HELP_TEXT), 0, 0));
