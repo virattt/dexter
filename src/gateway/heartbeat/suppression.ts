@@ -36,20 +36,15 @@ function isJustOkToken(text: string): boolean {
 
 /**
  * Heuristic: detect "nothing to report" responses the LLM sent despite
- * being told to use HEARTBEAT_OK.  Matches phrases like "no action needed",
- * "still below target", "not yet", etc.
+ * being told to use HEARTBEAT_OK.  Only matches unambiguously dismissive
+ * phrases — avoids domain-specific patterns that could false-positive
+ * on legitimate alerts.
  */
 const NO_ACTION_PATTERNS = [
   /\bno action needed\b/i,
   /\bno alert needed\b/i,
   /\bnothing to report\b/i,
-  /\bstill (?:below|above|under|over|within|outside)\b/i,
-  /\bnot yet\b/i,
   /\bno (?:significant |notable )?change/i,
-  /\bno update/i,
-  /\bhasn't (?:hit|reached|crossed|touched)\b/i,
-  /\bhasn't triggered\b/i,
-  /\bdoesn't? (?:meet|trigger|hit|reach)\b/i,
   /\beverything (?:is |looks )?(?:fine|normal|good|ok)\b/i,
 ];
 
