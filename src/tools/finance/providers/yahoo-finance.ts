@@ -74,15 +74,15 @@ export class YahooFinanceProvider implements FundamentalsProvider {
 
     const incomeList: YahooRecord[] = (period === 'annual'
       ? result.incomeStatementHistory?.incomeStatementHistory
-      : result.incomeStatementHistoryQuarterly?.incomeStatementHistoryQuarterly) ?? [];
+      : result.incomeStatementHistoryQuarterly?.incomeStatementHistory) ?? [];
 
     const balanceList: YahooRecord[] = (period === 'annual'
       ? result.balanceSheetHistory?.balanceSheetStatements
-      : result.balanceSheetHistoryQuarterly?.balanceSheetStatementsQuarterly) ?? [];
+      : result.balanceSheetHistoryQuarterly?.balanceSheetStatements) ?? [];
 
     const cfList: YahooRecord[] = (period === 'annual'
       ? result.cashflowStatementHistory?.cashflowStatements
-      : result.cashflowStatementHistoryQuarterly?.cashflowStatementsQuarterly) ?? [];
+      : result.cashflowStatementHistoryQuarterly?.cashflowStatements) ?? [];
 
     const keyStats = result.defaultKeyStatistics;
     const summaryDetail = result.summaryDetail;
