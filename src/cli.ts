@@ -19,6 +19,7 @@ import {
   ChatLogComponent,
   CustomEditor,
   DebugPanelComponent,
+  HintBarComponent,
   IntroComponent,
   WorkingIndicatorComponent,
   createApiKeyConfirmSelector,
@@ -26,6 +27,7 @@ import {
   createProviderSelector,
 } from './components/index.js';
 import { editorTheme, theme } from './theme.js';
+import { matchCommands, type SlashCommand } from './commands/index.js';
 
 function truncateAtWord(str: string, maxLength: number): string {
   if (str.length <= maxLength) {
@@ -212,6 +214,7 @@ export async function runCli() {
   const errorText = new Text('', 0, 0);
   const workingIndicator = new WorkingIndicatorComponent(tui);
   const editor = new CustomEditor(tui, editorTheme);
+  const hintBar = new HintBarComponent();
   const debugPanel = new DebugPanelComponent(8, true);
 
   tui.addChild(root);
@@ -221,6 +224,41 @@ export async function runCli() {
     errorText.setText(message ? theme.error(`Error: ${message}`) : '');
   };
 
+  // Slash command autocomplete state
+  let slashSuggestions: SlashCommand[] = [];
+  let slashSelectedIndex = 0;
+  let slashActive = false;
+
+  const HELP_TEXT = `Keyboard Shortcuts
+  esc          Interrupt query / clear input
+  ctrl+c       Exit Dexter
+  /model       Switch LLM provider and model
+  /rules       Show research rules
+  /clear       Clear conversation
+  ↑ / ↓        Navigate input history`;
+
+  const handleSlashCommand = async (command: string) => {
+    switch (command) {
+      case 'model':
+        modelSelection.startSelection();
+        break;
+      case 'rules':
+        await agentRunner.runQuery('Show me my current research rules from .dexter/RULES.md');
+        break;
+      case 'clear':
+        chatLog.clearAll();
+        tui.requestRender();
+        break;
+      case 'help':
+        chatLog.addChild(new Spacer(1));
+        chatLog.addChild(new Text(theme.muted(HELP_TEXT), 0, 0));
+        tui.requestRender();
+        break;
+    }
+  };
+
+  // Slash callbacks are wired after renderSelectionOverlay is defined (below)
+
   const handleSubmit = async (query: string) => {
     if (query.toLowerCase() === 'exit' || query.toLowerCase() === 'quit') {
       tui.stop();
@@ -228,8 +266,12 @@ export async function runCli() {
       return;
     }
 
-    if (query === '/model') {
-      modelSelection.startSelection();
+    // Handle all slash commands
+    if (query.startsWith('/')) {
+      const command = query.slice(1).trim().toLowerCase();
+      slashActive = false;
+      slashSuggestions = [];
+      await handleSlashCommand(command);
       return;
     }
 
@@ -269,16 +311,11 @@ export async function runCli() {
     void handleSubmit(value);
   };
 
-  editor.onEscape = () => {
-    if (modelSelection.isInSelectionFlow()) {
-      modelSelection.cancelSelection();
-      return;
-    }
-    if (agentRunner.isProcessing || agentRunner.pendingApproval) {
-      agentRunner.cancelExecution();
-      return;
-    }
-  };
+  let escPendingClear = false;
+  let escPendingExit = false;
+  let escTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  // onEscape is wired after renderSelectionOverlay is defined (below)
 
   editor.onCtrlC = () => {
     if (modelSelection.isInSelectionFlow()) {
@@ -305,6 +342,20 @@ export async function runCli() {
     }
     root.addChild(new Spacer(1));
     root.addChild(editor);
+    if (slashActive && slashSuggestions.length > 0) {
+      hintBar.setSuggestions(slashSuggestions, slashSelectedIndex);
+    } else {
+      hintBar.clearSuggestions();
+      hintBar.update({
+        isProcessing: agentRunner.isProcessing,
+        hasPendingApproval: !!agentRunner.pendingApproval,
+        hasInput: editor.getText().trim().length > 0,
+        escPendingClear,
+        escPendingExit,
+        queueLength: defaultQueue.length(),
+      });
+    }
+    root.addChild(hintBar);
     root.addChild(debugPanel);
     tui.setFocus(editor);
   };
@@ -415,6 +466,92 @@ export async function runCli() {
         input,
       );
     }
+  };
+
+  // Wire callbacks that need renderSelectionOverlay (defined above)
+  editor.onEscape = () => {
+    if (modelSelection.isInSelectionFlow()) {
+      modelSelection.cancelSelection();
+      return;
+    }
+    if (agentRunner.isProcessing || agentRunner.pendingApproval) {
+      agentRunner.cancelExecution();
+      return;
+    }
+
+    const hasText = editor.getText().trim().length > 0;
+    if (hasText) {
+      // Double-Esc to clear input
+      if (escPendingClear) {
+        editor.setText('');
+        escPendingClear = false;
+        escPendingExit = false;
+        if (escTimeout) { clearTimeout(escTimeout); escTimeout = null; }
+      } else {
+        escPendingClear = true;
+        escPendingExit = false;
+        if (escTimeout) clearTimeout(escTimeout);
+        escTimeout = setTimeout(() => {
+          escPendingClear = false;
+          renderSelectionOverlay();
+          tui.requestRender();
+        }, 2000);
+      }
+    } else {
+      // Double-Esc to exit
+      if (escPendingExit) {
+        tui.stop();
+        process.exit(0);
+      } else {
+        escPendingExit = true;
+        escPendingClear = false;
+        if (escTimeout) clearTimeout(escTimeout);
+        escTimeout = setTimeout(() => {
+          escPendingExit = false;
+          renderSelectionOverlay();
+          tui.requestRender();
+        }, 2000);
+      }
+    }
+    renderSelectionOverlay();
+    tui.requestRender();
+  };
+
+  editor.onSlashChange = (text: string) => {
+    slashSuggestions = matchCommands(text);
+    slashSelectedIndex = 0;
+    slashActive = slashSuggestions.length > 0;
+    renderSelectionOverlay();
+    tui.requestRender();
+  };
+
+  editor.onSlashNavigate = (direction: 'up' | 'down') => {
+    if (direction === 'down') {
+      slashSelectedIndex = Math.min(slashSelectedIndex + 1, slashSuggestions.length - 1);
+    } else {
+      slashSelectedIndex = Math.max(slashSelectedIndex - 1, 0);
+    }
+    renderSelectionOverlay();
+    tui.requestRender();
+  };
+
+  editor.onSlashSelect = () => {
+    const selected = slashSuggestions[slashSelectedIndex];
+    if (selected) {
+      slashActive = false;
+      slashSuggestions = [];
+      editor.setText('');
+      void handleSlashCommand(selected.name);
+    }
+    renderSelectionOverlay();
+    tui.requestRender();
+  };
+
+  editor.onSlashDismiss = () => {
+    slashActive = false;
+    slashSuggestions = [];
+    renderSelectionOverlay();
+    tui.requestRender();
   };
 
   await inputHistory.init();
