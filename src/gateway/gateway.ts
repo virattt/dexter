@@ -184,7 +184,7 @@ async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage
     stopTypingLoop();
 
     if (answer.trim()) {
-      const cleanedAnswer = cleanMarkdownForWhatsApp(answer);
+      const cleanedAnswer = cleanMarkdownForWhatsApp(answer).trim();
 
       if (isGroup) {
         // For groups, use inbound.reply() directly (bypasses outbound strict E.164 checks)

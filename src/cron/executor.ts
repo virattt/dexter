@@ -133,7 +133,7 @@ export async function executeCronJob(
   if (job.fulfillment === 'ask') {
     query += '\n\nIf you find something noteworthy, also ask the user if they want to continue monitoring this.';
   }
-  query += `\n\n## Instructions\n- If nothing noteworthy, respond with exactly: ${HEARTBEAT_OK_TOKEN}\n- Do NOT send a message just to say "everything is fine"\n- Keep alerts brief and focused — lead with the key finding`;
+  query += `\n\n## Instructions\n- If the condition has NOT been met, you MUST respond with exactly: ${HEARTBEAT_OK_TOKEN}\n- Do NOT send a status update or progress report — the user only wants to hear when the condition IS met\n- Do NOT say things like "no action needed", "still below target", "not yet" — just respond ${HEARTBEAT_OK_TOKEN}\n- Only respond with a real message when there is something actionable to report\n- Keep alerts brief and focused — lead with the key finding`;
 
   // 5. Run agent
   let answer: string;
