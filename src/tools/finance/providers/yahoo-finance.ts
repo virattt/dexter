@@ -74,15 +74,15 @@ export class YahooFinanceProvider implements FundamentalsProvider {
 
     const incomeList: YahooRecord[] = (period === 'annual'
       ? result.incomeStatementHistory?.incomeStatementHistory
-      : result.incomeStatementHistoryQuarterly?.incomeStatementHistory) ?? [];
+      : result.incomeStatementHistoryQuarterly?.incomeStatementHistoryQuarterly) ?? [];
 
     const balanceList: YahooRecord[] = (period === 'annual'
       ? result.balanceSheetHistory?.balanceSheetStatements
-      : result.balanceSheetHistoryQuarterly?.balanceSheetStatements) ?? [];
+      : result.balanceSheetHistoryQuarterly?.balanceSheetStatementsQuarterly) ?? [];
 
     const cfList: YahooRecord[] = (period === 'annual'
       ? result.cashflowStatementHistory?.cashflowStatements
-      : result.cashflowStatementHistoryQuarterly?.cashflowStatements) ?? [];
+      : result.cashflowStatementHistoryQuarterly?.cashflowStatementsQuarterly) ?? [];
 
     const keyStats = result.defaultKeyStatistics;
     const summaryDetail = result.summaryDetail;
@@ -100,7 +100,7 @@ export class YahooFinanceProvider implements FundamentalsProvider {
       const totalAssets = numOrNull(balance.totalAssets);
       const netSales = numOrNull(income.totalRevenue);
       const netIncome = numOrNull(income.netIncome);
-      const eps = numOrNull(keyStats?.trailingEps) ?? null;
+      const eps = i === 0 ? (numOrNull(keyStats?.trailingEps) ?? null) : null;  // trailingEps is a TTM value, not period-specific
       const sharesOutstanding = keyStats?.sharesOutstanding ? numOrNull(keyStats.sharesOutstanding) : null;
       const bps = equity !== null && sharesOutstanding !== null && sharesOutstanding > 0
         ? Math.round(equity / sharesOutstanding)
@@ -118,8 +118,8 @@ export class YahooFinanceProvider implements FundamentalsProvider {
         operatingProfit: numOrNull(income.operatingIncome),
         ordinaryProfit: null,
         netIncome,
-        eps: i === 0 ? eps : null,
-        dividendPerShare: numOrNull(summaryDetail?.trailingAnnualDividendRate) ?? null,
+        eps: i === 0 ? eps : null,  // trailingEps is a TTM value, not period-specific
+        dividendPerShare: i === 0 ? (numOrNull(summaryDetail?.trailingAnnualDividendRate) ?? null) : null,  // trailing value, not period-specific
         forecastSales: null,
         forecastOperatingProfit: null,
         forecastNetIncome: null,
