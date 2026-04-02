@@ -4,9 +4,35 @@ import { logger } from '../../utils/logger.js';
 /**
  * Twelve Data API client for forex, indices, and commodities market data.
  * https://twelvedata.com/docs
+ *
+ * Free plan: 8 requests/minute, 800 requests/day.
+ * This client enforces rate limiting with automatic queuing and retry.
  */
 
 const BASE_URL = 'https://api.twelvedata.com';
+
+/** Rate limiter: max 8 requests per 60 seconds */
+const RATE_LIMIT = 8;
+const RATE_WINDOW_MS = 60_000;
+const requestTimestamps: number[] = [];
+
+async function waitForRateLimit(): Promise<void> {
+  while (true) {
+    const now = Date.now();
+    // Remove timestamps older than the window
+    while (requestTimestamps.length > 0 && requestTimestamps[0] < now - RATE_WINDOW_MS) {
+      requestTimestamps.shift();
+    }
+    if (requestTimestamps.length < RATE_LIMIT) {
+      requestTimestamps.push(now);
+      return;
+    }
+    // Wait until the oldest request exits the window
+    const waitMs = requestTimestamps[0] + RATE_WINDOW_MS - now + 100;
+    logger.info(`[Twelve Data API] Rate limit reached. Waiting ${(waitMs / 1000).toFixed(1)}s...`);
+    await new Promise(resolve => setTimeout(resolve, waitMs));
+  }
+}
 
 export interface ApiResponse {
   data: Record<string, unknown>;
@@ -20,6 +46,7 @@ function getApiKey(): string {
 async function executeRequest(
   url: string,
   label: string,
+  retries = 2,
 ): Promise<Record<string, unknown>> {
   let response: Response;
   try {
@@ -28,6 +55,14 @@ async function executeRequest(
     const message = error instanceof Error ? error.message : String(error);
     logger.error(`[Twelve Data API] network error: ${label} — ${message}`);
     throw new Error(`[Twelve Data API] request failed for ${label}: ${message}`);
+  }
+
+  // Handle rate limit response (429)
+  if (response.status === 429 && retries > 0) {
+    logger.info(`[Twelve Data API] 429 rate limited: ${label}. Retrying after wait...`);
+    await new Promise(resolve => setTimeout(resolve, RATE_WINDOW_MS / RATE_LIMIT + 500));
+    await waitForRateLimit();
+    return executeRequest(url, label, retries - 1);
   }
 
   if (!response.ok) {
@@ -45,6 +80,13 @@ async function executeRequest(
   // Twelve Data returns { status: "error", message: "..." } on logical errors
   if (data && typeof data === 'object' && (data as Record<string, unknown>).status === 'error') {
     const msg = (data as Record<string, unknown>).message || 'Unknown error';
+    // Rate limit error in response body
+    if (String(msg).includes('minute') && retries > 0) {
+      logger.info(`[Twelve Data API] API rate limit: ${label}. Waiting...`);
+      await new Promise(resolve => setTimeout(resolve, RATE_WINDOW_MS / RATE_LIMIT + 500));
+      await waitForRateLimit();
+      return executeRequest(url, label, retries - 1);
+    }
     throw new Error(`[Twelve Data API] ${msg}`);
   }
 
@@ -65,6 +107,9 @@ export const api = {
         return cached;
       }
     }
+
+    // Wait for rate limit slot before making request
+    await waitForRateLimit();
 
     const url = new URL(`${BASE_URL}${endpoint}`);
     const apiKey = getApiKey();
@@ -91,6 +136,15 @@ export const api = {
     return { data, url: cleanUrl.toString() };
   },
 };
+
+/**
+ * Rate-limited fetch for direct URL calls (used by macro-analysis, economic-calendar).
+ * Wraps the rate limiter around a raw fetch.
+ */
+export async function rateLimitedFetch(url: string): Promise<Response> {
+  await waitForRateLimit();
+  return fetch(url);
+}
 
 /**
  * Fintokei instrument symbols mapping.

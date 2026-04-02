@@ -3,6 +3,7 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
 import { logger } from '../../utils/logger.js';
+import { rateLimitedFetch } from './api.js';
 
 export const MACRO_ANALYSIS_DESCRIPTION = `
 Econometric macro analysis engine for FX and cross-asset markets. Analyzes leading indicators, rate differentials, yield curves, and macro regime states to provide fundamental context for trading decisions.
@@ -48,7 +49,7 @@ async function fetchEconomicIndicator(
   url.searchParams.append('outputsize', String(outputsize));
 
   try {
-    const response = await fetch(url.toString());
+    const response = await rateLimitedFetch(url.toString());
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
     const data = await response.json() as Record<string, unknown>;
     const values = data.values as Array<{ date: string; value: string }> | undefined;
@@ -226,7 +227,7 @@ export const getCrossAssetRegime = new DynamicStructuredTool({
         const url = new URL('https://api.twelvedata.com/quote');
         if (apiKey) url.searchParams.append('apikey', apiKey);
         url.searchParams.append('symbol', symbol);
-        const response = await fetch(url.toString());
+        const response = await rateLimitedFetch(url.toString());
         if (!response.ok) return null;
         const data = await response.json() as Record<string, unknown>;
         return { price: parseFloat(data.close as string) || 0, change: parseFloat(data.percent_change as string) || 0 };

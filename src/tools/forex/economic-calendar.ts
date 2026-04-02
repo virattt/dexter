@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
 import { logger } from '../../utils/logger.js';
+import { rateLimitedFetch } from './api.js';
 
 export const ECONOMIC_CALENDAR_DESCRIPTION = `
 Fetches upcoming and recent economic events that impact FX, indices, and commodity markets. Essential for Fintokei trading to avoid unexpected volatility.
@@ -81,7 +82,7 @@ export const getEconomicCalendar = new DynamicStructuredTool({
 
     let data: Record<string, unknown>;
     try {
-      const response = await fetch(url.toString());
+      const response = await rateLimitedFetch(url.toString());
       if (!response.ok) {
         throw new Error(`${response.status} ${response.statusText}`);
       }
