@@ -1,9 +1,9 @@
 import { Container, Spacer, Text, type TUI } from '@mariozechner/pi-tui';
 import type { ApprovalDecision } from '../agent/types.js';
 import { theme } from '../theme.js';
+import { subscribeSpinner, currentSpinnerFrame } from '../utils/spinner.js';
 
 function formatToolName(name: string): string {
-  // Strip common verb prefixes for cleaner display (get_financials → Financials)
   const stripped = name.replace(/^(get)_/, '');
   return stripped
     .split('_')
@@ -56,19 +56,15 @@ function approvalLabel(decision: ApprovalDecision): string {
   }
 }
 
-const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-
 export class ToolEventComponent extends Container {
-  private readonly tui: TUI;
   private readonly header: Text;
   private completedDetails: Text[] = [];
   private activeDetail: Text | null = null;
-  private spinnerInterval: ReturnType<typeof setInterval> | null = null;
-  private spinnerFrame: number = 0;
+  private unsubscribeSpinner: (() => void) | null = null;
+  private activeMessage: string = '';
 
-  constructor(tui: TUI, tool: string, args: Record<string, unknown>) {
+  constructor(_tui: TUI, tool: string, args: Record<string, unknown>) {
     super();
-    this.tui = tui;
     this.addChild(new Spacer(1));
     const title = `${formatToolName(tool)}${args ? `${theme.muted('(')}${formatArgs(tool, args)}${theme.muted(')')}` : ''}`;
     this.header = new Text(`⏺ ${title}`, 0, 0);
@@ -77,15 +73,14 @@ export class ToolEventComponent extends Container {
 
   setActive(progressMessage?: string) {
     this.clearDetail();
-    const message = progressMessage || 'Searching...';
-    this.activeDetail = new Text(`${theme.muted(`⎿  ${SPINNER_FRAMES[0]}`)} ${message}`, 0, 0);
+    this.activeMessage = progressMessage || 'Searching...';
+    const frame = currentSpinnerFrame();
+    this.activeDetail = new Text(`${theme.muted(`⎿  ${frame}`)} ${this.activeMessage}`, 0, 0);
     this.addChild(this.activeDetail);
-    this.spinnerFrame = 0;
-    this.spinnerInterval = setInterval(() => {
-      this.spinnerFrame = (this.spinnerFrame + 1) % SPINNER_FRAMES.length;
-      this.activeDetail?.setText(`${theme.muted(`⎿  ${SPINNER_FRAMES[this.spinnerFrame]}`)} ${message}`);
-      this.tui.requestRender();
-    }, 80);
+
+    this.unsubscribeSpinner = subscribeSpinner((frame) => {
+      this.activeDetail?.setText(`${theme.muted(`⎿  ${frame}`)} ${this.activeMessage}`);
+    });
   }
 
   setComplete(summary: string, duration: number) {
@@ -137,9 +132,9 @@ export class ToolEventComponent extends Container {
   }
 
   private clearDetail() {
-    if (this.spinnerInterval) {
-      clearInterval(this.spinnerInterval);
-      this.spinnerInterval = null;
+    if (this.unsubscribeSpinner) {
+      this.unsubscribeSpinner();
+      this.unsubscribeSpinner = null;
     }
     if (this.activeDetail) {
       this.removeChild(this.activeDetail);

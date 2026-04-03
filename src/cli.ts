@@ -28,6 +28,7 @@ import {
 } from './components/index.js';
 import { editorTheme, theme } from './theme.js';
 import { matchCommands, type SlashCommand } from './commands/index.js';
+import { initSpinner } from './utils/spinner.js';
 
 function truncateAtWord(str: string, maxLength: number): string {
   if (str.length <= maxLength) {
@@ -90,88 +91,70 @@ function createScreen(
   return container;
 }
 
-function renderHistory(chatLog: ChatLogComponent, history: AgentRunnerController['history']) {
-  chatLog.clearAll();
-  for (const item of history) {
-    chatLog.addQuery(item.query);
-    chatLog.resetToolGrouping();
+/**
+ * Render a single display event into the chat log (used by incremental history).
+ */
+function renderEvent(
+  chatLog: ChatLogComponent,
+  display: { event: any; id: string; completed?: boolean; endEvent?: any; progressMessage?: string },
+  itemStatus: string,
+) {
+  const event = display.event;
 
-    if (item.status === 'interrupted') {
-      chatLog.addInterrupted();
+  if (event.type === 'thinking') {
+    const message = event.message.trim();
+    if (message) {
+      chatLog.addChild(
+        new Text(message.length > 200 ? `${message.slice(0, 200)}...` : message, 0, 0),
+      );
     }
+    return;
+  }
 
-    for (const display of item.events) {
-      const event = display.event;
-      if (event.type === 'thinking') {
-        const message = event.message.trim();
-        if (message) {
-          chatLog.addChild(
-            new Text(message.length > 200 ? `${message.slice(0, 200)}...` : message, 0, 0),
-          );
-        }
-        continue;
-      }
-
-      if (event.type === 'tool_start') {
-        const toolStart = event as ToolStartEvent;
-        const component = chatLog.startTool(display.id, toolStart.tool, toolStart.args);
-        if (display.completed && display.endEvent?.type === 'tool_end') {
-          const done = display.endEvent as ToolEndEvent;
-          component.setComplete(
-            summarizeToolResult(done.tool, toolStart.args, done.result),
-            done.duration,
-          );
-        } else if (display.completed && display.endEvent?.type === 'tool_error') {
-          const toolError = display.endEvent as ToolErrorEvent;
-          component.setError(toolError.error);
-        } else if (item.status === 'interrupted') {
-          // Don't start spinner for tools in interrupted items
-        } else if (display.progressMessage) {
-          component.setActive(display.progressMessage);
-        }
-        continue;
-      }
-
-      if (event.type === 'tool_approval') {
-        const approval = chatLog.startTool(display.id, event.tool, event.args);
-        approval.setApproval(event.approved);
-        continue;
-      }
-
-      if (event.type === 'tool_denied') {
-        const denied = chatLog.startTool(display.id, event.tool, event.args);
-        const path = (event.args.path as string) ?? '';
-        denied.setDenied(path, event.tool);
-        continue;
-      }
-
-      if (event.type === 'tool_limit') {
-        continue;
-      }
-
-      if (event.type === 'context_cleared') {
-        chatLog.addContextCleared(event.clearedCount, event.keptCount);
-      }
-
-      if (event.type === 'microcompact') {
-        chatLog.addMicrocompact(event.cleared, event.tokensSaved);
-      }
-
-      if (event.type === 'queue_drain') {
-        chatLog.addQueueDrain(event.messageCount);
-      }
-
-      if (event.type === 'compaction' && event.phase === 'end') {
-        chatLog.addCompaction(event.success ?? false, event.preCompactTokens, event.postCompactTokens);
-      }
+  if (event.type === 'tool_start') {
+    const toolStart = event as ToolStartEvent;
+    const component = chatLog.startTool(display.id, toolStart.tool, toolStart.args);
+    if (display.completed && display.endEvent?.type === 'tool_end') {
+      const done = display.endEvent as ToolEndEvent;
+      component.setComplete(
+        summarizeToolResult(done.tool, toolStart.args, done.result),
+        done.duration,
+      );
+    } else if (display.completed && display.endEvent?.type === 'tool_error') {
+      const toolError = display.endEvent as ToolErrorEvent;
+      component.setError(toolError.error);
+    } else if (itemStatus === 'interrupted') {
+      // Don't start spinner for tools in interrupted items
+    } else if (display.progressMessage) {
+      component.setActive(display.progressMessage);
     }
+    return;
+  }
 
-    if (item.answer) {
-      chatLog.finalizeAnswer(item.answer);
-    }
-    if (item.status === 'complete') {
-      chatLog.addPerformanceStats(item.duration ?? 0, item.tokenUsage, item.tokensPerSecond);
-    }
+  if (event.type === 'tool_approval') {
+    chatLog.startTool(display.id, event.tool, event.args).setApproval(event.approved);
+    return;
+  }
+
+  if (event.type === 'tool_denied') {
+    const path = (event.args.path as string) ?? '';
+    chatLog.startTool(display.id, event.tool, event.args).setDenied(path, event.tool);
+    return;
+  }
+
+  if (event.type === 'tool_limit') return;
+
+  if (event.type === 'context_cleared') {
+    chatLog.addContextCleared(event.clearedCount, event.keptCount);
+  }
+  if (event.type === 'microcompact') {
+    chatLog.addMicrocompact(event.cleared, event.tokensSaved);
+  }
+  if (event.type === 'queue_drain') {
+    chatLog.addQueueDrain(event.messageCount);
+  }
+  if (event.type === 'compaction' && event.phase === 'end') {
+    chatLog.addCompaction(event.success ?? false, event.preCompactTokens, event.postCompactTokens);
   }
 }
 
@@ -199,14 +182,48 @@ export async function runCli() {
     tui.requestRender();
   });
 
+  // Incremental history tracking
+  let lastRenderedEventCount = 0;
+  let lastRenderedStatus = '';
+  let lastRenderedAnswer = false;
+
   agentRunner = new AgentRunnerController(
     { model: modelSelection.model, modelProvider: modelSelection.provider, maxIterations: 10 },
     modelSelection.inMemoryChatHistory,
     () => {
-      renderHistory(chatLog, agentRunner.history);
+      // Incremental history update — only render new events
+      const history = agentRunner.history;
+      const lastItem = history[history.length - 1];
+      if (lastItem) {
+        // New query started
+        if (lastItem.events.length === 0 && lastRenderedEventCount === 0 && !lastRenderedAnswer) {
+          chatLog.addQuery(lastItem.query);
+          chatLog.resetToolGrouping();
+        }
+
+        // Render new events only
+        for (let i = lastRenderedEventCount; i < lastItem.events.length; i++) {
+          renderEvent(chatLog, lastItem.events[i], lastItem.status);
+        }
+        lastRenderedEventCount = lastItem.events.length;
+
+        // Handle completion
+        if (lastItem.answer && !lastRenderedAnswer) {
+          chatLog.finalizeAnswer(lastItem.answer);
+          lastRenderedAnswer = true;
+        }
+        if (lastItem.status === 'complete' && lastRenderedStatus !== 'complete') {
+          chatLog.addPerformanceStats(lastItem.duration ?? 0, lastItem.tokenUsage, lastItem.tokensPerSecond);
+        }
+        if (lastItem.status === 'interrupted' && lastRenderedStatus !== 'interrupted') {
+          chatLog.addInterrupted();
+        }
+        lastRenderedStatus = lastItem.status;
+      }
+
       workingIndicator.setState(agentRunner.workingState);
-      renderSelectionOverlay();
-      tui.requestRender();
+      updateView();
+      throttledRender();
     },
   );
 
@@ -216,8 +233,32 @@ export async function runCli() {
   const editor = new CustomEditor(tui, editorTheme);
   const hintBar = new HintBarComponent();
   const debugPanel = new DebugPanelComponent(8, true);
+  const spacer = new Spacer(1);
 
+  // Build the component tree ONCE — stable structure, no root.clear()
+  root.addChild(intro);
+  root.addChild(chatLog);
+  root.addChild(errorText);
+  root.addChild(workingIndicator);
+  root.addChild(spacer);
+  root.addChild(editor);
+  root.addChild(hintBar);
+  root.addChild(debugPanel);
   tui.addChild(root);
+  tui.setClearOnShrink(false);
+  initSpinner(tui);
+
+  // Render throttle for agent events (~30fps max)
+  let renderPending = false;
+  const RENDER_THROTTLE_MS = 32;
+  function throttledRender(): void {
+    if (renderPending) return;
+    renderPending = true;
+    setTimeout(() => {
+      renderPending = false;
+      tui.requestRender();
+    }, RENDER_THROTTLE_MS);
+  }
 
   const refreshError = () => {
     const message = lastError ?? agentRunner.error;
@@ -317,6 +358,10 @@ export async function runCli() {
 
     await inputHistory.saveMessage(query);
     inputHistory.resetNavigation();
+    lastRenderedEventCount = 0;
+    lastRenderedStatus = '';
+    lastRenderedAnswer = false;
+    tui.requestRender(true);  // reset viewport tracking for new query
     const result = await agentRunner.runQuery(query);
     if (result?.answer) {
       await inputHistory.updateAgentResponse(result.answer);
@@ -352,18 +397,12 @@ export async function runCli() {
     process.exit(0);
   };
 
-  const renderMainView = () => {
-    root.clear();
-    root.addChild(intro);
-    root.addChild(chatLog);
-    if (lastError ?? agentRunner.error) {
-      root.addChild(errorText);
-    }
-    if (agentRunner.workingState.status !== 'idle') {
-      root.addChild(workingIndicator);
-    }
-    root.addChild(new Spacer(1));
-    root.addChild(editor);
+  /**
+   * Update component state without rebuilding the tree.
+   * The root is built once at init — this only changes text/hints/visibility.
+   */
+  const updateView = () => {
+    refreshError();
     if (slashActive && slashSuggestions.length > 0) {
       hintBar.setSuggestions(slashSuggestions, slashSelectedIndex);
     } else {
@@ -377,9 +416,25 @@ export async function runCli() {
         queueLength: defaultQueue.length(),
       });
     }
+    tui.setFocus(editor);
+  };
+
+  /**
+   * Rebuild the full root tree — only used for overlay screens (model selection, approval).
+   * For normal agent events, use updateView() instead.
+   */
+  const rebuildMainView = () => {
+    root.clear();
+    root.addChild(intro);
+    root.addChild(chatLog);
+    root.addChild(errorText);
+    root.addChild(workingIndicator);
+    root.addChild(spacer);
+    root.addChild(editor);
     root.addChild(hintBar);
     root.addChild(debugPanel);
-    tui.setFocus(editor);
+    updateView();
+    tui.requestRender(true);  // force reset viewport tracking
   };
 
   const renderScreenView = (
@@ -399,8 +454,7 @@ export async function runCli() {
   const renderSelectionOverlay = () => {
     const state = modelSelection.state;
     if (state.appState === 'idle' && !agentRunner.pendingApproval) {
-      refreshError();
-      renderMainView();
+      rebuildMainView();
       return;
     }
 
@@ -515,7 +569,7 @@ export async function runCli() {
         if (escTimeout) clearTimeout(escTimeout);
         escTimeout = setTimeout(() => {
           escPendingClear = false;
-          renderSelectionOverlay();
+          updateView();
           tui.requestRender();
         }, 2000);
       }
@@ -530,12 +584,12 @@ export async function runCli() {
         if (escTimeout) clearTimeout(escTimeout);
         escTimeout = setTimeout(() => {
           escPendingExit = false;
-          renderSelectionOverlay();
+          updateView();
           tui.requestRender();
         }, 2000);
       }
     }
-    renderSelectionOverlay();
+    updateView();
     tui.requestRender();
   };
 
@@ -543,7 +597,7 @@ export async function runCli() {
     slashSuggestions = matchCommands(text);
     slashSelectedIndex = 0;
     slashActive = slashSuggestions.length > 0;
-    renderSelectionOverlay();
+    updateView();
     tui.requestRender();
   };
 
@@ -553,7 +607,7 @@ export async function runCli() {
     } else {
       slashSelectedIndex = Math.max(slashSelectedIndex - 1, 0);
     }
-    renderSelectionOverlay();
+    updateView();
     tui.requestRender();
   };
 
@@ -565,14 +619,14 @@ export async function runCli() {
       editor.setText('');
       void handleSlashCommand(selected.name);
     }
-    renderSelectionOverlay();
+    updateView();
     tui.requestRender();
   };
 
   editor.onSlashDismiss = () => {
     slashActive = false;
     slashSuggestions = [];
-    renderSelectionOverlay();
+    updateView();
     tui.requestRender();
   };
 
