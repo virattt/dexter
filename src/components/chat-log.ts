@@ -210,6 +210,10 @@ export class ChatLogComponent extends Container {
     return component;
   }
 
+  getToolById(toolCallId: string): ToolDisplayComponent | undefined {
+    return this.toolById.get(toolCallId);
+  }
+
   updateToolProgress(toolCallId: string, message: string) {
     const existing = this.toolById.get(toolCallId);
     if (!existing) {

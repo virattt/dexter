@@ -4,9 +4,9 @@ import chalk from 'chalk';
 const palette = {
   primary: '#258bff',
   primaryLight: '#a5cfff',
-  success: 'green',
-  error: 'red',
-  warning: 'yellow',
+  success: '#00cc00',
+  error: '#ff3333',
+  warning: '#ffcc00',
   muted: '#a6a6a6',
   mutedDark: '#303030',
   accent: 'cyan',

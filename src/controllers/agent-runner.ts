@@ -188,7 +188,7 @@ export class AgentRunnerController {
         });
         break;
       case 'tool_start': {
-        const toolId = `tool-${event.tool}-${Date.now()}`;
+        const toolId = event.toolCallId ?? `tool-${event.tool}-${Date.now()}`;
         this.workingStateValue = { status: 'tool', toolName: event.tool };
         this.updateLastItem((last) => ({
           ...last,
@@ -212,14 +212,28 @@ export class AgentRunnerController {
           ),
         }));
         break;
-      case 'tool_end':
-        this.finishToolEvent(event);
+      case 'tool_end': {
+        const endToolId = event.toolCallId ?? this.getLastItem()?.activeToolId;
+        this.updateLastItem((last) => ({
+          ...last,
+          events: last.events.map((entry) =>
+            entry.id === endToolId ? { ...entry, completed: true, endEvent: event } : entry,
+          ),
+        }));
         this.workingStateValue = { status: 'thinking' };
         break;
-      case 'tool_error':
-        this.finishToolEvent(event);
+      }
+      case 'tool_error': {
+        const errToolId = event.toolCallId ?? this.getLastItem()?.activeToolId;
+        this.updateLastItem((last) => ({
+          ...last,
+          events: last.events.map((entry) =>
+            entry.id === errToolId ? { ...entry, completed: true, endEvent: event } : entry,
+          ),
+        }));
         this.workingStateValue = { status: 'thinking' };
         break;
+      }
       case 'tool_approval':
         this.pushEvent({
           id: `approval-${event.tool}-${Date.now()}`,
@@ -265,18 +279,12 @@ export class AgentRunnerController {
     this.emitChange();
   }
 
-  private finishToolEvent(event: AgentEvent) {
-    this.updateLastItem((last) => ({
-      ...last,
-      activeToolId: undefined,
-      events: last.events.map((entry) =>
-        entry.id === last.activeToolId ? { ...entry, completed: true, endEvent: event } : entry,
-      ),
-    }));
-  }
-
   private pushEvent(displayEvent: DisplayEvent) {
     this.updateLastItem((last) => ({ ...last, events: [...last.events, displayEvent] }));
+  }
+
+  private getLastItem(): HistoryItem | undefined {
+    return this.historyValue[this.historyValue.length - 1];
   }
 
   private updateLastItem(updater: (item: HistoryItem) => HistoryItem) {

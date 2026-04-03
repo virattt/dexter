@@ -23,7 +23,14 @@ export class InputHistoryController {
   }
 
   get historyValue(): string | null {
-    return this.historyIndex === -1 ? null : (this.messages[this.historyIndex] ?? null);
+    if (this.historyIndex === -1) return null;
+    const msg = this.messages[this.historyIndex] ?? null;
+    if (!msg) return null;
+    const lines = msg.split('\n');
+    if (lines.length <= 3) return msg;
+    const firstLine = lines[0].trim() || lines[1]?.trim() || 'pasted content';
+    const preview = firstLine.length > 60 ? firstLine.slice(0, 60) + '...' : firstLine;
+    return `${preview} [+${lines.length - 1} lines]`;
   }
 
   getMessages(): string[] {

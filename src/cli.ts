@@ -30,6 +30,14 @@ import { editorTheme, theme } from './theme.js';
 import { matchCommands, type SlashCommand } from './commands/index.js';
 import { initSpinner } from './utils/spinner.js';
 
+function truncateForHistory(text: string): string {
+  const lines = text.split('\n');
+  if (lines.length <= 3) return text;
+  const firstLine = lines[0].trim() || lines[1]?.trim() || 'pasted content';
+  const preview = firstLine.length > 60 ? firstLine.slice(0, 60) + '...' : firstLine;
+  return `${preview} [+${lines.length - 1} lines]`;
+}
+
 function truncateAtWord(str: string, maxLength: number): string {
   if (str.length <= maxLength) {
     return str;
@@ -186,6 +194,7 @@ export async function runCli() {
   let lastRenderedEventCount = 0;
   let lastRenderedStatus = '';
   let lastRenderedAnswer = false;
+  const finalizedToolIds = new Set<string>();
 
   agentRunner = new AgentRunnerController(
     { model: modelSelection.model, modelProvider: modelSelection.provider, maxIterations: 10 },
@@ -207,6 +216,24 @@ export async function runCli() {
         }
         lastRenderedEventCount = lastItem.events.length;
 
+        // Update already-rendered tool events that may have completed
+        for (const display of lastItem.events) {
+          if (display.event.type === 'tool_start' && display.completed && display.endEvent && !finalizedToolIds.has(display.id)) {
+            const component = chatLog.getToolById(display.id);
+            if (component) {
+              finalizedToolIds.add(display.id);
+              if (display.endEvent.type === 'tool_end') {
+                component.setComplete(
+                  summarizeToolResult(display.endEvent.tool, display.event.args, display.endEvent.result),
+                  display.endEvent.duration,
+                );
+              } else if (display.endEvent.type === 'tool_error') {
+                component.setError(display.endEvent.error);
+              }
+            }
+          }
+        }
+
         // Handle completion
         if (lastItem.answer && !lastRenderedAnswer) {
           chatLog.finalizeAnswer(lastItem.answer);
@@ -216,6 +243,14 @@ export async function runCli() {
           chatLog.addPerformanceStats(lastItem.duration ?? 0, lastItem.tokenUsage, lastItem.tokensPerSecond);
         }
         if (lastItem.status === 'interrupted' && lastRenderedStatus !== 'interrupted') {
+          // Stop all active tool spinners on interrupt
+          for (const display of lastItem.events) {
+            if (display.event.type === 'tool_start' && !finalizedToolIds.has(display.id)) {
+              const component = chatLog.getToolById(display.id);
+              component?.dispose?.();
+              finalizedToolIds.add(display.id);
+            }
+          }
           chatLog.addInterrupted();
         }
         lastRenderedStatus = lastItem.status;
@@ -360,6 +395,7 @@ export async function runCli() {
     lastRenderedEventCount = 0;
     lastRenderedStatus = '';
     lastRenderedAnswer = false;
+    finalizedToolIds.clear();
     const result = await agentRunner.runQuery(query);
     if (result?.answer) {
       await inputHistory.updateAgentResponse(result.answer);
@@ -369,11 +405,12 @@ export async function runCli() {
   };
 
   editor.onSubmit = (text) => {
-    const value = text.trim();
-    if (!value) return;
+    const displayValue = text.trim();
+    if (!displayValue) return;
+    const fullValue = editor.getFullText(displayValue);
     editor.setText('');
-    editor.addToHistory(value);
-    void handleSubmit(value);
+    editor.addToHistoryWithTruncation(fullValue);
+    void handleSubmit(fullValue);
   };
 
   let escPendingClear = false;
@@ -622,7 +659,7 @@ export async function runCli() {
 
   await inputHistory.init();
   for (const msg of inputHistory.getMessages().reverse()) {
-    editor.addToHistory(msg);
+    editor.addToHistoryWithTruncation(msg);
   }
   renderSelectionOverlay();
   refreshError();

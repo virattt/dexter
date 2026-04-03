@@ -9,6 +9,35 @@ export class CustomEditor extends Editor {
   onSlashDismiss?: () => void;
   slashActive: boolean = false;
 
+  // Map truncated display text → full original text for history entries
+  private historyFullText = new Map<string, string>();
+
+  /**
+   * Add to history with truncation for display. Full text is preserved
+   * and restored when the user submits a history entry.
+   */
+  addToHistoryWithTruncation(text: string): void {
+    const lines = text.split('\n');
+    if (lines.length <= 3) {
+      super.addToHistory(text);
+      return;
+    }
+    const firstLine = lines[0].trim() || lines[1]?.trim() || 'pasted content';
+    const preview = firstLine.length > 60 ? firstLine.slice(0, 60) + '...' : firstLine;
+    const truncated = `${preview} [+${lines.length - 1} lines]`;
+    this.historyFullText.set(truncated, text);
+    super.addToHistory(truncated);
+  }
+
+  /**
+   * Get the full text for the given content, expanding truncated
+   * history entries back to their original.
+   */
+  getFullText(text?: string): string {
+    const t = text ?? this.getText();
+    return this.historyFullText.get(t) ?? this.historyFullText.get(t.trim()) ?? t;
+  }
+
   handleInput(data: string): void {
     const showingSuggestions = this.slashActive;
 
