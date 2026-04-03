@@ -1,10 +1,11 @@
-import { Container, Text } from '@mariozechner/pi-tui';
+import { Container, Spacer, Text } from '@mariozechner/pi-tui';
 import type { WorkingState } from '../types.js';
 import { getRandomThinkingVerb } from '../utils/thinking-verbs.js';
 import { theme } from '../theme.js';
 import { subscribeSpinner, currentSpinnerFrame } from '../utils/spinner.js';
 
 export class WorkingIndicatorComponent extends Container {
+  private spacer: Spacer;
   private text: Text;
   private state: WorkingState = { status: 'idle' };
   private thinkingVerb = getRandomThinkingVerb();
@@ -13,7 +14,9 @@ export class WorkingIndicatorComponent extends Container {
 
   constructor(_tui: unknown) {
     super();
+    this.spacer = new Spacer(0);
     this.text = new Text('', 0, 0);
+    this.addChild(this.spacer);
     this.addChild(this.text);
   }
 
@@ -32,9 +35,11 @@ export class WorkingIndicatorComponent extends Container {
 
     if (state.status === 'idle') {
       this.stopSpinner();
+      this.spacer.setLines(0);
       this.text.setText('');
       return;
     }
+    this.spacer.setLines(1);
     this.startSpinner();
     this.updateMessage(currentSpinnerFrame());
   }

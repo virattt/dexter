@@ -245,7 +245,6 @@ export async function runCli() {
   root.addChild(hintBar);
   root.addChild(debugPanel);
   tui.addChild(root);
-  tui.setClearOnShrink(false);
   initSpinner(tui);
 
   // Render throttle for agent events (~30fps max)
@@ -361,7 +360,6 @@ export async function runCli() {
     lastRenderedEventCount = 0;
     lastRenderedStatus = '';
     lastRenderedAnswer = false;
-    tui.requestRender(true);  // reset viewport tracking for new query
     const result = await agentRunner.runQuery(query);
     if (result?.answer) {
       await inputHistory.updateAgentResponse(result.answer);
@@ -420,32 +418,19 @@ export async function runCli() {
   };
 
   /**
-   * Rebuild the full root tree — only used for overlay screens (model selection, approval).
-   * For normal agent events, use updateView() instead.
+   * Show an overlay screen using pi-tui's native overlay system.
+   * Does NOT touch the root tree — overlays render on top.
    */
-  const rebuildMainView = () => {
-    root.clear();
-    root.addChild(intro);
-    root.addChild(chatLog);
-    root.addChild(errorText);
-    root.addChild(workingIndicator);
-    root.addChild(spacer);
-    root.addChild(editor);
-    root.addChild(hintBar);
-    root.addChild(debugPanel);
-    updateView();
-    tui.requestRender(true);  // force reset viewport tracking
-  };
-
-  const renderScreenView = (
+  const showScreenOverlay = (
     title: string,
     description: string,
     body: any,
     footer?: string,
     focusTarget?: any,
   ) => {
-    root.clear();
-    root.addChild(createScreen(title, description, body, footer));
+    if (tui.hasOverlay()) tui.hideOverlay();
+    const screen = createScreen(title, description, body, footer);
+    tui.showOverlay(screen);
     if (focusTarget) {
       tui.setFocus(focusTarget);
     }
@@ -454,7 +439,12 @@ export async function runCli() {
   const renderSelectionOverlay = () => {
     const state = modelSelection.state;
     if (state.appState === 'idle' && !agentRunner.pendingApproval) {
-      rebuildMainView();
+      if (tui.hasOverlay()) {
+        tui.hideOverlay();
+        tui.setFocus(editor);
+      }
+      updateView();
+      tui.requestRender();
       return;
     }
 
@@ -466,7 +456,7 @@ export async function runCli() {
       prompt.onSelect = (decision: ApprovalDecision) => {
         agentRunner.respondToApproval(decision);
       };
-      renderScreenView('', '', prompt, undefined, prompt.selector);
+      showScreenOverlay('', '', prompt, undefined, prompt.selector);
       return;
     }
 
@@ -474,7 +464,7 @@ export async function runCli() {
       const selector = createProviderSelector(modelSelection.provider, (providerId) => {
         void modelSelection.handleProviderSelect(providerId);
       });
-      renderScreenView(
+      showScreenOverlay(
         'Select provider',
         'Switch between LLM providers. Applies to this session and future sessions.',
         selector,
@@ -491,7 +481,7 @@ export async function runCli() {
         (modelId) => modelSelection.handleModelSelect(modelId),
         state.pendingProvider,
       );
-      renderScreenView(
+      showScreenOverlay(
         `Select model for ${getProviderDisplayName(state.pendingProvider)}`,
         '',
         selector,
@@ -505,7 +495,7 @@ export async function runCli() {
       const input = new ApiKeyInputComponent();
       input.onSubmit = (value) => modelSelection.handleModelInputSubmit(value);
       input.onCancel = () => modelSelection.handleModelInputSubmit(null);
-      renderScreenView(
+      showScreenOverlay(
         `Enter model name for ${getProviderDisplayName(state.pendingProvider)}`,
         'Type or paste the model name from openrouter.ai/models',
         input,
@@ -519,7 +509,7 @@ export async function runCli() {
       const selector = createApiKeyConfirmSelector((wantsToSet) =>
         modelSelection.handleApiKeyConfirm(wantsToSet),
       );
-      renderScreenView(
+      showScreenOverlay(
         'Set API Key',
         `Would you like to set your ${getProviderDisplayName(state.pendingProvider)} API key?`,
         selector,
@@ -534,7 +524,7 @@ export async function runCli() {
       input.onSubmit = (apiKey) => modelSelection.handleApiKeySubmit(apiKey);
       input.onCancel = () => modelSelection.handleApiKeySubmit(null);
       const apiKeyName = getApiKeyNameForProvider(state.pendingProvider) ?? '';
-      renderScreenView(
+      showScreenOverlay(
         `Enter ${getProviderDisplayName(state.pendingProvider)} API Key`,
         apiKeyName ? `(${apiKeyName})` : '',
         input,
