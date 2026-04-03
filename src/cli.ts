@@ -1,10 +1,12 @@
 import { Container, ProcessTerminal, Spacer, Text, TUI } from '@mariozechner/pi-tui';
 import type {
+  AgentEvent,
   ApprovalDecision,
   ToolEndEvent,
   ToolErrorEvent,
   ToolStartEvent,
 } from './agent/index.js';
+import type { DisplayEvent } from './agent/types.js';
 import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js';
 import { defaultQueue } from './utils/message-queue.js';
 import { logger } from './utils/logger.js';
@@ -28,6 +30,7 @@ import {
 } from './components/index.js';
 import { editorTheme, theme } from './theme.js';
 import { matchCommands, type SlashCommand } from './commands/index.js';
+import type { HistoryItem } from './types.js';
 
 function truncateAtWord(str: string, maxLength: number): string {
   if (str.length <= maxLength) {
@@ -103,12 +106,7 @@ function renderHistory(chatLog: ChatLogComponent, history: AgentRunnerController
     for (const display of item.events) {
       const event = display.event;
       if (event.type === 'thinking') {
-        const message = event.message.trim();
-        if (message) {
-          chatLog.addChild(
-            new Text(message.length > 200 ? `${message.slice(0, 200)}...` : message, 0, 0),
-          );
-        }
+        chatLog.addThinking(event.message);
         continue;
       }
 
@@ -175,12 +173,179 @@ function renderHistory(chatLog: ChatLogComponent, history: AgentRunnerController
   }
 }
 
+interface RenderedDisplayState {
+  completed: boolean;
+  progressMessage?: string;
+  endEventType?: AgentEvent['type'];
+}
+
+interface RenderedHistoryItemState {
+  queryRendered: boolean;
+  interruptedRendered: boolean;
+  answerRendered: boolean;
+  statsRendered: boolean;
+  events: Map<string, RenderedDisplayState>;
+}
+
+function createRenderedHistoryItemState(): RenderedHistoryItemState {
+  return {
+    queryRendered: false,
+    interruptedRendered: false,
+    answerRendered: false,
+    statsRendered: false,
+    events: new Map(),
+  };
+}
+
+function syncDisplayEvent(
+  chatLog: ChatLogComponent,
+  item: HistoryItem,
+  display: DisplayEvent,
+  previous: RenderedDisplayState | undefined,
+) {
+  const event = display.event;
+
+  if (event.type === 'thinking') {
+    if (!previous) {
+      chatLog.addThinking(event.message);
+    }
+    return;
+  }
+
+  if (event.type === 'tool_start') {
+    const toolStart = event as ToolStartEvent;
+    if (!previous) {
+      chatLog.startTool(display.id, toolStart.tool, toolStart.args);
+    }
+
+    if (display.progressMessage && display.progressMessage !== previous?.progressMessage) {
+      chatLog.updateToolProgress(display.id, display.progressMessage);
+    }
+
+    if (!display.completed) {
+      return;
+    }
+
+    if (previous?.completed && previous.endEventType === display.endEvent?.type) {
+      return;
+    }
+
+    if (display.endEvent?.type === 'tool_end') {
+      const done = display.endEvent as ToolEndEvent;
+      chatLog.completeTool(
+        display.id,
+        summarizeToolResult(done.tool, toolStart.args, done.result),
+        done.duration,
+      );
+      return;
+    }
+
+    if (display.endEvent?.type === 'tool_error') {
+      const toolError = display.endEvent as ToolErrorEvent;
+      chatLog.errorTool(display.id, toolError.error);
+      return;
+    }
+
+    if (item.status === 'interrupted' && !previous?.completed) {
+      chatLog.interruptActiveTools();
+    }
+    return;
+  }
+
+  if (previous) {
+    return;
+  }
+
+  if (event.type === 'tool_approval') {
+    const approval = chatLog.startTool(display.id, event.tool, event.args);
+    approval.setApproval(event.approved);
+    return;
+  }
+
+  if (event.type === 'tool_denied') {
+    const denied = chatLog.startTool(display.id, event.tool, event.args);
+    const path = (event.args.path as string) ?? '';
+    denied.setDenied(path, event.tool);
+    return;
+  }
+
+  if (event.type === 'tool_limit') {
+    return;
+  }
+
+  if (event.type === 'context_cleared') {
+    chatLog.addContextCleared(event.clearedCount, event.keptCount);
+    return;
+  }
+
+  if (event.type === 'microcompact') {
+    chatLog.addMicrocompact(event.cleared, event.tokensSaved);
+    return;
+  }
+
+  if (event.type === 'queue_drain') {
+    chatLog.addQueueDrain(event.messageCount);
+    return;
+  }
+
+  if (event.type === 'compaction' && event.phase === 'end') {
+    chatLog.addCompaction(event.success ?? false, event.preCompactTokens, event.postCompactTokens);
+  }
+}
+
+function syncHistory(
+  chatLog: ChatLogComponent,
+  history: AgentRunnerController['history'],
+  renderedState: Map<string, RenderedHistoryItemState>,
+) {
+  for (const item of history) {
+    let state = renderedState.get(item.id);
+    if (!state) {
+      state = createRenderedHistoryItemState();
+      renderedState.set(item.id, state);
+    }
+
+    if (!state.queryRendered) {
+      chatLog.addQuery(item.query);
+      chatLog.resetToolGrouping();
+      state.queryRendered = true;
+    }
+
+    if (item.status === 'interrupted' && !state.interruptedRendered) {
+      chatLog.interruptActiveTools();
+      chatLog.addInterrupted();
+      state.interruptedRendered = true;
+    }
+
+    for (const display of item.events) {
+      syncDisplayEvent(chatLog, item, display, state.events.get(display.id));
+      state.events.set(display.id, {
+        completed: !!display.completed,
+        progressMessage: display.progressMessage,
+        endEventType: display.endEvent?.type,
+      });
+    }
+
+    if (item.answer && !state.answerRendered) {
+      chatLog.finalizeAnswer(item.answer);
+      state.answerRendered = true;
+    }
+
+    if (item.status === 'complete' && !state.statsRendered) {
+      chatLog.addPerformanceStats(item.duration ?? 0, item.tokenUsage, item.tokensPerSecond);
+      state.statsRendered = true;
+    }
+  }
+}
+
 export async function runCli() {
   const tui = new TUI(new ProcessTerminal());
   const root = new Container();
   const chatLog = new ChatLogComponent(tui);
+  const renderedHistoryState = new Map<string, RenderedHistoryItemState>();
   const inputHistory = new InputHistoryController(() => tui.requestRender());
   let lastError: string | null = null;
+  let showingOverlay = false;
 
   const onError = (message: string) => {
     lastError = message;
@@ -203,9 +368,15 @@ export async function runCli() {
     { model: modelSelection.model, modelProvider: modelSelection.provider, maxIterations: 10 },
     modelSelection.inMemoryChatHistory,
     () => {
-      renderHistory(chatLog, agentRunner.history);
+      syncHistory(chatLog, agentRunner.history, renderedHistoryState);
+      refreshError();
       workingIndicator.setState(agentRunner.workingState);
-      renderSelectionOverlay();
+
+      const shouldShowOverlay = modelSelection.isInSelectionFlow() || !!agentRunner.pendingApproval;
+      if (shouldShowOverlay || showingOverlay) {
+        renderSelectionOverlay();
+      }
+
       tui.requestRender();
     },
   );
@@ -353,6 +524,7 @@ export async function runCli() {
   };
 
   const renderMainView = () => {
+    showingOverlay = false;
     root.clear();
     root.addChild(intro);
     root.addChild(chatLog);
@@ -389,6 +561,7 @@ export async function runCli() {
     footer?: string,
     focusTarget?: any,
   ) => {
+    showingOverlay = true;
     root.clear();
     root.addChild(createScreen(title, description, body, footer));
     if (focusTarget) {
@@ -580,6 +753,7 @@ export async function runCli() {
   for (const msg of inputHistory.getMessages().reverse()) {
     editor.addToHistory(msg);
   }
+  syncHistory(chatLog, agentRunner.history, renderedHistoryState);
   renderSelectionOverlay();
   refreshError();
 

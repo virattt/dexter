@@ -1,18 +1,18 @@
-import { Container, Loader, type TUI } from '@mariozechner/pi-tui';
+import { Container, Text, type TUI } from '@mariozechner/pi-tui';
 import type { WorkingState } from '../types.js';
 import { getRandomThinkingVerb } from '../utils/thinking-verbs.js';
 import { theme } from '../theme.js';
 
 export class WorkingIndicatorComponent extends Container {
-  private readonly tui: TUI;
-  private loader: Loader | null = null;
+  private readonly body: Text;
   private state: WorkingState = { status: 'idle' };
   private thinkingVerb = getRandomThinkingVerb();
   private prevStatus: WorkingState['status'] = 'idle';
 
-  constructor(tui: TUI) {
+  constructor(_tui: TUI) {
     super();
-    this.tui = tui;
+    this.body = new Text('', 0, 0);
+    this.addChild(this.body);
     this.renderIdle();
   }
 
@@ -29,57 +29,27 @@ export class WorkingIndicatorComponent extends Container {
     this.prevStatus = state.status;
     this.state = state;
     if (state.status === 'idle') {
-      this.stopLoader();
       this.renderIdle();
       return;
     }
     this.renderBusy();
   }
 
-  dispose() {
-    this.stopLoader();
-  }
+  dispose() {}
 
   private renderIdle() {
-    this.clear();
+    this.body.setText('');
   }
 
   private renderBusy() {
-    this.clear();
-    this.ensureLoader();
-    this.updateMessage();
-  }
-
-  private ensureLoader() {
-    if (this.loader) {
-      this.addChild(this.loader);
-      return;
-    }
-    this.loader = new Loader(
-      this.tui,
-      (spinner) => theme.primary(spinner),
-      (text) => theme.primary(text),
-      '',
-    );
-    this.addChild(this.loader);
-  }
-
-  private stopLoader() {
-    if (!this.loader) {
-      return;
-    }
-    this.loader.stop();
-    this.loader = null;
-  }
-
-  private updateMessage() {
-    if (!this.loader || this.state.status === 'idle') {
+    if (this.state.status === 'idle') {
+      this.body.setText('');
       return;
     }
     if (this.state.status === 'approval') {
-      this.loader.setMessage('Waiting for approval... (esc to interrupt)');
+      this.body.setText(theme.primary('… Waiting for approval... (esc to interrupt)'));
       return;
     }
-    this.loader.setMessage(`${this.thinkingVerb}... (esc to interrupt)`);
+    this.body.setText(theme.primary(`… ${this.thinkingVerb}... (esc to interrupt)`));
   }
 }

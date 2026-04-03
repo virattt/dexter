@@ -171,6 +171,14 @@ export class ChatLogComponent extends Container {
     this.addChild(new Text(`${theme.muted('⎿  Interrupted · What should Dexter do instead?')}`, 0, 0));
   }
 
+  addThinking(message: string) {
+    const trimmed = message.trim();
+    if (!trimmed) {
+      return;
+    }
+    this.addChild(new Text(trimmed.length > 200 ? `${trimmed.slice(0, 200)}...` : trimmed, 0, 0));
+  }
+
   startTool(toolCallId: string, toolName: string, args: Record<string, unknown>) {
     if (toolName !== 'browser') {
       this.currentBrowserSession = null;
@@ -256,6 +264,14 @@ export class ChatLogComponent extends Container {
       return;
     }
     existing.setDenied(path, tool);
+  }
+
+  interruptActiveTools() {
+    const uniqueComponents = new Set(this.toolById.values());
+    for (const component of uniqueComponents) {
+      component.dispose?.();
+    }
+    this.resetToolGrouping();
   }
 
   finalizeAnswer(text: string) {
