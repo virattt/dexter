@@ -4,10 +4,12 @@
  * キャッシュ: .kabuto/cache/tse-master.json（TTL: 24時間）
  */
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { CompanyInfo, CompanyMasterProvider } from './types.js';
 
-const CACHE_DIR = '.kabuto/cache';
+const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..');
+const CACHE_DIR = resolve(PROJECT_ROOT, '.kabuto/cache');
 const CACHE_FILE = join(CACHE_DIR, 'tse-master.json');
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24時間
 const TSE_EXCEL_URL =
@@ -69,6 +71,8 @@ export class TseMasterProvider implements CompanyMasterProvider {
         const name = String(row['銘柄名'] ?? row['name'] ?? '').trim();
         const marketRaw = String(row['市場・商品区分'] ?? row['market'] ?? '').trim();
         if (!rawCode || !name) return null;
+        // Skip non-standard codes (ETFs, REITs, foreign listings may have 5+ digit codes)
+        if (rawCode.length > 4 && /^\d+$/.test(rawCode)) return null;
         const code = rawCode.padStart(4, '0').slice(0, 4);
         return { code, name, market: this.parseMarket(marketRaw) };
       })
