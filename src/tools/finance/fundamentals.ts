@@ -10,7 +10,8 @@
  */
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { jquantsApi } from './jquants-api.js';
+import { fetchFinancialSummary } from './providers/fundamentals.js';
+import type { FinancialSummaryRecord } from './providers/types.js';
 import { formatToolResult } from '../types.js';
 
 const FinancialStatementsInputSchema = z.object({
@@ -29,77 +30,56 @@ const FinancialStatementsInputSchema = z.object({
 
 type FinStatementsInput = z.infer<typeof FinancialStatementsInputSchema>;
 
-/** J-Quants v2 /fins/summary からデータを取得し、期間フィルタ・ソートを適用 */
+/** プロバイダー経由で財務サマリーを取得 */
 async function fetchSummary(input: FinStatementsInput) {
   const code = input.code.trim().padStart(4, '0');
-  const { data, url } = await jquantsApi.get(
-    '/fins/summary',
-    { code },
-    { cacheable: true },
-  );
-
-  let records = (data.data as Record<string, unknown>[] | undefined) ?? [];
-
-  if (input.period === 'annual') {
-    records = records.filter((s) => {
-      const t = String(s.CurPerType ?? '');
-      return t === 'FY' || t === '4Q' || t === 'Annual';
-    });
-  }
-
-  records = records
-    .sort((a, b) =>
-      String(b.CurFYEn ?? b.DiscDate ?? '').localeCompare(String(a.CurFYEn ?? a.DiscDate ?? '')),
-    )
-    .slice(0, input.limit);
-
+  const { records, url } = await fetchFinancialSummary(code, input.period, input.limit);
   return { records, url };
 }
 
 /** 損益計算書フィールドを抽出 */
-function mapIncomeStatement(s: Record<string, unknown>): Record<string, unknown> {
+function mapIncomeStatement(s: FinancialSummaryRecord): Record<string, unknown> {
   return {
-    fiscalYearEnd: s.CurFYEn,
-    period: s.CurPerType,
-    disclosureDate: s.DiscDate,
-    netSales: s.Sales,
-    operatingProfit: s.OP,
-    ordinaryProfit: s.OdP,
-    netIncome: s.NP,
-    eps: s.EPS,
-    dilutedEps: s.DEPS,
-    dividendPerShare: s.DivAnn,
-    forecastSales: s.FSales,
-    forecastOperatingProfit: s.FOP,
-    forecastOrdinaryProfit: s.FOdP,
-    forecastNetIncome: s.FNP,
-    forecastEps: s.FEPS,
-    forecastDividend: s.FDivAnn,
+    fiscalYearEnd: s.fiscalYearEnd,
+    period: s.period,
+    disclosureDate: s.disclosureDate,
+    netSales: s.netSales,
+    operatingProfit: s.operatingProfit,
+    ordinaryProfit: s.ordinaryProfit,
+    netIncome: s.netIncome,
+    eps: s.eps,
+    dilutedEps: null,
+    dividendPerShare: s.dividendPerShare,
+    forecastSales: s.forecastSales,
+    forecastOperatingProfit: s.forecastOperatingProfit,
+    forecastOrdinaryProfit: null,
+    forecastNetIncome: s.forecastNetIncome,
+    forecastEps: null,
+    forecastDividend: null,
   };
 }
 
 /** 貸借対照表フィールドを抽出 */
-function mapBalanceSheet(s: Record<string, unknown>): Record<string, unknown> {
-  const eqAR = Number(s.EqAR ?? 0);
+function mapBalanceSheet(s: FinancialSummaryRecord): Record<string, unknown> {
   return {
-    fiscalYearEnd: s.CurFYEn,
-    period: s.CurPerType,
-    totalAssets: s.TA,
-    equity: s.Eq,
-    bps: s.BPS,
-    equityToAssetRatio: eqAR ? Math.round(eqAR * 1000) / 10 : null, // 0.387 → 38.7%
+    fiscalYearEnd: s.fiscalYearEnd,
+    period: s.period,
+    totalAssets: s.totalAssets,
+    equity: s.equity,
+    bps: s.bps,
+    equityToAssetRatio: s.equityToAssetRatio,
   };
 }
 
 /** CF計算書フィールドを抽出 */
-function mapCashFlow(s: Record<string, unknown>): Record<string, unknown> {
+function mapCashFlow(s: FinancialSummaryRecord): Record<string, unknown> {
   return {
-    fiscalYearEnd: s.CurFYEn,
-    period: s.CurPerType,
-    cashFlowsFromOperating: s.CFO,
-    cashFlowsFromInvesting: s.CFI,
-    cashFlowsFromFinancing: s.CFF,
-    cashAndEquivalents: s.CashEq,
+    fiscalYearEnd: s.fiscalYearEnd,
+    period: s.period,
+    cashFlowsFromOperating: s.cashFlowsFromOperating,
+    cashFlowsFromInvesting: s.cashFlowsFromInvesting,
+    cashFlowsFromFinancing: s.cashFlowsFromFinancing,
+    cashAndEquivalents: null,
   };
 }
 
