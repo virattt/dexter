@@ -9,7 +9,9 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
-import { jquantsApi } from './jquants-api.js';
+import { fetchFinancialSummary } from './providers/fundamentals.js';
+import { fetchCompanyMaster } from './providers/company-master.js';
+import { fetchPrices } from './providers/index.js';
 
 export const SCREEN_STOCKS_DESCRIPTION = `
 日本株のスクリーニングを行います。財務条件を自然言語で指定すると、条件に合致する銘柄を返します。
@@ -160,16 +162,6 @@ function extractCondition(text: string, field: Field): FilterItem | null {
 }
 
 // ============================================================================
-// Market name mapping (v2 MktNm field)
-// ============================================================================
-
-const MARKET_NAME_MAP: Record<string, string> = {
-  Prime: 'プライム',
-  Standard: 'スタンダード',
-  Growth: 'グロース',
-};
-
-// ============================================================================
 // Tool definition
 // ============================================================================
 
@@ -204,16 +196,10 @@ export function createScreenStocks(_model: string): DynamicStructuredTool {
       onProgress?.('上場企業一覧を取得中...');
       let listedCodes: string[];
       try {
-        const { data } = await jquantsApi.get('/equities/master', {}, { cacheable: true });
-        const infos = (data.data as Record<string, unknown>[] | undefined) ?? [];
-        listedCodes = infos
-          .filter((c) => {
-            if (filters.market === 'All') return true;
-            const mktNm = String(c.MktNm ?? '');
-            return mktNm.includes(MARKET_NAME_MAP[filters.market] ?? filters.market);
-          })
-          .map((c) => String(c.Code ?? '').slice(0, 4))
-          .filter(Boolean);
+        const { companies } = await fetchCompanyMaster();
+        listedCodes = companies
+          .filter((c) => filters.market === 'All' || c.market === filters.market)
+          .map((c) => c.code);
         listedCodes = [...new Set(listedCodes)];
       } catch (error) {
         return formatToolResult(
@@ -234,22 +220,19 @@ export function createScreenStocks(_model: string): DynamicStructuredTool {
         await Promise.all(
           batch.map(async (code) => {
             try {
-              const { data } = await jquantsApi.get('/fins/summary', { code }, { cacheable: true });
-              const records = (data.data as Record<string, unknown>[] | undefined) ?? [];
-              const latest = records
-                .filter((s) => { const t = String(s.CurPerType ?? ''); return t === 'FY' || t === '4Q' || t === 'Annual'; })
-                .sort((a, b) => String(b.CurFYEn ?? b.DiscDate ?? '').localeCompare(String(a.CurFYEn ?? a.DiscDate ?? '')))[0];
+              const { records } = await fetchFinancialSummary(code, 'annual', 1);
+              const latest = records[0];
               if (!latest) return;
 
-              const eps = Number(latest.EPS ?? 0);
-              const bps = Number(latest.BPS ?? 0);
-              const divAnn = Number(latest.DivAnn ?? 0);
-              const netIncome = Number(latest.NP ?? 0);
-              const equity = Number(latest.Eq ?? 0);
-              const totalAssets = Number(latest.TA ?? 0);
-              const sales = Number(latest.Sales ?? 0);
-              const opProfit = Number(latest.OP ?? 0);
-              const eqAR = Number(latest.EqAR ?? 0);
+              const eps = latest.eps ?? 0;
+              const bps = latest.bps ?? 0;
+              const divAnn = latest.dividendPerShare ?? 0;
+              const netIncome = latest.netIncome ?? 0;
+              const equity = latest.equity ?? 0;
+              const totalAssets = latest.totalAssets ?? 0;
+              const sales = latest.netSales ?? 0;
+              const opProfit = latest.operatingProfit ?? 0;
+              const eqAR = latest.equityToAssetRatio != null ? latest.equityToAssetRatio / 100 : 0;
 
               let price: number | null = null;
               if (needsPrice) {
@@ -259,14 +242,14 @@ export function createScreenStocks(_model: string): DynamicStructuredTool {
                   const from = new Date(to);
                   from.setDate(from.getDate() - 30);
                   try {
-                    const { data: pd } = await jquantsApi.get('/equities/bars/daily', {
+                    const { records: priceRecords } = await fetchPrices(
                       code,
-                      from: from.toISOString().slice(0, 10),
-                      to: to.toISOString().slice(0, 10),
-                    });
-                    const quotes = (pd.data as Record<string, unknown>[] | undefined) ?? [];
-                    if (quotes.length > 0) {
-                      price = Number((quotes[quotes.length - 1] as Record<string, unknown>).AdjC ?? (quotes[quotes.length - 1] as Record<string, unknown>).C);
+                      from.toISOString().slice(0, 10),
+                      to.toISOString().slice(0, 10),
+                    );
+                    if (priceRecords.length > 0) {
+                      const last = priceRecords[priceRecords.length - 1]!;
+                      price = last.adjustmentClose ?? last.close;
                       break;
                     }
                   } catch { /* try next offset */ }
@@ -299,7 +282,7 @@ export function createScreenStocks(_model: string): DynamicStructuredTool {
               });
 
               if (passes) {
-                results.push({ code, fiscalYearEnd: latest.CurFYEn, price, ...metrics });
+                results.push({ code, fiscalYearEnd: latest.fiscalYearEnd, price, ...metrics });
               }
             } catch { /* skip */ }
           }),
