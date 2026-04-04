@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Release script for Dexter
+# Release script for Kabuto
 # Usage: bash scripts/release.sh [version]
 # If no version is provided, defaults to today's date as YYYY.M.D
 
@@ -99,8 +99,8 @@ git push origin "$TAG"
 
 # Create GitHub release
 echo -e "$BODY" | gh release create "$TAG" \
-  --title "Dexter ${VERSION}" \
+  --title "Kabuto ${VERSION}" \
   --notes-file -
 
 echo ""
-echo "Released ${TAG}: https://github.com/virattt/dexter/releases/tag/${TAG}"
+echo "Released ${TAG}: https://github.com/oden41/kabuto/releases/tag/${TAG}"

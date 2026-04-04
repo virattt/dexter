@@ -1,50 +1,47 @@
-# Dexter 🤖
+# Kabuto 兜
 
-Dexter is an autonomous financial research agent that thinks, plans, and learns as it works. It performs analysis using task planning, self-reflection, and real-time market data. Think Claude Code, but built specifically for financial research.
+日本株市場に特化した自律型AI金融リサーチエージェント。複雑な投資リサーチを、計画・実行・検証のサイクルで自動的に遂行します。
 
-<img width="1098" height="659" alt="Screenshot 2026-01-21 at 5 25 10 PM" src="https://github.com/user-attachments/assets/3bcc3a7f-b68a-4f5e-8735-9d22196ff76e" />
+> **Note**: 本プロジェクトは [virattt/dexter](https://github.com/virattt/dexter) からフォークし、日本株市場向けに再構築したものです。Dexterの優れたエージェントアーキテクチャをベースに、データソース・プロンプト・投資哲学を日本市場に最適化しています。
 
-## Table of Contents
+「兜（Kabuto）」の名前は、日本の金融の中心地である東京・兜町に由来しています。
 
-- [👋 Overview](#-overview)
-- [✅ Prerequisites](#-prerequisites)
-- [💻 How to Install](#-how-to-install)
-- [🚀 How to Run](#-how-to-run)
-- [📊 How to Evaluate](#-how-to-evaluate)
-- [🐛 How to Debug](#-how-to-debug)
-- [📱 How to Use with WhatsApp](#-how-to-use-with-whatsapp)
-- [🤝 How to Contribute](#-how-to-contribute)
-- [📄 License](#-license)
+## 目次
 
+- [概要](#概要)
+- [前提条件](#前提条件)
+- [インストール](#インストール)
+- [使い方](#使い方)
+- [評価](#評価)
+- [デバッグ](#デバッグ)
+- [WhatsApp連携](#whatsapp連携)
+- [コントリビュート](#コントリビュート)
+- [ライセンス](#ライセンス)
 
-## 👋 Overview
+## 概要
 
-Dexter takes complex financial questions and turns them into clear, step-by-step research plans. It runs those tasks using live market data, checks its own work, and refines the results until it has a confident, data-backed answer.  
+Kabutoは複雑な金融リサーチの質問を受け取り、明確なステップに分解して実行します。リアルタイムの市場データを使って各タスクを遂行し、自己検証を繰り返しながら、データに裏付けられた回答を導き出します。
 
-**Key Capabilities:**
-- **Intelligent Task Planning**: Automatically decomposes complex queries into structured research steps
-- **Autonomous Execution**: Selects and executes the right tools to gather financial data
-- **Self-Validation**: Checks its own work and iterates until tasks are complete
-- **Real-Time Financial Data**: Access to income statements, balance sheets, and cash flow statements
-- **Safety Features**: Built-in loop detection and step limits to prevent runaway execution
+**主な機能:**
+- **インテリジェントなタスク計画**: 複雑なクエリを構造化されたリサーチステップに自動分解
+- **自律的な実行**: 適切なツールを選択し、金融データを収集
+- **自己検証**: 自身の分析結果をチェックし、タスク完了まで反復
+- **リアルタイム金融データ**: J-Quants APIによる株価・財務諸表・決算情報へのアクセス
+- **有価証券報告書の解析**: EDINET APIを通じた開示書類の取得と分析
+- **日本市場特化**: 証券コード（4桁）対応、円建て分析、3月決算への対応
+- **安全機能**: ループ検知とステップ制限による暴走防止
 
-[![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt) [![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=social&logo=discord)](https://discord.gg/jpGHv2XB6T)
+## 前提条件
 
-<img width="1042" height="638" alt="Screenshot 2026-02-18 at 12 21 25 PM" src="https://github.com/user-attachments/assets/2a6334f9-863f-4bd2-a56f-923e42f4711e" />
+- [Bun](https://bun.com) ランタイム（v1.0以上）
+- LLM APIキー（OpenAI / Anthropic / Google など）
+- [J-Quants APIキー](https://jpx-jquants.com/)（株価・財務データ）
+- [EDINET APIキー](https://disclosure2.edinet-fsa.go.jp/)（有価証券報告書）
+- [Exa APIキー](https://exa.ai)（オプション、Web検索用）
 
+### Bunのインストール
 
-## ✅ Prerequisites
-
-- [Bun](https://bun.com) runtime (v1.0 or higher)
-- OpenAI API key (get [here](https://platform.openai.com/api-keys))
-- Financial Datasets API key (get [here](https://financialdatasets.ai))
-- Exa API key (get [here](https://exa.ai)) - optional, for web search
-
-#### Installing Bun
-
-If you don't have Bun installed, you can install it using curl:
-
-**macOS/Linux:**
+**macOS / Linux:**
 ```bash
 curl -fsSL https://bun.com/install | bash
 ```
@@ -54,127 +51,172 @@ curl -fsSL https://bun.com/install | bash
 powershell -c "irm bun.sh/install.ps1|iex"
 ```
 
-After installation, restart your terminal and verify Bun is installed:
+インストール後、ターミナルを再起動して確認:
 ```bash
 bun --version
 ```
 
-## 💻 How to Install
+## インストール
 
-1. Clone the repository:
+1. リポジトリをクローン:
 ```bash
-git clone https://github.com/virattt/dexter.git
-cd dexter
+git clone https://github.com/oden41/kabuto.git
+cd kabuto
 ```
 
-2. Install dependencies with Bun:
+2. 依存パッケージをインストール:
 ```bash
 bun install
 ```
 
-3. Set up your environment variables:
+3. 環境変数を設定:
 ```bash
-# Copy the example environment file
 cp env.example .env
-
-# Edit .env and add your API keys (if using cloud providers)
-# OPENAI_API_KEY=your-openai-api-key
-# ANTHROPIC_API_KEY=your-anthropic-api-key (optional)
-# GOOGLE_API_KEY=your-google-api-key (optional)
-# XAI_API_KEY=your-xai-api-key (optional)
-# OPENROUTER_API_KEY=your-openrouter-api-key (optional)
-
-# Institutional-grade market data for agents; AAPL, NVDA, MSFT are free
-# FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
-
-# (Optional) If using Ollama locally
-# OLLAMA_BASE_URL=http://127.0.0.1:11434
-
-# Web Search (Exa preferred, Tavily fallback)
-# EXASEARCH_API_KEY=your-exa-api-key
-# TAVILY_API_KEY=your-tavily-api-key
 ```
 
-## 🚀 How to Run
+`.env` を編集してAPIキーを設定:
+```bash
+# LLM APIキー
+ANTHROPIC_API_KEY=your-anthropic-api-key
+OPENAI_API_KEY=your-openai-api-key          # オプション
 
-Run Dexter in interactive mode:
+# 日本株データ
+JQUANTS_API_KEY=your-jquants-api-key        # J-Quants API
+EDINET_API_KEY=your-edinet-api-key          # EDINET API
+
+# Web検索（Exa推奨、Tavily代替）
+EXASEARCH_API_KEY=your-exa-api-key          # オプション
+TAVILY_API_KEY=your-tavily-api-key          # オプション
+```
+
+## 使い方
+
+インタラクティブモードで起動:
 ```bash
 bun start
 ```
 
-Or with watch mode for development:
+開発時（ウォッチモード）:
 ```bash
 bun dev
 ```
 
-## 📊 How to Evaluate
+**質問の例:**
+```
+トヨタ(7203)の直近3年間の売上と営業利益の推移を分析して
+PBRが1倍以下の東証プライム銘柄をスクリーニングして
+ソフトバンクグループの有価証券報告書からリスク要因を読んで
+```
 
-Dexter includes an evaluation suite that tests the agent against a dataset of financial questions. Evals use LangSmith for tracking and an LLM-as-judge approach for scoring correctness.
+## 評価
 
-**Run on all questions:**
+Kabutoには、日本株の金融質問に対するエージェントの精度を測定する評価スイートが含まれています。LangSmithでトラッキングし、LLM-as-judgeアプローチでスコアリングします。
+
+**全問実行:**
 ```bash
 bun run src/evals/run.ts
 ```
 
-**Run on a random sample of data:**
+**ランダムサンプリング:**
 ```bash
 bun run src/evals/run.ts --sample 10
 ```
 
-The eval runner displays a real-time UI showing progress, current question, and running accuracy statistics. Results are logged to LangSmith for analysis.
+## デバッグ
 
-## 🐛 How to Debug
+Kabutoは全てのツール呼び出しをスクラッチパッドファイルに記録します。各クエリごとに `.kabuto/scratchpad/` にJSONLファイルが作成されます。
 
-Dexter logs all tool calls to a scratchpad file for debugging and history tracking. Each query creates a new JSONL file in `.dexter/scratchpad/`.
-
-**Scratchpad location:**
 ```
-.dexter/scratchpad/
-├── 2026-01-30-111400_9a8f10723f79.jsonl
-├── 2026-01-30-143022_a1b2c3d4e5f6.jsonl
+.kabuto/scratchpad/
+├── 2026-03-26-111400_9a8f10723f79.jsonl
+├── 2026-03-26-143022_a1b2c3d4e5f6.jsonl
 └── ...
 ```
 
-Each file contains newline-delimited JSON entries tracking:
-- **init**: The original query
-- **tool_result**: Each tool call with arguments, raw result, and LLM summary
-- **thinking**: Agent reasoning steps
+各ファイルには以下が記録されます:
+- **init**: 元のクエリ
+- **tool_result**: ツール呼び出しの引数、結果、LLMによる要約
+- **thinking**: エージェントの推論ステップ
 
-**Example scratchpad entry:**
-```json
-{"type":"tool_result","timestamp":"2026-01-30T11:14:05.123Z","toolName":"get_income_statements","args":{"ticker":"AAPL","period":"annual","limit":5},"result":{...},"llmSummary":"Retrieved 5 years of Apple annual income statements showing revenue growth from $274B to $394B"}
-```
+## WhatsApp連携
 
-This makes it easy to inspect exactly what data the agent gathered and how it interpreted results.
+WhatsAppを通じてKabutoとチャットできます。
 
-## 📱 How to Use with WhatsApp
-
-Chat with Dexter through WhatsApp by linking your phone to the gateway. Messages you send to yourself are processed by Dexter and responses are sent back to the same chat.
-
-**Quick start:**
 ```bash
-# Link your WhatsApp account (scan QR code)
+# WhatsAppアカウントをリンク（QRコードをスキャン）
 bun run gateway:login
 
-# Start the gateway
+# ゲートウェイを起動
 bun run gateway
 ```
 
-Then open WhatsApp, go to your own chat (message yourself), and ask Dexter a question.
+詳細は [WhatsApp Gateway README](src/gateway/channels/whatsapp/README.md) を参照してください。
 
-For detailed setup instructions, configuration options, and troubleshooting, see the [WhatsApp Gateway README](src/gateway/channels/whatsapp/README.md).
+## コントリビュート
 
-## 🤝 How to Contribute
+1. リポジトリをフォーク
+2. フィーチャーブランチを作成
+3. 変更をコミット
+4. ブランチにプッシュ
+5. プルリクエストを作成
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+PRは小さく、焦点を絞った内容にしてください。
 
-**Important**: Please keep your pull requests small and focused.  This will make it easier to review and merge.
+## ライセンス
 
+MIT License
 
-## 📄 License
+---
 
-This project is licensed under the MIT License.
+# Kabuto 兜 (English)
+
+An autonomous AI financial research agent specialized for the Japanese stock market. It automatically conducts investment research through cycles of planning, execution, and validation.
+
+> **Note**: This project is forked from [virattt/dexter](https://github.com/virattt/dexter) and rebuilt for the Japanese equity market. It leverages Dexter's excellent agent architecture while optimizing data sources, prompts, and investment philosophy for Japan.
+
+The name "Kabuto" comes from Kabutocho, Tokyo's historic financial district — Japan's equivalent of Wall Street.
+
+## Overview
+
+Kabuto takes complex financial research questions and breaks them into clear, step-by-step plans. It executes each task using real-time market data, validates its own work, and iterates until it has a confident, data-backed answer.
+
+**Key Capabilities:**
+- **Intelligent Task Planning**: Automatically decomposes complex queries into structured research steps
+- **Autonomous Execution**: Selects and executes the right tools to gather financial data
+- **Self-Validation**: Checks its own work and iterates until tasks are complete
+- **Real-Time Japanese Market Data**: Access to stock prices, financial statements, and earnings via J-Quants API
+- **Securities Report Analysis**: Retrieval and analysis of disclosure documents via EDINET API
+- **Japan-Specific**: 4-digit stock codes, JPY-denominated analysis, March fiscal year support
+- **Safety Features**: Built-in loop detection and step limits to prevent runaway execution
+
+## Prerequisites
+
+- [Bun](https://bun.com) runtime (v1.0 or higher)
+- LLM API key (OpenAI / Anthropic / Google, etc.)
+- [J-Quants API key](https://jpx-jquants.com/) (stock prices & financials)
+- [EDINET API key](https://disclosure2.edinet-fsa.go.jp/) (securities reports)
+- [Exa API key](https://exa.ai) — optional, for web search
+
+## Quick Start
+
+```bash
+git clone https://github.com/oden41/kabuto.git
+cd kabuto
+bun install
+cp env.example .env
+# Edit .env with your API keys
+bun start
+```
+
+**Example queries:**
+```
+Analyze Toyota's (7203) revenue and operating profit trends over the past 3 years
+Screen TSE Prime stocks with PBR below 1x
+Read the risk factors from SoftBank Group's securities report
+```
+
+For full documentation, see the Japanese sections above.
+
+## License
+
+MIT License

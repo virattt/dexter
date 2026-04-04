@@ -11,37 +11,27 @@ import { getCurrentDate } from '../../agent/prompts.js';
  * Used in the system prompt to guide the LLM on when and how to use this tool.
  */
 export const GET_MARKET_DATA_DESCRIPTION = `
-Intelligent meta-tool for retrieving market data including prices, news, and insider activity. Takes a natural language query and automatically routes to appropriate market data sources.
+日本株の株価データを取得するインテリジェントなメタツール。自然言語クエリを受け取り、適切な株価データソースに自動ルーティングします。
 
-## When to Use
+## 使用すべき場面
 
-- Current stock price snapshots (price, market cap, volume, 52-week high/low)
-- Historical stock prices over date ranges
-- Available stock ticker lookup
-- Current cryptocurrency price snapshots
-- Historical cryptocurrency prices over date ranges
-- Available crypto ticker lookup
-- Multi-asset price comparisons
-- Company news and recent headlines
-- Insider trading activity
-- Price move explanations ("why did X go up/down" → combines price + news)
+- 現在の株価スナップショット（始値・高値・安値・終値・出来高）
+- 期間指定の日次株価履歴
+- 株価変動の把握
 
-## When NOT to Use
+## 使用しない場面
 
-- Company financials like income statements, balance sheets, cash flow (use get_financials)
-- Financial metrics and key ratios (use get_financials)
-- Analyst estimates (use get_financials)
-- SEC filings (use read_filings)
-- Stock screening by criteria (use stock_screener)
-- General web searches (use web_search)
+- 財務諸表・投資指標（get_financials を使用）
+- 決算データ（get_financials を使用）
+- 財務条件でのスクリーニング（stock_screener を使用）
+- 一般的なウェブ検索（web_search を使用）
 
-## Usage Notes
+## 注意事項
 
-- Call ONCE with the complete natural language query - the tool handles complexity internally
-- Handles ticker resolution automatically (Apple -> AAPL, Bitcoin -> BTC)
-- Handles date inference (e.g., "last month", "past year", "YTD")
-- For "what ticker is X?" queries, this tool can look up available tickers
-- Returns structured JSON data with source URLs for verification
+- クエリ全体を1回渡す（内部で処理）
+- 証券コードの解決を自動処理（トヨタ → 7203）
+- 日付推論を処理（「先月」「過去1年」等）
+- 構造化JSONデータとソースURLを返す
 `.trim();
 
 /** Format snake_case tool name to Title Case for progress messages */
@@ -50,24 +40,12 @@ function formatSubToolName(name: string): string {
 }
 
 // Import market data tools directly (avoid circular deps with index.ts)
-import { getStockPrice, getStockPrices, getStockTickers } from './stock-price.js';
-import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
-import { getCompanyNews } from './news.js';
-import { getInsiderTrades } from './insider_trades.js';
+import { getStockPrice, getStockPrices } from './stock-price.js';
 
 // All market data tools available for routing
 const MARKET_DATA_TOOLS: StructuredToolInterface[] = [
-  // Stock Prices
   getStockPrice,
   getStockPrices,
-  getStockTickers,
-  // Crypto Prices
-  getCryptoPriceSnapshot,
-  getCryptoPrices,
-  getCryptoTickers,
-  // News & Activity
-  getCompanyNews,
-  getInsiderTrades,
 ];
 
 // Create a map for quick tool lookup by name
@@ -75,46 +53,35 @@ const MARKET_DATA_TOOL_MAP = new Map(MARKET_DATA_TOOLS.map(t => [t.name, t]));
 
 // Build the router system prompt for market data
 function buildRouterPrompt(): string {
-  return `You are a market data routing assistant.
-Current date: ${getCurrentDate()}
+  return `あなたは日本株の株価データルーティングアシスタントです。
+現在日時: ${getCurrentDate()}
 
-Given a user's natural language query about market data, call the appropriate tool(s).
+ユーザーの自然言語クエリを受け取り、適切な株価データツールを呼び出してください。
 
-## Guidelines
+## ガイドライン
 
-1. **Ticker Resolution**: Convert company/crypto names to ticker symbols:
-   - Apple → AAPL, Tesla → TSLA, Microsoft → MSFT, Amazon → AMZN
-   - Google/Alphabet → GOOGL, Meta/Facebook → META, Nvidia → NVDA
-   - Bitcoin → BTC, Ethereum → ETH, Solana → SOL
+1. **証券コード解決**: 企業名を4桁証券コードに変換:
+   - トヨタ/トヨタ自動車 → 7203
+   - ソニー/ソニーグループ → 6758
+   - ソフトバンクグループ → 9984
+   - キーエンス → 6861
+   - 任天堂 → 7974
 
-2. **Date Inference**: Use schema-supported filters for date ranges:
-   - "last month" → start_date 1 month ago, end_date today
-   - "past year" → start_date 1 year ago, end_date today
-   - "YTD" → start_date Jan 1 of current year, end_date today
-   - "2024" → start_date 2024-01-01, end_date 2024-12-31
+2. **日付推論**: 期間を具体的な日付に変換:
+   - 「先月」→ 1ヶ月前〜今日
+   - 「過去1年」→ 1年前〜今日
+   - 「2024年」→ 2024-01-01〜2024-12-31
 
-3. **Tool Selection**:
-   - For a current stock quote/snapshot (price, market cap, volume) → get_stock_price
-   - For historical stock prices over a date range → get_stock_prices
-   - For "what stocks are available" or ticker lookup → get_stock_tickers
-   - For a current crypto price/snapshot → get_crypto_price_snapshot
-   - For historical crypto prices over a date range → get_crypto_prices
-   - For "what cryptos are available" or crypto ticker lookup → get_crypto_tickers
-   - For news, catalysts, recent announcements → get_company_news
-   - For insider buying/selling activity → get_insider_trades
-   - For "why did X go up/down" → combine get_stock_price + get_company_news
+3. **ツール選択**:
+   - 最新の株価スナップショット → get_stock_price
+   - 期間指定の日次株価履歴 → get_stock_prices
 
-4. **Efficiency**:
-   - For current/latest price, use snapshot tools (not historical with limit 1)
-   - For comparisons between assets, call the same tool for each ticker
-   - Use the smallest date range that answers the question
-
-Call the appropriate tool(s) now.`;
+今すぐ適切なツールを呼び出してください。`;
 }
 
 // Input schema for the get_market_data tool
 const GetMarketDataInputSchema = z.object({
-  query: z.string().describe('Natural language query about market data, prices, news, or insider activity'),
+  query: z.string().describe('株価データに関する自然言語クエリ'),
 });
 
 /**
@@ -124,18 +91,15 @@ const GetMarketDataInputSchema = z.object({
 export function createGetMarketData(model: string): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: 'get_market_data',
-    description: `Intelligent meta-tool for retrieving market data including prices, news, and insider activity. Takes a natural language query and automatically routes to appropriate market data tools. Use for:
-- Current and historical stock prices
-- Current and historical cryptocurrency prices
-- Stock and crypto ticker lookup
-- Company news and recent headlines
-- Insider trading activity`,
+    description: `日本株の株価データ取得メタツール。自然言語クエリを受け取り、適切な株価データツールに自動ルーティングします。用途:
+- 最新の株価スナップショット（終値・出来高等）
+- 期間指定の日次株価履歴`,
     schema: GetMarketDataInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
       const onProgress = config?.metadata?.onProgress as ((msg: string) => void) | undefined;
 
       // 1. Call LLM with market data tools bound (native tool calling)
-      onProgress?.('Fetching market data...');
+      onProgress?.('株価データを取得中...');
       const { response } = await callLlm(input.query, {
         model,
         systemPrompt: buildRouterPrompt(),
@@ -146,12 +110,12 @@ export function createGetMarketData(model: string): DynamicStructuredTool {
       // 2. Check for tool calls
       const toolCalls = aiMessage.tool_calls as ToolCall[];
       if (!toolCalls || toolCalls.length === 0) {
-        return formatToolResult({ error: 'No tools selected for query' }, []);
+        return formatToolResult({ error: 'クエリに対するツールが選択されませんでした' }, []);
       }
 
       // 3. Execute tool calls in parallel
       const toolNames = [...new Set(toolCalls.map(tc => formatSubToolName(tc.name)))];
-      onProgress?.(`Fetching from ${toolNames.join(', ')}...`);
+      onProgress?.(`取得中: ${toolNames.join(', ')}...`);
       const results = await Promise.all(
         toolCalls.map(async (tc) => {
           try {
@@ -192,9 +156,8 @@ export function createGetMarketData(model: string): DynamicStructuredTool {
       const combinedData: Record<string, unknown> = {};
 
       for (const result of successfulResults) {
-        // Use tool name as key, or tool_ticker for multiple calls to same tool
-        const ticker = (result.args as Record<string, unknown>).ticker as string | undefined;
-        const key = ticker ? `${result.tool}_${ticker}` : result.tool;
+        const code = (result.args as Record<string, unknown>).code as string | undefined;
+        const key = code ? `${result.tool}_${code}` : result.tool;
         combinedData[key] = result.data;
       }
 

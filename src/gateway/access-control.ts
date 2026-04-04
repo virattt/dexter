@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { randomInt } from 'node:crypto';
 import { isSelfChatMode, normalizeE164 } from './utils.js';
-import { dexterPath } from '../utils/paths.js';
+import { kabutoPath } from '../utils/paths.js';
 
 const PAIRING_REPLY_HISTORY_GRACE_MS = 30_000;
 
@@ -16,8 +16,8 @@ type PairingStore = Record<string, PairingRequest>;
 
 function pairingPath(): string {
   return (
-    process.env.DEXTER_PAIRING_PATH ??
-    dexterPath('pairing', 'whatsapp.json')
+    process.env.KABUTO_PAIRING_PATH ??
+    kabutoPath('pairing', 'whatsapp.json')
   );
 }
 
@@ -77,10 +77,10 @@ export function isAllowedPhone(params: {
 
 export function buildPairingReply(code: string, senderId: string): string {
   return [
-    'Dexter access request received.',
+    'Kabuto access request received.',
     `Sender ID: ${senderId}`,
     `Approval code: ${code}`,
-    'Ask the operator to approve this code in Dexter gateway config.',
+    'Ask the operator to approve this code in Kabuto gateway config.',
   ].join('\n');
 }
 

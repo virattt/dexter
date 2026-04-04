@@ -5,13 +5,13 @@
  * Callers opt in by passing `{ cacheable: true }` to API calls;
  * the cache module unconditionally stores and retrieves keyed JSON.
  *
- * Cache files live in .dexter/cache/ (already gitignored via .dexter/*).
+ * Cache files live in .kabuto/cache/ (already gitignored via .kabuto/*).
  */
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 import { createHash } from 'crypto';
 import { logger } from './logger.js';
-import { dexterPath } from './paths.js';
+import { kabutoPath } from './paths.js';
 
 // ============================================================================
 // Types
@@ -29,7 +29,7 @@ interface CacheEntry {
   cachedAt: string;
 }
 
-const CACHE_DIR = dexterPath('cache');
+const CACHE_DIR = kabutoPath('cache');
 
 // ============================================================================
 // Helpers

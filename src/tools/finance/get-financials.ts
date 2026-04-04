@@ -11,37 +11,30 @@ import { getCurrentDate } from '../../agent/prompts.js';
  * Used in the system prompt to guide the LLM on when and how to use this tool.
  */
 export const GET_FINANCIALS_DESCRIPTION = `
-Intelligent meta-tool for retrieving company financial data. Takes a natural language query and automatically routes to appropriate financial data sources.
+日本株の財務データを取得するインテリジェントなメタツール。自然言語クエリを受け取り、適切な財務データソースに自動ルーティングします。
 
-## When to Use
+## 使用すべき場面
 
-- Company facts (sector, industry, market cap, number of employees, listing date, exchange, location, weighted average shares, website)
-- Company financials (income statements, balance sheets, cash flow statements)
-- Financial metrics and key ratios (P/E ratio, market cap, EPS, dividend yield, enterprise value, ROE, ROA, margins)
-- Historical metrics and trend analysis across multiple periods
-- Analyst estimates and price targets
-- Revenue segment breakdowns
-- Earnings data (EPS/revenue beat-miss, earnings surprises)
-- Multi-company comparisons (pass the full query, it handles routing internally)
+- 企業の財務諸表（損益計算書・貸借対照表・CF計算書）
+- 投資指標・財務指標（PER・PBR・配当利回り・ROE・ROA・営業利益率）
+- 過去の指標推移・トレンド分析
+- 決算発表スケジュール・決算短信
+- 複数銘柄比較（クエリをそのまま渡す、内部でルーティング）
 
-## When NOT to Use
+## 使用しない場面
 
-- Stock or cryptocurrency prices (use get_market_data instead)
-- Company news or insider trading activity (use get_market_data instead)
-- General web searches or non-financial topics (use web_search instead)
-- Questions that don't require external financial data (answer directly from knowledge)
-- Non-public company information
-- Real-time trading or order execution
-- Reading SEC filing content (use read_filings instead)
-- Stock screening by criteria (use stock_screener)
+- 株価データ（get_market_data を使用）
+- 一般的なウェブ検索（web_search を使用）
+- 外部データ不要の質問（知識から直接回答）
+- 財務条件でのスクリーニング（stock_screener を使用）
 
-## Usage Notes
+## 注意事項
 
-- Call ONCE with the complete natural language query - the tool handles complexity internally
-- For comparisons like "compare AAPL vs MSFT revenue", pass the full query as-is
-- Handles ticker resolution automatically (Apple -> AAPL, Microsoft -> MSFT)
-- Handles date inference (e.g., "last quarter", "past 5 years", "YTD")
-- Returns structured JSON data with source URLs for verification
+- クエリ全体を1回渡す（内部で複雑さを処理）
+- 「トヨタ vs ソニーの売上比較」のようなクエリもそのまま渡す
+- 証券コードの解決を自動処理（トヨタ → 7203、ソフトバンク → 9984）
+- 日付推論を処理（「前期」「直近5年」等）
+- 構造化JSONデータとソースURLを返す
 `.trim();
 
 /** Format snake_case tool name to Title Case for progress messages */
@@ -52,8 +45,6 @@ function formatSubToolName(name: string): string {
 // Import all finance tools directly (avoid circular deps with index.ts)
 import { getIncomeStatements, getBalanceSheets, getCashFlowStatements, getAllFinancialStatements } from './fundamentals.js';
 import { getKeyRatios, getHistoricalKeyRatios } from './key-ratios.js';
-import { getAnalystEstimates } from './estimates.js';
-import { getSegmentedRevenues } from './segments.js';
 import { getEarnings } from './earnings.js';
 
 // All finance tools available for routing
@@ -63,63 +54,63 @@ const FINANCE_TOOLS: StructuredToolInterface[] = [
   getBalanceSheets,
   getCashFlowStatements,
   getAllFinancialStatements,
-  // Earnings
+  // Earnings / 決算発表
   getEarnings,
-  // Key Ratios, Snapshots & Estimates
+  // Key Ratios & Snapshots
   getKeyRatios,
   getHistoricalKeyRatios,
-  getAnalystEstimates,
-  // Other Data
-  getSegmentedRevenues,
 ];
 
 // Create a map for quick tool lookup by name
 const FINANCE_TOOL_MAP = new Map(FINANCE_TOOLS.map(t => [t.name, t]));
 
-// Build the router system prompt - simplified since LLM sees tool schemas
+// Build the router system prompt
 function buildRouterPrompt(): string {
-  return `You are a financial data routing assistant.
-Current date: ${getCurrentDate()}
+  return `あなたは日本株の財務データルーティングアシスタントです。
+現在日時: ${getCurrentDate()}
 
-Given a user's natural language query about financial data, call the appropriate financial tool(s).
+ユーザーの自然言語クエリを受け取り、適切な財務データツールを呼び出してください。
 
-## Guidelines
+## ガイドライン
 
-1. **Ticker Resolution**: Convert company names to ticker symbols:
-   - Apple → AAPL, Tesla → TSLA, Microsoft → MSFT, Amazon → AMZN
-   - Google/Alphabet → GOOGL, Meta/Facebook → META, Nvidia → NVDA
+1. **証券コード解決**: 企業名を4桁証券コードに変換:
+   - トヨタ/トヨタ自動車 → 7203
+   - ソニー/ソニーグループ → 6758
+   - ソフトバンク/ソフトバンクグループ → 9984
+   - キーエンス → 6861
+   - 任天堂 → 7974
+   - リクルート → 6098
+   - 三菱UFJ → 8306
 
-2. **Date Inference**: Use schema-supported filters for date ranges:
-   - "last year" → report_period_gte 1 year ago
-   - "last quarter" → report_period_gte 3 months ago
-   - "past 5 years" → report_period_gte 5 years ago and limit 5 (annual) or 20 (quarterly)
-   - "YTD" → report_period_gte Jan 1 of current year
+2. **日付推論**: 日本の会計年度に対応:
+   - 「前期」→ 直近の通期（FY）決算
+   - 「直近5年」→ limit 5 (annual)
+   - 「四半期」→ period "quarterly"
+   - 多くの企業は3月決算（3月31日が期末）
 
-3. **Tool Selection**:
-   - For latest financial metrics snapshot (P/E, margins, ROE, EPS, growth rates) → get_financial_metrics_snapshot
-   - For historical P/E ratio, historical market cap, valuation metrics over time → get_key_ratios
-   - For revenue, earnings, profitability → get_income_statements
-   - For latest earnings release snapshot, EPS/revenue beat-miss, earnings surprises → get_earnings
-   - For debt, assets, equity → get_balance_sheets
-   - For cash flow, free cash flow → get_cash_flow_statements
-   - For comprehensive analysis → get_all_financial_statements
+3. **ツール選択**:
+   - 最新の投資指標スナップショット（PER・PBR・ROE・配当利回り）→ get_key_ratios
+   - 過去の指標推移 → get_historical_key_ratios
+   - 売上・利益・EPS → get_income_statements
+   - 決算発表予定・スケジュール → get_earnings
+   - 資産・純資産・自己資本比率 → get_balance_sheets
+   - キャッシュフロー → get_cash_flow_statements
+   - 包括的な財務分析 → get_all_financial_statements
 
-4. **Efficiency**:
-   - Prefer specific tools over general ones when possible
-   - Use get_all_financial_statements only when multiple statement types needed
-   - For comparisons between companies, call the same tool for each ticker
-   - Always use the smallest limit that can answer the question:
-     - Point-in-time/latest questions → limit 1
-     - Short trend (2-3 periods) → limit 3
-     - Medium trend (4-5 periods) → limit 5
-   - Increase limit beyond defaults only when the user explicitly asks for long history (e.g., 10-year trend)
+4. **効率性**:
+   - 可能な限り具体的なツールを優先
+   - 複数銘柄比較は同じツールを各コードに対して呼び出す
+   - 最小のlimitで回答できる質問に最大のlimitを使わない:
+     - 最新値のみ → limit 1
+     - 短期トレンド → limit 3
+     - 中期トレンド → limit 5
 
-Call the appropriate tool(s) now.`;
+今すぐ適切なツールを呼び出してください。`;
 }
 
 // Input schema for the get_financials tool
 const GetFinancialsInputSchema = z.object({
-  query: z.string().describe('Natural language query about financial data'),
+  query: z.string().describe('財務データに関する自然言語クエリ'),
 });
 
 /**
@@ -129,18 +120,17 @@ const GetFinancialsInputSchema = z.object({
 export function createGetFinancials(model: string): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: 'get_financials',
-    description: `Intelligent meta-tool for retrieving company financial data. Takes a natural language query and automatically routes to appropriate financial data tools. Use for:
-- Company financials (income statements, balance sheets, cash flow)
-- Financial metrics and key ratios (P/E ratio, market cap, EPS, dividend yield, ROE, margins)
-- Historical metrics and trend analysis
-- Analyst estimates and price targets
-- Earnings data and revenue segments`,
+    description: `日本株の財務データ取得メタツール。自然言語クエリを受け取り、適切な財務データツールに自動ルーティングします。用途:
+- 財務諸表（損益計算書・貸借対照表・CF計算書）
+- 投資指標（PER・PBR・ROE・ROA・配当利回り）
+- 過去の指標推移・トレンド分析
+- 決算発表スケジュール`,
     schema: GetFinancialsInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
       const onProgress = config?.metadata?.onProgress as ((msg: string) => void) | undefined;
 
       // 1. Call LLM with finance tools bound (native tool calling)
-      onProgress?.('Fetching...');
+      onProgress?.('財務データを取得中...');
       const { response } = await callLlm(input.query, {
         model,
         systemPrompt: buildRouterPrompt(),
@@ -151,12 +141,12 @@ export function createGetFinancials(model: string): DynamicStructuredTool {
       // 2. Check for tool calls
       const toolCalls = aiMessage.tool_calls as ToolCall[];
       if (!toolCalls || toolCalls.length === 0) {
-        return formatToolResult({ error: 'No tools selected for query' }, []);
+        return formatToolResult({ error: 'クエリに対するツールが選択されませんでした' }, []);
       }
 
       // 3. Execute tool calls in parallel
       const toolNames = [...new Set(toolCalls.map(tc => formatSubToolName(tc.name)))];
-      onProgress?.(`Fetching from ${toolNames.join(', ')}...`);
+      onProgress?.(`取得中: ${toolNames.join(', ')}...`);
       const results = await Promise.all(
         toolCalls.map(async (tc) => {
           try {
@@ -197,9 +187,9 @@ export function createGetFinancials(model: string): DynamicStructuredTool {
       const combinedData: Record<string, unknown> = {};
 
       for (const result of successfulResults) {
-        // Use tool name as key, or tool_ticker for multiple calls to same tool
-        const ticker = (result.args as Record<string, unknown>).ticker as string | undefined;
-        const key = ticker ? `${result.tool}_${ticker}` : result.tool;
+        // Use tool name as key, or tool_code for multiple calls to same tool
+        const code = (result.args as Record<string, unknown>).code as string | undefined;
+        const key = code ? `${result.tool}_${code}` : result.tool;
         combinedData[key] = result.data;
       }
 

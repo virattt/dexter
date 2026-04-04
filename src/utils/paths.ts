@@ -1,11 +1,11 @@
 import { join } from 'node:path';
 
-const DEXTER_DIR = '.dexter';
+const KABUTO_DIR = '.kabuto';
 
-export function getDexterDir(): string {
-  return DEXTER_DIR;
+export function getKabutoDir(): string {
+  return KABUTO_DIR;
 }
 
-export function dexterPath(...segments: string[]): string {
-  return join(getDexterDir(), ...segments);
+export function kabutoPath(...segments: string[]): string {
+  return join(getKabutoDir(), ...segments);
 }

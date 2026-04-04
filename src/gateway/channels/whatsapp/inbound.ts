@@ -14,9 +14,9 @@ import { readSelfId } from './auth-store.js';
 import { checkInboundAccessControl } from '../../access-control.js';
 import { resolveJidToPhoneJid, type LidLookup } from './lid.js';
 import { appendFileSync } from 'node:fs';
-import { dexterPath } from '../../../utils/paths.js';
+import { kabutoPath } from '../../../utils/paths.js';
 
-const LOG_PATH = dexterPath('gateway-debug.log');
+const LOG_PATH = kabutoPath('gateway-debug.log');
 function debugLog(msg: string) {
   appendFileSync(LOG_PATH, `${new Date().toISOString()} ${msg}\n`);
 }

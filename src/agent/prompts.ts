@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getChannelProfile } from './channels.js';
-import { dexterPath } from '../utils/paths.js';
+import { kabutoPath } from '../utils/paths.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -30,7 +30,7 @@ export function getCurrentDate(): string {
  * Load SOUL.md content from user override or bundled file.
  */
 export async function loadSoulDocument(): Promise<string | null> {
-  const userSoulPath = dexterPath('SOUL.md');
+  const userSoulPath = kabutoPath('SOUL.md');
   try {
     return await readFile(userSoulPath, 'utf-8');
   } catch {
@@ -83,7 +83,7 @@ function buildMemorySection(memoryFiles: string[], memoryContext?: string | null
 
   return `## Memory
 
-You have persistent memory stored as Markdown files in .dexter/memory/.${fileListSection}${contextSection}
+You have persistent memory stored as Markdown files in .kabuto/memory/.${fileListSection}${contextSection}
 
 ### Recalling memories
 Use memory_search to recall stored facts, preferences, or notes. The search covers all
@@ -112,7 +112,7 @@ Before editing or deleting, use memory_get to verify the exact text to match.`;
 /**
  * Default system prompt used when no specific prompt is provided.
  */
-export const DEFAULT_SYSTEM_PROMPT = `You are Dexter, a helpful AI assistant.
+export const DEFAULT_SYSTEM_PROMPT = `You are Kabuto (兜), a helpful AI assistant specialized in the Japanese stock market.
 
 Current date: ${getCurrentDate()}
 
@@ -217,7 +217,7 @@ export function buildSystemPrompt(
     ? `\n## Tables (for comparative/tabular data)\n\n${profile.tables}`
     : '';
 
-  return `You are Dexter, a ${profile.label} assistant with access to research tools.
+  return `You are Kabuto (兜), a ${profile.label} assistant specialized in the Japanese stock market with access to research tools.
 
 Current date: ${getCurrentDate()}
 
@@ -248,7 +248,7 @@ ${buildMemorySection(memoryFiles ?? [], memoryContext)}
 ## Heartbeat
 
 You have a periodic heartbeat that runs on a schedule (configurable by the user).
-The heartbeat reads .dexter/HEARTBEAT.md to know what to check.
+The heartbeat reads .kabuto/HEARTBEAT.md to know what to check.
 Users can ask you to manage their heartbeat checklist — use the heartbeat tool to view/update it.
 Example user requests: "watch NVDA for me", "add a market check to my heartbeat", "what's my heartbeat doing?"
 
