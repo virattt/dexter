@@ -107,4 +107,28 @@ describe('fetchFinancialSummary', () => {
     expect(mockYahooFetch).toHaveBeenCalledOnce();
     expect(result.source).toBe('yahoo');
   });
+
+  test('FINANCE_PROVIDER=jquants → J-Quantsのみ使う', async () => {
+    process.env.FINANCE_PROVIDER = 'jquants';
+    process.env.JQUANTS_API_KEY = 'test-key';
+    mockJQuantsFetch.mockResolvedValue({
+      data: {
+        data: [{
+          CurFYEn: '2024-03-31', CurPerType: 'FY', DiscDate: '2024-05-10',
+          Sales: 9000000, OP: 900000, OdP: 800000, NP: 700000,
+          EPS: 90, DivAnn: 25, EqAR: 0.35, TA: 45000000, Eq: 15000000, BPS: 2000,
+          CFO: 1000000, CFI: -400000, CFF: -200000,
+          FSales: null, FOP: null, FNP: null,
+        }],
+      },
+      url: 'https://jquants',
+    });
+
+    const result = await fetchFinancialSummary('9984', 'annual', 1);
+
+    expect(mockJQuantsFetch).toHaveBeenCalledOnce();
+    expect(mockYahooFetch).not.toHaveBeenCalled();
+    expect(result.source).toBe('jquants');
+    expect(result.records[0]?.netSales).toBe(9000000);
+  });
 });

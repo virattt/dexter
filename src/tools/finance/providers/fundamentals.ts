@@ -9,6 +9,8 @@ import { jquantsApi } from '../jquants-api.js';
 import { YahooFinanceProvider } from './yahoo-finance.js';
 import type { FinancialSummaryRecord } from './types.js';
 
+const VALID_PERIOD_VALUES = new Set<string>(['FY', '4Q', 'Annual', 'Q1', 'Q2', 'Q3', 'Q4']);
+
 export interface FetchSummaryResult {
   records: FinancialSummaryRecord[];
   source: 'jquants' | 'yahoo';
@@ -27,7 +29,10 @@ function mapJQuantsRecord(s: Record<string, unknown>): FinancialSummaryRecord {
   const eqAR = Number(s.EqAR ?? 0);
   return {
     fiscalYearEnd: s.CurFYEn != null ? String(s.CurFYEn) : null,
-    period: s.CurPerType != null ? (String(s.CurPerType) as FinancialSummaryRecord['period']) : null,
+    period: (() => {
+      const v = s.CurPerType != null ? String(s.CurPerType) : null;
+      return (v !== null && VALID_PERIOD_VALUES.has(v)) ? (v as FinancialSummaryRecord['period']) : null;
+    })(),
     disclosureDate: s.DiscDate != null ? String(s.DiscDate) : null,
     netSales: s.Sales != null ? Number(s.Sales) : null,
     operatingProfit: s.OP != null ? Number(s.OP) : null,
