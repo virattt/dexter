@@ -232,7 +232,8 @@ export function createScreenStocks(_model: string): DynamicStructuredTool {
               const totalAssets = latest.totalAssets ?? 0;
               const sales = latest.netSales ?? 0;
               const opProfit = latest.operatingProfit ?? 0;
-              const eqAR = latest.equityToAssetRatio != null ? latest.equityToAssetRatio / 100 : 0;
+              // equityToAssetRatio is already in % form (e.g. 40.0 = 40%) per FinancialSummaryRecord contract
+              const eqAR = latest.equityToAssetRatio ?? 0;
 
               let price: number | null = null;
               if (needsPrice) {
@@ -263,7 +264,7 @@ export function createScreenStocks(_model: string): DynamicStructuredTool {
                 roa: totalAssets > 0 ? Math.round((netIncome / totalAssets) * 1000) / 10 : null,
                 dividendYield: price && divAnn > 0 ? Math.round((divAnn / price) * 10000) / 100 : null,
                 operatingMargin: sales > 0 ? Math.round((opProfit / sales) * 1000) / 10 : null,
-                equityRatio: eqAR ? Math.round(eqAR * 1000) / 10 : null,
+                equityRatio: eqAR ? Math.round(eqAR * 10) / 10 : null,
                 eps,
                 bps,
               };
