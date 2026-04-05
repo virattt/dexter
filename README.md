@@ -10,6 +10,7 @@ Dexter is an autonomous financial research agent that thinks, plans, and learns 
 - [✅ Prerequisites](#-prerequisites)
 - [💻 How to Install](#-how-to-install)
 - [🚀 How to Run](#-how-to-run)
+- [🔌 OpenClaw OAuth Bridge](#-openclaw-oauth-bridge)
 - [📊 How to Evaluate](#-how-to-evaluate)
 - [🐛 How to Debug](#-how-to-debug)
 - [📱 How to Use with WhatsApp](#-how-to-use-with-whatsapp)
@@ -36,7 +37,9 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 ## ✅ Prerequisites
 
 - [Bun](https://bun.com) runtime (v1.0 or higher)
-- OpenAI API key (get [here](https://platform.openai.com/api-keys))
+- One LLM path:
+  - standard mode: OpenAI / Anthropic / Gemini / xAI / OpenRouter API key, or
+  - OpenClaw bridge mode: an existing OpenClaw main-agent `openai-codex` OAuth profile on the same machine
 - Financial Datasets API key (get [here](https://financialdatasets.ai))
 - Exa API key (get [here](https://exa.ai)) - optional, for web search
 
@@ -106,6 +109,27 @@ Or with watch mode for development:
 ```bash
 bun dev
 ```
+
+## 🔌 OpenClaw OAuth Bridge
+
+This fork adds a headless entrypoint that reuses an existing OpenClaw main-agent `openai-codex` OAuth login, so you can run Dexter research queries without setting `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` just for the LLM layer.
+
+Run it like this:
+```bash
+bun run ask:openclaw -- "Compare Apple and Microsoft on revenue growth and operating margins"
+```
+
+You can also pass a session key or model:
+```bash
+bun run ask:openclaw -- --session dexter:earnings --model gpt-5.4-mini "Summarize the latest Tesla developments"
+```
+
+Notes:
+- This bridge still uses Dexter's normal tool registry.
+- `FINANCIAL_DATASETS_API_KEY` is still required for financial data tools.
+- `EXASEARCH_API_KEY`, `TAVILY_API_KEY`, `PERPLEXITY_API_KEY`, and `X_BEARER_TOKEN` are still optional enhancements.
+- The bridge is read-only by default; file writes, cron changes, heartbeat edits, and memory mutation tools stay disabled unless you set `DEXTER_OPENCLAW_ENABLE_MUTATIONS=1`.
+- The full interactive TUI (`bun start`) is unchanged and still uses Dexter's normal provider configuration.
 
 ## 📊 How to Evaluate
 
