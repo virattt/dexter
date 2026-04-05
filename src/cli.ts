@@ -451,7 +451,9 @@ export async function runCli() {
         queueLength: defaultQueue.length(),
       });
     }
-    tui.setFocus(editor);
+    if (!modelSelection.isInSelectionFlow() && !agentRunner.pendingApproval) {
+      tui.setFocus(editor);
+    }
   };
 
   /**
