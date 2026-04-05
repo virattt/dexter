@@ -46,7 +46,8 @@ async function withRetry<T>(fn: () => Promise<T>, provider: string, maxAttempts 
       await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
     }
   }
-  throw new Error('Unreachable');
+  // All paths above return or throw — this satisfies TS exhaustiveness
+  throw new Error('Unreachable — retry loop always exits via return or throw');
 }
 
 // Model provider configuration

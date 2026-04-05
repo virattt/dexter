@@ -677,14 +677,24 @@ export async function runCli() {
   renderSelectionOverlay();
   refreshError();
 
+  // Graceful shutdown — dispose resources before exit
+  const shutdown = () => {
+    try {
+      workingIndicator.dispose();
+      debugPanel.dispose();
+    } catch {
+      // Best-effort cleanup
+    }
+  };
+
   tui.start();
   await new Promise<void>((resolve) => {
-    const finish = () => resolve();
+    const finish = () => {
+      shutdown();
+      resolve();
+    };
     process.once('exit', finish);
     process.once('SIGINT', finish);
     process.once('SIGTERM', finish);
   });
-
-  workingIndicator.dispose();
-  debugPanel.dispose();
 }

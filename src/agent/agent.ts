@@ -21,6 +21,8 @@ import { resolveProvider } from '../providers.js';
 
 
 const DEFAULT_MODEL = 'gpt-5.4';
+const FALLBACK_MODEL = 'gpt-4o';
+const FALLBACK_MODELS = [DEFAULT_MODEL, FALLBACK_MODEL] as const;
 const DEFAULT_MAX_ITERATIONS = 10;
 const MAX_OVERFLOW_RETRIES = 2;
 const OVERFLOW_KEEP_ROUNDS = 3;
@@ -69,8 +71,35 @@ export class Agent {
     this.messageQueue = config.messageQueue;
   }
 
+  /** Try each fallback model until one initializes successfully. */
   static async create(config: AgentConfig = {}): Promise<Agent> {
-    const model = config.model ?? DEFAULT_MODEL;
+    const requestedModel = config.model ?? DEFAULT_MODEL;
+    let model = requestedModel;
+
+    try {
+      return await Agent._createWithModel(model, config);
+    } catch {
+      // If the requested model fails, try fallbacks
+      for (const fb of FALLBACK_MODELS) {
+        if (fb === model) continue;
+        try {
+          return await Agent._createWithModel(fb, config);
+        } catch {
+          // Try next fallback
+        }
+      }
+      // Re-throw the original failure
+      throw new Error(
+        `Failed to initialize model "${requestedModel}". All fallback models also failed. ` +
+        'Ensure your API key is correct and the model is available.',
+      );
+    }
+  }
+
+  private static async _createWithModel(
+    model: string,
+    config: AgentConfig,
+  ): Promise<Agent> {
     const tools = getTools(model);
     const concurrencyMap = getToolConcurrencyMap(model);
     const soulContent = await loadSoulDocument();
