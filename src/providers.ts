@@ -20,6 +20,13 @@ export interface ProviderDef {
 
 export const PROVIDERS: ProviderDef[] = [
   {
+    id: 'openai-codex',
+    displayName: 'OpenClaw Codex',
+    modelPrefix: 'openai-codex:',
+    fastModel: 'openai-codex:gpt-5.4-mini',
+    contextWindow: 272_000,
+  },
+  {
     id: 'openai',
     displayName: 'OpenAI',
     modelPrefix: '',

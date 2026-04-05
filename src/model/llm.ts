@@ -14,6 +14,12 @@ import type { TokenUsage } from '@/agent/types';
 import { logger } from '@/utils';
 import { classifyError, isNonRetryableError } from '@/utils/errors';
 import { resolveProvider, getProviderById } from '@/providers';
+import {
+  callOpenClawPrompt,
+  callOpenClawWithMessages,
+  isOpenClawModel,
+  streamOpenClawWithMessages,
+} from './openclaw-bridge.js';
 
 export const DEFAULT_PROVIDER = 'openai';
 export const DEFAULT_MODEL = 'gpt-5.4';
@@ -133,6 +139,10 @@ export function getChatModel(
   modelName: string = DEFAULT_MODEL,
   streaming: boolean = false
 ): BaseChatModel {
+  if (isOpenClawModel(modelName)) {
+    throw new Error('OpenClaw Codex models are handled outside LangChain chat model factories.');
+  }
+
   const opts: ModelOpts = { streaming };
   const provider = resolveProvider(modelName);
   const factory = MODEL_FACTORIES[provider.id] ?? DEFAULT_FACTORY;
@@ -203,6 +213,21 @@ function buildAnthropicMessages(systemPrompt: string, userPrompt: string) {
 export async function callLlm(prompt: string, options: CallLlmOptions = {}): Promise<LlmResult> {
   const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools, signal } = options;
   const finalSystemPrompt = systemPrompt || DEFAULT_SYSTEM_PROMPT;
+
+  if (isOpenClawModel(model)) {
+    const result = await callOpenClawPrompt({
+      model,
+      prompt,
+      systemPrompt: finalSystemPrompt,
+      outputSchema,
+      tools,
+      signal,
+    });
+    return {
+      response: result.response as AIMessage | string,
+      usage: result.usage,
+    };
+  }
 
   const llm = getChatModel(model, false);
 
@@ -296,6 +321,11 @@ export async function callLlmWithMessages(
 ): Promise<LlmResult> {
   const { model = DEFAULT_MODEL, tools, signal } = options;
 
+  if (isOpenClawModel(model)) {
+    const result = await callOpenClawWithMessages(messages, { model, tools, signal });
+    return { response: result.response, usage: result.usage };
+  }
+
   const llm = getChatModel(model, false);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -338,6 +368,11 @@ export async function* streamLlmWithMessages(
   options: CallLlmWithMessagesOptions = {},
 ): AsyncGenerator<AIMessageChunk, void> {
   const { model = DEFAULT_MODEL, tools, signal } = options;
+
+  if (isOpenClawModel(model)) {
+    yield* streamOpenClawWithMessages(messages, { model, tools, signal });
+    return;
+  }
 
   const llm = getChatModel(model, true);
 

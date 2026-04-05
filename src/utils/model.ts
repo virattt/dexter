@@ -12,6 +12,10 @@ interface Provider {
 }
 
 const PROVIDER_MODELS: Record<string, Model[]> = {
+  'openai-codex': [
+    { id: 'openai-codex:gpt-5.4', displayName: 'GPT 5.4 (OpenClaw)' },
+    { id: 'openai-codex:gpt-5.4-mini', displayName: 'GPT 5.4 Mini (OpenClaw)' },
+  ],
   openai: [
     { id: 'gpt-5.4', displayName: 'GPT 5.4' },
     { id: 'gpt-4.1', displayName: 'GPT 4.1' },
@@ -56,7 +60,7 @@ export function getDefaultModelForProvider(providerId: string): string | undefin
 }
 
 export function getModelDisplayName(modelId: string): string {
-  const normalizedId = modelId.replace(/^(ollama|openrouter):/, '');
+  const normalizedId = modelId.replace(/^(ollama|openrouter|openai-codex):/, '');
 
   for (const provider of PROVIDERS) {
     const model = provider.models.find((entry) => entry.id === normalizedId || entry.id === modelId);

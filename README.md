@@ -110,6 +110,8 @@ Or with watch mode for development:
 bun dev
 ```
 
+Inside the TUI, you can now switch the model provider to **OpenClaw Codex** and use the local OpenClaw main-agent OAuth session instead of setting a separate OpenAI-compatible API key for Dexter's LLM path.
+
 ## 🔌 OpenClaw OAuth Bridge
 
 This fork adds a headless entrypoint that reuses an existing OpenClaw main-agent `openai-codex` OAuth login, so you can run Dexter research queries without setting `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` just for the LLM layer.
@@ -129,7 +131,7 @@ Notes:
 - `FINANCIAL_DATASETS_API_KEY` is still required for financial data tools.
 - `EXASEARCH_API_KEY`, `TAVILY_API_KEY`, `PERPLEXITY_API_KEY`, and `X_BEARER_TOKEN` are still optional enhancements.
 - The bridge is read-only by default; file writes, cron changes, heartbeat edits, and memory mutation tools stay disabled unless you set `DEXTER_OPENCLAW_ENABLE_MUTATIONS=1`.
-- The full interactive TUI (`bun start`) is unchanged and still uses Dexter's normal provider configuration.
+- The interactive TUI (`bun start`) can also use OpenClaw now: open the provider/model selector and pick **OpenClaw Codex**.
 
 ## 📊 How to Evaluate
 
