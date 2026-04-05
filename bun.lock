@@ -871,7 +871,7 @@
 
     "leven": ["leven@3.1.0", "", {}, "sha512-qsda+H8jTaUaN/x5vzW2rzc+8Rw4TAQ/4KjB46IwK5VH+IlVeeeje/EoZRpiXvIqjFgK84QffqPztGI3VBLG1A=="],
 
-    "libsignal": ["@whiskeysockets/libsignal-node@github:whiskeysockets/libsignal-node#1c30d7d", { "dependencies": { "curve25519-js": "^0.0.4", "protobufjs": "6.8.8" } }, "WhiskeySockets-libsignal-node-1c30d7d"],
+    "libsignal": ["@whiskeysockets/libsignal-node@github:whiskeysockets/libsignal-node#1c30d7d", { "dependencies": { "curve25519-js": "^0.0.4", "protobufjs": "6.8.8" } }, "WhiskeySockets-libsignal-node-1c30d7d", "sha512-5q4/OuDQaMYx3RpDqMqS3WYyqjrsSMpU8ipQZtpYnm5l6DwNoLV9oIYMDK0NILKW+tyk3tVCIA11BMYQ+A1+GA=="],
 
     "lines-and-columns": ["lines-and-columns@1.2.4", "", {}, "sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg=="],
 
