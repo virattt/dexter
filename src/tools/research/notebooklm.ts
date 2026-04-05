@@ -11,6 +11,8 @@ import { formatToolResult } from '../types.js';
 
 const execAsync = promisify(exec);
 
+const NOTEBOOKLM_CLI = '/Users/shubhammac/notebooklm-py/.venv/bin/notebooklm';
+
 export const NB_CREATE_DESCRIPTION = `
 Create a NotebookLM research notebook, run web research on a topic, and chat with the results. Uses Google NotebookLM for deep, source-based analysis.
 `.trim();
@@ -24,19 +26,12 @@ Chat with a NotebookLM notebook. Asks questions based on the sources already add
  */
 async function checkNotebookLMStatus(): Promise<string | null> {
   try {
-    const { stdout, stderr } = await execAsync(`notebooklm status 2>&1`, {
-      env: { ...process.env, PATH: `/opt/homebrew/bin:${process.env.PATH}` },
-      timeout: 30000,
-    });
-    return stdout.trim() || stderr.trim();
+    const { stdout } = await execAsync(`${NOTEBOOKLM_CLI} auth check 2>&1`, { timeout: 30000 });
+    return stdout.trim();
   } catch {
     return null;
   }
 }
-
-const NB_CREATE_DESCRIPTION = `
-Create a NotebookLM research notebook, run web research on a topic, and chat with the results. Uses Google NotebookLM for deep, source-based analysis.
-`.trim();
 
 const nbCreateSchema = z.object({
   topic: z.string().describe('Research topic or query'),
@@ -51,15 +46,14 @@ export const notebooklmResearchTool = new DynamicStructuredTool({
     try {
       // Check auth
       const status = await checkNotebookLMStatus();
-      if (!status || !status.toLowerCase().includes('authenticated')) {
+      if (!status || !status.toLowerCase().includes('authentication is valid')) {
         return formatToolResult({
-          error: 'NotebookLM authentication required. Run: notebooklm login (opens browser for Google OAuth).',
+          error: 'NotebookLM authentication required. Run: cd /Users/shubhammac/notebooklm-py && source .venv/bin/activate && notebooklm login',
         });
       }
 
       // Create notebook
-      const { stdout } = await execAsync(`notebooklm create "Research: ${input.topic}" --json 2>&1`, {
-        env: { ...process.env, PATH: `/opt/homebrew/bin:${process.env.PATH}` },
+      const { stdout } = await execAsync(`${NOTEBOOKLM_CLI} create "Research: ${input.topic}" --json 2>&1`, {
         timeout: 60000,
       });
       const jsonMatch = stdout.match(/\{.*\}/s);
@@ -70,9 +64,8 @@ export const notebooklmResearchTool = new DynamicStructuredTool({
       const notebookId = notebook.id;
 
       // Start research
-      const researchCmd = `notebooklm source add-research "${input.topic}" --mode ${input.mode} --import-all --notebook ${notebookId} 2>&1`;
-      const { stdout: researchOut, stderr: researchErr } = await execAsync(researchCmd, {
-        env: { ...process.env, PATH: `/opt/homebrew/bin:${process.env.PATH}` },
+      const researchCmd = `${NOTEBOOKLM_CLI} source add-research "${input.topic}" --mode ${input.mode} --import-all --notebook ${notebookId} 2>&1`;
+      const { stdout: researchOut } = await execAsync(researchCmd, {
         timeout: input.mode === 'deep' ? 300000 : 90000,
       });
 
@@ -80,7 +73,7 @@ export const notebooklmResearchTool = new DynamicStructuredTool({
         notebook_id: notebookId,
         topic: input.topic,
         mode: input.mode,
-        research_result: researchOut.trim() || researchErr.trim(),
+        research_result: researchOut.trim(),
       });
     } catch (error: unknown) {
       return formatToolResult({
@@ -89,10 +82,6 @@ export const notebooklmResearchTool = new DynamicStructuredTool({
     }
   },
 });
-
-const NB_ASK_DESCRIPTION = `
-Chat with a NotebookLM notebook. Asks questions based on the sources already added to the notebook.
-`.trim();
 
 const nbAskSchema = z.object({
   notebook_id: z.string().describe('Notebook ID to chat with.'),
@@ -105,8 +94,7 @@ export const notebooklmAskTool = new DynamicStructuredTool({
   schema: nbAskSchema,
   func: async (input) => {
     try {
-      const { stdout } = await execAsync(`notebooklm ask "${input.question}" --json --notebook ${input.notebook_id} 2>&1`, {
-        env: { ...process.env, PATH: `/opt/homebrew/bin:${process.env.PATH}` },
+      const { stdout } = await execAsync(`${NOTEBOOKLM_CLI} ask "${input.question}" --json --notebook ${input.notebook_id} 2>&1`, {
         timeout: 60000,
       });
       const jsonMatch = stdout.match(/\{.*\}/s);
