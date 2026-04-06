@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { api } from './api.js';
+import { api, shouldUseFreeUsData } from './api.js';
+import { getFreeUsFilings } from './free-us-poc.js';
 import { formatToolResult } from '../types.js';
 import { TTL_24H } from './utils.js';
 
@@ -59,6 +60,10 @@ export const getFilings = new DynamicStructuredTool({
   description: `Retrieves metadata for SEC filings for a company. Returns accession numbers, filing types, and document URLs. This tool ONLY returns metadata - it does NOT return the actual text content from filings. To retrieve text content, use the specific filing items tools: get_10K_filing_items, get_10Q_filing_items, or get_8K_filing_items.`,
   schema: FilingsInputSchema,
   func: async (input) => {
+    if (shouldUseFreeUsData()) {
+      const filings = await getFreeUsFilings(input.ticker.trim().toUpperCase(), input.filing_type, input.limit);
+      return formatToolResult(filings, [`https://data.sec.gov/submissions/CIK*.json for ${input.ticker.trim().toUpperCase()}`]);
+    }
     const params: Record<string, string | number | string[] | undefined> = {
       ticker: input.ticker,
       limit: input.limit,
@@ -157,4 +162,3 @@ export const get8KFilingItems = new DynamicStructuredTool({
     return formatToolResult(data, [url]);
   },
 });
-

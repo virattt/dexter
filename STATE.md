@@ -4,7 +4,7 @@
 - Set up and adapt upstream `virattt/dexter` so it can be used locally with our OpenClaw-based LLM path and evaluated for a lower-cost free-data path.
 
 ## Goal
-- Keep a usable local clone, reduce separate LLM key management, and validate whether a practical US-only free-data mode can cover Dexter's core research flows.
+- Make Dexter answer natural-language US equity comparison requests in this environment even without `FINANCIAL_DATASETS_API_KEY`, especially queries like comparing AAPL vs TSLA on fundamentals, recent price moves, and ranking them for investment priority.
 
 ## Done
 - Cloned `https://github.com/virattt/dexter.git` into `dexter`.
@@ -24,47 +24,65 @@
 - Added a reusable Free-US POC module `src/tools/finance/free-us-poc.ts` and CLI `scripts/free-us-poc.ts` with package script `bun run poc:free-us -- ...`.
 - Verified the Free-US POC live against Yahoo Finance `chart`, SEC `company_tickers` / `companyfacts` / `submissions` / `Archives`, and Google News RSS.
 - Ran the POC for `AAPL` and `TSLA`, successfully retrieving price snapshots, recent bars, filings metadata, core financial facts, and news headlines.
-- Re-ran `bun run typecheck` and `bun test` after the POC changes; both passed.
+- Wired the Free-US fallback into production-facing finance tools when `FINANCIAL_DATASETS_API_KEY` is absent or `DEXTER_FREE_US_MODE=1` is set:
+  - `get_stock_price`
+  - `get_stock_prices`
+  - `get_available_stock_tickers`
+  - `get_company_news`
+  - `get_filings`
+  - `get_income_statements`
+  - `get_balance_sheets`
+  - `get_cash_flow_statements`
+  - `get_all_financial_statements`
+  - `get_key_ratios`
+  - `get_historical_key_ratios`
+  - `get_earnings`
+- Fixed `ask:openclaw` so its inner meta-tools also use `openai-codex:*` instead of plain `gpt-5.4`, removing the hidden `OPENAI_API_KEY` dependency in routed finance queries.
+- Strengthened `ask:openclaw` finance instructions so stock-comparison / ranking queries must try `get_financials` / `get_market_data` before declaring data unavailable.
+- Verified end-to-end with this natural-language query:
+  - `AAPLとTSLAのファンダメンタル分析をして、直近の株価と1か月変化率も踏まえて投資優先順位を1位と2位で決めてください。理由は売上成長率、利益率、利益水準、価格モメンタムを分けて比較してください。`
+- Confirmed the tool-driven answer now returns a numeric AAPL vs TSLA ranking with price, 1-month move, growth, margins, and profit-level comparisons.
+- Re-ran `bun run typecheck` and `bun test` after the fallback wiring; both passed.
 
 ## Current status
-- Branch `feat/openclaw-bridge` still tracks `fork/feat/openclaw-bridge` at pushed commit `46e39dc`.
-- Local working tree now contains an unpushed Free-US POC implementation (`package.json`, `scripts/free-us-poc.ts`, `src/tools/finance/free-us-poc.ts`, `notes/free-source-probe-2026-04-06.md`, `STATE.md`).
-- A partial **US-only free-data mode** is now proven viable for:
-  - price snapshot + short history
-  - filings metadata and raw filing URLs
-  - core financial facts from SEC `companyfacts`
+- Branch `feat/openclaw-bridge` tracks `fork/feat/openclaw-bridge` and is locally ahead with unpushed Free-US work.
+- Dexter can now answer the target US-equity comparison workflow in this environment without `FINANCIAL_DATASETS_API_KEY`, as long as the request can be covered by the Free-US sources.
+- Practical supported path today:
+  - current/1-month price and recent bars via Yahoo `chart`
+  - filings metadata via SEC `submissions`
+  - core financial statement rows and derived metrics via SEC `companyfacts`
   - basic company news via Google News RSS
-- The hard remaining gaps are screener-quality normalized datasets and polished insider-trade parsing.
+- Remaining weak areas:
+  - screener-quality normalized datasets
+  - full filing item extraction / section parsing
+  - polished insider transaction parsing from Form 4
 
 ## Branch / baseline
 - Tracking `fork/feat/openclaw-bridge`.
 - Pushed baseline: `46e39dc` on 2026-04-05 22:03 JST — `feat: add OpenClaw Codex provider integration`.
-- Local branch has additional unpushed POC changes.
+- Local branch contains additional Free-US POC and fallback-integration work not yet pushed.
 
 ## Last verified
-- 2026-04-06 09:36 JST
+- 2026-04-06 12:30:34 JST
 
 ## Last action
-- Ran `bun run poc:free-us -- AAPL TSLA`, confirmed live outputs from Yahoo/SEC/Google, and then re-ran `bun run typecheck` and `bun test` successfully.
+- Re-ran `bun run ask:openclaw -- "AAPLとTSLAのファンダメンタル分析をして…"` and confirmed it now returns a numeric ranking backed by live Yahoo/SEC/Google data instead of claiming API-key blockage.
 
 ## Next actions
-- Decide whether to keep the Free-US POC as a standalone script or wire it behind an env flag such as `DEXTER_FREE_US_MODE=1`.
-- If wiring into tools, replace `get_stock_price` / `get_stock_prices` first, then `get_filings`, then a reduced `get_all_financial_statements`.
-- If insider activity matters, add a parser for SEC Form 4 transaction tables.
+- Commit and optionally push the Free-US fallback integration.
+- If the fallback proves stable, add a small README section explaining the no-`FINANCIAL_DATASETS_API_KEY` US-only mode.
+- If needed for deeper analysis, add SEC Form 4 transaction parsing and filing-section extraction.
 
 ## Blockers
 - No free near-term drop-in was found for screener-quality broad normalized data.
-- SEC `companyfacts` needs concept-mapping / normalization logic if promoted from POC to production tool paths.
-- Google News RSS and Yahoo endpoints are workable but less stable/clean than a paid normalized provider.
+- SEC `companyfacts` is good enough for core comparison, but still less polished and less globally consistent than a paid normalized provider.
+- Yahoo / Google News RSS are usable but may be brittle versus paid APIs.
 
 ## Commands
-- `git status --short --branch`
-- `git log -1 --oneline --decorate`
-- `git rev-list --left-right --count @{upstream}...HEAD`
-- `git diff --stat`
 - `export PATH="$HOME/.bun/bin:$PATH" && bun run typecheck`
 - `export PATH="$HOME/.bun/bin:$PATH" && bun test`
 - `export PATH="$HOME/.bun/bin:$PATH" && bun run poc:free-us -- AAPL TSLA`
+- `export PATH="$HOME/.bun/bin:$PATH" && bun run ask:openclaw -- "AAPLとTSLAのファンダメンタル分析をして…"`
 
 ## Artifacts
 - Local clone: `/home/openclaw/.openclaw/workspace/dexter`

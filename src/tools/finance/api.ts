@@ -44,6 +44,22 @@ function getApiKey(): string {
   return process.env.FINANCIAL_DATASETS_API_KEY || '';
 }
 
+export function hasFinancialDatasetsApiKey(): boolean {
+  const apiKey = getApiKey().trim();
+  return apiKey.length > 0 && !apiKey.includes('your-financial-datasets-api-key');
+}
+
+export function shouldUseFreeUsData(): boolean {
+  const override = process.env.DEXTER_FREE_US_MODE?.trim().toLowerCase();
+  if (override === '1' || override === 'true' || override === 'yes' || override === 'on') {
+    return true;
+  }
+  if (override === '0' || override === 'false' || override === 'no' || override === 'off') {
+    return false;
+  }
+  return !hasFinancialDatasetsApiKey();
+}
+
 /**
  * Shared request execution: handles API key, error handling, logging, and response parsing.
  */

@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { api, stripFieldsDeep } from './api.js';
+import { api, shouldUseFreeUsData, stripFieldsDeep } from './api.js';
+import { getFreeUsHistoricalKeyMetrics, getFreeUsKeyMetricsSnapshot } from './free-us-poc.js';
 import { formatToolResult } from '../types.js';
 import { TTL_1H, TTL_6H } from './utils.js';
 
@@ -19,6 +20,11 @@ export const getKeyRatios = new DynamicStructuredTool({
   schema: KeyRatiosInputSchema,
   func: async (input) => {
     const ticker = input.ticker.trim().toUpperCase();
+    if (shouldUseFreeUsData()) {
+      const snapshot = await getFreeUsKeyMetricsSnapshot(ticker);
+      const { sourceUrls, ...data } = snapshot;
+      return formatToolResult(data, sourceUrls);
+    }
     const params = { ticker };
     const { data, url } = await api.get('/financial-metrics/snapshot/', params, { cacheable: true, ttlMs: TTL_1H });
     return formatToolResult(data.snapshot || {}, [url]);
@@ -72,6 +78,17 @@ export const getHistoricalKeyRatios = new DynamicStructuredTool({
   description: `Retrieves historical key ratios for a company, such as P/E ratio, revenue per share, and enterprise value, over a specified period. Useful for trend analysis and historical performance evaluation.`,
   schema: HistoricalKeyRatiosInputSchema,
   func: async (input) => {
+    if (shouldUseFreeUsData()) {
+      const historical = await getFreeUsHistoricalKeyMetrics(input.ticker, input.period, {
+        limit: input.limit,
+        report_period: input.report_period,
+        report_period_gt: input.report_period_gt,
+        report_period_gte: input.report_period_gte,
+        report_period_lt: input.report_period_lt,
+        report_period_lte: input.report_period_lte,
+      });
+      return formatToolResult(historical.rows, historical.sourceUrls);
+    }
     const params: Record<string, string | number | undefined> = {
       ticker: input.ticker,
       period: input.period,

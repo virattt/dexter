@@ -110,6 +110,10 @@ const DEFAULT_MODEL = process.env.DEXTER_OPENCLAW_MODEL || 'gpt-5.4';
 const MAX_ITERATIONS = 10;
 const MUTATING_TOOLS = new Set(['write_file', 'edit_file', 'heartbeat', 'cron', 'memory_update', 'skill']);
 
+function normalizeOpenClawToolModel(model: string): string {
+  return model.startsWith('openai-codex:') ? model : `openai-codex:${model}`;
+}
+
 function parseArgs(argv: string[]): Args {
   let sessionKey = DEFAULT_SESSION;
   let model = DEFAULT_MODEL;
@@ -262,6 +266,28 @@ function toolNamesSummary(toolNames: string[]): string {
   return `Available tools: ${toolNames.join(', ')}`;
 }
 
+function isFinanceDataQuery(query: string): boolean {
+  const lower = query.toLowerCase();
+  return (
+    /\b[A-Z]{1,5}\b/.test(query)
+    || /aapl|tsla|msft|nvda|meta|amzn|googl|spy|qqq/.test(lower)
+  ) && /analysis|compare|rank|ranking|fundamental|price|momentum|growth|margin|revenue|earnings|投資|順位|比較|ファンダ|株価|変化率|成長率|利益率|売上/.test(lower + query);
+}
+
+function enhanceFinanceQuery(query: string): string {
+  if (!isFinanceDataQuery(query)) {
+    return query;
+  }
+
+  return [
+    'Before answering this finance request, you must call get_financials and/or get_market_data as needed.',
+    'Do not claim that market/financial data is unavailable until you have actually tried those tools.',
+    'Use the retrieved numbers to support the ranking or recommendation.',
+    '',
+    query,
+  ].join('\n');
+}
+
 function buildToolList(model: string): { toolMap: Map<string, { invoke: (args: Record<string, unknown>) => Promise<unknown> }>; tools: PiTool[] } {
   const allowMutations = process.env.DEXTER_OPENCLAW_ENABLE_MUTATIONS === '1';
   const registered = getToolRegistry(model).filter((entry) => allowMutations || !MUTATING_TOOLS.has(entry.name));
@@ -290,6 +316,8 @@ function appendBridgeInstructions(systemPrompt: string, toolNames: string[]): st
     '## OpenClaw bridge notes',
     `- ${mutationMode}`,
     '- Use the provided tools when data is needed; do not claim to have used a tool unless you actually called it.',
+    '- On this machine, US equity finance/market queries can often use a Free-US fallback (Yahoo Finance chart + SEC companyfacts/submissions + Google News RSS) even when FINANCIAL_DATASETS_API_KEY is unset.',
+    '- For stock comparison, ranking, recent price change, or fundamental-analysis requests, call get_financials and/or get_market_data before concluding data is unavailable.',
     '- If a required external API key is missing, explain the blocker plainly.',
     `- ${toolNamesSummary(toolNames)}`,
   ].join('\n');
@@ -298,7 +326,7 @@ function appendBridgeInstructions(systemPrompt: string, toolNames: string[]): st
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const stdinQuery = await readStdin();
-  const query = args.query || stdinQuery;
+  const query = enhanceFinanceQuery(args.query || stdinQuery);
 
   if (!query) {
     console.error('Usage: bun run ask:openclaw -- [--session key] [--model gpt-5.4] "your question"');
@@ -310,7 +338,8 @@ async function main(): Promise<void> {
   const { complete, getModel } = await loadPiAiModule();
   const soul = await loadSoulDocument();
   const rules = await loadRulesDocument();
-  const { toolMap, tools } = buildToolList(args.model);
+  const toolModel = normalizeOpenClawToolModel(args.model);
+  const { toolMap, tools } = buildToolList(toolModel);
   const systemPrompt = appendBridgeInstructions(
     buildSystemPrompt(args.model, soul, 'cli', undefined, [], null, rules),
     tools.map((tool) => tool.name),

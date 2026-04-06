@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { api } from './api.js';
+import { api, shouldUseFreeUsData } from './api.js';
+import { getFreeUsEarningsSnapshot } from './free-us-poc.js';
 import { formatToolResult } from '../types.js';
 import { TTL_24H } from './utils.js';
 
@@ -17,6 +18,10 @@ export const getEarnings = new DynamicStructuredTool({
   schema: EarningsInputSchema,
   func: async (input) => {
     const ticker = input.ticker.trim().toUpperCase();
+    if (shouldUseFreeUsData()) {
+      const earnings = await getFreeUsEarningsSnapshot(ticker);
+      return formatToolResult(earnings.data, earnings.sourceUrls);
+    }
     const { data, url } = await api.get('/earnings', { ticker }, { cacheable: true, ttlMs: TTL_24H });
     return formatToolResult(data.earnings || {}, [url]);
   },
