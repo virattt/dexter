@@ -1,8 +1,9 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { callApi } from './api.js';
+import { api } from './api.js';
 import { formatToolResult } from '../types.js';
 import { validateLimit, validateTicker } from './validation.js';
+import { TTL_15M } from './utils.js';
 
 const CompanyNewsInputSchema = z.object({
   ticker: z
@@ -27,7 +28,7 @@ export const getCompanyNews = new DynamicStructuredTool({
       ticker,
       limit,
     };
-    const { data, url } = await callApi('/news', params);
+    const { data, url } = await api.get('/news', params, { cacheable: true, ttlMs: TTL_15M });
     return formatToolResult((data.news as unknown[]) || [], [url]);
   },
 });

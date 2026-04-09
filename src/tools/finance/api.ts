@@ -40,46 +40,31 @@ export function stripFieldsDeep(value: unknown, fields: readonly string[]): unkn
   return walk(value);
 }
 
-export async function callApi(
-  endpoint: string,
-  params: Record<string, string | number | string[] | undefined>,
-  options?: { cacheable?: boolean }
-): Promise<ApiResponse> {
-  const label = describeRequest(endpoint, params);
+function getApiKey(): string {
+  return process.env.FINANCIAL_DATASETS_API_KEY || '';
+}
 
-  // Check local cache first — avoids redundant network calls for immutable data
-  if (options?.cacheable) {
-    const cached = readCache(endpoint, params);
-    if (cached) {
-      return cached;
-    }
-  }
+/**
+ * Shared request execution: handles API key, error handling, logging, and response parsing.
+ */
+async function executeRequest(
+  url: string,
+  label: string,
+  init: RequestInit,
+): Promise<Record<string, unknown>> {
+  const apiKey = getApiKey();
 
-  // Read API key lazily at call time (after dotenv has loaded)
-  const FINANCIAL_DATASETS_API_KEY = process.env.FINANCIAL_DATASETS_API_KEY;
-
-  if (!FINANCIAL_DATASETS_API_KEY) {
+  if (!apiKey) {
     logger.warn(`[Financial Datasets API] call without key: ${label}`);
-  }
-
-  const url = new URL(`${BASE_URL}${endpoint}`);
-
-  // Add params to URL, handling arrays
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null) {
-      if (Array.isArray(value)) {
-        value.forEach((v) => url.searchParams.append(key, v));
-      } else {
-        url.searchParams.append(key, String(value));
-      }
-    }
   }
 
   let response: Response;
   try {
-    response = await fetch(url.toString(), {
+    response = await fetch(url, {
+      ...init,
       headers: {
-        'x-api-key': FINANCIAL_DATASETS_API_KEY || '',
+        'x-api-key': apiKey,
+        ...init.headers,
       },
     });
   } catch (error) {
@@ -100,11 +85,64 @@ export async function callApi(
     throw new Error(`[Financial Datasets API] request failed: ${detail}`);
   });
 
-  // Persist for future requests when the caller marked the response as cacheable
-  if (options?.cacheable) {
-    writeCache(endpoint, params, data, url.toString());
-  }
-
-  return { data, url: url.toString() };
+  return data as Record<string, unknown>;
 }
 
+export const api = {
+  async get(
+    endpoint: string,
+    params: Record<string, string | number | string[] | undefined>,
+    options?: { cacheable?: boolean; ttlMs?: number },
+  ): Promise<ApiResponse> {
+    const label = describeRequest(endpoint, params);
+
+    // Check local cache first — avoids redundant network calls for immutable data
+    if (options?.cacheable) {
+      const cached = readCache(endpoint, params, options.ttlMs);
+      if (cached) {
+        return cached;
+      }
+    }
+
+    const url = new URL(`${BASE_URL}${endpoint}`);
+
+    // Add params to URL, handling arrays
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null) {
+        if (Array.isArray(value)) {
+          value.forEach((v) => url.searchParams.append(key, v));
+        } else {
+          url.searchParams.append(key, String(value));
+        }
+      }
+    }
+
+    const data = await executeRequest(url.toString(), label, {});
+
+    // Persist for future requests when the caller marked the response as cacheable
+    if (options?.cacheable) {
+      writeCache(endpoint, params, data, url.toString());
+    }
+
+    return { data, url: url.toString() };
+  },
+
+  async post(
+    endpoint: string,
+    body: Record<string, unknown>,
+  ): Promise<ApiResponse> {
+    const label = `POST ${endpoint}`;
+    const url = `${BASE_URL}${endpoint}`;
+
+    const data = await executeRequest(url, label, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    return { data, url };
+  },
+};
+
+/** @deprecated Use `api.get` instead */
+export const callApi = api.get;

@@ -1,5 +1,6 @@
 import { Agent } from '../agent/agent.js';
 import type { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
+import { defaultQueue } from '../utils/message-queue.js';
 import type {
   AgentConfig,
   AgentEvent,
@@ -20,7 +21,7 @@ export class AgentRunnerController {
   private workingStateValue: WorkingState = { status: 'idle' };
   private errorValue: string | null = null;
   private pendingApprovalValue: { tool: string; args: Record<string, unknown> } | null = null;
-  private readonly agentConfig: AgentConfig;
+  private agentConfig: AgentConfig;
   private readonly inMemoryChatHistory: InMemoryChatHistory;
   private readonly onChange?: ChangeListener;
   private abortController: AbortController | null = null;
@@ -62,6 +63,17 @@ export class AgentRunnerController {
   setError(error: string | null) {
     this.errorValue = error;
     this.emitChange();
+  }
+
+  get currentConfig(): Readonly<AgentConfig> {
+    return this.agentConfig;
+  }
+
+  updateAgentConfig(config: Partial<Pick<AgentConfig, 'model' | 'modelProvider' | 'maxIterations'>>) {
+    this.agentConfig = {
+      ...this.agentConfig,
+      ...config,
+    };
   }
 
   respondToApproval(decision: ApprovalDecision) {
@@ -117,6 +129,7 @@ export class AgentRunnerController {
         signal: this.abortController.signal,
         requestToolApproval: this.requestToolApproval,
         sessionApprovedTools: this.sessionApprovedTools,
+        messageQueue: defaultQueue,
       });
       const stream = agent.run(query, this.inMemoryChatHistory);
       for await (const event of stream) {
@@ -125,6 +138,14 @@ export class AgentRunnerController {
         }
         await this.handleEvent(event);
       }
+
+      // Post-run: if messages arrived after the agent's last drain, start a new turn
+      if (!defaultQueue.isEmpty()) {
+        const remaining = defaultQueue.dequeueAll();
+        const mergedText = remaining.map(m => m.text).join('\n\n');
+        return this.runQuery(mergedText);
+      }
+
       if (finalAnswer) {
         return { answer: finalAnswer };
       }
@@ -167,7 +188,7 @@ export class AgentRunnerController {
         });
         break;
       case 'tool_start': {
-        const toolId = `tool-${event.tool}-${Date.now()}`;
+        const toolId = event.toolCallId ?? `tool-${event.tool}-${Date.now()}`;
         this.workingStateValue = { status: 'tool', toolName: event.tool };
         this.updateLastItem((last) => ({
           ...last,
@@ -191,14 +212,28 @@ export class AgentRunnerController {
           ),
         }));
         break;
-      case 'tool_end':
-        this.finishToolEvent(event);
+      case 'tool_end': {
+        const endToolId = event.toolCallId ?? this.getLastItem()?.activeToolId;
+        this.updateLastItem((last) => ({
+          ...last,
+          events: last.events.map((entry) =>
+            entry.id === endToolId ? { ...entry, completed: true, endEvent: event } : entry,
+          ),
+        }));
         this.workingStateValue = { status: 'thinking' };
         break;
-      case 'tool_error':
-        this.finishToolEvent(event);
+      }
+      case 'tool_error': {
+        const errToolId = event.toolCallId ?? this.getLastItem()?.activeToolId;
+        this.updateLastItem((last) => ({
+          ...last,
+          events: last.events.map((entry) =>
+            entry.id === errToolId ? { ...entry, completed: true, endEvent: event } : entry,
+          ),
+        }));
         this.workingStateValue = { status: 'thinking' };
         break;
+      }
       case 'tool_approval':
         this.pushEvent({
           id: `approval-${event.tool}-${Date.now()}`,
@@ -215,6 +250,9 @@ export class AgentRunnerController {
         break;
       case 'tool_limit':
       case 'context_cleared':
+      case 'compaction':
+      case 'microcompact':
+      case 'queue_drain':
         this.pushEvent({
           id: `${event.type}-${Date.now()}`,
           event,
@@ -241,18 +279,12 @@ export class AgentRunnerController {
     this.emitChange();
   }
 
-  private finishToolEvent(event: AgentEvent) {
-    this.updateLastItem((last) => ({
-      ...last,
-      activeToolId: undefined,
-      events: last.events.map((entry) =>
-        entry.id === last.activeToolId ? { ...entry, completed: true, endEvent: event } : entry,
-      ),
-    }));
-  }
-
   private pushEvent(displayEvent: DisplayEvent) {
     this.updateLastItem((last) => ({ ...last, events: [...last.events, displayEvent] }));
+  }
+
+  private getLastItem(): HistoryItem | undefined {
+    return this.historyValue[this.historyValue.length - 1];
   }
 
   private updateLastItem(updater: (item: HistoryItem) => HistoryItem) {

@@ -1,4 +1,5 @@
 import type { GroupContext } from './prompts.js';
+import type { MessageQueue } from '../utils/message-queue.js';
 
 // ============================================================================
 // Channel Profiles
@@ -55,6 +56,8 @@ export interface AgentConfig {
   sessionApprovedTools?: Set<string>;
   /** Enable/disable persistent memory integration for this run */
   memoryEnabled?: boolean;
+  /** Message queue for mid-run injection of new user messages. */
+  messageQueue?: MessageQueue;
 }
 
 /**
@@ -84,6 +87,8 @@ export interface ToolStartEvent {
   type: 'tool_start';
   tool: string;
   args: Record<string, unknown>;
+  /** Unique tool_call ID from the AIMessage (for concurrent execution ordering). */
+  toolCallId?: string;
 }
 
 /**
@@ -95,6 +100,8 @@ export interface ToolEndEvent {
   args: Record<string, unknown>;
   result: string;
   duration: number;
+  /** Unique tool_call ID from the AIMessage (for concurrent execution ordering). */
+  toolCallId?: string;
 }
 
 /**
@@ -104,6 +111,8 @@ export interface ToolErrorEvent {
   type: 'tool_error';
   tool: string;
   error: string;
+  /** Unique tool_call ID from the AIMessage (for concurrent execution ordering). */
+  toolCallId?: string;
 }
 
 /**
@@ -144,6 +153,8 @@ export interface ToolDeniedEvent {
   type: 'tool_denied';
   tool: string;
   args: Record<string, unknown>;
+  /** Unique tool_call ID from the AIMessage (for concurrent execution ordering). */
+  toolCallId?: string;
 }
 
 /**
@@ -185,6 +196,44 @@ export interface TokenUsage {
 }
 
 /**
+ * Queued messages were drained and injected into the conversation.
+ */
+export interface QueueDrainEvent {
+  type: 'queue_drain';
+  /** Number of messages drained from the queue. */
+  messageCount: number;
+  /** The merged text injected as a HumanMessage. */
+  mergedText: string;
+}
+
+/**
+ * Microcompact: per-turn lightweight trimming of old ToolMessage content.
+ */
+export interface MicrocompactEvent {
+  type: 'microcompact';
+  /** Number of ToolMessages whose content was cleared. */
+  cleared: number;
+  /** Estimated tokens saved by clearing. */
+  tokensSaved: number;
+}
+
+/**
+ * Context compaction lifecycle event (LLM summarization).
+ */
+export interface CompactionEvent {
+  type: 'compaction';
+  phase: 'start' | 'end';
+  /** Whether compaction succeeded (only present on 'end' phase). */
+  success?: boolean;
+  /** Estimated tokens before compaction. */
+  preCompactTokens?: number;
+  /** Estimated tokens after compaction. */
+  postCompactTokens?: number;
+  /** Model used for the compaction call. */
+  compactionModel?: string;
+}
+
+/**
  * Agent completed with final result
  */
 export interface DoneEvent {
@@ -210,6 +259,9 @@ export type AgentEvent =
   | ToolDeniedEvent
   | ToolLimitEvent
   | ContextClearedEvent
+  | QueueDrainEvent
+  | MicrocompactEvent
+  | CompactionEvent
   | MemoryRecalledEvent
   | MemoryFlushEvent
   | DoneEvent;

@@ -9,9 +9,10 @@ import {
 import { resolveRoute } from './routing/resolve-route.js';
 import { resolveSessionStorePath, upsertSessionMeta } from './sessions/store.js';
 import { loadGatewayConfig, type GatewayConfig } from './config.js';
-import { runAgentForMessage } from './agent-runner.js';
+import { runAgentForMessage, isSessionRunning, enqueueForSession } from './agent-runner.js';
 import { cleanMarkdownForWhatsApp } from './utils.js';
-import { startHeartbeatRunner } from './heartbeat/index.js';
+import { startCronRunner } from '../cron/runner.js';
+import { ensureHeartbeatCronJob } from '../cron/heartbeat-migration.js';
 import {
   isBotMentioned,
   recordGroupMessage,
@@ -156,10 +157,18 @@ async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage
     }
 
     console.log(`Processing message with agent...`);
-    debugLog(`[gateway] running agent for session=${route.sessionKey}`);
-    const startedAt = Date.now();
     const model = getSetting('modelId', 'gpt-5.4') as string;
     const modelProvider = getSetting('provider', 'openai') as string;
+
+    // If agent is already running for this session, enqueue for mid-run injection
+    if (isSessionRunning(route.sessionKey)) {
+      debugLog(`[gateway] agent busy for session=${route.sessionKey}, enqueueing`);
+      enqueueForSession(route.sessionKey, model, query);
+      return;
+    }
+
+    debugLog(`[gateway] running agent for session=${route.sessionKey}`);
+    const startedAt = Date.now();
     const answer = await runAgentForMessage({
       sessionKey: route.sessionKey,
       query,
@@ -175,7 +184,7 @@ async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage
     stopTypingLoop();
 
     if (answer.trim()) {
-      const cleanedAnswer = cleanMarkdownForWhatsApp(answer);
+      const cleanedAnswer = cleanMarkdownForWhatsApp(answer).trim();
 
       if (isGroup) {
         // For groups, use inbound.reply() directly (bypasses outbound strict E.164 checks)
@@ -218,11 +227,12 @@ export async function startGateway(params: { configPath?: string } = {}): Promis
   });
   await manager.startAll();
 
-  const heartbeat = startHeartbeatRunner({ configPath: params.configPath });
+  ensureHeartbeatCronJob(params.configPath);
+  const cron = startCronRunner({ configPath: params.configPath });
 
   return {
     stop: async () => {
-      heartbeat.stop();
+      cron.stop();
       await manager.stopAll();
     },
     snapshot: () => manager.getSnapshot(),

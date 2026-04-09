@@ -56,6 +56,7 @@ interface ToolDisplayComponent {
   setLimitWarning(warning?: string): void;
   setApproval(decision: 'allow-once' | 'allow-session' | 'deny'): void;
   setDenied(path: string, tool: string): void;
+  dispose?(): void;
 }
 
 class BrowserSessionComponent extends Container implements ToolDisplayComponent {
@@ -145,6 +146,10 @@ export class ChatLogComponent extends Container {
   }
 
   clearAll() {
+    // Stop any running spinners before clearing
+    for (const component of this.toolById.values()) {
+      component.dispose?.();
+    }
     this.clear();
     this.toolById.clear();
     this.currentBrowserSession = null;
@@ -203,6 +208,10 @@ export class ChatLogComponent extends Container {
     this.lastToolName = toolName;
     this.lastToolComponent = component;
     return component;
+  }
+
+  getToolById(toolCallId: string): ToolDisplayComponent | undefined {
+    return this.toolById.get(toolCallId);
   }
 
   updateToolProgress(toolCallId: string, message: string) {
@@ -272,6 +281,59 @@ export class ChatLogComponent extends Container {
         0,
       ),
     );
+  }
+
+  addQueuedMessage(text: string) {
+    this.addChild(new Spacer(1));
+    this.addChild(
+      new Text(
+        `${theme.muted(`❯ ${text}`)}`,
+        0,
+        0,
+      ),
+    );
+  }
+
+  addQueueDrain(count: number) {
+    this.addChild(
+      new Text(
+        `${theme.muted(`⏺ Picked up ${count} queued message${count !== 1 ? 's' : ''}`)}`,
+        0,
+        0,
+      ),
+    );
+  }
+
+  addMicrocompact(cleared: number, tokensSaved: number) {
+    this.addChild(
+      new Text(
+        `${theme.muted(`⏺ Microcompact: cleared ${cleared} old tool result${cleared !== 1 ? 's' : ''} (~${Math.round(tokensSaved / 1000)}K tokens)`)}`,
+        0,
+        0,
+      ),
+    );
+  }
+
+  addCompaction(success: boolean, preTokens?: number, postTokens?: number) {
+    if (success && preTokens && postTokens) {
+      const saved = preTokens - postTokens;
+      const pct = Math.round((saved / preTokens) * 100);
+      this.addChild(
+        new Text(
+          `${theme.muted(`⏺ Context compacted (${pct}% reduction, ~${Math.round(saved / 1000)}K tokens saved)`)}`,
+          0,
+          0,
+        ),
+      );
+    } else if (!success) {
+      this.addChild(
+        new Text(
+          `${theme.muted('⏺ Compaction failed, falling back to context clearing')}`,
+          0,
+          0,
+        ),
+      );
+    }
   }
 
   addPerformanceStats(duration: number, tokenUsage?: TokenUsage, tokensPerSecond?: number) {

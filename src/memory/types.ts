@@ -1,5 +1,17 @@
 export type EmbeddingProviderId = 'openai' | 'gemini' | 'ollama' | 'auto' | 'none';
 
+export type ContentSource = 'memory' | 'sessions';
+
+export type TemporalDecayConfig = {
+  enabled: boolean;
+  halfLifeDays: number;
+};
+
+export type MMRConfig = {
+  enabled: boolean;
+  lambda: number;
+};
+
 export interface MemoryRuntimeConfig {
   enabled: boolean;
   embeddingProvider: EmbeddingProviderId;
@@ -12,6 +24,9 @@ export interface MemoryRuntimeConfig {
   vectorWeight: number;
   textWeight: number;
   watchDebounceMs: number;
+  temporalDecay: TemporalDecayConfig;
+  mmr: MMRConfig;
+  indexSessions: boolean;
 }
 
 export interface MemoryChunk {
@@ -21,6 +36,7 @@ export interface MemoryChunk {
   endLine: number;
   content: string;
   contentHash: string;
+  source?: ContentSource;
 }
 
 export interface MemoryVectorCandidate {
@@ -40,6 +56,8 @@ export interface MemorySearchResult {
   endLine: number;
   score: number;
   source: 'vector' | 'keyword' | 'both';
+  contentSource?: ContentSource;
+  updatedAt?: number;
 }
 
 export interface MemorySearchOptions {

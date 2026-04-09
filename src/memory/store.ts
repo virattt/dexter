@@ -23,6 +23,10 @@ export class MemoryStore {
     return join(this.baseDir, MEMORY_DIRNAME);
   }
 
+  getChatHistoryPath(): string {
+    return join(this.baseDir, 'messages', 'chat_history.json');
+  }
+
   getLongTermMemoryPath(): string {
     return join(this.getMemoryDir(), LONG_TERM_FILE);
   }

@@ -27,6 +27,8 @@ type ChunkRow = {
   content: string;
   content_hash: string;
   embedding: Uint8Array | null;
+  source: string;
+  updated_at: number;
 };
 
 type CacheRow = {
@@ -44,7 +46,8 @@ CREATE TABLE IF NOT EXISTS chunks (
   embedding BLOB,
   embedding_provider TEXT,
   embedding_model TEXT,
-  updated_at INTEGER NOT NULL
+  updated_at INTEGER NOT NULL,
+  source TEXT NOT NULL DEFAULT 'memory'
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_chunks_hash ON chunks(content_hash);
 CREATE INDEX IF NOT EXISTS idx_chunks_file_path ON chunks(file_path);
@@ -78,16 +81,17 @@ function fromBlob(blob: Uint8Array): number[] {
   return Array.from(new Float32Array(buffer));
 }
 
-// Build an FTS5 OR query so partial term overlap still surfaces results.
-function sanitizeFts5Query(query: string): string {
-  const tokens = query
-    .replace(/[^\w\s]/g, ' ')
-    .replace(/\b(?:AND|OR|NOT|NEAR)\b/gi, '')
-    .split(/\s+/)
-    .filter(Boolean);
+// Build an FTS5 AND query with quoted, Unicode-aware tokens for precise matching.
+// Vector search already provides broad recall; keyword search should be precise.
+function buildFtsQuery(raw: string): string {
+  const tokens =
+    raw
+      .match(/[\p{L}\p{N}_]+/gu)
+      ?.map((t) => t.trim())
+      .filter(Boolean) ?? [];
   if (tokens.length === 0) return '';
-  if (tokens.length === 1) return tokens[0]!;
-  return tokens.join(' OR ');
+  const quoted = tokens.map((t) => `"${t.replaceAll('"', '')}"`);
+  return quoted.join(' AND ');
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -117,7 +121,15 @@ export class MemoryDatabase {
     const db = await MemoryDatabase.openSqlite(path);
     const memoryDb = new MemoryDatabase(db);
     memoryDb.db.exec(CREATE_SCHEMA_SQL);
+    memoryDb.runMigrations();
     return memoryDb;
+  }
+
+  private runMigrations(): void {
+    const columns = this.db.query<{ name: string }>('PRAGMA table_info(chunks)').all();
+    if (!columns.some((c) => c.name === 'source')) {
+      this.db.exec("ALTER TABLE chunks ADD COLUMN source TEXT NOT NULL DEFAULT 'memory'");
+    }
   }
 
   private static async openSqlite(path: string): Promise<SqliteDatabase> {
@@ -208,13 +220,15 @@ export class MemoryDatabase {
     embedding: number[] | null;
     provider?: string;
     model?: string;
+    source?: string;
   }): { id: number; inserted: boolean } {
     const existing = this.getChunkByHash(params.chunk.contentHash);
     const embeddingBlob = params.embedding ? toBlob(params.embedding) : null;
+    const source = params.source ?? params.chunk.source ?? 'memory';
     if (existing) {
       this.db
         .query(
-          'UPDATE chunks SET file_path = ?, start_line = ?, end_line = ?, content = ?, embedding = ?, embedding_provider = ?, embedding_model = ?, updated_at = ? WHERE id = ?',
+          'UPDATE chunks SET file_path = ?, start_line = ?, end_line = ?, content = ?, embedding = ?, embedding_provider = ?, embedding_model = ?, updated_at = ?, source = ? WHERE id = ?',
         )
         .run(
           params.chunk.filePath,
@@ -225,6 +239,7 @@ export class MemoryDatabase {
           params.provider ?? null,
           params.model ?? null,
           Date.now(),
+          source,
           existing.id,
         );
       this.db.query('DELETE FROM chunks_fts WHERE chunk_id = ?').run(existing.id);
@@ -234,7 +249,7 @@ export class MemoryDatabase {
 
     this.db
       .query(
-        'INSERT INTO chunks (file_path, start_line, end_line, content, content_hash, embedding, embedding_provider, embedding_model, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO chunks (file_path, start_line, end_line, content, content_hash, embedding, embedding_provider, embedding_model, updated_at, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       )
       .run(
         params.chunk.filePath,
@@ -246,6 +261,7 @@ export class MemoryDatabase {
         params.provider ?? null,
         params.model ?? null,
         Date.now(),
+        source,
       );
 
     const inserted = this.db.query<{ id: number }>('SELECT id FROM chunks WHERE content_hash = ?').get(
@@ -301,7 +317,7 @@ export class MemoryDatabase {
   }
 
   searchKeyword(query: string, maxResults: number): MemoryKeywordCandidate[] {
-    const sanitized = sanitizeFts5Query(query);
+    const sanitized = buildFtsQuery(query);
     if (!sanitized) {
       return [];
     }
@@ -323,7 +339,7 @@ export class MemoryDatabase {
     const placeholders = ids.map(() => '?').join(', ');
     const rows = this.db
       .query<ChunkRow>(
-        `SELECT id, file_path, start_line, end_line, content, content_hash, embedding FROM chunks WHERE id IN (${placeholders})`,
+        `SELECT id, file_path, start_line, end_line, content, content_hash, embedding, source, updated_at FROM chunks WHERE id IN (${placeholders})`,
       )
       .all(...ids);
     const rowById = new Map(rows.map((row) => [row.id, row]));
@@ -336,7 +352,9 @@ export class MemoryDatabase {
         startLine: row.start_line,
         endLine: row.end_line,
         score: 0,
-        source: 'keyword',
+        source: 'keyword' as const,
+        contentSource: (row.source ?? 'memory') as 'memory' | 'sessions',
+        updatedAt: row.updated_at,
       }));
   }
 }

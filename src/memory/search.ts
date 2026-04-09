@@ -1,7 +1,15 @@
 import { buildSnippet } from './chunker.js';
 import { embedSingleQuery } from './embeddings.js';
+import { applyTemporalDecay } from './temporal-decay.js';
+import { applyMMRToHybridResults } from './mmr.js';
 import type { MemoryDatabase } from './database.js';
-import type { MemoryEmbeddingClient, MemorySearchOptions, MemorySearchResult } from './types.js';
+import type {
+  MemoryEmbeddingClient,
+  MemorySearchOptions,
+  MemorySearchResult,
+  TemporalDecayConfig,
+  MMRConfig,
+} from './types.js';
 
 type CombinedScore = {
   id: number;
@@ -31,6 +39,8 @@ export async function hybridSearch(params: {
     vectorWeight: number;
     textWeight: number;
   };
+  temporalDecay?: TemporalDecayConfig;
+  mmr?: MMRConfig;
 }): Promise<MemorySearchResult[]> {
   const maxResults = Math.max(1, params.options?.maxResults ?? params.defaults.maxResults);
   const minScore = params.options?.minScore ?? params.defaults.minScore;
@@ -72,16 +82,18 @@ export async function hybridSearch(params: {
     }
   }
 
-  const ranked = Array.from(scoreMap.values())
+  // Stage 1: Weighted merge + minScore filter.
+  const merged = Array.from(scoreMap.values())
     .map((entry) => ({
       ...entry,
       finalScore: entry.vectorScore * weights.vector + entry.keywordScore * weights.text,
     }))
     .filter((entry) => entry.finalScore >= minScore)
-    .sort((a, b) => b.finalScore - a.finalScore)
-    .slice(0, maxResults);
+    .sort((a, b) => b.finalScore - a.finalScore);
 
-  const ids = ranked.map((entry) => entry.id);
+  // Stage 2: Load full details for all candidates (needed for decay + MMR).
+  // We load more than maxResults because decay and MMR will re-rank them.
+  const ids = merged.map((entry) => entry.id);
   const details = params.db.loadResultsByIds(ids);
   const byId = new Map<number, MemorySearchResult>();
   for (const [index, detail] of details.entries()) {
@@ -91,7 +103,7 @@ export async function hybridSearch(params: {
     }
   }
 
-  return ranked
+  let results: MemorySearchResult[] = merged
     .map((entry) => {
       const detail = byId.get(entry.id);
       if (!detail) {
@@ -111,4 +123,23 @@ export async function hybridSearch(params: {
       } as MemorySearchResult;
     })
     .filter((entry): entry is MemorySearchResult => Boolean(entry));
+
+  // Stage 3: Temporal decay — recent memories score higher, MEMORY.md stays evergreen.
+  if (params.temporalDecay?.enabled) {
+    results = applyTemporalDecay({
+      results,
+      config: params.temporalDecay,
+    });
+    results.sort((a, b) => b.score - a.score);
+  }
+
+  // Stage 4: MMR re-ranking — ensure diversity in results.
+  if (params.mmr?.enabled) {
+    // Feed MMR more candidates than final maxResults for better diversity selection.
+    const mmrInput = results.slice(0, maxResults * 2);
+    results = applyMMRToHybridResults(mmrInput, params.mmr);
+  }
+
+  // Stage 5: Final top-K selection.
+  return results.slice(0, maxResults);
 }

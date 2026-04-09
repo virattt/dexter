@@ -1,8 +1,9 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { callApi, stripFieldsDeep } from './api.js';
+import { api, stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
 import { validateLimit, validateReportPeriodFilters, validateTicker } from './validation.js';
+import { TTL_1H, TTL_6H } from './utils.js';
 
 const REDUNDANT_FINANCIAL_FIELDS = ['accession_number', 'currency', 'period'] as const;
 
@@ -20,7 +21,7 @@ export const getKeyRatios = new DynamicStructuredTool({
   func: async (input) => {
     const ticker = validateTicker(input.ticker);
     const params = { ticker };
-    const { data, url } = await callApi('/financial-metrics/snapshot/', params);
+    const { data, url } = await api.get('/financial-metrics/snapshot/', params, { cacheable: true, ttlMs: TTL_1H });
     return formatToolResult(data.snapshot || {}, [url]);
   },
 });
@@ -92,7 +93,7 @@ export const getHistoricalKeyRatios = new DynamicStructuredTool({
       report_period_lt: filters.report_period_lt,
       report_period_lte: filters.report_period_lte,
     };
-    const { data, url } = await callApi('/financial-metrics/', params);
+    const { data, url } = await api.get('/financial-metrics/', params, { cacheable: true, ttlMs: TTL_6H });
     return formatToolResult(
       stripFieldsDeep(data.financial_metrics || [], REDUNDANT_FINANCIAL_FIELDS),
       [url]
