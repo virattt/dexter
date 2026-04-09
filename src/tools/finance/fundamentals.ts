@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { api, stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
+import { validateLimit, validateReportPeriodFilters, validateTicker } from './validation.js';
 import { TTL_24H } from './utils.js';
 
 const REDUNDANT_FINANCIAL_FIELDS = ['accession_number', 'currency', 'period'] as const;
@@ -46,14 +47,23 @@ const FinancialStatementsInputSchema = z.object({
 });
 
 function createParams(input: z.infer<typeof FinancialStatementsInputSchema>): Record<string, string | number | undefined> {
-  return {
-    ticker: input.ticker,
-    period: input.period,
-    limit: input.limit,
+  const ticker = validateTicker(input.ticker);
+  const limit = validateLimit(input.limit, { fieldName: 'limit', min: 1, max: 40 });
+  const filters = validateReportPeriodFilters({
     report_period_gt: input.report_period_gt,
     report_period_gte: input.report_period_gte,
     report_period_lt: input.report_period_lt,
     report_period_lte: input.report_period_lte,
+  });
+
+  return {
+    ticker,
+    period: input.period,
+    limit,
+    report_period_gt: filters.report_period_gt,
+    report_period_gte: filters.report_period_gte,
+    report_period_lt: filters.report_period_lt,
+    report_period_lte: filters.report_period_lte,
   };
 }
 

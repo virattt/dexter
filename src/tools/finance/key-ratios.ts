@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { api, stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
+import { validateLimit, validateReportPeriodFilters, validateTicker } from './validation.js';
 import { TTL_1H, TTL_6H } from './utils.js';
 
 const REDUNDANT_FINANCIAL_FIELDS = ['accession_number', 'currency', 'period'] as const;
@@ -18,7 +19,7 @@ export const getKeyRatios = new DynamicStructuredTool({
     'Fetches the latest financial metrics snapshot for a company, including valuation ratios (P/E, P/B, P/S, EV/EBITDA, PEG), profitability (margins, ROE, ROA, ROIC), liquidity (current/quick/cash ratios), leverage (debt/equity, debt/assets), per-share metrics (EPS, book value, FCF), and growth rates (revenue, earnings, EPS, FCF, EBITDA).',
   schema: KeyRatiosInputSchema,
   func: async (input) => {
-    const ticker = input.ticker.trim().toUpperCase();
+    const ticker = validateTicker(input.ticker);
     const params = { ticker };
     const { data, url } = await api.get('/financial-metrics/snapshot/', params, { cacheable: true, ttlMs: TTL_1H });
     return formatToolResult(data.snapshot || {}, [url]);
@@ -72,15 +73,25 @@ export const getHistoricalKeyRatios = new DynamicStructuredTool({
   description: `Retrieves historical key ratios for a company, such as P/E ratio, revenue per share, and enterprise value, over a specified period. Useful for trend analysis and historical performance evaluation.`,
   schema: HistoricalKeyRatiosInputSchema,
   func: async (input) => {
-    const params: Record<string, string | number | undefined> = {
-      ticker: input.ticker,
-      period: input.period,
-      limit: input.limit,
+    const ticker = validateTicker(input.ticker);
+    const limit = validateLimit(input.limit, { fieldName: 'limit', min: 1, max: 40 });
+    const filters = validateReportPeriodFilters({
       report_period: input.report_period,
       report_period_gt: input.report_period_gt,
       report_period_gte: input.report_period_gte,
       report_period_lt: input.report_period_lt,
       report_period_lte: input.report_period_lte,
+    });
+
+    const params: Record<string, string | number | undefined> = {
+      ticker,
+      period: input.period,
+      limit,
+      report_period: filters.report_period,
+      report_period_gt: filters.report_period_gt,
+      report_period_gte: filters.report_period_gte,
+      report_period_lt: filters.report_period_lt,
+      report_period_lte: filters.report_period_lte,
     };
     const { data, url } = await api.get('/financial-metrics/', params, { cacheable: true, ttlMs: TTL_6H });
     return formatToolResult(
