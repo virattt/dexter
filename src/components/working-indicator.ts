@@ -68,8 +68,8 @@ export class WorkingIndicatorComponent extends Container {
       return;
     }
     const message = this.state.status === 'approval'
-      ? 'Waiting for approval... (esc to interrupt)'
-      : `${this.thinkingVerb}... (esc to interrupt)`;
+      ? 'Waiting for approval...'
+      : `${this.thinkingVerb}...`;
     this.text.setText(` ${theme.primary(frame)} ${theme.primary(message)}`);
   }
 }
