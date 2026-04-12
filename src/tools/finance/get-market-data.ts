@@ -25,6 +25,7 @@ Intelligent meta-tool for retrieving market data including prices, news, and ins
 - Available crypto ticker lookup
 - Multi-asset price comparisons
 - Company news and recent headlines
+- Broad market news (macro, rates, earnings, geopolitics)
 - Insider trading activity
 - Price move explanations ("why did X go up/down" → combines price + news)
 
@@ -102,9 +103,11 @@ Given a user's natural language query about market data, call the appropriate to
    - For a current crypto price/snapshot → get_crypto_price_snapshot
    - For historical crypto prices over a date range → get_crypto_prices
    - For "what cryptos are available" or crypto ticker lookup → get_crypto_tickers
-   - For news, catalysts, recent announcements → get_company_news
+   - For company-specific news, catalysts, recent announcements → get_company_news with ticker
+   - For broad market news (macro, rates, earnings, geopolitics) → get_company_news without ticker
    - For insider buying/selling activity → get_insider_trades
    - For "why did X go up/down" → combine get_stock_price + get_company_news
+   - For "what's happening in the markets" → get_company_news without ticker
 
 4. **Efficiency**:
    - For current/latest price, use snapshot tools (not historical with limit 1)
@@ -131,6 +134,7 @@ export function createGetMarketData(model: string): DynamicStructuredTool {
 - Current and historical cryptocurrency prices
 - Stock and crypto ticker lookup
 - Company news and recent headlines
+- Broad market news (omit ticker)
 - Insider trading activity`,
     schema: GetMarketDataInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
