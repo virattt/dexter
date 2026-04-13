@@ -1,6 +1,6 @@
 export const HEARTBEAT_OK_TOKEN = 'HEARTBEAT_OK';
 
-type SuppressionReason = 'ok-token' | 'empty' | 'duplicate' | 'none';
+type SuppressionReason = 'ok-token' | 'empty' | 'duplicate' | 'no-action' | 'none';
 
 export type SuppressionResult = {
   shouldSuppress: boolean;
@@ -35,6 +35,24 @@ function isJustOkToken(text: string): boolean {
 }
 
 /**
+ * Heuristic: detect "nothing to report" responses the LLM sent despite
+ * being told to use HEARTBEAT_OK.  Only matches unambiguously dismissive
+ * phrases — avoids domain-specific patterns that could false-positive
+ * on legitimate alerts.
+ */
+const NO_ACTION_PATTERNS = [
+  /\bno action needed\b/i,
+  /\bno alert needed\b/i,
+  /\bnothing to report\b/i,
+  /\bno (?:significant |notable )?change/i,
+  /\beverything (?:is |looks )?(?:fine|normal|good|ok)\b/i,
+];
+
+function looksLikeNoAction(text: string): boolean {
+  return NO_ACTION_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+/**
  * Evaluate whether a heartbeat response should be suppressed.
  */
 export function evaluateSuppression(
@@ -58,6 +76,11 @@ export function evaluateSuppression(
 
   if (!cleaned) {
     return { shouldSuppress: true, cleanedText: '', reason: 'ok-token' };
+  }
+
+  // Heuristic: suppress "no action needed" style responses
+  if (looksLikeNoAction(cleaned)) {
+    return { shouldSuppress: true, cleanedText: cleaned, reason: 'no-action' };
   }
 
   // Duplicate suppression: same text within 24h

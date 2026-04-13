@@ -1,5 +1,5 @@
 // Tool registry - the primary way to access tools and their descriptions
-export { getToolRegistry, getTools, buildToolDescriptions } from './registry.js';
+export { getToolRegistry, getTools, buildCompactToolDescriptions } from './registry.js';
 export type { RegisteredTool } from './registry.js';
 
 // Individual tool exports (for backward compatibility and direct access)

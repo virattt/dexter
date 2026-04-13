@@ -14,6 +14,8 @@ export interface ProviderDef {
   apiKeyEnvVar?: string;
   /** Fast model variant for lightweight tasks like summarization. */
   fastModel?: string;
+  /** Default context window size in tokens. Used for model-aware compaction thresholds. */
+  contextWindow?: number;
 }
 
 export const PROVIDERS: ProviderDef[] = [
@@ -23,6 +25,7 @@ export const PROVIDERS: ProviderDef[] = [
     modelPrefix: '',
     apiKeyEnvVar: 'OPENAI_API_KEY',
     fastModel: 'gpt-4.1',
+    contextWindow: 1_047_576,
   },
   {
     id: 'anthropic',
@@ -30,6 +33,7 @@ export const PROVIDERS: ProviderDef[] = [
     modelPrefix: 'claude-',
     apiKeyEnvVar: 'ANTHROPIC_API_KEY',
     fastModel: 'claude-haiku-4-5',
+    contextWindow: 200_000,
   },
   {
     id: 'google',
@@ -37,6 +41,7 @@ export const PROVIDERS: ProviderDef[] = [
     modelPrefix: 'gemini-',
     apiKeyEnvVar: 'GOOGLE_API_KEY',
     fastModel: 'gemini-3-flash-preview',
+    contextWindow: 1_000_000,
   },
   {
     id: 'xai',
@@ -44,6 +49,7 @@ export const PROVIDERS: ProviderDef[] = [
     modelPrefix: 'grok-',
     apiKeyEnvVar: 'XAI_API_KEY',
     fastModel: 'grok-4-1-fast-reasoning',
+    contextWindow: 131_072,
   },
   {
     id: 'moonshot',
@@ -51,6 +57,7 @@ export const PROVIDERS: ProviderDef[] = [
     modelPrefix: 'kimi-',
     apiKeyEnvVar: 'MOONSHOT_API_KEY',
     fastModel: 'kimi-k2-5',
+    contextWindow: 131_072,
   },
   {
     id: 'deepseek',
@@ -58,6 +65,7 @@ export const PROVIDERS: ProviderDef[] = [
     modelPrefix: 'deepseek-',
     apiKeyEnvVar: 'DEEPSEEK_API_KEY',
     fastModel: 'deepseek-chat',
+    contextWindow: 128_000,
   },
   {
     id: 'openrouter',
@@ -65,11 +73,13 @@ export const PROVIDERS: ProviderDef[] = [
     modelPrefix: 'openrouter:',
     apiKeyEnvVar: 'OPENROUTER_API_KEY',
     fastModel: 'openrouter:openai/gpt-4o-mini',
+    contextWindow: 128_000,
   },
   {
     id: 'ollama',
     displayName: 'Ollama',
     modelPrefix: 'ollama:',
+    contextWindow: 128_000,
   },
 ];
 

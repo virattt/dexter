@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { api, stripFieldsDeep } from './api.js';
 import { formatToolResult } from '../types.js';
+import { TTL_24H } from './utils.js';
 
 const REDUNDANT_FINANCIAL_FIELDS = ['accession_number', 'currency', 'period'] as const;
 
@@ -62,7 +63,7 @@ export const getIncomeStatements = new DynamicStructuredTool({
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
     const params = createParams(input);
-    const { data, url } = await api.get('/financials/income-statements/', params);
+    const { data, url } = await api.get('/financials/income-statements/', params, { cacheable: true, ttlMs: TTL_24H });
     return formatToolResult(
       stripFieldsDeep(data.income_statements || {}, REDUNDANT_FINANCIAL_FIELDS),
       [url]
@@ -76,7 +77,7 @@ export const getBalanceSheets = new DynamicStructuredTool({
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
     const params = createParams(input);
-    const { data, url } = await api.get('/financials/balance-sheets/', params);
+    const { data, url } = await api.get('/financials/balance-sheets/', params, { cacheable: true, ttlMs: TTL_24H });
     return formatToolResult(
       stripFieldsDeep(data.balance_sheets || {}, REDUNDANT_FINANCIAL_FIELDS),
       [url]
@@ -90,7 +91,7 @@ export const getCashFlowStatements = new DynamicStructuredTool({
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
     const params = createParams(input);
-    const { data, url } = await api.get('/financials/cash-flow-statements/', params);
+    const { data, url } = await api.get('/financials/cash-flow-statements/', params, { cacheable: true, ttlMs: TTL_24H });
     return formatToolResult(
       stripFieldsDeep(data.cash_flow_statements || {}, REDUNDANT_FINANCIAL_FIELDS),
       [url]
@@ -104,7 +105,7 @@ export const getAllFinancialStatements = new DynamicStructuredTool({
   schema: FinancialStatementsInputSchema,
   func: async (input) => {
     const params = createParams(input);
-    const { data, url } = await api.get('/financials/', params);
+    const { data, url } = await api.get('/financials/', params, { cacheable: true, ttlMs: TTL_24H });
     return formatToolResult(
       stripFieldsDeep(data.financials || {}, REDUNDANT_FINANCIAL_FIELDS),
       [url]

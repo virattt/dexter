@@ -1,19 +1,23 @@
-import { Container, Loader, type TUI } from '@mariozechner/pi-tui';
+import { Container, Spacer, Text } from '@mariozechner/pi-tui';
 import type { WorkingState } from '../types.js';
 import { getRandomThinkingVerb } from '../utils/thinking-verbs.js';
 import { theme } from '../theme.js';
+import { subscribeSpinner, currentSpinnerFrame } from '../utils/spinner.js';
 
 export class WorkingIndicatorComponent extends Container {
-  private readonly tui: TUI;
-  private loader: Loader | null = null;
+  private spacer: Spacer;
+  private text: Text;
   private state: WorkingState = { status: 'idle' };
   private thinkingVerb = getRandomThinkingVerb();
   private prevStatus: WorkingState['status'] = 'idle';
+  private unsubscribeSpinner: (() => void) | null = null;
 
-  constructor(tui: TUI) {
+  constructor(_tui: unknown) {
     super();
-    this.tui = tui;
-    this.renderIdle();
+    this.spacer = new Spacer(0);
+    this.text = new Text('', 0, 0);
+    this.addChild(this.spacer);
+    this.addChild(this.text);
   }
 
   setState(state: WorkingState) {
@@ -28,58 +32,44 @@ export class WorkingIndicatorComponent extends Container {
     }
     this.prevStatus = state.status;
     this.state = state;
+
     if (state.status === 'idle') {
-      this.stopLoader();
-      this.renderIdle();
+      this.stopSpinner();
+      this.spacer.setLines(0);
+      this.text.setText('');
       return;
     }
-    this.renderBusy();
+    this.spacer.setLines(1);
+    this.startSpinner();
+    this.updateMessage(currentSpinnerFrame());
   }
 
   dispose() {
-    this.stopLoader();
+    this.stopSpinner();
   }
 
-  private renderIdle() {
-    this.clear();
+  private startSpinner() {
+    if (this.unsubscribeSpinner) return;
+    this.unsubscribeSpinner = subscribeSpinner((frame) => {
+      this.updateMessage(frame);
+    });
   }
 
-  private renderBusy() {
-    this.clear();
-    this.ensureLoader();
-    this.updateMessage();
+  private stopSpinner() {
+    if (this.unsubscribeSpinner) {
+      this.unsubscribeSpinner();
+      this.unsubscribeSpinner = null;
+    }
   }
 
-  private ensureLoader() {
-    if (this.loader) {
-      this.addChild(this.loader);
+  private updateMessage(frame: string) {
+    if (this.state.status === 'idle') {
+      this.text.setText('');
       return;
     }
-    this.loader = new Loader(
-      this.tui,
-      (spinner) => theme.primary(spinner),
-      (text) => theme.primary(text),
-      '',
-    );
-    this.addChild(this.loader);
-  }
-
-  private stopLoader() {
-    if (!this.loader) {
-      return;
-    }
-    this.loader.stop();
-    this.loader = null;
-  }
-
-  private updateMessage() {
-    if (!this.loader || this.state.status === 'idle') {
-      return;
-    }
-    if (this.state.status === 'approval') {
-      this.loader.setMessage('Waiting for approval... (esc to interrupt)');
-      return;
-    }
-    this.loader.setMessage(`${this.thinkingVerb}... (esc to interrupt)`);
+    const message = this.state.status === 'approval'
+      ? 'Waiting for approval...'
+      : `${this.thinkingVerb}...`;
+    this.text.setText(` ${theme.primary(frame)} ${theme.primary(message)}`);
   }
 }

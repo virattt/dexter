@@ -60,9 +60,7 @@ export class IntroComponent extends Container {
 
   setModel(model: string) {
     this.modelText.setText(
-      `${theme.muted('Model: ')}${theme.primary(getModelDisplayName(model))}${theme.muted(
-        '. Type /model to change.',
-      )}`,
+      `${theme.muted('Model: ')}${theme.primary(getModelDisplayName(model))}`,
     );
   }
 }
