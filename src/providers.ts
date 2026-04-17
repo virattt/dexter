@@ -68,6 +68,13 @@ export const PROVIDERS: ProviderDef[] = [
     contextWindow: 128_000,
   },
   {
+    id: 'minimax',
+    displayName: 'MiniMax',
+    modelPrefix: 'minimax:',
+    apiKeyEnvVar: 'MINIMAX_API_KEY',
+    fastModel: 'minimax:MiniMax-M2.7-highspeed',
+  },
+  {
     id: 'openrouter',
     displayName: 'OpenRouter',
     modelPrefix: 'openrouter:',
