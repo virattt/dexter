@@ -2,7 +2,9 @@
  * Yahoo Finance API wrapper using yahoo-finance2.
  * Provides quote and historical price data without API keys.
  */
-import yahooFinance from 'yahoo-finance2';
+import YahooFinance from 'yahoo-finance2';
+
+const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 export interface YahooQuoteResult {
   ticker: string;
