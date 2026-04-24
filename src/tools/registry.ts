@@ -7,6 +7,7 @@ import { browserTool, BROWSER_DESCRIPTION } from './browser/browser.js';
 import { readFileTool, READ_FILE_DESCRIPTION } from './filesystem/read-file.js';
 import { writeFileTool, WRITE_FILE_DESCRIPTION } from './filesystem/write-file.js';
 import { editFileTool, EDIT_FILE_DESCRIPTION } from './filesystem/edit-file.js';
+import { dcfCalculatorTool, DCF_CALCULATOR_DESCRIPTION } from './valuation/dcf-calculator.js';
 import { GET_FINANCIALS_DESCRIPTION } from './finance/get-financials.js';
 import { GET_MARKET_DATA_DESCRIPTION } from './finance/get-market-data.js';
 import { READ_FILINGS_DESCRIPTION } from './finance/read-filings.js';
@@ -67,6 +68,13 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: createScreenStocks(model),
       description: SCREEN_STOCKS_DESCRIPTION,
       compactDescription: 'Screen stocks by financial criteria (P/E, growth, margins, etc.).',
+      concurrencySafe: true,
+    },
+    {
+      name: 'dcf_calculator',
+      tool: dcfCalculatorTool,
+      description: DCF_CALCULATOR_DESCRIPTION,
+      compactDescription: 'Deterministic DCF math: projected FCFs, terminal value, PVs, fair value per share, and sensitivity.',
       concurrencySafe: true,
     },
     {
