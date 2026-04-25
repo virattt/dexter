@@ -7,8 +7,25 @@ const DEFAULT_OPENAI_MODEL = 'text-embedding-3-small';
 const DEFAULT_GEMINI_MODEL = 'gemini-embedding-001';
 const DEFAULT_OLLAMA_MODEL = 'nomic-embed-text';
 const EMBEDDING_BATCH_SIZE = 64;
+const EMBEDDING_TIMEOUT_MS = 15_000;
 
 type ResolvedProvider = Exclude<EmbeddingProviderId, 'auto' | 'none'>;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
 
 function resolveProvider(preferred: EmbeddingProviderId): ResolvedProvider | null {
   if (preferred === 'openai' && process.env.OPENAI_API_KEY) {
@@ -43,7 +60,7 @@ async function embedInBatches(
   const vectors: number[][] = [];
   for (let i = 0; i < texts.length; i += EMBEDDING_BATCH_SIZE) {
     const batch = texts.slice(i, i + EMBEDDING_BATCH_SIZE);
-    const result = await embedBatch(batch);
+    const result = await withTimeout(embedBatch(batch), EMBEDDING_TIMEOUT_MS, 'Embedding API timed out');
     vectors.push(...result);
   }
   return vectors;
@@ -106,6 +123,6 @@ export async function embedSingleQuery(
   if (!client) {
     return null;
   }
-  const vectors = await client.embed([query]);
+  const vectors = await withTimeout(client.embed([query]), EMBEDDING_TIMEOUT_MS, 'Embedding query timed out');
   return vectors[0] ?? null;
 }

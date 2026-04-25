@@ -87,25 +87,32 @@ export class MemoryManager {
 
     try {
       this.db = await MemoryDatabase.create(`${this.store.getMemoryDir()}/index.sqlite`);
-      const fingerprint = client ? `${client.provider}:${client.model}` : 'none:none';
-      if (this.db.getProviderFingerprint() !== fingerprint) {
-        this.db.clearEmbeddings();
-        this.db.setProviderFingerprint(fingerprint);
-      }
-
-      this.indexer = new MemoryIndexer(this.store, this.db, {
-        chunkTokens: this.config.chunkTokens,
-        overlapTokens: this.config.chunkOverlapTokens,
-        watchDebounceMs: this.config.watchDebounceMs,
-        embeddingClient: client,
-        indexSessions: this.config.indexSessions,
-      });
-      this.indexer.startWatching();
-      await this.indexer.sync({ force: false });
     } catch (error) {
       this.initError = error instanceof Error ? error.message : String(error);
       this.db = null;
       this.indexer = null;
+      return;
+    }
+
+    const fingerprint = client ? `${client.provider}:${client.model}` : 'none:none';
+    if (this.db.getProviderFingerprint() !== fingerprint) {
+      this.db.clearEmbeddings();
+      this.db.setProviderFingerprint(fingerprint);
+    }
+
+    this.indexer = new MemoryIndexer(this.store, this.db, {
+      chunkTokens: this.config.chunkTokens,
+      overlapTokens: this.config.chunkOverlapTokens,
+      watchDebounceMs: this.config.watchDebounceMs,
+      embeddingClient: client,
+      indexSessions: this.config.indexSessions,
+    });
+    this.indexer.startWatching();
+
+    try {
+      await this.indexer.sync({ force: false });
+    } catch (error) {
+      this.initError = error instanceof Error ? error.message : String(error);
     }
   }
 
