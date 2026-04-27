@@ -30,8 +30,8 @@ const PROVIDER_MODELS: Record<string, Model[]> = {
   ],
   moonshot: [{ id: 'kimi-k2-5', displayName: 'Kimi K2.5' }],
   deepseek: [
-    { id: 'deepseek-chat', displayName: 'DeepSeek V3' },
-    { id: 'deepseek-reasoner', displayName: 'DeepSeek R1' },
+    { id: 'deepseek-v4-pro', displayName: 'DeepSeek V4 Pro' },
+    { id: 'deepseek-v4-flash', displayName: 'DeepSeek V4 Flash' },
   ],
 };
 
