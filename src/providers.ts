@@ -64,7 +64,7 @@ export const PROVIDERS: ProviderDef[] = [
     displayName: 'DeepSeek',
     modelPrefix: 'deepseek-',
     apiKeyEnvVar: 'DEEPSEEK_API_KEY',
-    fastModel: 'deepseek-chat',
+    fastModel: 'deepseek-v4-flash',
     contextWindow: 128_000,
   },
   {
