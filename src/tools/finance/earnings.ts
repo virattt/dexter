@@ -18,6 +18,7 @@ export const getEarnings = new DynamicStructuredTool({
   func: async (input) => {
     const ticker = input.ticker.trim().toUpperCase();
     const { data, url } = await api.get('/earnings', { ticker }, { cacheable: true, ttlMs: TTL_24H });
-    return formatToolResult(data.earnings || {}, [url]);
+    const period = Array.isArray(data?.earnings) ? data.earnings[0] : null;
+    return formatToolResult(period || {}, [url]);
   },
 });

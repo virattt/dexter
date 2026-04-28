@@ -202,12 +202,26 @@ export function formatAnalystEstimates(data: unknown): string {
 export function formatEarnings(data: unknown): string {
   const d = (data && typeof data === 'object') ? data as Rec : {};
   if (Object.keys(d).length === 0) return 'No earnings data available.';
+  const filings = Array.isArray(d.filings) ? d.filings as Rec[] : [];
+  if (filings.length === 0) return 'No earnings data available.';
+  // Prefer the 8-K announcement (has surprise/estimate data); fall back to first filing.
+  const primary = filings.find((f) => f?.source_type === '8-K') ?? filings[0];
+  const figures = ((primary.quarterly ?? primary.annual) && typeof (primary.quarterly ?? primary.annual) === 'object')
+    ? (primary.quarterly ?? primary.annual) as Rec
+    : {};
+  const ticker = (d.ticker as string)?.toUpperCase() ?? '';
   const lines: string[] = [];
-  if (d.revenue !== undefined) lines.push(`Revenue: ${fmtNum(d.revenue)}`);
-  if (d.eps !== undefined) lines.push(`EPS: ${fmtPrice(d.eps)}`);
-  if (d.revenue_surprise !== undefined) lines.push(`Revenue Surprise: ${fmtPct(d.revenue_surprise)}`);
-  if (d.eps_surprise !== undefined) lines.push(`EPS Surprise: ${fmtPct(d.eps_surprise)}`);
-  return lines.length > 0 ? lines.join('\n') : JSON.stringify(d);
+  const header = `${ticker} Earnings — ${fmtDate(d.report_period)}${d.fiscal_period ? ` (${d.fiscal_period})` : ''}${d.currency ? ` [${d.currency}]` : ''}`;
+  lines.push(header.trim());
+  lines.push('');
+  lines.push(`Source: ${primary.source_type ?? '—'} | Filed: ${String(primary.filing_date ?? '—').slice(0, 10)} | Accession: ${primary.accession_number ?? '—'}`);
+  if (figures.revenue !== undefined) lines.push(`Revenue: ${fmtNum(figures.revenue)}`);
+  if (figures.net_income !== undefined) lines.push(`Net Income: ${fmtNum(figures.net_income)}`);
+  const eps = figures.earnings_per_share ?? figures.eps;
+  if (eps !== undefined) lines.push(`EPS: ${fmtPrice(eps)}`);
+  if (figures.revenue_surprise !== undefined) lines.push(`Revenue Surprise: ${fmtPct(figures.revenue_surprise)}`);
+  if (figures.eps_surprise !== undefined) lines.push(`EPS Surprise: ${fmtPct(figures.eps_surprise)}`);
+  return lines.join('\n');
 }
 
 export function formatCryptoPrice(data: unknown): string {
