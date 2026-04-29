@@ -202,19 +202,17 @@ export function formatAnalystEstimates(data: unknown): string {
 export function formatEarnings(data: unknown): string {
   const d = (data && typeof data === 'object') ? data as Rec : {};
   if (Object.keys(d).length === 0) return 'No earnings data available.';
-  const filings = Array.isArray(d.filings) ? d.filings as Rec[] : [];
-  if (filings.length === 0) return 'No earnings data available.';
-  // Prefer the 8-K announcement (has surprise/estimate data); fall back to first filing.
-  const primary = filings.find((f) => f?.source_type === '8-K') ?? filings[0];
-  const figures = ((primary.quarterly ?? primary.annual) && typeof (primary.quarterly ?? primary.annual) === 'object')
-    ? (primary.quarterly ?? primary.annual) as Rec
+  // Flat shape: each entry IS one filing. data.earnings[0] (already unwrapped upstream)
+  // lands on the most recent period's 8-K when present (sorted report_period DESC, filing_date ASC).
+  const figures = ((d.quarterly ?? d.annual) && typeof (d.quarterly ?? d.annual) === 'object')
+    ? (d.quarterly ?? d.annual) as Rec
     : {};
   const ticker = (d.ticker as string)?.toUpperCase() ?? '';
   const lines: string[] = [];
   const header = `${ticker} Earnings — ${fmtDate(d.report_period)}${d.fiscal_period ? ` (${d.fiscal_period})` : ''}${d.currency ? ` [${d.currency}]` : ''}`;
   lines.push(header.trim());
   lines.push('');
-  lines.push(`Source: ${primary.source_type ?? '—'} | Filed: ${String(primary.filing_date ?? '—').slice(0, 10)} | Accession: ${primary.accession_number ?? '—'}`);
+  lines.push(`Source: ${d.source_type ?? '—'} | Filed: ${String(d.filing_date ?? '—').slice(0, 10)} | Accession: ${d.accession_number ?? '—'}`);
   if (figures.revenue !== undefined) lines.push(`Revenue: ${fmtNum(figures.revenue)}`);
   if (figures.net_income !== undefined) lines.push(`Net Income: ${fmtNum(figures.net_income)}`);
   const eps = figures.earnings_per_share ?? figures.eps;
