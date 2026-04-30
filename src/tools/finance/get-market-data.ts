@@ -57,6 +57,7 @@ import { getStockPrice, getStockPrices, getStockTickers } from './stock-price.js
 import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
 import { getCompanyNews } from './news.js';
 import { getInsiderTrades } from './insider_trades.js';
+import { getIndianStockPrice, getIndianStockPrices } from './indian-stocks.js';
 
 // All market data tools available for routing
 const MARKET_DATA_TOOLS: StructuredToolInterface[] = [
@@ -64,6 +65,9 @@ const MARKET_DATA_TOOLS: StructuredToolInterface[] = [
   getStockPrice,
   getStockPrices,
   getStockTickers,
+  // Indian Stock Prices (NSE/BSE) - use these for Indian tickers
+  getIndianStockPrice,
+  getIndianStockPrices,
   // Crypto Prices
   getCryptoPriceSnapshot,
   getCryptoPrices,
@@ -90,15 +94,23 @@ Given a user's natural language query about market data, call the appropriate to
    - Google/Alphabet → GOOGL, Meta/Facebook → META, Nvidia → NVDA
    - Bitcoin → BTC, Ethereum → ETH, Solana → SOL
 
-2. **Date Inference**: Use schema-supported filters for date ranges:
+2. **INDIAN STOCKS (NSE/BSE)**: For Indian tickers (RELIANCE, TCS, HDFCBANK, INFOSYS, etc.):
+   - Use get_indian_stock_price (NOT get_stock_price)
+   - The tool handles .NS suffix automatically
+   - Only use get_indian_stock_prices for historical price data
+   - For Indian tickers, DO NOT use get_stock_price or get_stock_prices
+
+3. **Date Inference**: Use schema-supported filters for date ranges:
    - "last month" → start_date 1 month ago, end_date today
    - "past year" → start_date 1 year ago, end_date today
    - "YTD" → start_date Jan 1 of current year, end_date today
    - "2024" → start_date 2024-01-01, end_date 2024-12-31
 
-3. **Tool Selection**:
-   - For a current stock quote/snapshot (price, market cap, volume) → get_stock_price
-   - For historical stock prices over a date range → get_stock_prices
+4. **Tool Selection**:
+   - For Indian NSE/BSE stock current price → get_indian_stock_price
+   - For Indian NSE/BSE historical prices → get_indian_stock_prices
+   - For US/global stock quote/snapshot (price, market cap, volume) → get_stock_price
+   - For US/global historical stock prices over a date range → get_stock_prices
    - For "what stocks are available" or ticker lookup → get_stock_tickers
    - For a current crypto price/snapshot → get_crypto_price_snapshot
    - For historical crypto prices over a date range → get_crypto_prices
@@ -109,7 +121,7 @@ Given a user's natural language query about market data, call the appropriate to
    - For "why did X go up/down" → combine get_stock_price + get_company_news
    - For "what's happening in the markets" → get_company_news without ticker
 
-4. **Efficiency**:
+5. **Efficiency**:
    - For current/latest price, use snapshot tools (not historical with limit 1)
    - For comparisons between assets, call the same tool for each ticker
    - Use the smallest date range that answers the question

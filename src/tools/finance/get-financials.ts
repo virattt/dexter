@@ -57,6 +57,7 @@ import { getKeyRatios, getHistoricalKeyRatios } from './key-ratios.js';
 import { getAnalystEstimates } from './estimates.js';
 import { getSegmentedRevenues } from './segments.js';
 import { getEarnings } from './earnings.js';
+import { yahooQuoteTool, yahooHistoricalTool } from './yahoo.js';
 
 // All finance tools available for routing
 const FINANCE_TOOLS: StructuredToolInterface[] = [
@@ -73,9 +74,12 @@ const FINANCE_TOOLS: StructuredToolInterface[] = [
   getAnalystEstimates,
   // Other Data
   getSegmentedRevenues,
+  // Yahoo Finance (no API key required)
+  yahooQuoteTool,
+  yahooHistoricalTool,
 ];
 
-// Create a map for quick tool lookup by name
+// Build a map for quick tool lookup by name
 const FINANCE_TOOL_MAP = new Map(FINANCE_TOOLS.map(t => [t.name, t]));
 
 // Build the router system prompt - simplified since LLM sees tool schemas
@@ -115,6 +119,10 @@ Given a user's natural language query about financial data, call the appropriate
      - Short trend (2-3 periods) → limit 3
      - Medium trend (4-5 periods) → limit 5
    - Increase limit beyond defaults only when the user explicitly asks for long history (e.g., 10-year trend)
+
+5. **Yahoo Finance** (free, no API key required):
+   - For current quote with price, P/E, market cap, EPS → yahoo_quote
+   - For historical price charts (days/months/years) → yahoo_historical
 
 Call the appropriate tool(s) now.`;
 }

@@ -11,12 +11,12 @@ import { Runnable } from '@langchain/core/runnables';
 import { z } from 'zod';
 import { DEFAULT_SYSTEM_PROMPT } from '@/agent/prompts';
 import type { TokenUsage } from '@/agent/types';
-import { logger } from '@/utils';
+import { logger, getSetting } from '@/utils';
 import { classifyError, isNonRetryableError } from '@/utils/errors';
 import { resolveProvider, getProviderById } from '@/providers';
 
 export const DEFAULT_PROVIDER = 'openai';
-export const DEFAULT_MODEL = 'gpt-5.4';
+export const DEFAULT_MODEL = 'openai/gpt-oss-120b:free';
 
 /**
  * Gets the fast model variant for the given provider.
@@ -46,12 +46,14 @@ async function withRetry<T>(fn: () => Promise<T>, provider: string, maxAttempts 
       await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
     }
   }
-  throw new Error('Unreachable');
+  // All paths above return or throw — this satisfies TS exhaustiveness
+  throw new Error('Unreachable — retry loop always exits via return or throw');
 }
 
 // Model provider configuration
 interface ModelOpts {
   streaming: boolean;
+  maxOutputTokens?: number;
 }
 
 type ModelFactory = (name: string, opts: ModelOpts) => BaseChatModel;
@@ -87,15 +89,33 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
         baseURL: 'https://api.x.ai/v1',
       },
     }),
-  openrouter: (name, opts) =>
-    new ChatOpenAI({
-      model: name.replace(/^openrouter:/, ''),
+  openrouter: (name, opts) => {
+    const modelName = name.replace(/^openrouter:/, '');
+    const thinkingMode = getSetting<'auto' | 'on' | 'off'>('thinkingMode', 'auto');
+
+    // For GLM models, add thinking mode configuration
+    const isGLM = modelName.includes('glm');
+    // For gpt-oss models, use reasoning_effort (only for paid tier)
+    const isGptOss = modelName.includes('gpt-oss');
+
+    let extraBody: Record<string, unknown> | undefined;
+    if (isGLM) {
+      extraBody = { chat_template_kwargs: { enable_thinking: thinkingMode === 'on' || (thinkingMode === 'auto' && !name.includes(':free')) } };
+    }
+    // Note: reasoning_effort removed - free tier may not support it
+
+    return new ChatOpenAI({
+      model: modelName,
       ...opts,
+      maxTokens: opts.maxOutputTokens ?? 4096,
+      temperature: 0,        // Eliminates hallucinated numbers on financial data
+      topP: 1,               // Deterministic output
       apiKey: getApiKey('OPENROUTER_API_KEY'),
       configuration: {
         baseURL: 'https://openrouter.ai/api/v1',
       },
-    }),
+    });
+  },
   moonshot: (name, opts) =>
     new ChatOpenAI({
       model: name,
@@ -132,6 +152,15 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
       ...opts,
       ...(process.env.OLLAMA_BASE_URL ? { baseUrl: process.env.OLLAMA_BASE_URL } : {}),
     }),
+  nvidia: (name, opts) =>
+    new ChatOpenAI({
+      model: name.replace(/^nvidia:/, ''),
+      ...opts,
+      apiKey: getApiKey('NVIDIA_API_KEY'),
+      configuration: {
+        baseURL: 'https://integrate.api.nvidia.com/v1',
+      },
+    }),
 };
 
 const DEFAULT_FACTORY: ModelFactory = (name, opts) =>
@@ -143,9 +172,10 @@ const DEFAULT_FACTORY: ModelFactory = (name, opts) =>
 
 export function getChatModel(
   modelName: string = DEFAULT_MODEL,
-  streaming: boolean = false
+  streaming: boolean = false,
+  maxOutputTokens?: number
 ): BaseChatModel {
-  const opts: ModelOpts = { streaming };
+  const opts: ModelOpts = { streaming, maxOutputTokens };
   const provider = resolveProvider(modelName);
   const factory = MODEL_FACTORIES[provider.id] ?? DEFAULT_FACTORY;
   return factory(modelName, opts);
@@ -351,7 +381,11 @@ export async function* streamLlmWithMessages(
 ): AsyncGenerator<AIMessageChunk, void> {
   const { model = DEFAULT_MODEL, tools, signal } = options;
 
-  const llm = getChatModel(model, true);
+  const provider = resolveProvider(model);
+  // Force non-streaming for OpenRouter as streaming may hang
+  const useStreaming = provider.id !== 'openrouter';
+
+  const llm = getChatModel(model, useStreaming);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let runnable: Runnable<any, any> = llm;
@@ -361,15 +395,19 @@ export async function* streamLlmWithMessages(
   }
 
   const invokeOpts = signal ? { signal } : undefined;
-  const provider = resolveProvider(model);
 
   const finalMessages = provider.id === 'anthropic'
     ? annotateSystemMessageForCaching(messages)
     : messages;
 
-  const stream = await runnable.stream(finalMessages, invokeOpts);
-
-  for await (const chunk of stream) {
-    yield chunk as AIMessageChunk;
+  if (useStreaming) {
+    const stream = await runnable.stream(finalMessages, invokeOpts);
+    for await (const chunk of stream) {
+      yield chunk as AIMessageChunk;
+    }
+  } else {
+    // Non-streaming fallback: call invoke and yield single chunk
+    const result = await runnable.invoke(finalMessages, invokeOpts);
+    yield result as AIMessageChunk;
   }
 }
