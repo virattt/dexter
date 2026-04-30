@@ -8,12 +8,15 @@
 
 import type { TUI } from '@mariozechner/pi-tui';
 
-const SPINNER_INTERVAL_MS = 150;
+export const SPINNER_INTERVAL_MS = 50;
+const FRAME_ADVANCE_MS = 120;
+const FRAME_ADVANCE_TICKS = Math.max(1, Math.round(FRAME_ADVANCE_MS / SPINNER_INTERVAL_MS));
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
 type SpinnerSubscriber = (frame: string) => void;
 
 let interval: ReturnType<typeof setInterval> | null = null;
+let tickCount = 0;
 let frameIndex = 0;
 const subscribers = new Set<SpinnerSubscriber>();
 let tuiInstance: TUI | null = null;
@@ -34,7 +37,10 @@ export function subscribeSpinner(cb: SpinnerSubscriber): () => void {
 
   if (!interval) {
     interval = setInterval(() => {
-      frameIndex = (frameIndex + 1) % SPINNER_FRAMES.length;
+      tickCount++;
+      if (tickCount % FRAME_ADVANCE_TICKS === 0) {
+        frameIndex = (frameIndex + 1) % SPINNER_FRAMES.length;
+      }
       const frame = SPINNER_FRAMES[frameIndex];
       for (const sub of subscribers) {
         sub(frame);

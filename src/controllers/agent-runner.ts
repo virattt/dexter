@@ -7,8 +7,14 @@ import type {
   ApprovalDecision,
   DoneEvent,
 } from '../agent/index.js';
-import type { DisplayEvent } from '../agent/types.js';
+import type { DisplayEvent, StreamMode } from '../agent/types.js';
 import type { HistoryItem, HistoryItemStatus, WorkingState } from '../types.js';
+
+export interface TurnStats {
+  turnStartMs: number;
+  streamedChars: number;
+  streamMode: StreamMode;
+}
 
 type ChangeListener = () => void;
 
@@ -21,6 +27,9 @@ export class AgentRunnerController {
   private workingStateValue: WorkingState = { status: 'idle' };
   private errorValue: string | null = null;
   private pendingApprovalValue: { tool: string; args: Record<string, unknown> } | null = null;
+  private turnStartMsValue: number | null = null;
+  private streamedCharsValue = 0;
+  private streamModeValue: StreamMode | null = null;
   private agentConfig: AgentConfig;
   private readonly inMemoryChatHistory: InMemoryChatHistory;
   private readonly onChange?: ChangeListener;
@@ -52,6 +61,15 @@ export class AgentRunnerController {
 
   get pendingApproval(): { tool: string; args: Record<string, unknown> } | null {
     return this.pendingApprovalValue;
+  }
+
+  get turnStats(): TurnStats | null {
+    if (this.turnStartMsValue === null) return null;
+    return {
+      turnStartMs: this.turnStartMsValue,
+      streamedChars: this.streamedCharsValue,
+      streamMode: this.streamModeValue ?? 'requesting',
+    };
   }
 
   get isProcessing(): boolean {
@@ -101,6 +119,7 @@ export class AgentRunnerController {
     }
     this.markLastProcessing('interrupted');
     this.workingStateValue = { status: 'idle' };
+    this.resetTurnStats();
     this.emitChange();
   }
 
@@ -121,6 +140,9 @@ export class AgentRunnerController {
     this.inMemoryChatHistory.saveUserQuery(query);
     this.errorValue = null;
     this.workingStateValue = { status: 'thinking' };
+    this.turnStartMsValue = startTime;
+    this.streamedCharsValue = 0;
+    this.streamModeValue = 'requesting';
     this.emitChange();
 
     try {
@@ -154,6 +176,7 @@ export class AgentRunnerController {
       if (error instanceof Error && error.name === 'AbortError') {
         this.markLastProcessing('interrupted');
         this.workingStateValue = { status: 'idle' };
+        this.resetTurnStats();
         this.emitChange();
         return undefined;
       }
@@ -161,11 +184,18 @@ export class AgentRunnerController {
       this.errorValue = message;
       this.markLastProcessing('error');
       this.workingStateValue = { status: 'idle' };
+      this.resetTurnStats();
       this.emitChange();
       return undefined;
     } finally {
       this.abortController = null;
     }
+  }
+
+  private resetTurnStats() {
+    this.turnStartMsValue = null;
+    this.streamedCharsValue = 0;
+    this.streamModeValue = null;
   }
 
   private requestToolApproval = (request: { tool: string; args: Record<string, unknown> }) => {
@@ -259,6 +289,13 @@ export class AgentRunnerController {
           completed: true,
         });
         break;
+      case 'stream_progress':
+        // Update accumulators without firing onChange — the working indicator
+        // pulls turnStats on its own spinner tick. Avoids a per-chunk emitChange
+        // storm that stutters input.
+        this.streamedCharsValue += event.charDelta;
+        this.streamModeValue = event.mode;
+        return;
       case 'done': {
         const done = event as DoneEvent;
         if (done.answer) {
@@ -273,6 +310,7 @@ export class AgentRunnerController {
           tokensPerSecond: done.tokensPerSecond,
         }));
         this.workingStateValue = { status: 'idle' };
+        this.resetTurnStats();
         break;
       }
     }

@@ -187,6 +187,21 @@ export interface MemoryFlushEvent {
 }
 
 /**
+ * The model's current activity within a streamed turn.
+ */
+export type StreamMode = 'requesting' | 'thinking' | 'responding' | 'tool-input' | 'tool-use';
+
+/**
+ * One streaming chunk's progress: how many characters arrived and which content type.
+ * The agent runner accumulates charDelta into a per-turn counter for the working indicator.
+ */
+export interface StreamProgressEvent {
+  type: 'stream_progress';
+  charDelta: number;
+  mode: StreamMode;
+}
+
+/**
  * Token usage statistics
  */
 export interface TokenUsage {
@@ -264,6 +279,7 @@ export type AgentEvent =
   | CompactionEvent
   | MemoryRecalledEvent
   | MemoryFlushEvent
+  | StreamProgressEvent
   | DoneEvent;
 
 /**

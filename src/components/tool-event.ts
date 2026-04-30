@@ -1,7 +1,7 @@
 import { Container, Spacer, Text, type TUI } from '@mariozechner/pi-tui';
 import type { ApprovalDecision } from '../agent/types.js';
 import { theme } from '../theme.js';
-import { subscribeSpinner } from '../utils/spinner.js';
+import { subscribeSpinner, SPINNER_INTERVAL_MS } from '../utils/spinner.js';
 
 const CIRCLE = '⏺';
 
@@ -81,9 +81,11 @@ export class ToolEventComponent extends Container {
     this.blinkCounter = 0;
     this.blinkVisible = true;
     this.header.setText(`${theme.success(CIRCLE)} ${this.toolTitle}`);
+    // Toggle visibility every ~600ms regardless of the spinner tick rate.
+    const ticksPerHalfPeriod = Math.max(1, Math.round(600 / SPINNER_INTERVAL_MS));
     this.unsubscribeSpinner = subscribeSpinner(() => {
       this.blinkCounter++;
-      if (this.blinkCounter % 4 === 0) {
+      if (this.blinkCounter % ticksPerHalfPeriod === 0) {
         this.blinkVisible = !this.blinkVisible;
         const circle = this.blinkVisible ? theme.success(CIRCLE) : ' ';
         this.header.setText(`${circle} ${this.toolTitle}`);

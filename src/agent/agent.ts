@@ -9,7 +9,7 @@ import { estimateTokens, getAutoCompactThreshold, KEEP_TOOL_USES } from '../util
 import { exceedsSizeCap, persistLargeResult, buildPersistedContent } from '../utils/tool-result-storage.js';
 import { enforceResultBudget } from '../utils/tool-result-budget.js';
 import { formatUserFacingError, isContextOverflowError } from '../utils/errors.js';
-import type { AgentConfig, AgentEvent, CompactionEvent, ContextClearedEvent, MicrocompactEvent, QueueDrainEvent, TokenUsage } from '../agent/types.js';
+import type { AgentConfig, AgentEvent, CompactionEvent, ContextClearedEvent, MicrocompactEvent, QueueDrainEvent, StreamMode, StreamProgressEvent, TokenUsage } from '../agent/types.js';
 import type { MessageQueue } from '../utils/message-queue.js';
 import { compactContext, MAX_CONSECUTIVE_COMPACTION_FAILURES, MIN_TOOL_RESULTS_FOR_COMPACTION } from './compact.js';
 import { microcompactMessages } from './microcompact.js';
@@ -142,7 +142,7 @@ export class Agent {
       // Call LLM with streaming (falls back to blocking on error)
       while (true) {
         try {
-          const result = await this.callModelWithStreaming(messages);
+          const result = yield* this.callModelWithStreaming(messages);
           response = result.response;
           usage = result.usage;
           overflowRetries = 0;
@@ -271,12 +271,13 @@ export class Agent {
 
   /**
    * Call LLM with streaming, falling back to blocking invoke on error.
+   * Yields StreamProgressEvents as chunks arrive; returns the final accumulated message.
    */
-  private async callModelWithStreaming(
+  private async *callModelWithStreaming(
     messages: BaseMessage[],
-  ): Promise<{ response: AIMessage; usage?: TokenUsage }> {
+  ): AsyncGenerator<StreamProgressEvent, { response: AIMessage; usage?: TokenUsage }> {
     try {
-      return await this.streamAndAccumulate(messages);
+      return yield* this.streamAndAccumulate(messages);
     } catch {
       // Fallback to blocking invoke (handles providers without streaming support)
       return await this.callModelWithMessages(messages);
@@ -284,11 +285,17 @@ export class Agent {
   }
 
   /**
-   * Stream the LLM response, accumulating chunks into a final AIMessage.
+   * Stream the LLM response, yielding per-chunk progress events and finally
+   * returning the accumulated AIMessage. Stream-mode lifecycle:
+   * 'requesting' before the first chunk, then 'thinking'/'responding'/'tool-input'
+   * derived from chunk content shape, then 'tool-use' after stream end if there
+   * are tool calls awaiting execution.
    */
-  private async streamAndAccumulate(
+  private async *streamAndAccumulate(
     messages: BaseMessage[],
-  ): Promise<{ response: AIMessage; usage?: TokenUsage }> {
+  ): AsyncGenerator<StreamProgressEvent, { response: AIMessage; usage?: TokenUsage }> {
+    yield { type: 'stream_progress', charDelta: 0, mode: 'requesting' };
+
     let accumulated: AIMessageChunk | null = null;
 
     for await (const chunk of streamLlmWithMessages(messages, {
@@ -297,6 +304,10 @@ export class Agent {
       signal: this.signal,
     })) {
       accumulated = accumulated ? accumulated.concat(chunk) : chunk;
+      const { charDelta, mode } = inspectChunkContent(chunk);
+      if (charDelta > 0 || mode !== 'responding') {
+        yield { type: 'stream_progress', charDelta, mode };
+      }
     }
 
     if (!accumulated) {
@@ -310,6 +321,10 @@ export class Agent {
       usage_metadata: accumulated.usage_metadata,
       response_metadata: accumulated.response_metadata,
     });
+
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      yield { type: 'stream_progress', charDelta: 0, mode: 'tool-use' };
+    }
 
     const usage = accumulated.usage_metadata
       ? {
@@ -618,4 +633,48 @@ export class Agent {
       yield { type: 'context_cleared', clearedCount: removed, keptCount: KEEP_TOOL_USES };
     }
   }
+}
+
+const MODE_PRIORITY: Record<StreamMode, number> = {
+  requesting: 0,
+  responding: 1,
+  thinking: 2,
+  'tool-input': 3,
+  'tool-use': 4,
+};
+
+/**
+ * Walk one streaming chunk's content and report total char-delta plus the most
+ * "advanced" mode the chunk contains. LangChain content can be a plain string
+ * (most providers) or an array of typed parts (Anthropic).
+ */
+function inspectChunkContent(chunk: AIMessageChunk): { charDelta: number; mode: StreamMode } {
+  const content = chunk.content;
+  if (typeof content === 'string') {
+    return { charDelta: content.length, mode: 'responding' };
+  }
+  if (!Array.isArray(content)) {
+    return { charDelta: 0, mode: 'responding' };
+  }
+
+  let charDelta = 0;
+  let mode: StreamMode = 'responding';
+  for (const part of content) {
+    if (!part || typeof part !== 'object') continue;
+    const partType = (part as { type?: string }).type;
+    if (partType === 'text') {
+      const text = (part as { text?: string }).text;
+      if (typeof text === 'string') charDelta += text.length;
+      if (MODE_PRIORITY.responding > MODE_PRIORITY[mode]) mode = 'responding';
+    } else if (partType === 'thinking' || partType === 'redacted_thinking') {
+      const thinkingText = (part as { thinking?: string }).thinking;
+      if (typeof thinkingText === 'string') charDelta += thinkingText.length;
+      if (MODE_PRIORITY.thinking > MODE_PRIORITY[mode]) mode = 'thinking';
+    } else if (partType === 'tool_use' || partType === 'input_json_delta') {
+      const partialJson = (part as { input?: unknown; partial_json?: string }).partial_json;
+      if (typeof partialJson === 'string') charDelta += partialJson.length;
+      if (MODE_PRIORITY['tool-input'] > MODE_PRIORITY[mode]) mode = 'tool-input';
+    }
+  }
+  return { charDelta, mode };
 }
