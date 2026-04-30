@@ -54,7 +54,7 @@ interface ToolDisplayComponent {
   setComplete(summary: string, duration: number): void;
   setError(error: string): void;
   setLimitWarning(warning?: string): void;
-  setApproval(decision: 'allow-once' | 'allow-session' | 'deny'): void;
+  setApproval(decision: 'allow-once' | 'allow-session' | 'allow-always' | 'deny'): void;
   setDenied(path: string, tool: string): void;
   dispose?(): void;
 }
@@ -104,14 +104,16 @@ class BrowserSessionComponent extends Container implements ToolDisplayComponent 
     this.addChild(this.detail);
   }
 
-  setApproval(decision: 'allow-once' | 'allow-session' | 'deny'): void {
+  setApproval(decision: 'allow-once' | 'allow-session' | 'allow-always' | 'deny'): void {
     this.clearDetail();
     const label =
       decision === 'allow-once'
         ? 'Approved'
         : decision === 'allow-session'
           ? 'Approved (session)'
-          : 'Denied';
+          : decision === 'allow-always'
+            ? 'Approved (always)'
+            : 'Denied';
     const color = decision === 'deny' ? theme.warning : theme.primary;
     this.detail = new Text(`${theme.muted('⎿  ')}${color(label)}`, 0, 0);
     this.addChild(this.detail);
@@ -246,7 +248,7 @@ export class ChatLogComponent extends Container {
     existing.setLimitWarning(warning);
   }
 
-  approveTool(toolCallId: string, decision: 'allow-once' | 'allow-session' | 'deny') {
+  approveTool(toolCallId: string, decision: 'allow-once' | 'allow-session' | 'allow-always' | 'deny') {
     const existing = this.toolById.get(toolCallId);
     if (!existing) {
       return;
