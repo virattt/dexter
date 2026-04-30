@@ -12,6 +12,7 @@ import {
 import { getOllamaModels } from '../utils/ollama.js';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from '../model/llm.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
+import { resolveProvider } from '../providers.js';
 
 const SELECTION_STATES = [
   'provider_select',
@@ -51,6 +52,9 @@ export class ModelSelectionController {
     this.modelValue =
       savedModel ?? getDefaultModelForProvider(this.providerValue) ?? DEFAULT_MODEL;
     this.chatHistory.setModel(this.modelValue);
+
+    // Warn if the saved provider/model combo appears inconsistent (e.g., provider=openai but model=gemini-...)
+    this.warnOnMismatch();
   }
 
   get state(): ModelSelectionState {
@@ -221,6 +225,10 @@ export class ModelSelectionController {
     setSetting('provider', newProvider);
     setSetting('modelId', newModelId);
     this.chatHistory.setModel(newModelId);
+
+    // Warn if the selected model implies a different provider than the one stored.
+    this.warnOnMismatch();
+
     this.pendingProviderValue = null;
     this.pendingModelsValue = [];
     this.pendingSelectedModelId = null;
@@ -234,6 +242,18 @@ export class ModelSelectionController {
     this.pendingSelectedModelId = null;
     this.appStateValue = 'idle';
     this.emitChange();
+  }
+
+  private warnOnMismatch() {
+    const inferredProvider = resolveProvider(this.modelValue).id;
+    if (inferredProvider !== this.providerValue) {
+      const expectedName = getProviderDisplayName(inferredProvider);
+      const currentName = getProviderDisplayName(this.providerValue);
+      this.onError(
+        `Model "${this.modelValue}" is associated with ${expectedName}, but your current provider is set to ${currentName}. ` +
+          `Run /model and select ${expectedName} (or choose a model without the ${expectedName} prefix) to ensure you use the intended provider.`,
+      );
+    }
   }
 
   private emitChange() {
