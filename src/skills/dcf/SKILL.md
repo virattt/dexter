@@ -100,11 +100,30 @@ Calculate WACC using `debt_to_equity` for capital structure weights.
 
 ## Step 5: Calculate Present Value
 
-Discount all FCFs → sum for Enterprise Value → subtract Net Debt → divide by `outstanding_shares` for fair value per share.
+Call the `dcf_calculator` tool for all DCF arithmetic.
+
+**Do not calculate terminal value, enterprise value, equity value, value per share, or sensitivity tables manually.**
+
+Pass:
+- `baseFcf`: normalized current FCF or owner earnings
+- `growthRates`: year-by-year growth assumptions as decimals
+- `discountRate`: WACC / required return as a decimal
+- `terminalGrowthRate`: terminal growth as a decimal
+- `netDebt`: debt minus cash/investments; use a negative number for net cash
+- `sharesOutstanding`: share count in the same scale as monetary values
+- `units`: `billions`, `millions`, or `raw`
+
+Use the calculator output as the source of truth for:
+- projected FCFs
+- PV of projected FCFs
+- terminal value and PV of terminal value
+- enterprise value
+- equity value
+- value per share
 
 ## Step 6: Sensitivity Analysis
 
-Create 3×3 matrix: WACC (base ±1%) vs terminal growth (2.0%, 2.5%, 3.0%).
+Use the `dcf_calculator` sensitivity output. For U.S. companies, use WACC (base ±1%) vs terminal growth (2.0%, 2.5%, 3.0%) unless better case-specific assumptions are justified.
 
 ## Step 7: Validate Results
 
@@ -118,6 +137,8 @@ Before presenting, verify these sanity checks:
    - If <40%, near-term projections may be aggressive
 
 3. **Per-share cross-check**: Compare to `free_cash_flow_per_share × 15-25` as rough sanity check
+
+4. **Calculator reconciliation**: Final valuation tables must reconcile to the `dcf_calculator` output. If a manually drafted number differs from the calculator output, use the calculator output or rerun the tool with corrected inputs.
 
 If validation fails, reconsider assumptions before presenting results.
 
