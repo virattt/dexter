@@ -1,0 +1,6 @@
+{
+  "provider": "openrouter",
+  "modelId": "openrouter:openai/gpt-oss-120b:free",
+  "maxIterations": 20,
+  "requireSourceCitation": true
+}

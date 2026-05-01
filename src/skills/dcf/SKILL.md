@@ -81,12 +81,44 @@ Calculate 5-year FCF CAGR from cash flow history.
 
 **Use the `sector` from company facts** to select the appropriate base WACC range from [sector-wacc.md](sector-wacc.md).
 
-**Default assumptions:**
-- Risk-free rate: 4%
-- Equity risk premium: 5-6%
-- Cost of debt: 5-6% pre-tax (~4% after-tax at 30% tax rate)
+**For India valuations, use these defaults instead of US-centric assumptions:**
 
-Calculate WACC using `debt_to_equity` for capital structure weights.
+### India-Specific Valuation Assumptions
+
+**Risk-Free Rate:**
+- Use the CURRENT 10-year Indian Government Bond (G-Sec) yield
+- Source: rbi.org.in (RBI website) — ALWAYS retrieve this live
+- NEVER use a memorised rate from training data
+
+**Equity Risk Premium (ERP):**
+- India ERP: 6.5–8.0%
+- Preferred source: Damodaran's annual country ERP table (pages.stern.nyu.edu)
+- If Damodaran not available, use 7.0% as conservative default
+- State source explicitly in every valuation
+
+**WACC:**
+- Cost of equity = Risk-free rate + Beta × India ERP
+- Cost of debt: use current Indian corporate bond yield for equivalent rating
+  - AAA-rated: ~7.5–8.5%
+  - AA-rated: ~8.5–9.5%
+  - Retrieve live if possible; state source and date
+- Tax shield for WACC: 25.17% (Section 115BAA flat rate)
+  OR 22% base rate (confirm from company's latest Annual Report)
+
+**Terminal Growth Rate:**
+- Default: India's nominal GDP growth = real GDP (~6.5%) + CPI (~4.5%) = ~7–8%
+- For mature / global companies operating in India: 5–6%
+- For high-growth consumer/tech companies: consult concall guidance + analyst consensus
+- NEVER use US/Western terminal growth rates (2–3%) for Indian companies
+
+**Working Capital:**
+- All cash flow projections in INR
+- Compare working capital cycle to Indian sector peers (not global benchmarks)
+- Flag if DSO/DIO/DPO is unusually long vs NSE-listed sector comps
+
+**Discount Rate Sanity Check:**
+- Typical WACC range for Indian large-caps: 10–14%
+- If your WACC is below 9% or above 18%, re-verify inputs — likely an error
 
 **Reasonableness check:** WACC should be 2-4% below `return_on_invested_capital` for value-creating companies.
 
@@ -96,7 +128,11 @@ Calculate WACC using `debt_to_equity` for capital structure weights.
 
 **Years 1-5:** Apply growth rate with 5% annual decay (multiply growth rate by 0.95, 0.90, 0.85, 0.80 for years 2-5). This reflects competitive dynamics.
 
-**Terminal value:** Use Gordon Growth Model with 2.5% terminal growth (GDP proxy).
+**Terminal value:** Use Gordon Growth Model with India-appropriate terminal growth:
+- Default 7% for India (nominal GDP growth)
+- Mature/legacy businesses: 5%
+- High-growth consumer/tech: use concall guidance + analyst consensus
+- NEVER use 2.5% (this is a US/Western assumption)
 
 ## Step 5: Calculate Present Value
 
@@ -104,7 +140,7 @@ Discount all FCFs → sum for Enterprise Value → subtract Net Debt → divide 
 
 ## Step 6: Sensitivity Analysis
 
-Create 3×3 matrix: WACC (base ±1%) vs terminal growth (2.0%, 2.5%, 3.0%).
+Create 3×3 matrix: WACC (base ±1%) vs terminal growth (5%, 7%, 9% for India).
 
 ## Step 7: Validate Results
 
