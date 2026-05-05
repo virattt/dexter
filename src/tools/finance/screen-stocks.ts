@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { callLlm } from '../../model/llm.js';
 import { formatToolResult } from '../types.js';
 import { getCurrentDate } from '../../agent/prompts.js';
+import { escapeTemplateVars } from '../../utils/format.js';
 import { api } from './api.js';
 
 /**
@@ -61,11 +62,6 @@ const ScreenerFilterSchema = z.object({
 });
 
 type ScreenerFilters = z.infer<typeof ScreenerFilterSchema>;
-
-// Escape curly braces for LangChain template interpolation
-function escapeTemplateVars(str: string): string {
-  return str.replace(/\{/g, '{{').replace(/\}/g, '}}');
-}
 
 function buildScreenerPrompt(metrics: Record<string, unknown>): string {
   const escapedMetrics = escapeTemplateVars(JSON.stringify(metrics, null, 2));

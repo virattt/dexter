@@ -25,3 +25,25 @@ const compactFormatter = new Intl.NumberFormat('en', {
 export function formatTokensCompact(n: number): string {
   return compactFormatter.format(n).toLowerCase();
 }
+
+export function truncateAtWord(str: string, maxLength: number): string {
+  if (str.length <= maxLength) {
+    return str;
+  }
+  const lastSpace = str.lastIndexOf(' ', maxLength);
+  if (lastSpace > maxLength * 0.5) {
+    return `${str.slice(0, lastSpace)}...`;
+  }
+  return `${str.slice(0, maxLength)}...`;
+}
+
+export function truncateEnd(str: string, maxLength: number): string {
+  if (str.length <= maxLength) {
+    return str;
+  }
+  return `${str.slice(0, maxLength)}...`;
+}
+
+export function escapeTemplateVars(str: string): string {
+  return str.replace(/\{/g, '{{').replace(/\}/g, '}}');
+}

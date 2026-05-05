@@ -1,6 +1,7 @@
 import { Container, Spacer, Text, type TUI } from '@mariozechner/pi-tui';
 import type { ApprovalDecision } from '../agent/types.js';
 import { theme } from '../theme.js';
+import { truncateAtWord } from '../utils/format.js';
 import { subscribeSpinner, SPINNER_INTERVAL_MS } from '../utils/spinner.js';
 
 const CIRCLE = '⏺';
@@ -11,17 +12,6 @@ function formatToolName(name: string): string {
     .split('_')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
-}
-
-function truncateAtWord(str: string, maxLength: number): string {
-  if (str.length <= maxLength) {
-    return str;
-  }
-  const lastSpace = str.lastIndexOf(' ', maxLength);
-  if (lastSpace > maxLength * 0.5) {
-    return `${str.slice(0, lastSpace)}...`;
-  }
-  return `${str.slice(0, maxLength)}...`;
 }
 
 function formatArgs(tool: string, args: Record<string, unknown>): string {

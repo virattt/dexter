@@ -28,6 +28,7 @@ import {
 } from './components/index.js';
 import { editorTheme, theme } from './theme.js';
 import { matchCommands, type SlashCommand } from './commands/index.js';
+import { truncateAtWord } from './utils/format.js';
 import { initSpinner } from './utils/spinner.js';
 
 function truncateForHistory(text: string): string {
@@ -36,17 +37,6 @@ function truncateForHistory(text: string): string {
   const firstLine = lines[0].trim() || lines[1]?.trim() || 'pasted content';
   const preview = firstLine.length > 60 ? firstLine.slice(0, 60) + '...' : firstLine;
   return `${preview} [+${lines.length - 1} lines]`;
-}
-
-function truncateAtWord(str: string, maxLength: number): string {
-  if (str.length <= maxLength) {
-    return str;
-  }
-  const lastSpace = str.lastIndexOf(' ', maxLength);
-  if (lastSpace > maxLength * 0.5) {
-    return `${str.slice(0, lastSpace)}...`;
-  }
-  return `${str.slice(0, maxLength)}...`;
 }
 
 function summarizeToolResult(tool: string, args: Record<string, unknown>, result: string): string {
