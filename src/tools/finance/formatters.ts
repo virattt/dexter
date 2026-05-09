@@ -187,18 +187,6 @@ export function formatInsiderTrades(data: unknown): string {
   return lines.join('\n');
 }
 
-export function formatAnalystEstimates(data: unknown): string {
-  const items = Array.isArray(data) ? data : [];
-  if (items.length === 0) return 'No analyst estimates available.';
-  const lines = ['Analyst Estimates', ''];
-  lines.push('| Period | Est. Revenue | Est. EPS | # Analysts |');
-  lines.push('|--------|-------------|----------|------------|');
-  for (const row of items as Rec[]) {
-    lines.push(`| ${fmtDate(row.report_period ?? row.date)} | ${fmtNum(row.estimated_revenue_avg ?? row.revenue_estimate)} | ${fmtPrice(row.estimated_eps_avg ?? row.eps_estimate)} | ${row.number_of_analysts ?? '—'} |`);
-  }
-  return lines.join('\n');
-}
-
 export function formatEarnings(data: unknown): string {
   const d = (data && typeof data === 'object') ? data as Rec : {};
   if (Object.keys(d).length === 0) return 'No earnings data available.';
@@ -287,7 +275,6 @@ export const FINANCIAL_FORMATTERS: Record<string, (data: unknown, args?: Rec) =>
   get_all_financial_statements: formatAllFinancials,
   get_key_ratios: formatKeyRatios,
   get_historical_key_ratios: formatHistoricalKeyRatios,
-  get_analyst_estimates: formatAnalystEstimates,
   get_earnings: formatEarnings,
   get_financial_segments: formatFinancialSegments,
 };

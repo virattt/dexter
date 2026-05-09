@@ -28,7 +28,6 @@ Intelligent meta-tool for reading SEC filing content. Takes a natural language q
 - Stock prices (use get_market_data)
 - Financial statements data in structured format (use get_financials)
 - Company news (use get_financials)
-- Analyst estimates (use get_financials)
 - Non-SEC data (use web_search)
 
 ## Usage Notes

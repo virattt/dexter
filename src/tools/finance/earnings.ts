@@ -13,7 +13,7 @@ const EarningsInputSchema = z.object({
 export const getEarnings = new DynamicStructuredTool({
   name: 'get_earnings',
   description:
-    'Fetches the most recent earnings snapshot for a company, including key income statement, balance sheet, and cash flow figures from the 8-K earnings release, plus analyst estimate comparisons (revenue and EPS surprise) when available.',
+    'Fetches the most recent earnings snapshot for a company, including key income statement, balance sheet, and cash flow figures from the 8-K earnings release.',
   schema: EarningsInputSchema,
   func: async (input) => {
     const ticker = input.ticker.trim().toUpperCase();

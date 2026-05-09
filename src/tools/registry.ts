@@ -45,7 +45,7 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'get_financials',
       tool: createGetFinancials(model),
       description: GET_FINANCIALS_DESCRIPTION,
-      compactDescription: 'Financial statements, metrics, and analyst estimates. Handles multi-company/multi-metric queries in one call.',
+      compactDescription: 'Financial statements and metrics. Handles multi-company/multi-metric queries in one call.',
       concurrencySafe: true,
     },
     {
