@@ -25,6 +25,18 @@ const DEFAULT_MAX_ITERATIONS = 10;
 const MAX_OVERFLOW_RETRIES = 2;
 const OVERFLOW_KEEP_ROUNDS = 3;
 
+function isEnvEnabled(name: string): boolean {
+  const value = process.env[name];
+  return value === '1' || value?.toLowerCase() === 'true' || value?.toLowerCase() === 'yes';
+}
+
+function resolveMemoryEnabled(config: AgentConfig): boolean {
+  if (config.memoryEnabled === false) {
+    return false;
+  }
+  return config.memoryEnabled === true || isEnvEnabled('DEXTER_ENABLE_MEMORY');
+}
+
 /**
  * The core agent class that handles the agent loop and tool execution.
  *
@@ -75,10 +87,11 @@ export class Agent {
     const concurrencyMap = getToolConcurrencyMap(model);
     const soulContent = await loadSoulDocument();
     const rulesContent = await loadRulesDocument();
+    const memoryEnabled = resolveMemoryEnabled(config);
     let memoryFiles: string[] = [];
     let memoryContext: string | null = null;
 
-    if (config.memoryEnabled !== false) {
+    if (memoryEnabled) {
       const memoryManager = await MemoryManager.get();
       memoryFiles = await memoryManager.listFiles();
       const session = await memoryManager.loadSessionContext();
@@ -94,9 +107,10 @@ export class Agent {
       config.groupContext,
       memoryFiles,
       memoryContext,
+      memoryEnabled,
       rulesContent,
     );
-    return new Agent(config, tools, systemPrompt, concurrencyMap);
+    return new Agent({ ...config, memoryEnabled }, tools, systemPrompt, concurrencyMap);
   }
 
   /**

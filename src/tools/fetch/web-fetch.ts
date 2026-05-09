@@ -33,6 +33,7 @@ import {
   withTimeout,
   writeCache,
 } from './cache.js';
+import { assertSafeRemoteHttpUrl } from '../../utils/network-safety.js';
 
 /**
  * Rich description for the web_fetch tool.
@@ -241,8 +242,11 @@ async function fetchWithRedirects(params: {
     } catch {
       throw new Error("[Web Fetch] Invalid URL: must be http or https");
     }
-    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-      throw new Error("[Web Fetch] Invalid URL: must be http or https");
+    try {
+      parsedUrl = await assertSafeRemoteHttpUrl(parsedUrl);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`[Web Fetch] ${message}`);
     }
 
     const response = await fetch(parsedUrl.toString(), {
@@ -300,8 +304,11 @@ async function runWebFetch(params: {
   } catch {
     throw new Error("[Web Fetch] Invalid URL: must be http or https");
   }
-  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-    throw new Error("[Web Fetch] Invalid URL: must be http or https");
+  try {
+    await assertSafeRemoteHttpUrl(parsedUrl);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`[Web Fetch] ${message}`);
   }
 
   const start = Date.now();

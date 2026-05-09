@@ -219,6 +219,7 @@ export function buildSystemPrompt(
   groupContext?: GroupContext,
   memoryFiles?: string[],
   memoryContext?: string | null,
+  memoryEnabled: boolean = true,
   rulesContent?: string | null,
 ): string {
   const toolDescriptions = buildCompactToolDescriptions(model);
@@ -250,7 +251,7 @@ ${toolDescriptions}
 
 ${buildSkillsSection()}
 
-${buildMemorySection(memoryFiles ?? [], memoryContext)}
+${memoryEnabled ? buildMemorySection(memoryFiles ?? [], memoryContext) : ''}
 
 ## Behavior
 
@@ -280,5 +281,4 @@ ${formatBullets}${tablesSection}${groupContext ? '\n\n' + buildGroupSection(grou
 // ============================================================================
 // User Prompts
 // ============================================================================
-
 

@@ -1,0 +1,30 @@
+services:
+  dexter:
+    build:
+      context: .
+    image: dexter-contained:local
+    init: true
+    stdin_open: true
+    tty: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+      - /home/bun/.cache
+    env_file:
+      - path: env.container
+        required: false
+    environment:
+      DEXTER_ALLOW_PRIVATE_NETWORK: "false"
+      DEXTER_ALLOW_OPEN_WHATSAPP: "false"
+      DEXTER_ENABLE_AUTOMATION: "false"
+      DEXTER_ENABLE_BROWSER: "false"
+      DEXTER_ENABLE_MEMORY: "false"
+    volumes:
+      - dexter_state:/app/.dexter
+
+volumes:
+  dexter_state:

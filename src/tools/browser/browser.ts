@@ -1,11 +1,13 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
-import { chromium, Browser, Page } from 'playwright';
+import { chromium, Browser, BrowserContext, Page } from 'playwright';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
 import { logger } from '@/utils';
+import { assertSafeRemoteHttpUrl } from '../../utils/network-safety.js';
 
 let browser: Browser | null = null;
 let page: Page | null = null;
+const guardedContexts = new WeakSet<BrowserContext>();
 
 // Store refs from the last snapshot for action resolution
 let currentRefs: Map<string, { role: string; name?: string; nth?: number }> = new Map();
@@ -139,9 +141,30 @@ async function ensureBrowser(): Promise<Page> {
   }
   if (!page) {
     const context = await browser.newContext();
+    await installNetworkGuard(context);
     page = await context.newPage();
   }
   return page;
+}
+
+async function installNetworkGuard(context: BrowserContext): Promise<void> {
+  if (guardedContexts.has(context)) {
+    return;
+  }
+  guardedContexts.add(context);
+  await context.route('**/*', async (route) => {
+    const requestUrl = route.request().url();
+    if (!requestUrl.startsWith('http://') && !requestUrl.startsWith('https://')) {
+      await route.continue();
+      return;
+    }
+    try {
+      await assertSafeRemoteHttpUrl(requestUrl);
+      await route.continue();
+    } catch {
+      await route.abort('blockedbyclient');
+    }
+  });
 }
 
 /**
@@ -275,6 +298,7 @@ export const browserTool = new DynamicStructuredTool({
           if (!url) {
             return formatToolResult({ error: 'url is required for navigate action' });
           }
+          await assertSafeRemoteHttpUrl(url);
           const p = await ensureBrowser();
           // Use networkidle for better JS rendering on dynamic sites
           await p.goto(url, { timeout: 30000, waitUntil: 'networkidle' });
@@ -290,6 +314,7 @@ export const browserTool = new DynamicStructuredTool({
           if (!url) {
             return formatToolResult({ error: 'url is required for open action' });
           }
+          await assertSafeRemoteHttpUrl(url);
           const currentPage = await ensureBrowser();
           const context = currentPage.context();
           const newPage = await context.newPage();

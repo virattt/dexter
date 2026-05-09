@@ -32,6 +32,11 @@ export interface RegisteredTool {
   concurrencySafe: boolean;
 }
 
+function isEnvEnabled(name: string): boolean {
+  const value = process.env[name];
+  return value === '1' || value?.toLowerCase() === 'true' || value?.toLowerCase() === 'yes';
+}
+
 /**
  * Get all registered tools with their descriptions.
  * Conditionally includes tools based on environment configuration.
@@ -76,13 +81,13 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       compactDescription: 'Fetch and extract content from a URL as markdown. Use when you need full article text beyond headlines.',
       concurrencySafe: true,
     },
-    {
+    ...(isEnvEnabled('DEXTER_ENABLE_BROWSER') ? [{
       name: 'browser',
       tool: browserTool,
       description: BROWSER_DESCRIPTION,
       compactDescription: 'JavaScript-rendered pages and interactive navigation. Actions: navigate, snapshot, act, read, close.',
       concurrencySafe: true,
-    },
+    }] : []),
     {
       name: 'read_file',
       tool: readFileTool,
@@ -104,21 +109,21 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       compactDescription: 'Edit a file by replacing text. Requires user approval.',
       concurrencySafe: false,
     },
-    {
+    ...(isEnvEnabled('DEXTER_ENABLE_AUTOMATION') ? [{
       name: 'heartbeat',
       tool: heartbeatTool,
       description: HEARTBEAT_TOOL_DESCRIPTION,
-      compactDescription: 'View or update the periodic heartbeat checklist (.dexter/HEARTBEAT.md).',
+      compactDescription: 'View or update the periodic heartbeat checklist (.dexter/HEARTBEAT.md). Requires user approval.',
       concurrencySafe: true,
     },
     {
       name: 'cron',
       tool: cronTool,
       description: CRON_TOOL_DESCRIPTION,
-      compactDescription: 'Manage scheduled cron jobs (create, list, update, delete).',
+      compactDescription: 'Manage scheduled cron jobs (create, list, update, delete). Requires user approval.',
       concurrencySafe: true,
-    },
-    {
+    }] : []),
+    ...(isEnvEnabled('DEXTER_ENABLE_MEMORY') ? [{
       name: 'memory_search',
       tool: memorySearchTool,
       description: MEMORY_SEARCH_DESCRIPTION,
@@ -136,9 +141,9 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'memory_update',
       tool: memoryUpdateTool,
       description: MEMORY_UPDATE_DESCRIPTION,
-      compactDescription: 'Add, edit, or delete persistent memory entries.',
+      compactDescription: 'Add, edit, or delete persistent memory entries. Requires user approval.',
       concurrencySafe: false,
-    },
+    }] : []),
   ];
 
   // Include web_search if Exa, Perplexity, or Tavily API key is configured (Exa → Perplexity → Tavily)

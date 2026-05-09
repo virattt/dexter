@@ -6,6 +6,11 @@ import { dexterPath } from '../utils/paths.js';
 
 const PAIRING_REPLY_HISTORY_GRACE_MS = 30_000;
 
+function isOpenWhatsAppPolicyAllowed(): boolean {
+  const value = process.env.DEXTER_ALLOW_OPEN_WHATSAPP;
+  return value === '1' || value?.toLowerCase() === 'true' || value?.toLowerCase() === 'yes';
+}
+
 type PairingRequest = {
   phone: string;
   code: string;
@@ -130,6 +135,19 @@ export async function checkInboundAccessControl(params: {
     .filter((entry) => entry !== '*')
     .map(normalizeE164);
 
+  if (
+    !isOpenWhatsAppPolicyAllowed() &&
+    (params.dmPolicy === 'open' || params.groupPolicy === 'open' || dmHasWildcard || groupHasWildcard)
+  ) {
+    return {
+      allowed: false,
+      shouldMarkRead: false,
+      isSelfChat,
+      resolvedAccountId: params.accountId,
+      denyReason: 'open_whatsapp_policy_disabled',
+    };
+  }
+
   // Strict self-chat mode: only allow direct messages to/from the user's own number.
   // This provides fail-closed behavior even if policies are accidentally broadened.
   if (isSelfChat) {
@@ -250,4 +268,3 @@ export async function checkInboundAccessControl(params: {
     resolvedAccountId: params.accountId,
   };
 }
-

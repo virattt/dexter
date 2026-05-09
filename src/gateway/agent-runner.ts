@@ -89,7 +89,7 @@ export async function runAgentForMessage(req: AgentRunRequest): Promise<string> 
       signal: req.signal,
       channel: req.channel,
       groupContext: req.groupContext,
-      memoryEnabled: !isolated,
+      memoryEnabled: isolated ? false : undefined,
       messageQueue: session?.queue,
     });
 
@@ -113,7 +113,7 @@ export async function runAgentForMessage(req: AgentRunRequest): Promise<string> 
         signal: req.signal,
         channel: req.channel,
         groupContext: req.groupContext,
-        memoryEnabled: !isolated,
+        memoryEnabled: isolated ? false : undefined,
         messageQueue: session.queue,
       });
 

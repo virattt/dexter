@@ -31,6 +31,11 @@ function debugLog(msg: string) {
   appendFileSync(LOG_PATH, `${new Date().toISOString()} ${msg}\n`);
 }
 
+function isEnvEnabled(name: string): boolean {
+  const value = process.env[name];
+  return value === '1' || value?.toLowerCase() === 'true' || value?.toLowerCase() === 'yes';
+}
+
 export type GatewayService = {
   stop: () => Promise<void>;
   snapshot: () => Record<string, { accountId: string; running: boolean; connected?: boolean }>;
@@ -227,15 +232,17 @@ export async function startGateway(params: { configPath?: string } = {}): Promis
   });
   await manager.startAll();
 
-  ensureHeartbeatCronJob(params.configPath);
-  const cron = startCronRunner({ configPath: params.configPath });
+  const automationEnabled = isEnvEnabled('DEXTER_ENABLE_AUTOMATION');
+  if (automationEnabled) {
+    ensureHeartbeatCronJob(params.configPath);
+  }
+  const cron = automationEnabled ? startCronRunner({ configPath: params.configPath }) : null;
 
   return {
     stop: async () => {
-      cron.stop();
+      cron?.stop();
       await manager.stopAll();
     },
     snapshot: () => manager.getSnapshot(),
   };
 }
-
