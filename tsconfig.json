@@ -13,6 +13,7 @@
     "declarationMap": true,
     "outDir": "./dist",
     "rootDir": "./src",
+    "ignoreDeprecations": "5.0",
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]

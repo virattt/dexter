@@ -54,6 +54,22 @@ export function createProviderSelector(
   return list;
 }
 
+export function createSearchProviderSelector(
+  currentProvider: string | null | undefined,
+  onSelect: (providerId: string | null) => void,
+) {
+  const items: SelectItem[] = [
+    { value: 'auto', label: `1. Auto${!currentProvider ? ' ✓' : ''}` },
+    { value: 'exa', label: `2. Exa${currentProvider === 'exa' ? ' ✓' : ''}` },
+    { value: 'perplexity', label: `3. Perplexity${currentProvider === 'perplexity' ? ' ✓' : ''}` },
+    { value: 'tavily', label: `4. Tavily${currentProvider === 'tavily' ? ' ✓' : ''}` },
+  ];
+  const list = new VimSelectList(items, 8, selectListTheme);
+  list.onSelect = (item) => onSelect(item.value === 'auto' ? null : item.value);
+  list.onCancel = () => onSelect(null);
+  return list;
+}
+
 export function createModelSelector(
   models: Model[],
   currentModel: string | undefined,

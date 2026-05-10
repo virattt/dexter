@@ -12,6 +12,7 @@ import {
   AgentRunnerController,
   InputHistoryController,
   ModelSelectionController,
+  SearchSelectionController,
 } from './controllers/index.js';
 import {
   ApiKeyInputComponent,
@@ -24,6 +25,7 @@ import {
   WorkingIndicatorComponent,
   createApiKeyConfirmSelector,
   createModelSelector,
+  createSearchProviderSelector,
   createProviderSelector,
 } from './components/index.js';
 import { editorTheme, theme } from './theme.js';
@@ -189,6 +191,10 @@ export async function runCli() {
     renderSelectionOverlay();
     tui.requestRender();
   });
+  const searchSelection = new SearchSelectionController(() => {
+    renderSelectionOverlay();
+    tui.requestRender();
+  });
 
   // Incremental history tracking
   let lastRenderedEventCount = 0;
@@ -311,6 +317,7 @@ export async function runCli() {
   esc          Interrupt query / clear input
   ctrl+c       Exit Dexter
   /model       Switch LLM provider and model
+  /search      Choose preferred web search provider
   /rules       Show research rules
   /clear       Clear conversation
   ↑ / ↓        Navigate input history`;
@@ -319,6 +326,9 @@ export async function runCli() {
     switch (command) {
       case 'model':
         modelSelection.startSelection();
+        break;
+      case 'search':
+        searchSelection.startSelection();
         break;
       case 'rules':
         await agentRunner.runQuery('Show me my current research rules from .dexter/RULES.md');
@@ -375,7 +385,7 @@ export async function runCli() {
       return;
     }
 
-    if (modelSelection.isInSelectionFlow() || agentRunner.pendingApproval) {
+    if (modelSelection.isInSelectionFlow() || searchSelection.isInSelectionFlow() || agentRunner.pendingApproval) {
       return;
     }
 
@@ -427,6 +437,10 @@ export async function runCli() {
       modelSelection.cancelSelection();
       return;
     }
+    if (searchSelection.isInSelectionFlow()) {
+      searchSelection.cancelSelection();
+      return;
+    }
     if (agentRunner.isProcessing || agentRunner.pendingApproval) {
       agentRunner.cancelExecution();
       return;
@@ -454,7 +468,7 @@ export async function runCli() {
         queueLength: defaultQueue.length(),
       });
     }
-    if (!modelSelection.isInSelectionFlow() && !agentRunner.pendingApproval) {
+    if (!modelSelection.isInSelectionFlow() && !searchSelection.isInSelectionFlow() && !agentRunner.pendingApproval) {
       tui.setFocus(editor);
     }
   };
@@ -495,7 +509,7 @@ export async function runCli() {
 
   const renderSelectionOverlay = () => {
     const state = modelSelection.state;
-    if (state.appState === 'idle' && !agentRunner.pendingApproval) {
+    if (state.appState === 'idle' && !searchSelection.isInSelectionFlow() && !agentRunner.pendingApproval) {
       restoreMainView();
       tui.requestRender();
       return;
@@ -520,6 +534,22 @@ export async function runCli() {
       showScreenView(
         'Select provider',
         'Switch between LLM providers. Applies to this session and future sessions.',
+        selector,
+        'Enter to confirm · esc to exit',
+        selector,
+      );
+      return;
+    }
+
+    if (searchSelection.state.appState === 'provider_select') {
+      const selector = createSearchProviderSelector(searchSelection.state.preferredProvider, (providerId) => {
+        searchSelection.handleProviderSelect(
+          (providerId ?? 'auto') as 'auto' | 'exa' | 'perplexity' | 'tavily',
+        );
+      });
+      showScreenView(
+        'Preferred search provider',
+        'Choose which search provider Dexter should try first. The rest remain available as fallback options.',
         selector,
         'Enter to confirm · esc to exit',
         selector,
@@ -591,6 +621,10 @@ export async function runCli() {
   editor.onEscape = () => {
     if (modelSelection.isInSelectionFlow()) {
       modelSelection.cancelSelection();
+      return;
+    }
+    if (searchSelection.isInSelectionFlow()) {
+      searchSelection.cancelSelection();
       return;
     }
     if (agentRunner.isProcessing || agentRunner.pendingApproval) {
