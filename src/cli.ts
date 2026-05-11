@@ -196,6 +196,7 @@ export async function runCli() {
   let lastRenderedAnswer = false;
   let lastRenderedQueryId: string | null = null;
   const finalizedToolIds = new Set<string>();
+  let lastPendingApproval: { tool: string; args: Record<string, unknown> } | null = null;
 
   agentRunner = new AgentRunnerController(
     { model: modelSelection.model, modelProvider: modelSelection.provider, maxIterations: 10 },
@@ -260,6 +261,10 @@ export async function runCli() {
 
       workingIndicator.setState(agentRunner.workingState);
       updateView();
+      if (agentRunner.pendingApproval !== lastPendingApproval) {
+        lastPendingApproval = agentRunner.pendingApproval;
+        renderSelectionOverlay();
+      }
       throttledRender();
     },
   );
