@@ -21,6 +21,7 @@ Perform precise in-place text edits in a local workspace file.
 
 - Replacing a specific block/string in an existing file
 - Making surgical code/config edits without rewriting full file
+- Editing .dexter/RULES.md to add or remove rules
 
 ## When NOT to Use
 

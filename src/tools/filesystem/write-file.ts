@@ -13,6 +13,7 @@ Create or overwrite files in the local workspace.
 - Creating a new file with full contents
 - Replacing an existing file entirely
 - Writing generated output to disk
+- Creating or overwriting .dexter/RULES.md
 
 ## When NOT to Use
 

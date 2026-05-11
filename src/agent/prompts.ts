@@ -261,10 +261,12 @@ ${rulesContent ? `## Research Rules
 The following rules were set by the user. Follow them on every query.
 
 ${rulesContent}
-
-To manage these rules, the user can say "add a rule", "show my rules", "remove rule about X".
-Rules are stored in .dexter/RULES.md — use write_file or edit_file to modify them.
 ` : ''}
+## Rule Management
+
+To manage research rules, the user can say "add a rule", "show my rules", "remove rule about X".
+Rules are stored in .dexter/RULES.md — use write_file or edit_file to modify them.
+
 ${soulContent ? `## Identity
 
 ${soulContent}
