@@ -54,6 +54,26 @@ export function createProviderSelector(
   return list;
 }
 
+export function createSearchProviderSelector(
+  currentProvider: string,
+  onSelect: (providerId: 'exa' | 'perplexity' | 'tavily') => void,
+  onCancel: () => void,
+) {
+  const providers: { id: 'exa' | 'perplexity' | 'tavily'; displayName: string }[] = [
+    { id: 'exa', displayName: 'Exa' },
+    { id: 'perplexity', displayName: 'Perplexity' },
+    { id: 'tavily', displayName: 'Tavily' },
+  ];
+  const items: SelectItem[] = providers.map((provider, index) => ({
+    value: provider.id,
+    label: `${index + 1}. ${provider.displayName}${currentProvider === provider.id ? ' ✓' : ''}`,
+  }));
+  const list = new VimSelectList(items, 5, selectListTheme);
+  list.onSelect = (item) => onSelect(item.value as 'exa' | 'perplexity' | 'tavily');
+  list.onCancel = () => onCancel();
+  return list;
+}
+
 export function createModelSelector(
   models: Model[],
   currentModel: string | undefined,

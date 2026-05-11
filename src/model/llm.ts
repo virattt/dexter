@@ -16,7 +16,7 @@ import { classifyError, isNonRetryableError } from '@/utils/errors';
 import { resolveProvider, getProviderById } from '@/providers';
 
 export const DEFAULT_PROVIDER = 'openai';
-export const DEFAULT_MODEL = 'gpt-5.4';
+export const DEFAULT_MODEL = 'gpt-5.5';
 
 /**
  * Gets the fast model variant for the given provider.

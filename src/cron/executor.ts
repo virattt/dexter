@@ -125,7 +125,7 @@ export async function executeCronJob(
   }
 
   // 3. Resolve model
-  const model = job.payload.model ?? (getSetting('modelId', 'gpt-5.4') as string);
+  const model = job.payload.model ?? (getSetting('modelId', 'gpt-5.5') as string);
   const modelProvider = job.payload.modelProvider ?? (getSetting('provider', 'openai') as string);
 
   // 4. Build query

@@ -57,7 +57,10 @@ describe('AgentRunnerController', () => {
   });
 
   test('updates the active agent config for subsequent runs', () => {
-    const { controller } = createController();
+    const controller = new AgentRunnerController(
+      { model: 'gpt-5.5', modelProvider: 'openai', maxIterations: 10 },
+      new InMemoryChatHistory('gpt-5.5'),
+    );
 
     controller.updateAgentConfig({
       model: 'ollama:llama3.1',

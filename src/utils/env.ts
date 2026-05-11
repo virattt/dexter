@@ -99,3 +99,27 @@ export function saveApiKeyForProvider(providerId: string, apiKey: string): boole
   if (!apiKeyName) return false;
   return saveApiKeyToEnv(apiKeyName, apiKey);
 }
+
+export type SearchProviderId = 'exa' | 'perplexity' | 'tavily';
+
+export const SEARCH_PROVIDERS: Record<SearchProviderId, { displayName: string; apiKeyEnvVar: string }> = {
+  exa: { displayName: 'Exa', apiKeyEnvVar: 'EXASEARCH_API_KEY' },
+  perplexity: { displayName: 'Perplexity', apiKeyEnvVar: 'PERPLEXITY_API_KEY' },
+  tavily: { displayName: 'Tavily', apiKeyEnvVar: 'TAVILY_API_KEY' },
+};
+
+export function getSearchProviderDisplayName(providerId: SearchProviderId): string {
+  return SEARCH_PROVIDERS[providerId].displayName;
+}
+
+export function getApiKeyNameForSearchProvider(providerId: SearchProviderId): string {
+  return SEARCH_PROVIDERS[providerId].apiKeyEnvVar;
+}
+
+export function checkApiKeyForSearchProvider(providerId: SearchProviderId): boolean {
+  return checkApiKeyExists(SEARCH_PROVIDERS[providerId].apiKeyEnvVar);
+}
+
+export function saveApiKeyForSearchProvider(providerId: SearchProviderId, apiKey: string): boolean {
+  return saveApiKeyToEnv(SEARCH_PROVIDERS[providerId].apiKeyEnvVar, apiKey);
+}

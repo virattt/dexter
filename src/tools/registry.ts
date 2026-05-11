@@ -1,6 +1,9 @@
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { createGetFinancials, createGetMarketData, createReadFilings, createScreenStocks } from './finance/index.js';
 import { exaSearch, perplexitySearch, tavilySearch, WEB_SEARCH_DESCRIPTION, xSearchTool, X_SEARCH_DESCRIPTION } from './search/index.js';
+import { createWebSearchTool, type WebSearchProvider } from './search/web-search.js';
+import { getSetting } from '../utils/config.js';
+import type { SearchProviderId } from '../utils/env.js';
 import { skillTool, SKILL_TOOL_DESCRIPTION } from './skill.js';
 import { webFetchTool, WEB_FETCH_DESCRIPTION } from './fetch/web-fetch.js';
 import { browserTool, BROWSER_DESCRIPTION } from './browser/browser.js';
@@ -141,27 +144,31 @@ export function getToolRegistry(model: string): RegisteredTool[] {
     },
   ];
 
-  // Include web_search if Exa, Perplexity, or Tavily API key is configured (Exa → Perplexity → Tavily)
+  // Build web_search as a fallback chain over whichever providers have keys configured.
+  // The user's preferred provider (set via /search) is tried first; the others act as fallbacks.
+  const allWebSearchProviders: WebSearchProvider[] = [];
   if (process.env.EXASEARCH_API_KEY) {
+    allWebSearchProviders.push({ id: 'exa', name: 'Exa', tool: exaSearch });
+  }
+  if (process.env.PERPLEXITY_API_KEY) {
+    allWebSearchProviders.push({ id: 'perplexity', name: 'Perplexity', tool: perplexitySearch });
+  }
+  if (process.env.TAVILY_API_KEY) {
+    allWebSearchProviders.push({ id: 'tavily', name: 'Tavily', tool: tavilySearch });
+  }
+
+  if (allWebSearchProviders.length > 0) {
+    const preferred = getSetting<SearchProviderId | undefined>('webSearchPreferredProvider', undefined);
+    const orderedProviders = preferred
+      ? [
+          ...allWebSearchProviders.filter((p) => p.id === preferred),
+          ...allWebSearchProviders.filter((p) => p.id !== preferred),
+        ]
+      : allWebSearchProviders;
+
     tools.push({
       name: 'web_search',
-      tool: exaSearch,
-      description: WEB_SEARCH_DESCRIPTION,
-      compactDescription: 'Search the web for current information. Returns titles, URLs, and highlights.',
-      concurrencySafe: true,
-    });
-  } else if (process.env.PERPLEXITY_API_KEY) {
-    tools.push({
-      name: 'web_search',
-      tool: perplexitySearch,
-      description: WEB_SEARCH_DESCRIPTION,
-      compactDescription: 'Search the web for current information. Returns an answer with citations.',
-      concurrencySafe: true,
-    });
-  } else if (process.env.TAVILY_API_KEY) {
-    tools.push({
-      name: 'web_search',
-      tool: tavilySearch,
+      tool: createWebSearchTool(orderedProviders),
       description: WEB_SEARCH_DESCRIPTION,
       compactDescription: 'Search the web for current information. Returns titles, URLs, and snippets.',
       concurrencySafe: true,
