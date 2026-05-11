@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { Container, ProcessTerminal, Spacer, Text, TUI } from '@mariozechner/pi-tui';
 import type {
   ApprovalDecision,
@@ -11,6 +12,7 @@ import {
   getProviderDisplayName,
   getSearchProviderDisplayName,
 } from './utils/env.js';
+import { dexterPath } from './utils/paths.js';
 import { defaultQueue } from './utils/message-queue.js';
 import { logger } from './utils/logger.js';
 import {
@@ -335,9 +337,19 @@ export async function runCli() {
       case 'search':
         searchSelection.startSelection();
         break;
-      case 'rules':
-        await agentRunner.runQuery('Show me my current research rules from .dexter/RULES.md');
+      case 'rules': {
+        try {
+          const rulesContent = await readFile(dexterPath('RULES.md'), 'utf-8');
+          chatLog.addChild(new Spacer(1));
+          chatLog.addChild(new Text(theme.muted('Research Rules:'), 0, 0));
+          chatLog.addChild(new Text(rulesContent, 0, 0));
+        } catch {
+          chatLog.addChild(new Spacer(1));
+          chatLog.addChild(new Text(theme.muted('No research rules set. Use "add a rule <text>" to create one.'), 0, 0));
+        }
+        tui.requestRender();
         break;
+      }
       case 'clear':
         chatLog.clearAll();
         tui.requestRender();
