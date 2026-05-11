@@ -20,13 +20,9 @@ function createController(onChange?: () => void) {
 }
 
 describe('AgentRunnerController', () => {
-  let capturedApprovalRequest: { tool: string; args: Record<string, unknown> } | null = null;
-  let capturedApprovalResolve: ((decision: ApprovalDecision) => void) | null = null;
   let mockAgentRunYielded: AgentEvent[] = [];
 
   beforeEach(() => {
-    capturedApprovalRequest = null;
-    capturedApprovalResolve = null;
     mockAgentRunYielded = [];
 
     mock.module('../agent/agent.js', () => ({
@@ -237,8 +233,8 @@ describe('AgentRunnerController', () => {
       controller.respondToApproval('allow-once');
       await runPromise;
 
-      // After respondToApproval('allow-once'), workingState should be 'thinking'
-      expect(controller.workingState.status).toBe('idle'); // idle after run completes
+      // After run completes, workingState returns to idle
+      expect(controller.workingState.status).toBe('idle');
     });
 
     test('keeps workingState idle on deny', async () => {
