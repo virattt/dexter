@@ -99,3 +99,31 @@ export function saveApiKeyForProvider(providerId: string, apiKey: string): boole
   if (!apiKeyName) return false;
   return saveApiKeyToEnv(apiKeyName, apiKey);
 }
+
+// Search provider helpers
+
+const SEARCH_PROVIDER_MAP: Record<string, { displayName: string; apiKeyEnvVar: string }> = {
+  exa: { displayName: 'Exa', apiKeyEnvVar: 'EXASEARCH_API_KEY' },
+  perplexity: { displayName: 'Perplexity', apiKeyEnvVar: 'PERPLEXITY_API_KEY' },
+  tavily: { displayName: 'Tavily', apiKeyEnvVar: 'TAVILY_API_KEY' },
+};
+
+export function getSearchProviderApiKeyName(providerId: string): string | undefined {
+  return SEARCH_PROVIDER_MAP[providerId]?.apiKeyEnvVar;
+}
+
+export function getSearchProviderDisplayName(providerId: string): string {
+  return SEARCH_PROVIDER_MAP[providerId]?.displayName ?? providerId;
+}
+
+export function checkSearchApiKeyExists(providerId: string): boolean {
+  const apiKeyName = getSearchProviderApiKeyName(providerId);
+  if (!apiKeyName) return false;
+  return checkApiKeyExists(apiKeyName);
+}
+
+export function saveSearchApiKey(providerId: string, apiKey: string): boolean {
+  const apiKeyName = getSearchProviderApiKeyName(providerId);
+  if (!apiKeyName) return false;
+  return saveApiKeyToEnv(apiKeyName, apiKey);
+}

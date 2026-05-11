@@ -7,8 +7,9 @@ const INTRO_WIDTH = 50;
 
 export class IntroComponent extends Container {
   private readonly modelText: Text;
+  private readonly searchProviderText: Text;
 
-  constructor(model: string) {
+  constructor(model: string, searchProvider?: string) {
     super();
 
     const welcomeText = 'Welcome to Dexter';
@@ -55,12 +56,24 @@ export class IntroComponent extends Container {
     this.addChild(new Text('Your AI assistant for deep financial research.', 0, 0));
     this.modelText = new Text('', 0, 0);
     this.addChild(this.modelText);
+    this.searchProviderText = new Text('', 0, 0);
+    this.addChild(this.searchProviderText);
     this.setModel(model);
+    this.setSearchProvider(searchProvider);
   }
 
   setModel(model: string) {
     this.modelText.setText(
       `${theme.muted('Model: ')}${theme.primary(getModelDisplayName(model))}`,
+    );
+  }
+
+  setSearchProvider(provider?: string) {
+    const displayName = provider && provider !== 'auto'
+      ? provider.charAt(0).toUpperCase() + provider.slice(1)
+      : 'Auto';
+    this.searchProviderText.setText(
+      `${theme.muted('Search: ')}${theme.primary(displayName)}`,
     );
   }
 }

@@ -5,7 +5,7 @@ import type {
   ToolErrorEvent,
   ToolStartEvent,
 } from './agent/index.js';
-import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js';
+import { getApiKeyNameForProvider, getProviderDisplayName, getSearchProviderApiKeyName, getSearchProviderDisplayName } from './utils/env.js';
 import { defaultQueue } from './utils/message-queue.js';
 import { logger } from './utils/logger.js';
 import {
@@ -191,10 +191,16 @@ export async function runCli() {
     renderSelectionOverlay();
     tui.requestRender();
   });
-  const searchSelection = new SearchSelectionController(() => {
-    renderSelectionOverlay();
-    tui.requestRender();
-  });
+  const searchSelection = new SearchSelectionController(
+    (message: string) => {
+      onError(message);
+    },
+    () => {
+      intro.setSearchProvider(searchSelection.state.preferredProvider);
+      renderSelectionOverlay();
+      tui.requestRender();
+    },
+  );
 
   // Incremental history tracking
   let lastRenderedEventCount = 0;
@@ -270,7 +276,7 @@ export async function runCli() {
     },
   );
 
-  const intro = new IntroComponent(modelSelection.model);
+  const intro = new IntroComponent(modelSelection.model, searchSelection.state.preferredProvider);
   const errorText = new Text('', 0, 0);
   const workingIndicator = new WorkingIndicatorComponent(tui);
   workingIndicator.setTurnStatsProvider(() => agentRunner.turnStats);
@@ -553,6 +559,35 @@ export async function runCli() {
         selector,
         'Enter to confirm · esc to exit',
         selector,
+      );
+      return;
+    }
+
+    if (searchSelection.state.appState === 'api_key_confirm' && searchSelection.state.pendingProvider) {
+      const selector = createApiKeyConfirmSelector((wantsToSet) =>
+        searchSelection.handleApiKeyConfirm(wantsToSet),
+      );
+      showScreenView(
+        'Set API Key',
+        `Would you like to set your ${getSearchProviderDisplayName(searchSelection.state.pendingProvider)} API key?`,
+        selector,
+        'Enter to confirm · esc to decline',
+        selector,
+      );
+      return;
+    }
+
+    if (searchSelection.state.appState === 'api_key_input' && searchSelection.state.pendingProvider) {
+      const input = new ApiKeyInputComponent(true);
+      input.onSubmit = (apiKey) => searchSelection.handleApiKeySubmit(apiKey);
+      input.onCancel = () => searchSelection.handleApiKeySubmit(null);
+      const apiKeyName = getSearchProviderApiKeyName(searchSelection.state.pendingProvider) ?? '';
+      showScreenView(
+        `Enter ${getSearchProviderDisplayName(searchSelection.state.pendingProvider)} API Key`,
+        apiKeyName ? `(${apiKeyName})` : '',
+        input,
+        'Enter to confirm · Esc to cancel',
+        input,
       );
       return;
     }
