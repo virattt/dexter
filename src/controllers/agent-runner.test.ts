@@ -42,7 +42,7 @@ describe('AgentRunnerController', () => {
           const requestApproval = this.config.requestToolApproval;
           if (requestApproval) {
             const promise = requestApproval({ tool: 'write_file', args: { path: '.dexter/RULES.md', content: 'test' } });
-            promise.then(() => {});
+            await promise;
           }
 
           // Yield any configured events
