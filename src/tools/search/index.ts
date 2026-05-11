@@ -30,3 +30,4 @@ export { tavilySearch } from './tavily.js';
 export { exaSearch } from './exa.js';
 export { perplexitySearch } from './perplexity.js';
 export { xSearchTool, X_SEARCH_DESCRIPTION } from './x-search.js';
+export { createWebSearchTool } from './web-search.js';

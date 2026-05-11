@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { getSetting } from '../../utils/config.js';
-import { WEB_SEARCH_DESCRIPTION } from './web-search-description.js';
+import { WEB_SEARCH_DESCRIPTION } from './index.js';
 import { exaSearch } from './exa.js';
 import { perplexitySearch } from './perplexity.js';
 import { tavilySearch } from './tavily.js';
@@ -47,12 +47,14 @@ function orderProviders(providers: WebSearchProvider[]): WebSearchProvider[] {
   return [preferred, ...providers.filter((provider) => provider.id !== preferredProvider)];
 }
 
-export function createWebSearchTool(): DynamicStructuredTool {
-  const providers: WebSearchProvider[] = [
-    { id: 'exa', name: 'Exa', tool: exaSearch },
-    { id: 'perplexity', name: 'Perplexity', tool: perplexitySearch },
-    { id: 'tavily', name: 'Tavily', tool: tavilySearch },
+export function createWebSearchTool(): DynamicStructuredTool | null {
+  const allProviders: WebSearchProvider[] = [
+    ...(process.env.EXASEARCH_API_KEY ? [{ id: 'exa' as const, name: 'Exa' as const, tool: exaSearch }] : []),
+    ...(process.env.PERPLEXITY_API_KEY ? [{ id: 'perplexity' as const, name: 'Perplexity' as const, tool: perplexitySearch }] : []),
+    ...(process.env.TAVILY_API_KEY ? [{ id: 'tavily' as const, name: 'Tavily' as const, tool: tavilySearch }] : []),
   ];
+
+  if (allProviders.length === 0) return null;
 
   return new DynamicStructuredTool({
     name: 'web_search',
@@ -60,6 +62,6 @@ export function createWebSearchTool(): DynamicStructuredTool {
     schema: z.object({
       query: z.string().describe('The search query to look up on the web'),
     }),
-    func: async (input) => searchWithProviders(input.query, orderProviders(providers)),
+    func: async (input) => searchWithProviders(input.query, orderProviders(allProviders)),
   });
 }
