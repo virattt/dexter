@@ -14,6 +14,7 @@ import type { TokenUsage } from '@/agent/types';
 import { logger } from '@/utils';
 import { classifyError, isNonRetryableError } from '@/utils/errors';
 import { resolveProvider, getProviderById } from '@/providers';
+import { getOpenAiLangChainClientOptions } from '@/utils/codex-auth';
 
 export const DEFAULT_PROVIDER = 'openai';
 export const DEFAULT_MODEL = 'gpt-5.4';
@@ -134,12 +135,14 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
     }),
 };
 
-const DEFAULT_FACTORY: ModelFactory = (name, opts) =>
-  new ChatOpenAI({
+const DEFAULT_FACTORY: ModelFactory = (name, opts) => {
+  const openAiOpts = getOpenAiLangChainClientOptions();
+  return new ChatOpenAI({
     model: name,
     ...opts,
-    apiKey: getApiKey('OPENAI_API_KEY'),
+    ...openAiOpts,
   });
+};
 
 export function getChatModel(
   modelName: string = DEFAULT_MODEL,

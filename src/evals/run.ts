@@ -16,6 +16,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Agent } from '../agent/agent.js';
+import { getOpenAiLangChainClientOptions } from '../utils/codex-auth.js';
 import { EvalApp, type EvalProgressEvent } from './components/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -164,7 +165,7 @@ const EvaluatorOutputSchema = z.object({
 
 const llm = new ChatOpenAI({
   model: 'gpt-5.4',
-  apiKey: process.env.OPENAI_API_KEY,
+  ...getOpenAiLangChainClientOptions(),
 });
 
 const structuredLlm = llm.withStructuredOutput(EvaluatorOutputSchema);
