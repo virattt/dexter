@@ -9,8 +9,8 @@ import type { AgentConfig, AgentEvent, ApprovalDecision } from '../agent/types.j
 function createController(onChange?: () => void) {
   let changeCount = 0;
   const controller = new AgentRunnerController(
-    { model: 'gpt-5.4', modelProvider: 'openai', maxIterations: 10 },
-    new InMemoryChatHistory('gpt-5.4'),
+    { model: 'gpt-5.5', modelProvider: 'openai', maxIterations: 10 },
+    new InMemoryChatHistory('gpt-5.5'),
     () => {
       changeCount++;
       onChange?.();
