@@ -111,10 +111,7 @@ export class SearchSelectionController {
       return;
     }
 
-    const providerId = this.pendingProviderValue;
-    const displayName = getSearchProviderDisplayName(providerId);
-    this.commitPreference(providerId);
-    this.onError(`API key saved. ${displayName} is now active.`);
+    this.commitPreference(this.pendingProviderValue);
   }
 
   private commitPreference(providerId: SearchProviderId) {
