@@ -1,6 +1,6 @@
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { createGetFinancials, createGetMarketData, createReadFilings, createScreenStocks } from './finance/index.js';
-import { exaSearch, perplexitySearch, tavilySearch, WEB_SEARCH_DESCRIPTION, xSearchTool, X_SEARCH_DESCRIPTION } from './search/index.js';
+import { exaSearch, perplexitySearch, tavilySearch, langSearchTool, WEB_SEARCH_DESCRIPTION, xSearchTool, X_SEARCH_DESCRIPTION } from './search/index.js';
 import { createWebSearchTool, type WebSearchProvider } from './search/web-search.js';
 import { getSetting } from '../utils/config.js';
 import type { SearchProviderId } from '../utils/env.js';
@@ -155,6 +155,9 @@ export function getToolRegistry(model: string): RegisteredTool[] {
   }
   if (process.env.TAVILY_API_KEY) {
     allWebSearchProviders.push({ id: 'tavily', name: 'Tavily', tool: tavilySearch });
+  }
+  if (process.env.LANGSEARCH_API_KEY) {
+    allWebSearchProviders.push({ id: 'langsearch', name: 'LangSearch', tool: langSearchTool });
   }
 
   if (allWebSearchProviders.length > 0) {
