@@ -52,10 +52,10 @@ async function callLangSearch(query: string): Promise<LangSearchResponse> {
   return response.json() as Promise<LangSearchResponse>;
 }
 
-export const langSearchTool = new DynamicStructuredTool({
+export const langSearch = new DynamicStructuredTool({
   name: 'web_search',
   description:
-    'Search the web for current information on any topic. Returns relevant search results with URLs and content summaries.',
+    'Search the web for current information on any topic. Returns relevant search results with URLs and content snippets.',
   schema: z.object({
     query: z.string().describe('The search query to look up on the web'),
   }),
