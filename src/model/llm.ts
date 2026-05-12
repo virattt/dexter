@@ -14,6 +14,7 @@ import type { TokenUsage } from '@/agent/types';
 import { logger } from '@/utils';
 import { classifyError, isNonRetryableError } from '@/utils/errors';
 import { resolveProvider, getProviderById } from '@/providers';
+import { isUsableApiKeyValue } from '@/utils/env';
 
 export const DEFAULT_PROVIDER = 'openai';
 export const DEFAULT_MODEL = 'gpt-5.5';
@@ -58,10 +59,12 @@ type ModelFactory = (name: string, opts: ModelOpts) => BaseChatModel;
 
 function getApiKey(envVar: string): string {
   const apiKey = process.env[envVar];
-  if (!apiKey) {
-    throw new Error(`[LLM] ${envVar} not found in environment variables`);
+  if (!isUsableApiKeyValue(apiKey)) {
+    throw new Error(
+      `[LLM] ${envVar} is not set. Set ${envVar} or use /model to select a configured provider.`,
+    );
   }
-  return apiKey;
+  return apiKey.trim();
 }
 
 // Factories keyed by provider id — prefix routing is handled by resolveProvider()
