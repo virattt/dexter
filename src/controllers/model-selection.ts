@@ -6,10 +6,11 @@ import {
 } from '../utils/env.js';
 import {
   getDefaultModelForProvider,
-  getModelsForProvider,
   type Model,
 } from '../utils/model.js';
 import { getOllamaModels } from '../utils/ollama.js';
+import { getOpenRouterModels, isCustomModelOption } from '../utils/openrouter.js';
+import { fetchProviderModels } from '../utils/provider-models.js';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from '../model/llm.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 
@@ -95,8 +96,9 @@ export class ModelSelectionController {
 
     this.pendingProviderValue = providerId;
     if (providerId === 'openrouter') {
-      this.pendingModelsValue = [];
-      this.appStateValue = 'model_input';
+      const models = await getOpenRouterModels();
+      this.pendingModelsValue = models;
+      this.appStateValue = models.length > 0 ? 'model_select' : 'model_input';
       this.emitChange();
       return;
     }
@@ -109,7 +111,8 @@ export class ModelSelectionController {
       return;
     }
 
-    this.pendingModelsValue = getModelsForProvider(providerId);
+    const models = await fetchProviderModels(providerId);
+    this.pendingModelsValue = models;
     this.appStateValue = 'model_select';
     this.emitChange();
   }
@@ -121,6 +124,23 @@ export class ModelSelectionController {
       this.pendingSelectedModelId = null;
       this.appStateValue = 'provider_select';
       this.emitChange();
+      return;
+    }
+
+    if (this.pendingProviderValue === 'openrouter') {
+      if (isCustomModelOption(modelId)) {
+        this.pendingModelsValue = [];
+        this.appStateValue = 'model_input';
+        this.emitChange();
+        return;
+      }
+      if (checkApiKeyExistsForProvider('openrouter')) {
+        this.completeModelSwitch('openrouter', modelId);
+      } else {
+        this.pendingSelectedModelId = modelId;
+        this.appStateValue = 'api_key_confirm';
+        this.emitChange();
+      }
       return;
     }
 
