@@ -5,6 +5,7 @@ export { getFinancialSegments } from './segments.js';
 export { getStockPrice, getStockPrices, getStockTickers, STOCK_PRICE_DESCRIPTION } from './stock-price.js';
 export { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
 export { getInsiderTrades } from './insider_trades.js';
+export { getInstitutionalHoldings, getInstitutionalInvestors } from './institutional_holdings.js';
 export { getEarnings } from './earnings.js';
 export { createGetFinancials } from './get-financials.js';
 export { createGetMarketData } from './get-market-data.js';
