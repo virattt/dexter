@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{{ticker}} · {{direction}} · Investment Memo</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --ink-soft: #4a4a4a;
+    --ink-mute: #7a7a7a;
+    --paper: #fafaf7;
+    --rule: #d8d4c8;
+    --rule-soft: #ece8dc;
+    --pos: #0a4d2e;
+    --neg: #7a1f1f;
+    --accent: #1a1a1a;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: Charter, "Source Serif Pro", "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-size: 11.5pt;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .page {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 40px 56px 64px;
+  }
+
+  /* Header strip */
+  .header {
+    border-top: 2px solid var(--ink);
+    border-bottom: 1px solid var(--ink);
+    padding: 14px 0 12px;
+    margin-bottom: 22px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: end;
+    font-family: -apple-system, "Helvetica Neue", Inter, "Segoe UI", sans-serif;
+  }
+  .header-left .ticker {
+    font-size: 28pt;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+  .header-left .company {
+    font-size: 10pt;
+    color: var(--ink-soft);
+    margin-top: 4px;
+    text-transform: none;
+    letter-spacing: 0.01em;
+  }
+  .header-right {
+    text-align: right;
+    font-size: 9pt;
+  }
+  .header-right .label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-mute);
+    font-size: 7.5pt;
+    margin-right: 6px;
+  }
+  .header-right div { margin-top: 3px; }
+
+  /* Tag row */
+  .tags {
+    display: flex;
+    gap: 0;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 14px;
+    font-family: -apple-system, "Helvetica Neue", Inter, sans-serif;
+    font-size: 9pt;
+  }
+  .tag {
+    flex: 1;
+    padding: 0 14px;
+    border-right: 1px solid var(--rule);
+  }
+  .tag:first-child { padding-left: 0; }
+  .tag:last-child { border-right: none; padding-right: 0; }
+  .tag .label {
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-mute);
+    font-size: 7.5pt;
+    margin-bottom: 3px;
+  }
+  .tag .value {
+    font-weight: 600;
+    font-size: 11pt;
+    color: var(--ink);
+  }
+  .tag .value.pos { color: var(--pos); }
+  .tag .value.neg { color: var(--neg); }
+
+  /* Section */
+  section { margin-bottom: 22px; }
+  h2 {
+    font-family: -apple-system, "Helvetica Neue", Inter, sans-serif;
+    font-size: 9pt;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink);
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 4px;
+    margin: 0 0 10px;
+  }
+
+  p { margin: 0 0 9px; }
+  p:last-child { margin-bottom: 0; }
+
+  /* Variant view callout */
+  .variant {
+    border-left: 3px solid var(--ink);
+    padding: 4px 0 4px 18px;
+    margin: 0;
+    font-style: italic;
+    font-size: 12pt;
+    line-height: 1.55;
+  }
+
+  /* Thesis list */
+  ol.thesis {
+    margin: 0;
+    padding-left: 22px;
+  }
+  ol.thesis li {
+    margin-bottom: 10px;
+    padding-left: 4px;
+  }
+  ol.thesis li:last-child { margin-bottom: 0; }
+  ol.thesis li strong { font-weight: 700; }
+  ol.thesis li em {
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: -apple-system, "Helvetica Neue", Inter, sans-serif;
+    font-size: 9.5pt;
+    margin: 0;
+  }
+  table th,
+  table td {
+    padding: 6px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+  }
+  table th {
+    font-weight: 600;
+    color: var(--ink);
+    border-bottom: 1px solid var(--ink);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 8pt;
+  }
+  table.scenarios th:not(:first-child),
+  table.scenarios td:not(:first-child) {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  table.scenarios td:first-child {
+    color: var(--ink-soft);
+    font-size: 8.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  table.scenarios tr.targets td { font-weight: 700; }
+  table.scenarios tr.returns td { font-weight: 700; }
+  table.scenarios .pos { color: var(--pos); }
+  table.scenarios .neg { color: var(--neg); }
+
+  table.catalysts th:nth-child(2),
+  table.catalysts td:nth-child(2) {
+    white-space: nowrap;
+    color: var(--ink-soft);
+  }
+
+  /* Scenario summary line */
+  .scenario-summary {
+    margin-top: 8px;
+    font-family: -apple-system, "Helvetica Neue", Inter, sans-serif;
+    font-size: 9.5pt;
+    color: var(--ink-soft);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .scenario-summary strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* Scenario narratives */
+  .narratives {
+    margin-top: 14px;
+  }
+  .narratives .case {
+    margin-bottom: 10px;
+  }
+  .narratives .case:last-child { margin-bottom: 0; }
+  .narratives .case-label {
+    font-family: -apple-system, "Helvetica Neue", Inter, sans-serif;
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+    color: var(--ink);
+    margin-right: 6px;
+  }
+  .narratives .case p {
+    display: inline;
+    margin: 0;
+  }
+
+  /* Two-column for position + monitoring */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+  }
+  .two-col ol { padding-left: 20px; margin: 0; }
+  .two-col ol li { margin-bottom: 4px; }
+
+  /* Footer */
+  footer {
+    margin-top: 36px;
+    padding-top: 10px;
+    border-top: 1px solid var(--rule);
+    font-family: -apple-system, "Helvetica Neue", Inter, sans-serif;
+    font-size: 7.5pt;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* Print */
+  @media print {
+    html, body {
+      background: white;
+      font-size: 10pt;
+    }
+    .page {
+      padding: 28px 32px;
+      max-width: none;
+    }
+    section { page-break-inside: avoid; }
+    h2 { page-break-after: avoid; }
+    table { page-break-inside: avoid; }
+    @page { margin: 0.5in; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div class="header-left">
+      <div class="ticker">{{ticker}}</div>
+      <div class="company">{{company_name}}</div>
+    </div>
+    <div class="header-right">
+      <div><span class="label">As of</span>{{date}}</div>
+      <div><span class="label">Last</span>${{price_current}}</div>
+    </div>
+  </div>
+
+  <div class="tags">
+    <div class="tag">
+      <span class="label">Direction</span>
+      <span class="value">{{direction}}</span>
+    </div>
+    <div class="tag">
+      <span class="label">Target</span>
+      <span class="value">${{price_target_base}}</span>
+    </div>
+    <div class="tag">
+      <span class="label">Return</span>
+      <span class="value pos">{{upside_pct}}</span>
+    </div>
+    <div class="tag">
+      <span class="label">Asymmetry</span>
+      <span class="value">{{asymmetry}}</span>
+    </div>
+    <div class="tag">
+      <span class="label">Prob-wtd</span>
+      <span class="value">{{prob_weighted_return}}</span>
+    </div>
+    <div class="tag">
+      <span class="label">Horizon</span>
+      <span class="value">{{horizon}}</span>
+    </div>
+    <div class="tag">
+      <span class="label">Conviction</span>
+      <span class="value">{{conviction}}</span>
+    </div>
+  </div>
+
+  <section>
+    <h2>Variant View</h2>
+    <p class="variant">{{variant_view}}</p>
+  </section>
+
+  <section>
+    <h2>Thesis</h2>
+    <ol class="thesis">
+      {{thesis_bullets}}
+    </ol>
+  </section>
+
+  <section>
+    <h2>Business</h2>
+    <p>{{business_snapshot}}</p>
+  </section>
+
+  <section>
+    <h2>What's Priced In</h2>
+    <p>{{whats_priced_in}}</p>
+  </section>
+
+  <section>
+    <h2>Scenarios</h2>
+    {{scenario_table}}
+    <div class="scenario-summary">
+      Prob-weighted return <strong>{{prob_weighted_return}}</strong> · Upside / downside <strong>{{asymmetry}}</strong>
+    </div>
+    <div class="narratives">
+      <div class="case">
+        <span class="case-label">Bull —</span>
+        <p>{{bull_narrative}}</p>
+      </div>
+      <div class="case">
+        <span class="case-label">Base —</span>
+        <p>{{base_narrative}}</p>
+      </div>
+      <div class="case">
+        <span class="case-label">Bear —</span>
+        <p>{{bear_narrative}}</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Catalysts</h2>
+    {{catalysts_table}}
+  </section>
+
+  <section>
+    <h2>Risks &amp; Tripwires</h2>
+    {{risks_table}}
+  </section>
+
+  <section class="two-col">
+    <div>
+      <h2>Position Management</h2>
+      <p>{{position_management}}</p>
+    </div>
+    <div>
+      <h2>Monitoring KPIs</h2>
+      <ol>
+        {{monitoring_kpis}}
+      </ol>
+    </div>
+  </section>
+
+  <footer>
+    <span>{{ticker}} · {{direction}} · {{date}}</span>
+    <span>{{analyst}}</span>
+  </footer>
+
+</div>
+</body>
+</html>
