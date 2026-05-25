@@ -1,21 +1,11 @@
 import { Container, Text } from '@mariozechner/pi-tui';
 import { theme } from '../../theme.js';
+import { truncateAtWord } from '../../utils/format.js';
 
 export interface EvalResult {
   question: string;
   score: number;
   comment: string;
-}
-
-function truncateAtWord(str: string, maxLength: number): string {
-  if (str.length <= maxLength) {
-    return str;
-  }
-  const lastSpace = str.lastIndexOf(' ', maxLength);
-  if (lastSpace > maxLength * 0.5) {
-    return `${str.slice(0, lastSpace)}...`;
-  }
-  return `${str.slice(0, maxLength)}...`;
 }
 
 export class EvalRecentResults extends Container {

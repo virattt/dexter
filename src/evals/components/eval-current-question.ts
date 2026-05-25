@@ -1,16 +1,6 @@
 import { Container, Loader, type TUI } from '@mariozechner/pi-tui';
 import { theme } from '../../theme.js';
-
-function truncateAtWord(str: string, maxLength: number): string {
-  if (str.length <= maxLength) {
-    return str;
-  }
-  const lastSpace = str.lastIndexOf(' ', maxLength);
-  if (lastSpace > maxLength * 0.5) {
-    return `${str.slice(0, lastSpace)}...`;
-  }
-  return `${str.slice(0, maxLength)}...`;
-}
+import { truncateAtWord } from '../../utils/format.js';
 
 export class EvalCurrentQuestion extends Container {
   private readonly tui: TUI;

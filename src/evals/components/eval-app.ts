@@ -1,5 +1,6 @@
 import { Container, Spacer, Text, type TUI } from '@mariozechner/pi-tui';
 import { theme } from '../../theme.js';
+import { truncateEnd } from '../../utils/format.js';
 import { EvalCurrentQuestion } from './eval-current-question.js';
 import { EvalProgress } from './eval-progress.js';
 import { EvalRecentResults, type EvalResult } from './eval-recent-results.js';
@@ -192,25 +193,18 @@ export class EvalApp extends Container {
       const iconColor = result.score === 1 ? theme.success : theme.error;
       this.addChild(
         new Text(
-          `${iconColor(icon)} ${theme.muted(`[${result.score}]`)} ${this.truncate(result.question, 65)}`,
+          `${iconColor(icon)} ${theme.muted(`[${result.score}]`)} ${truncateEnd(result.question, 65)}`,
           0,
           0,
         ),
       );
       if (result.comment && result.score !== 1) {
-        this.addChild(new Text(`    ${theme.muted(this.truncate(result.comment, 80))}`, 0, 0));
+        this.addChild(new Text(`    ${theme.muted(truncateEnd(result.comment, 80))}`, 0, 0));
       }
     }
 
     this.addChild(new Spacer(1));
     this.addChild(new Text('─'.repeat(70), 0, 0));
     this.addChild(new Text(theme.muted('View full results: https://smith.langchain.com'), 0, 0));
-  }
-
-  private truncate(value: string, maxLength: number): string {
-    if (value.length <= maxLength) {
-      return value;
-    }
-    return `${value.slice(0, maxLength)}...`;
   }
 }

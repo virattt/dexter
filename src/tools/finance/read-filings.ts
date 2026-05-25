@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { callLlm } from '../../model/llm.js';
 import { formatToolResult } from '../types.js';
 import { getCurrentDate } from '../../agent/prompts.js';
+import { escapeTemplateVars } from '../../utils/format.js';
 import { getFilings, get10KFilingItems, get10QFilingItems, get8KFilingItems, getFilingItemTypes, type FilingItemTypes } from './filings.js';
 import { withTimeout, SUB_TOOL_TIMEOUT_MS } from './utils.js';
 
@@ -38,11 +39,6 @@ Intelligent meta-tool for reading SEC filing content. Takes a natural language q
 - API calls can be slow - tool limits to 3 filings max per query
 - Intelligently retrieves specific sections when query targets particular content, full filing otherwise
 `.trim();
-
-// Escape curly braces for LangChain template interpolation
-function escapeTemplateVars(str: string): string {
-  return str.replace(/\{/g, '{{').replace(/\}/g, '}}');
-}
 
 const FilingTypeSchema = z.enum(['10-K', '10-Q', '8-K']);
 
