@@ -216,7 +216,42 @@ export function formatInstitutionalHoldings(data: unknown, args?: Rec): string {
   return lines.join('\n');
 }
 
-export function formatEarnings(data: unknown): string {
+export function formatEarnings(data: unknown, args?: Rec): string {
+  if (Array.isArray(data)) {
+    if (data.length === 0) return 'No earnings data available.';
+
+    const rows = data as Rec[];
+    const ticker = (args?.ticker as string | undefined)?.toUpperCase();
+    const cell = (value: unknown) => String(value ?? '—').replace(/\|/g, '\\|');
+    const title = ticker
+      ? `${ticker} Earnings`
+      : (rows.length === 1
+        ? `${String(rows[0].ticker ?? '').toUpperCase()} Earnings`
+        : 'Latest Earnings Feed');
+    const lines = [title, ''];
+    lines.push('| Ticker | Period | Fiscal | Source | Filed | Revenue | EPS | Signals |');
+    lines.push('|--------|--------|--------|--------|-------|---------|-----|---------|');
+
+    for (const row of rows.slice(0, 15)) {
+      const figures = ((row.quarterly ?? row.annual) && typeof (row.quarterly ?? row.annual) === 'object')
+        ? (row.quarterly ?? row.annual) as Rec
+        : {};
+      const eps = figures.earnings_per_share ?? figures.eps;
+      const signals = Array.isArray(row.signals)
+        ? row.signals
+          .slice(0, 2)
+          .map((signal) => signal && typeof signal === 'object' ? (signal as Rec).headline : null)
+          .filter(Boolean)
+          .join('; ')
+        : '';
+
+      lines.push(`| ${cell(String(row.ticker ?? '—').toUpperCase())} | ${cell(fmtDate(row.report_period))} | ${cell(row.fiscal_period)} | ${cell(row.source_type)} | ${cell(fmtDate(row.filing_date))} | ${cell(fmtNum(figures.revenue))} | ${cell(fmtPrice(eps))} | ${cell(signals || '—')} |`);
+    }
+
+    if (rows.length > 15) lines.push('', `(showing 15 of ${rows.length})`);
+    return lines.join('\n');
+  }
+
   const d = (data && typeof data === 'object') ? data as Rec : {};
   if (Object.keys(d).length === 0) return 'No earnings data available.';
   // Flat shape: each entry IS one filing. data.earnings[0] (already unwrapped upstream)

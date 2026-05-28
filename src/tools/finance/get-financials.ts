@@ -22,7 +22,7 @@ Intelligent meta-tool for retrieving company financial data. Takes a natural lan
 - Financial metrics and key ratios (P/E ratio, market cap, EPS, dividend yield, enterprise value, ROE, ROA, margins)
 - Historical metrics and trend analysis across multiple periods
 - Financial segment breakdowns (revenue, margins, etc. by product / geography)
-- Earnings data (EPS/revenue beat-miss, earnings surprises)
+- Earnings data (EPS/revenue beat-miss, earnings surprises, latest earnings feed)
 - Multi-company comparisons (pass the full query, it handles routing internally)
 
 ## When NOT to Use
@@ -98,7 +98,8 @@ Given a user's natural language query about financial data, call the appropriate
    - For latest financial metrics snapshot (P/E, margins, ROE, EPS, growth rates) → get_financial_metrics_snapshot
    - For historical P/E ratio, historical market cap, valuation metrics over time → get_key_ratios
    - For revenue, earnings, profitability → get_income_statements
-   - For latest earnings release snapshot, EPS/revenue beat-miss, earnings surprises → get_earnings
+   - For latest earnings release snapshot, EPS/revenue beat-miss, earnings surprises, or latest earnings feed → get_earnings
+   - For "latest earnings", "recent earnings", or "earnings feed" across the market, call get_earnings without a ticker
    - For debt, assets, equity → get_balance_sheets
    - For cash flow, free cash flow → get_cash_flow_statements
    - For comprehensive analysis → get_all_financial_statements
@@ -132,7 +133,7 @@ export function createGetFinancials(model: string): DynamicStructuredTool {
 - Company financials (income statements, balance sheets, cash flow)
 - Financial metrics and key ratios (P/E ratio, market cap, EPS, dividend yield, ROE, margins)
 - Historical metrics and trend analysis
-- Earnings data and financial segments`,
+- Earnings data, latest earnings feed, and financial segments`,
     schema: GetFinancialsInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
       const onProgress = config?.metadata?.onProgress as ((msg: string) => void) | undefined;
