@@ -80,6 +80,15 @@ export class MemoryStore {
     return true;
   }
 
+  /**
+   * Whether a bare filename is one of the markdown files this store manages
+   * (MEMORY.md or a daily YYYY-MM-DD.md). Used to scope directory watching so
+   * it ignores the SQLite index and other non-memory files in the same dir.
+   */
+  isManagedMemoryFile(name: string): boolean {
+    return name === LONG_TERM_FILE || DAILY_FILE_RE.test(name);
+  }
+
   async listMemoryFiles(): Promise<string[]> {
     await this.ensureDirectoryExists();
     const entries = await readdir(this.getMemoryDir(), { withFileTypes: true });

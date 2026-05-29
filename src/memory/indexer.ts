@@ -41,7 +41,16 @@ export class MemoryIndexer {
     }
 
     // Watch memory directory for changes to MEMORY.md and daily files.
-    this.watcher = watch(this.store.getMemoryDir(), { recursive: false }, () => {
+    //
+    // Only react to managed markdown files. The SQLite index (index.sqlite and
+    // its -wal/-shm/-journal sidecars) lives in this same directory, and every
+    // sync writes to it — reacting to those writes would re-trigger a sync,
+    // creating a self-perpetuating watch → sync → write → watch loop that blocks
+    // the event loop on a fixed cadence.
+    this.watcher = watch(this.store.getMemoryDir(), { recursive: false }, (_event, filename) => {
+      if (filename && !this.store.isManagedMemoryFile(filename.toString())) {
+        return;
+      }
       this.scheduleDebouncedSync();
     });
 
