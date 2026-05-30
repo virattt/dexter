@@ -1,4 +1,4 @@
-import { Container, Text } from '@mariozechner/pi-tui';
+import { Container, Text, type Select } from '@mariozechner/pi-tui';
 import type { ApprovalDecision } from '../agent/types.js';
 import { createApprovalSelector } from './select-list.js';
 import { theme } from '../theme.js';
@@ -11,7 +11,7 @@ function formatToolLabel(tool: string): string {
 }
 
 export class ApprovalPromptComponent extends Container {
-  readonly selector: any;
+  readonly selector: Select;
   onSelect?: (decision: ApprovalDecision) => void;
 
   constructor(tool: string, args: Record<string, unknown>) {
