@@ -109,6 +109,7 @@ cp env.example .env
 
 ## 🚀 How to Run
 
+### With Bun
 Run Dexter in interactive mode:
 ```bash
 bun start
@@ -118,6 +119,13 @@ Or with watch mode for development:
 ```bash
 bun dev
 ```
+### With Docker
+
+```bash
+docker compose run dexter
+```
+
+
 
 ## 📊 How to Evaluate
 
