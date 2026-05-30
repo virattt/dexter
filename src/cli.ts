@@ -210,6 +210,7 @@ export async function runCli() {
   let lastRenderedAnswer = false;
   let lastRenderedQueryId: string | null = null;
   const finalizedToolIds = new Set<string>();
+  const appliedToolProgress = new Map<string, string>();
   let lastPendingApproval: { tool: string; args: Record<string, unknown> } | null = null;
 
   agentRunner = new AgentRunnerController(
@@ -248,6 +249,20 @@ export async function runCli() {
                 component.setError(display.endEvent.error);
               }
             }
+          }
+        }
+
+        // Apply live progress to already-rendered, still-running tools. Guarded
+        // by change-detection so each unique message triggers exactly one update.
+        for (const display of lastItem.events) {
+          if (
+            display.event.type === 'tool_start' &&
+            !display.completed &&
+            display.progressMessage &&
+            appliedToolProgress.get(display.id) !== display.progressMessage
+          ) {
+            appliedToolProgress.set(display.id, display.progressMessage);
+            chatLog.getToolById(display.id)?.setActive(display.progressMessage);
           }
         }
 

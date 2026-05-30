@@ -234,14 +234,16 @@ export class AgentRunnerController {
         }));
         break;
       }
-      case 'tool_progress':
+      case 'tool_progress': {
+        const progressToolId = event.toolCallId ?? this.getLastItem()?.activeToolId;
         this.updateLastItem((last) => ({
           ...last,
           events: last.events.map((entry) =>
-            entry.id === last.activeToolId ? { ...entry, progressMessage: event.message } : entry,
+            entry.id === progressToolId ? { ...entry, progressMessage: event.message } : entry,
           ),
         }));
         break;
+      }
       case 'tool_end': {
         const endToolId = event.toolCallId ?? this.getLastItem()?.activeToolId;
         this.updateLastItem((last) => ({

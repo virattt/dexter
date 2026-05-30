@@ -172,7 +172,7 @@ export class AgentToolExecutor {
       );
 
       for await (const message of channel) {
-        yield { type: 'tool_progress', tool: toolName, message } as ToolProgressEvent;
+        yield { type: 'tool_progress', tool: toolName, message, toolCallId } as ToolProgressEvent;
       }
 
       const rawResult = await toolPromise;

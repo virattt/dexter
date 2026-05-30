@@ -71,31 +71,43 @@ export class Agent {
 
   static async create(config: AgentConfig = {}): Promise<Agent> {
     const model = config.model ?? DEFAULT_MODEL;
-    const tools = getTools(model);
+    const allTools = getTools(model);
+    const tools = config.toolAllowlist
+      ? allTools.filter(t => config.toolAllowlist!.includes(t.name))
+      : allTools;
+    // The concurrency map is a name→bool lookup; extra entries are harmless since
+    // toolMap only holds the (possibly filtered) tools above.
     const concurrencyMap = getToolConcurrencyMap(model);
-    const soulContent = await loadSoulDocument();
-    const rulesContent = await loadRulesDocument();
-    let memoryFiles: string[] = [];
-    let memoryContext: string | null = null;
 
-    if (config.memoryEnabled !== false) {
-      const memoryManager = await MemoryManager.get();
-      memoryFiles = await memoryManager.listFiles();
-      const session = await memoryManager.loadSessionContext();
-      if (session.text.trim()) {
-        memoryContext = session.text;
+    let systemPrompt: string;
+    if (config.systemPromptOverride) {
+      // Self-contained worker prompt: skip soul, rules, and memory context.
+      systemPrompt = config.systemPromptOverride;
+    } else {
+      const soulContent = await loadSoulDocument();
+      const rulesContent = await loadRulesDocument();
+      let memoryFiles: string[] = [];
+      let memoryContext: string | null = null;
+
+      if (config.memoryEnabled !== false) {
+        const memoryManager = await MemoryManager.get();
+        memoryFiles = await memoryManager.listFiles();
+        const session = await memoryManager.loadSessionContext();
+        if (session.text.trim()) {
+          memoryContext = session.text;
+        }
       }
-    }
 
-    const systemPrompt = buildSystemPrompt(
-      model,
-      soulContent,
-      config.channel,
-      config.groupContext,
-      memoryFiles,
-      memoryContext,
-      rulesContent,
-    );
+      systemPrompt = buildSystemPrompt(
+        model,
+        soulContent,
+        config.channel,
+        config.groupContext,
+        memoryFiles,
+        memoryContext,
+        rulesContent,
+      );
+    }
     return new Agent(config, tools, systemPrompt, concurrencyMap);
   }
 
