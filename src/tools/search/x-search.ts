@@ -44,17 +44,28 @@ async function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function xApiGet(url: string): Promise<RawXResponse> {
+async function xApiGet(url: string, retries = 1): Promise<RawXResponse> {
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${getBearerToken()}` },
   });
 
   if (res.status === 429) {
+    // Honour Retry-After header if present, otherwise use X-Rate-Limit-Reset
+    const retryAfter = res.headers.get('retry-after');
     const reset = res.headers.get('x-rate-limit-reset');
-    const waitSec = reset
-      ? Math.max(parseInt(reset) - Math.floor(Date.now() / 1000), 1)
-      : 60;
-    throw new Error(`X API rate limited. Resets in ${waitSec}s`);
+    let waitSec: number;
+    if (retryAfter) {
+      waitSec = parseInt(retryAfter, 10);
+    } else if (reset) {
+      waitSec = Math.max(parseInt(reset) - Math.floor(Date.now() / 1000), 1);
+    } else {
+      waitSec = 60;
+    }
+    if (retries > 0) {
+      await sleep(waitSec * 1000);
+      return xApiGet(url, retries - 1);
+    }
+    throw new Error(`X API rate limited after retry. Resets in ${waitSec}s`);
   }
 
   if (!res.ok) {
