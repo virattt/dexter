@@ -8,8 +8,8 @@ export interface ProviderDef {
   id: string;
   /** Human-readable name (e.g., 'Anthropic') */
   displayName: string;
-  /** Model name prefix used for routing (e.g., 'claude-'). Empty string for default (OpenAI). */
-  modelPrefix: string;
+  /** Model name prefix(es) used for routing (e.g., 'claude-'). Empty string for default (OpenAI). */
+  modelPrefix: string | string[];
   /** Environment variable name for API key. Omit for local providers (e.g., Ollama). */
   apiKeyEnvVar?: string;
   /** Fast model variant for lightweight tasks like summarization. */
@@ -38,7 +38,7 @@ export const PROVIDERS: ProviderDef[] = [
   {
     id: 'google',
     displayName: 'Google',
-    modelPrefix: 'gemini-',
+    modelPrefix: ['gemini-', 'gemma-'],
     apiKeyEnvVar: 'GOOGLE_API_KEY',
     fastModel: 'gemini-3-flash-preview',
     contextWindow: 1_000_000,
@@ -85,13 +85,18 @@ export const PROVIDERS: ProviderDef[] = [
 
 const defaultProvider = PROVIDERS.find((p) => p.id === 'openai')!;
 
+function modelMatchesPrefix(modelName: string, modelPrefix: string | string[]): boolean {
+  const prefixes = Array.isArray(modelPrefix) ? modelPrefix : [modelPrefix];
+  return prefixes.some((prefix) => prefix && modelName.startsWith(prefix));
+}
+
 /**
  * Resolve the provider for a given model name based on its prefix.
  * Falls back to OpenAI when no prefix matches.
  */
 export function resolveProvider(modelName: string): ProviderDef {
   return (
-    PROVIDERS.find((p) => p.modelPrefix && modelName.startsWith(p.modelPrefix)) ??
+    PROVIDERS.find((p) => modelMatchesPrefix(modelName, p.modelPrefix)) ??
     defaultProvider
   );
 }

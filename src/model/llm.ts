@@ -8,6 +8,7 @@ import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { Runnable } from '@langchain/core/runnables';
+import { toJsonSchema } from '@langchain/core/utils/json_schema';
 import { z } from 'zod';
 import { DEFAULT_SYSTEM_PROMPT } from '@/agent/prompts';
 import type { TokenUsage } from '@/agent/types';
@@ -212,6 +213,170 @@ function buildAnthropicMessages(systemPrompt: string, userPrompt: string) {
   ];
 }
 
+type JsonSchemaObject = Record<string, unknown>;
+
+function isJsonSchemaObject(value: unknown): value is JsonSchemaObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
+function mergeUnique<T>(left: T[], right: T[]): T[] {
+  return [...new Set([...left, ...right])];
+}
+
+function inferJsonSchemaType(value: unknown): string | undefined {
+  if (typeof value === 'string') return 'string';
+  if (typeof value === 'number') return 'number';
+  if (typeof value === 'boolean') return 'boolean';
+  if (Array.isArray(value)) return 'array';
+  if (isJsonSchemaObject(value)) return 'object';
+  return undefined;
+}
+
+function mergeGeminiSchemaObjects(left: JsonSchemaObject, right: JsonSchemaObject): JsonSchemaObject {
+  const merged: JsonSchemaObject = { ...left, ...right };
+
+  if (isJsonSchemaObject(left.properties) || isJsonSchemaObject(right.properties)) {
+    const properties: JsonSchemaObject = { ...(left.properties as JsonSchemaObject | undefined) };
+    for (const [key, value] of Object.entries((right.properties as JsonSchemaObject | undefined) ?? {})) {
+      properties[key] = isJsonSchemaObject(properties[key]) && isJsonSchemaObject(value)
+        ? mergeGeminiSchemaObjects(properties[key], value)
+        : value;
+    }
+    merged.properties = properties;
+  }
+
+  const required = mergeUnique(asStringArray(left.required), asStringArray(right.required));
+  if (required.length > 0) merged.required = required;
+
+  const enumValues = mergeUnique(
+    Array.isArray(left.enum) ? left.enum : [],
+    Array.isArray(right.enum) ? right.enum : [],
+  );
+  if (enumValues.length > 0) merged.enum = enumValues;
+
+  if (left.type !== right.type && left.type !== undefined && right.type !== undefined) {
+    delete merged.type;
+  }
+
+  return merged;
+}
+
+function mergeGeminiAlternatives(alternatives: unknown[], requireAll: boolean): JsonSchemaObject {
+  const schemas = alternatives.filter(isJsonSchemaObject);
+  if (schemas.length === 0) return {};
+
+  const merged = schemas.reduce<JsonSchemaObject>((acc, schema) => mergeGeminiSchemaObjects(acc, schema), {});
+  const alternativeTypes = mergeUnique(
+    [],
+    schemas.map((schema) => schema.type).filter((type): type is string => typeof type === 'string'),
+  );
+  if (alternativeTypes.length === 1) {
+    merged.type = alternativeTypes[0];
+  } else {
+    delete merged.type;
+    delete merged.items;
+  }
+
+  if (schemas.every((schema) => schema.type === 'object' || isJsonSchemaObject(schema.properties))) {
+    merged.type = 'object';
+  }
+
+  const requiredSets = schemas.map((schema) => asStringArray(schema.required));
+  const required = requireAll
+    ? requiredSets.flat()
+    : requiredSets.reduce<string[]>((common, current, index) => (
+      index === 0 ? current : common.filter((key) => current.includes(key))
+    ), []);
+
+  if (required.length > 0) {
+    merged.required = mergeUnique([], required);
+  } else {
+    delete merged.required;
+  }
+
+  return merged;
+}
+
+function sanitizeSchemaForGemini(schema: unknown): unknown {
+  if (Array.isArray(schema)) {
+    return schema.map(sanitizeSchemaForGemini);
+  }
+  if (!isJsonSchemaObject(schema)) {
+    return schema;
+  }
+
+  const {
+    $schema: _schema,
+    additionalProperties: _additionalProperties,
+    default: _default,
+    strict: _strict,
+    oneOf,
+    anyOf,
+    allOf,
+    const: constValue,
+    ...rest
+  } = schema;
+
+  const sanitized: JsonSchemaObject = {};
+  for (const [key, value] of Object.entries(rest)) {
+    sanitized[key] = sanitizeSchemaForGemini(value);
+  }
+
+  if (constValue !== undefined) {
+    sanitized.enum = mergeUnique(Array.isArray(sanitized.enum) ? sanitized.enum : [], [constValue]);
+    sanitized.type ??= inferJsonSchemaType(constValue);
+  }
+
+  const unionAlternatives = Array.isArray(oneOf) ? oneOf : Array.isArray(anyOf) ? anyOf : undefined;
+  if (unionAlternatives) {
+    return mergeGeminiSchemaObjects(
+      mergeGeminiAlternatives(unionAlternatives.map(sanitizeSchemaForGemini), false),
+      sanitized,
+    );
+  }
+
+  if (Array.isArray(allOf)) {
+    return mergeGeminiSchemaObjects(
+      mergeGeminiAlternatives(allOf.map(sanitizeSchemaForGemini), true),
+      sanitized,
+    );
+  }
+
+  return sanitized;
+}
+
+function prepareToolsForProvider(model: string, tools: StructuredToolInterface[]): unknown[] {
+  const provider = resolveProvider(model);
+  if (provider.id !== 'google') return tools;
+
+  const functionDeclarations = tools.map((tool) => {
+    const parameters = sanitizeSchemaForGemini(toJsonSchema(tool.schema));
+    if (
+      isJsonSchemaObject(parameters)
+      && parameters.type === 'object'
+      && isJsonSchemaObject(parameters.properties)
+      && Object.keys(parameters.properties).length === 0
+    ) {
+      return {
+        name: tool.name,
+        description: tool.description,
+      };
+    }
+
+    return {
+      name: tool.name,
+      description: tool.description,
+      parameters,
+    };
+  });
+
+  return [{ functionDeclarations }];
+}
+
 export async function callLlm(prompt: string, options: CallLlmOptions = {}): Promise<LlmResult> {
   const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools, signal } = options;
   const finalSystemPrompt = systemPrompt || DEFAULT_SYSTEM_PROMPT;
@@ -224,7 +389,7 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
   if (outputSchema) {
     runnable = llm.withStructuredOutput(outputSchema, { strict: false });
   } else if (tools && tools.length > 0 && llm.bindTools) {
-    runnable = llm.bindTools(tools);
+    runnable = llm.bindTools(prepareToolsForProvider(model, tools) as StructuredToolInterface[]);
   }
 
   const invokeOpts = signal ? { signal } : undefined;
@@ -314,7 +479,7 @@ export async function callLlmWithMessages(
   let runnable: Runnable<any, any> = llm;
 
   if (tools && tools.length > 0 && llm.bindTools) {
-    runnable = llm.bindTools(tools);
+    runnable = llm.bindTools(prepareToolsForProvider(model, tools) as StructuredToolInterface[]);
   }
 
   const invokeOpts = signal ? { signal } : undefined;
@@ -357,7 +522,7 @@ export async function* streamLlmWithMessages(
   let runnable: Runnable<any, any> = llm;
 
   if (tools && tools.length > 0 && llm.bindTools) {
-    runnable = llm.bindTools(tools);
+    runnable = llm.bindTools(prepareToolsForProvider(model, tools) as StructuredToolInterface[]);
   }
 
   const invokeOpts = signal ? { signal } : undefined;
