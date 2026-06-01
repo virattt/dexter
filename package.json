@@ -34,7 +34,7 @@
     "dotenv": "^17.3.1",
     "exa-js": "^2.10.1",
     "gray-matter": "^4.0.3",
-    "langsmith": "^0.4.12",
+    "langsmith": "^0.5.19",
     "linkedom": "^0.18.12",
     "playwright": "^1.58.2",
     "qrcode-terminal": "^0.12.0",
@@ -52,5 +52,21 @@
     "ts-jest": "^29.4.6",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "handlebars": "^4.7.9",
+    "protobufjs": "^7.5.5",
+    "minimatch": "^3.1.4",
+    "music-metadata": "^11.12.3",
+    "file-type": "^21.3.2",
+    "brace-expansion": "^1.1.13"
+  },
+  "resolutions": {
+    "handlebars": "^4.7.9",
+    "protobufjs": "^7.5.5",
+    "minimatch": "^3.1.4",
+    "music-metadata": "^11.12.3",
+    "file-type": "^21.3.2",
+    "brace-expansion": "^1.1.13"
   }
 }
