@@ -9,6 +9,7 @@ import { assertOutboundAllowed, sendMessageWhatsApp } from '../gateway/channels/
 import { resolveSessionStorePath, loadSessionStore, type SessionEntry } from '../gateway/sessions/store.js';
 import { cleanMarkdownForWhatsApp } from '../gateway/utils.js';
 import { getSetting } from '../utils/config.js';
+import { resolveInitialModelSelection } from '../utils/model.js';
 import { dexterPath } from '../utils/paths.js';
 import { saveCronStore } from './store.js';
 import { computeNextRunAtMs } from './schedule.js';
@@ -125,8 +126,14 @@ export async function executeCronJob(
   }
 
   // 3. Resolve model
-  const model = job.payload.model ?? (getSetting('modelId', 'gpt-5.5') as string);
-  const modelProvider = job.payload.modelProvider ?? (getSetting('provider', 'openai') as string);
+  const initialModel = resolveInitialModelSelection({
+    savedModel: getSetting('modelId', null) as string | null,
+    savedProvider: getSetting('provider', null) as string | null,
+    defaultModel: 'gpt-5.5',
+    defaultProvider: 'openai',
+  });
+  const model = job.payload.model ?? initialModel.model;
+  const modelProvider = job.payload.modelProvider ?? initialModel.provider;
 
   // 4. Build query
   let query = `[CRON JOB: ${job.name}]\n\n${job.payload.message}`;

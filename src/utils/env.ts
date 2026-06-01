@@ -19,9 +19,14 @@ export function checkApiKeyExistsForProvider(providerId: string): boolean {
   return checkApiKeyExists(apiKeyName);
 }
 
+export function isUsableApiKeyValue(value: string | undefined): value is string {
+  const trimmed = value?.trim();
+  return !!trimmed && !trimmed.toLowerCase().startsWith('your-');
+}
+
 export function checkApiKeyExists(apiKeyName: string): boolean {
   const value = process.env[apiKeyName];
-  if (value && value.trim() && !value.trim().startsWith('your-')) {
+  if (isUsableApiKeyValue(value)) {
     return true;
   }
 
@@ -35,7 +40,7 @@ export function checkApiKeyExists(apiKeyName: string): boolean {
         const [key, ...valueParts] = trimmed.split('=');
         if (key.trim() === apiKeyName) {
           const val = valueParts.join('=').trim();
-          if (val && !val.startsWith('your-')) {
+          if (isUsableApiKeyValue(val)) {
             return true;
           }
         }

@@ -5,8 +5,8 @@ import {
   saveApiKeyForProvider,
 } from '../utils/env.js';
 import {
-  getDefaultModelForProvider,
   getModelsForProvider,
+  resolveInitialModelSelection,
   type Model,
 } from '../utils/model.js';
 import { getOllamaModels } from '../utils/ollama.js';
@@ -46,10 +46,16 @@ export class ModelSelectionController {
   constructor(onError: (message: string) => void, onChange?: ChangeListener) {
     this.onError = onError;
     this.onChange = onChange;
-    this.providerValue = getSetting('provider', DEFAULT_PROVIDER);
+    const savedProvider = getSetting('provider', null) as string | null;
     const savedModel = getSetting('modelId', null) as string | null;
-    this.modelValue =
-      savedModel ?? getDefaultModelForProvider(this.providerValue) ?? DEFAULT_MODEL;
+    const initial = resolveInitialModelSelection({
+      savedProvider,
+      savedModel,
+      defaultProvider: DEFAULT_PROVIDER,
+      defaultModel: DEFAULT_MODEL,
+    });
+    this.providerValue = initial.provider;
+    this.modelValue = initial.model;
     this.chatHistory.setModel(this.modelValue);
   }
 
