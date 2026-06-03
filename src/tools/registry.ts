@@ -5,7 +5,7 @@ import { createWebSearchTool, type WebSearchProvider } from './search/web-search
 import { getSetting } from '../utils/config.js';
 import type { SearchProviderId } from '../utils/env.js';
 import { skillTool, SKILL_TOOL_DESCRIPTION } from './skill.js';
-import { webFetchTool, WEB_FETCH_DESCRIPTION } from './fetch/web-fetch.js';
+import { createWebFetch, WEB_FETCH_DESCRIPTION } from './fetch/web-fetch.js';
 import { browserTool, BROWSER_DESCRIPTION } from './browser/browser.js';
 import { readFileTool, READ_FILE_DESCRIPTION } from './filesystem/read-file.js';
 import { writeFileTool, WRITE_FILE_DESCRIPTION } from './filesystem/write-file.js';
@@ -82,9 +82,9 @@ export function getToolRegistry(model: string): RegisteredTool[] {
     },
     {
       name: 'web_fetch',
-      tool: webFetchTool,
+      tool: createWebFetch(model),
       description: WEB_FETCH_DESCRIPTION,
-      compactDescription: 'Fetch and extract content from a URL as markdown. Use when you need full article text beyond headlines.',
+      compactDescription: 'Fetch a URL and answer a prompt about its content (HTML→markdown, fast-model summarized).',
       concurrencySafe: true,
     },
     {
