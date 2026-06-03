@@ -36,8 +36,8 @@ const DEFAULT_CONTEXT_WINDOW = 128_000;
  * Get the effective context window size for a model, accounting for
  * reserved output tokens.
  */
-export function getEffectiveContextWindow(model: string): number {
-  const provider = resolveProvider(model);
+export function getEffectiveContextWindow(model: string, modelProvider?: string): number {
+  const provider = resolveProvider(model, modelProvider);
   const contextWindow = provider.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
   return contextWindow - MAX_OUTPUT_TOKENS_FOR_SUMMARY;
 }
@@ -47,8 +47,8 @@ export function getEffectiveContextWindow(model: string): number {
  * This is the token count at which compaction should trigger.
  * Formula: effectiveWindow - 13K buffer.
  */
-export function getAutoCompactThreshold(model: string): number {
-  return getEffectiveContextWindow(model) - AUTOCOMPACT_BUFFER_TOKENS;
+export function getAutoCompactThreshold(model: string, modelProvider?: string): number {
+  return getEffectiveContextWindow(model, modelProvider) - AUTOCOMPACT_BUFFER_TOKENS;
 }
 
 // ---------------------------------------------------------------------------

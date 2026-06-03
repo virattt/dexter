@@ -38,6 +38,7 @@ export function shouldRunMemoryFlush(params: {
 
 export async function runMemoryFlush(params: {
   model: string;
+  modelProvider?: string;
   systemPrompt: string;
   query: string;
   toolResults: string;
@@ -55,6 +56,7 @@ ${MEMORY_FLUSH_PROMPT}
 
   const result = await callLlm(prompt, {
     model: params.model,
+    modelProvider: params.modelProvider,
     systemPrompt: params.systemPrompt,
     signal: params.signal,
   });
