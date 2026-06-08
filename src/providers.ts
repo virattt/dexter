@@ -76,6 +76,14 @@ export const PROVIDERS: ProviderDef[] = [
     contextWindow: 128_000,
   },
   {
+    id: 'atlascloud',
+    displayName: 'Atlas Cloud',
+    modelPrefix: 'atlascloud:',
+    apiKeyEnvVar: 'ATLASCLOUD_API_KEY',
+    fastModel: 'atlascloud:deepseek-ai/deepseek-v4-flash',
+    contextWindow: 131_072,
+  },
+  {
     id: 'ollama',
     displayName: 'Ollama',
     modelPrefix: 'ollama:',
