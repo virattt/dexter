@@ -28,7 +28,6 @@
     "@mariozechner/pi-tui": "^0.52.12",
     "@mozilla/readability": "^0.6.0",
     "@whiskeysockets/baileys": "7.0.0-rc.9",
-    "axios": "^1.17.0",
     "better-sqlite3": "^12.8.0",
     "croner": "^9.1.0",
     "diff": "^8.0.4",
@@ -37,10 +36,8 @@
     "gray-matter": "^4.0.3",
     "langsmith": "^0.4.12",
     "linkedom": "^0.18.12",
-    "lru-cache": "^11.5.1",
     "playwright": "^1.58.2",
     "qrcode-terminal": "^0.12.0",
-    "turndown": "^7.2.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -50,7 +47,6 @@
     "@types/bun": "latest",
     "@types/jest": "^29.5.14",
     "@types/qrcode-terminal": "^0.12.2",
-    "@types/turndown": "^5.0.6",
     "babel-jest": "^30.3.0",
     "jest": "^29.7.0",
     "ts-jest": "^29.4.6",
