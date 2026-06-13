@@ -14,6 +14,7 @@ import type {
   ToolStartEvent,
 } from './types.js';
 import type { RunContext } from './run-context.js';
+import { saveApprovedTools } from '../utils/tool-permissions.js';
 
 type ToolExecutionEvent =
   | ToolStartEvent
@@ -137,9 +138,12 @@ export class AgentToolExecutor {
         yield { type: 'tool_denied', tool: toolName, args: toolArgs, toolCallId };
         return;
       }
-      if (decision === 'allow-session') {
+      if (decision === 'allow-session' || decision === 'allow-always') {
         for (const name of TOOLS_REQUIRING_APPROVAL) {
           this.sessionApprovedTools.add(name);
+        }
+        if (decision === 'allow-always') {
+          saveApprovedTools(this.sessionApprovedTools);
         }
       }
     }
