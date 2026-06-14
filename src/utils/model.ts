@@ -11,6 +11,33 @@ interface Provider {
   models: Model[];
 }
 
+/**
+ * 为需要 provider 前缀的模型补齐内部模型 ID，确保底层路由可以识别。
+ */
+function qualifyModelId(providerId: string, modelId: string): string {
+  if (providerId === 'lmstudio' && !modelId.startsWith('lmstudio:')) {
+    return `lmstudio:${modelId}`;
+  }
+  if (providerId === 'ollama' && !modelId.startsWith('ollama:')) {
+    return `ollama:${modelId}`;
+  }
+  if (providerId === 'openrouter' && !modelId.startsWith('openrouter:')) {
+    return `openrouter:${modelId}`;
+  }
+  return modelId;
+}
+
+/**
+ * 读取 LM Studio 在环境变量中配置的默认模型，供本地 provider 直接复用。
+ */
+function getLmStudioConfiguredModel(): Model[] {
+  const modelId = process.env.LM_STUDIO_MODEL?.trim();
+  if (!modelId) {
+    return [];
+  }
+  return [{ id: modelId, displayName: modelId }];
+}
+
 const PROVIDER_MODELS: Record<string, Model[]> = {
   openai: [
     { id: 'gpt-5.5', displayName: 'GPT 5.5' },
@@ -42,6 +69,9 @@ export const PROVIDERS: Provider[] = PROVIDER_DEFS.map((provider) => ({
 }));
 
 export function getModelsForProvider(providerId: string): Model[] {
+  if (providerId === 'lmstudio') {
+    return getLmStudioConfiguredModel();
+  }
   const provider = PROVIDERS.find((entry) => entry.providerId === providerId);
   return provider?.models ?? [];
 }
@@ -52,11 +82,12 @@ export function getModelIdsForProvider(providerId: string): string[] {
 
 export function getDefaultModelForProvider(providerId: string): string | undefined {
   const models = getModelsForProvider(providerId);
-  return models[0]?.id;
+  const modelId = models[0]?.id;
+  return modelId ? qualifyModelId(providerId, modelId) : undefined;
 }
 
 export function getModelDisplayName(modelId: string): string {
-  const normalizedId = modelId.replace(/^(ollama|openrouter):/, '');
+  const normalizedId = modelId.replace(/^(ollama|openrouter|lmstudio):/, '');
 
   for (const provider of PROVIDERS) {
     const model = provider.models.find((entry) => entry.id === normalizedId || entry.id === modelId);

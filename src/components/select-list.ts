@@ -29,6 +29,14 @@ class EmptyModelSelector extends Container {
         new Text(theme.muted('Make sure Ollama is running and you have models downloaded.'), 0, 0),
       );
     }
+    if (providerId === 'lmstudio') {
+      this.addChild(
+        new Text(theme.muted('Make sure LM Studio is running and exposing its OpenAI-compatible API.'), 0, 0),
+      );
+      this.addChild(
+        new Text(theme.muted('You can also preconfigure a default model via LM_STUDIO_MODEL.'), 0, 0),
+      );
+    }
     this.addChild(new Text(theme.muted('esc to go back'), 0, 0));
   }
 
