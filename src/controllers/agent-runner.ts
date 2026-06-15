@@ -7,6 +7,7 @@ import type {
   ApprovalDecision,
   DoneEvent,
 } from '../agent/index.js';
+import type { Question, UserAnswers } from '../tools/ask-user-question/types.js';
 import type { DisplayEvent, StreamMode } from '../agent/types.js';
 import type { HistoryItem, HistoryItemStatus, WorkingState } from '../types.js';
 
@@ -27,6 +28,7 @@ export class AgentRunnerController {
   private workingStateValue: WorkingState = { status: 'idle' };
   private errorValue: string | null = null;
   private pendingApprovalValue: { tool: string; args: Record<string, unknown> } | null = null;
+  private pendingQuestionValue: { questions: Question[] } | null = null;
   private turnStartMsValue: number | null = null;
   private streamedCharsValue = 0;
   private streamModeValue: StreamMode | null = null;
@@ -35,6 +37,7 @@ export class AgentRunnerController {
   private readonly onChange?: ChangeListener;
   private abortController: AbortController | null = null;
   private approvalResolve: ((decision: ApprovalDecision) => void) | null = null;
+  private questionResolve: ((answers: UserAnswers) => void) | null = null;
   private sessionApprovedTools = new Set<string>();
 
   constructor(
@@ -61,6 +64,10 @@ export class AgentRunnerController {
 
   get pendingApproval(): { tool: string; args: Record<string, unknown> } | null {
     return this.pendingApprovalValue;
+  }
+
+  get pendingQuestion(): { questions: Question[] } | null {
+    return this.pendingQuestionValue;
   }
 
   get turnStats(): TurnStats | null {
@@ -107,6 +114,17 @@ export class AgentRunnerController {
     this.emitChange();
   }
 
+  respondToQuestion(answers: UserAnswers) {
+    if (!this.questionResolve) {
+      return;
+    }
+    this.questionResolve(answers);
+    this.questionResolve = null;
+    this.pendingQuestionValue = null;
+    this.workingStateValue = { status: 'thinking' };
+    this.emitChange();
+  }
+
   cancelExecution() {
     if (this.abortController) {
       this.abortController.abort();
@@ -116,6 +134,11 @@ export class AgentRunnerController {
       this.approvalResolve('deny');
       this.approvalResolve = null;
       this.pendingApprovalValue = null;
+    }
+    if (this.questionResolve) {
+      this.questionResolve({ answers: [], declined: true });
+      this.questionResolve = null;
+      this.pendingQuestionValue = null;
     }
     this.markLastProcessing('interrupted');
     this.workingStateValue = { status: 'idle' };
@@ -150,6 +173,7 @@ export class AgentRunnerController {
         ...this.agentConfig,
         signal: this.abortController.signal,
         requestToolApproval: this.requestToolApproval,
+        requestUserInput: this.requestUserInput,
         sessionApprovedTools: this.sessionApprovedTools,
         messageQueue: defaultQueue,
       });
@@ -203,6 +227,15 @@ export class AgentRunnerController {
       this.approvalResolve = resolve;
       this.pendingApprovalValue = request;
       this.workingStateValue = { status: 'approval', toolName: request.tool };
+      this.emitChange();
+    });
+  };
+
+  private requestUserInput = (request: { questions: Question[] }) => {
+    return new Promise<UserAnswers>((resolve) => {
+      this.questionResolve = resolve;
+      this.pendingQuestionValue = request;
+      this.workingStateValue = { status: 'question' };
       this.emitChange();
     });
   };

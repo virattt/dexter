@@ -24,7 +24,7 @@ export interface SubagentTypeConfig {
  * Tools a subagent may never receive. The delegate tool is listed here so a
  * subagent can never spawn its own subagents — delegation is one level deep.
  */
-export const SUBAGENT_DISALLOWED_TOOLS = new Set<string>(['spawn_subagent']);
+export const SUBAGENT_DISALLOWED_TOOLS = new Set<string>(['spawn_subagent', 'ask_user_question']);
 
 /**
  * Read-only tools available to a general-purpose subagent. Deliberately excludes

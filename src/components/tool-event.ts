@@ -5,7 +5,16 @@ import { subscribeSpinner, SPINNER_INTERVAL_MS } from '../utils/spinner.js';
 
 const CIRCLE = '⏺';
 
+/** Short display names that override the default title-casing. */
+const TOOL_NAME_OVERRIDES: Record<string, string> = {
+  ask_user_question: 'Ask',
+};
+
 function formatToolName(name: string): string {
+  const override = TOOL_NAME_OVERRIDES[name];
+  if (override) {
+    return override;
+  }
   const stripped = name.replace(/^(get)_/, '');
   return stripped
     .split('_')
@@ -25,6 +34,13 @@ function truncateAtWord(str: string, maxLength: number): string {
 }
 
 function formatArgs(tool: string, args: Record<string, unknown>): string {
+  if (tool === 'ask_user_question') {
+    const questions = Array.isArray(args.questions) ? args.questions : [];
+    const headers = questions
+      .map((q) => (q && typeof q === 'object' ? (q as { header?: unknown }).header : undefined))
+      .filter((h): h is string => typeof h === 'string');
+    return theme.muted(headers.join(', '));
+  }
   if ('query' in args) {
     const query = String(args.query);
     return theme.muted(`"${truncateAtWord(query, 60)}"`);

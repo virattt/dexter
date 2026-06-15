@@ -87,7 +87,9 @@ export class WorkingIndicatorComponent extends Container {
     }
     const baseMessage = this.state.status === 'approval'
       ? 'Waiting for approval...'
-      : `${this.thinkingVerb}...`;
+      : this.state.status === 'question'
+        ? 'Waiting for your answer...'
+        : `${this.thinkingVerb}...`;
 
     const suffix = this.computeStatsSuffix();
     const fullMessage = suffix ? `${baseMessage} ${suffix}` : baseMessage;

@@ -1,5 +1,6 @@
 import { Container, Spacer, Text, type TUI } from '@mariozechner/pi-tui';
 import type { TokenUsage } from '../agent/types.js';
+import type { QuestionAnswer } from '../tools/ask-user-question/types.js';
 import { theme } from '../theme.js';
 import { AnswerBoxComponent } from './answer-box.js';
 import { ToolEventComponent } from './tool-event.js';
@@ -289,6 +290,21 @@ export class ChatLogComponent extends Container {
     }
     this.activeAnswer.setText(text);
     this.activeAnswer = null;
+  }
+
+  addAnsweredQuestions(answers: QuestionAnswer[]) {
+    if (answers.length === 0) {
+      return;
+    }
+    this.addChild(new Text(`${theme.success('⏺')} ${theme.muted('Answered:')}`, 0, 0));
+    for (const a of answers) {
+      const picks = [...a.selected];
+      if (a.otherText) {
+        picks.push(a.otherText);
+      }
+      const ans = picks.length ? picks.join(', ') : '—';
+      this.addChild(new Text(`${theme.muted('⎿  ')}${theme.dim(`${a.question} → ${ans}`)}`, 0, 0));
+    }
   }
 
   addContextCleared(clearedCount: number, keptCount: number) {

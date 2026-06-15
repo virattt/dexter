@@ -24,6 +24,7 @@ import {
 import {
   ApiKeyInputComponent,
   ApprovalPromptComponent,
+  QuestionPromptComponent,
   ChatLogComponent,
   CustomEditor,
   DebugPanelComponent,
@@ -131,6 +132,11 @@ function renderEvent(
 
   if (event.type === 'tool_start') {
     const toolStart = event as ToolStartEvent;
+    // ask_user_question has no tool row: the inline widget is its UI, and an
+    // answered block is appended on submit. (matches the no-tool-message design)
+    if (toolStart.tool === 'ask_user_question') {
+      return;
+    }
     const component = chatLog.startTool(display.id, toolStart.tool, toolStart.args);
     if (display.completed && display.endEvent?.type === 'tool_end') {
       const done = display.endEvent as ToolEndEvent;
@@ -212,6 +218,10 @@ export async function runCli() {
   const finalizedToolIds = new Set<string>();
   const appliedToolProgress = new Map<string, string>();
   let lastPendingApproval: { tool: string; args: Record<string, unknown> } | null = null;
+  let lastPendingQuestion: { questions: unknown[] } | null = null;
+  // Cached so the stateful question overlay survives onChange-driven re-renders
+  // (partial selections, active tab, in-progress text are kept across renders).
+  let activeQuestionPrompt: QuestionPromptComponent | null = null;
 
   agentRunner = new AgentRunnerController(
     { model: modelSelection.model, modelProvider: modelSelection.provider, maxIterations: 10 },
@@ -292,6 +302,10 @@ export async function runCli() {
       updateView();
       if (agentRunner.pendingApproval !== lastPendingApproval) {
         lastPendingApproval = agentRunner.pendingApproval;
+        renderSelectionOverlay();
+      }
+      if (agentRunner.pendingQuestion !== lastPendingQuestion) {
+        lastPendingQuestion = agentRunner.pendingQuestion;
         renderSelectionOverlay();
       }
       throttledRender();
@@ -513,7 +527,8 @@ export async function runCli() {
     if (
       !modelSelection.isInSelectionFlow() &&
       !searchSelection.isInSelectionFlow() &&
-      !agentRunner.pendingApproval
+      !agentRunner.pendingApproval &&
+      !agentRunner.pendingQuestion
     ) {
       tui.setFocus(editor);
     }
@@ -553,14 +568,31 @@ export async function runCli() {
     updateView();
   };
 
+  // Render the question widget INLINE: keep the conversation (intro + chatLog)
+  // visible and slot the widget where the input normally sits, instead of
+  // replacing the whole screen via showScreenView.
+  const showQuestionInline = () => {
+    if (!activeQuestionPrompt) return;
+    root.clear();
+    root.addChild(intro);
+    root.addChild(chatLog);
+    root.addChild(errorText);
+    root.addChild(spacer);
+    root.addChild(activeQuestionPrompt);
+    root.addChild(debugPanel);
+    tui.setFocus(activeQuestionPrompt);
+  };
+
   const renderSelectionOverlay = () => {
     const state = modelSelection.state;
     const searchState = searchSelection.state;
     if (
       state.appState === 'idle' &&
       searchState.appState === 'idle' &&
-      !agentRunner.pendingApproval
+      !agentRunner.pendingApproval &&
+      !agentRunner.pendingQuestion
     ) {
+      activeQuestionPrompt = null;
       restoreMainView();
       tui.requestRender();
       return;
@@ -575,6 +607,27 @@ export async function runCli() {
         agentRunner.respondToApproval(decision);
       };
       showScreenView('', '', prompt, undefined, prompt.selector);
+      return;
+    }
+
+    if (agentRunner.pendingQuestion) {
+      if (!activeQuestionPrompt) {
+        activeQuestionPrompt = new QuestionPromptComponent(
+          agentRunner.pendingQuestion.questions,
+          tui,
+        );
+        activeQuestionPrompt.onSubmit = (answers) => {
+          chatLog.addAnsweredQuestions(answers.answers);
+          agentRunner.respondToQuestion(answers);
+        };
+        activeQuestionPrompt.onCancel = () => {
+          agentRunner.respondToQuestion({ answers: [], declined: true });
+        };
+        activeQuestionPrompt.onAbort = () => {
+          agentRunner.cancelExecution();
+        };
+      }
+      showQuestionInline();
       return;
     }
 

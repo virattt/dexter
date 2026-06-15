@@ -1,5 +1,6 @@
 import type { GroupContext } from './prompts.js';
 import type { MessageQueue } from '../utils/message-queue.js';
+import type { Question, UserAnswers } from '../tools/ask-user-question/types.js';
 
 // ============================================================================
 // Channel Profiles
@@ -52,6 +53,8 @@ export interface AgentConfig {
   groupContext?: GroupContext;
   /** Called when a tool needs explicit user approval to proceed */
   requestToolApproval?: (request: { tool: string; args: Record<string, unknown> }) => Promise<ApprovalDecision>;
+  /** CLI-only: called when the agent asks the user interactive questions mid-turn. */
+  requestUserInput?: (request: { questions: Question[] }) => Promise<UserAnswers>;
   /** Shared set of tool names that have been session-approved (persists across queries) */
   sessionApprovedTools?: Set<string>;
   /** Enable/disable persistent memory integration for this run */

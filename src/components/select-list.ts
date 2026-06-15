@@ -3,7 +3,7 @@ import { PROVIDERS, type Model } from '../utils/model.js';
 import type { ApprovalDecision } from '../agent/types.js';
 import { selectListTheme, theme } from '../theme.js';
 
-class VimSelectList extends SelectList {
+export class VimSelectList extends SelectList {
   handleInput(keyData: string): void {
     if (keyData === 'j') {
       super.handleInput('\u001b[B');

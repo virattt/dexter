@@ -13,6 +13,7 @@ import type {
   ToolProgressEvent,
   ToolStartEvent,
 } from './types.js';
+import type { Question, UserAnswers } from '../tools/ask-user-question/types.js';
 import type { RunContext } from './run-context.js';
 
 type ToolExecutionEvent =
@@ -53,6 +54,9 @@ export class AgentToolExecutor {
     }) => Promise<ApprovalDecision>,
     sessionApprovedTools?: Set<string>,
     maxConcurrency?: number,
+    private readonly requestUserInput?: (request: {
+      questions: Question[];
+    }) => Promise<UserAnswers>,
   ) {
     this.sessionApprovedTools = sessionApprovedTools ?? new Set();
     this.maxConcurrency = maxConcurrency ?? DEFAULT_MAX_CONCURRENCY;
@@ -162,7 +166,10 @@ export class AgentToolExecutor {
 
       const channel = createProgressChannel();
       const config = {
-        metadata: { onProgress: channel.emit },
+        metadata: {
+          onProgress: channel.emit,
+          ...(this.requestUserInput ? { onUserInput: this.requestUserInput } : {}),
+        },
         ...(this.signal ? { signal: this.signal } : {}),
       };
 

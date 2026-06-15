@@ -19,6 +19,7 @@ import { cronTool, CRON_TOOL_DESCRIPTION } from './cron/cron-tool.js';
 import { memoryGetTool, MEMORY_GET_DESCRIPTION, memorySearchTool, MEMORY_SEARCH_DESCRIPTION, memoryUpdateTool, MEMORY_UPDATE_DESCRIPTION } from './memory/index.js';
 import { discoverSkills } from '../skills/index.js';
 import { createSpawnSubagent, SPAWN_SUBAGENT_DESCRIPTION } from './subagent/spawn-subagent.js';
+import { createAskUserQuestion, ASK_USER_QUESTION_DESCRIPTION } from './ask-user-question/ask-user-question.js';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -79,6 +80,13 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       description: SPAWN_SUBAGENT_DESCRIPTION,
       compactDescription: 'Delegate a focused sub-task to an isolated subagent. Emit multiple calls in one turn to run independent sub-tasks in parallel.',
       concurrencySafe: true,
+    },
+    {
+      name: 'ask_user_question',
+      tool: createAskUserQuestion(),
+      description: ASK_USER_QUESTION_DESCRIPTION,
+      compactDescription: 'Ask the user 1-4 multiple-choice questions mid-turn and wait for their answers. CLI only.',
+      concurrencySafe: false,
     },
     {
       name: 'web_fetch',
