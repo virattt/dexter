@@ -3,9 +3,19 @@ set -euo pipefail
 
 # Release script for Dexter
 # Usage: bash scripts/release.sh [version]
-# If no version is provided, defaults to today's date as YYYY.M.D
+# If no version is provided, bumps the patch segment of the current package.json version.
 
-VERSION="${1:-$(date +%Y.%-m.%-d)}"
+if [[ -n "${1:-}" ]]; then
+  VERSION="$1"
+else
+  CURRENT=$(node -p "require('./package.json').version")
+  if [[ "$CURRENT" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+    VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1))"
+  else
+    echo "Error: package.json version is not SemVer (got ${CURRENT}). Pass an explicit version: bash scripts/release.sh 1.0.0"
+    exit 1
+  fi
+fi
 TAG="v${VERSION}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
