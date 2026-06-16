@@ -15,8 +15,28 @@ import { logger } from '@/utils';
 import { classifyError, isNonRetryableError } from '@/utils/errors';
 import { resolveProvider, getProviderById } from '@/providers';
 
-export const DEFAULT_PROVIDER = 'openai';
-export const DEFAULT_MODEL = 'gpt-5.5';
+/**
+ * 解析 LM Studio 的基础地址，默认指向本地 OpenAI-compatible 端点。
+ */
+function getLmStudioBaseUrl(): string {
+  return process.env.LM_STUDIO_BASE_URL || 'http://127.0.0.1:1234/v1';
+}
+
+/**
+ * 读取 LM Studio 配置的默认模型，并补齐内部使用的 provider 前缀。
+ */
+function getDefaultLmStudioModelId(): string | null {
+  const model = process.env.LM_STUDIO_MODEL?.trim();
+  if (!model) {
+    return null;
+  }
+  return `lmstudio:${model}`;
+}
+
+const DEFAULT_LM_STUDIO_MODEL = getDefaultLmStudioModelId();
+
+export const DEFAULT_PROVIDER = DEFAULT_LM_STUDIO_MODEL ? 'lmstudio' : 'openai';
+export const DEFAULT_MODEL = DEFAULT_LM_STUDIO_MODEL ?? 'gpt-5.5';
 
 /**
  * Gets the fast model variant for the given provider.
@@ -131,6 +151,15 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
       model: name.replace(/^ollama:/, ''),
       ...opts,
       ...(process.env.OLLAMA_BASE_URL ? { baseUrl: process.env.OLLAMA_BASE_URL } : {}),
+    }),
+  lmstudio: (name, opts) =>
+    new ChatOpenAI({
+      model: name.replace(/^lmstudio:/, ''),
+      ...opts,
+      apiKey: process.env.LM_STUDIO_API_KEY || 'lm-studio',
+      configuration: {
+        baseURL: getLmStudioBaseUrl(),
+      },
     }),
 };
 
