@@ -105,6 +105,17 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
         baseURL: 'https://api.moonshot.cn/v1',
       },
     }),
+  // Atlas Cloud — full-modal, OpenAI-compatible gateway (DeepSeek, Qwen, GLM, Kimi, MiniMax, …)
+  // https://www.atlascloud.ai/
+  atlascloud: (name, opts) =>
+    new ChatOpenAI({
+      model: name.replace(/^atlascloud:/, ''),
+      ...opts,
+      apiKey: getApiKey('ATLASCLOUD_API_KEY'),
+      configuration: {
+        baseURL: 'https://api.atlascloud.ai/v1',
+      },
+    }),
   deepseek: (name, opts) => {
     // Both deepseek-v4-pro and deepseek-v4-flash support thinking mode.
     // temperature/top_p/presence_penalty/frequency_penalty are ignored in thinking mode.
