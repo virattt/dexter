@@ -56,8 +56,8 @@ const ScreenerFilterSchema = z.object({
     operator: z.enum(['gt', 'gte', 'lt', 'lte', 'eq', 'in']).describe('Comparison operator'),
     value: z.union([z.number(), z.string(), z.array(z.number()), z.array(z.string())]).describe('Numeric threshold, string for company fields (sector/industry), or array for "in" operator'),
   })).describe('Array of screening filters to apply'),
-  currency: z.string().default('USD').describe('Currency code (e.g., "USD")'),
-  limit: z.number().default(5).describe('Maximum number of results to return'),
+  currency: z.string().describe('Currency code (e.g., "USD")'),
+  limit: z.number().describe('Maximum number of results to return'),
 });
 
 type ScreenerFilters = z.infer<typeof ScreenerFilterSchema>;
