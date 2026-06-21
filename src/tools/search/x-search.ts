@@ -4,6 +4,8 @@ import { formatToolResult } from '../types.js';
 
 const X_API_BASE = 'https://api.x.com/2';
 const RATE_DELAY_MS = 350; // Delay between pagination requests to reduce rate-limit risk
+const MAX_RATE_LIMIT_RETRIES = 3; // How many times to wait-and-retry on HTTP 429
+const MAX_RATE_LIMIT_WAIT_MS = 60_000; // Don't wait longer than this for a reset window
 
 const TWEET_FIELDS =
   'tweet.fields=created_at,public_metrics,author_id,conversation_id,entities' +
@@ -44,7 +46,10 @@ async function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function xApiGet(url: string): Promise<RawXResponse> {
+export async function xApiGet(
+  url: string,
+  attempt = 0,
+): Promise<RawXResponse> {
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${getBearerToken()}` },
   });
@@ -54,6 +59,16 @@ async function xApiGet(url: string): Promise<RawXResponse> {
     const waitSec = reset
       ? Math.max(parseInt(reset) - Math.floor(Date.now() / 1000), 1)
       : 60;
+    const waitMs = waitSec * 1000;
+
+    // Wait for the rate-limit window to reset and retry instead of aborting
+    // mid-search. Bound both the wait and the retry count so an unusually long
+    // reset window can't hang the agent indefinitely.
+    if (attempt < MAX_RATE_LIMIT_RETRIES && waitMs <= MAX_RATE_LIMIT_WAIT_MS) {
+      await sleep(waitMs);
+      return xApiGet(url, attempt + 1);
+    }
+
     throw new Error(`X API rate limited. Resets in ${waitSec}s`);
   }
 
