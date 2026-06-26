@@ -9,7 +9,7 @@ import {
   getModelsForProvider,
   type Model,
 } from '../utils/model.js';
-import { getOllamaModels } from '../utils/ollama.js';
+import { getOllamaModels, getOllamaCloudModels } from '../utils/ollama.js';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from '../model/llm.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
 
@@ -109,6 +109,14 @@ export class ModelSelectionController {
       return;
     }
 
+    if (providerId === 'ollama-cloud') {
+      const ollamaCloudModelIds = await getOllamaCloudModels();
+      this.pendingModelsValue = ollamaCloudModelIds.map((id) => ({ id, displayName: id }));
+      this.appStateValue = 'model_select';
+      this.emitChange();
+      return;
+    }
+
     this.pendingModelsValue = getModelsForProvider(providerId);
     this.appStateValue = 'model_select';
     this.emitChange();
@@ -129,12 +137,16 @@ export class ModelSelectionController {
       return;
     }
 
+    const fullModelId = this.pendingProviderValue === 'ollama-cloud'
+      ? `ollama-cloud:${modelId}`
+      : modelId;
+
     if (checkApiKeyExistsForProvider(this.pendingProviderValue)) {
-      this.completeModelSwitch(this.pendingProviderValue, modelId);
+      this.completeModelSwitch(this.pendingProviderValue, fullModelId);
       return;
     }
 
-    this.pendingSelectedModelId = modelId;
+    this.pendingSelectedModelId = fullModelId;
     this.appStateValue = 'api_key_confirm';
     this.emitChange();
   }
@@ -177,8 +189,7 @@ export class ModelSelectionController {
     }
 
     this.onError(
-      `Cannot use ${
-        this.pendingProviderValue ? getProviderDisplayName(this.pendingProviderValue) : 'provider'
+      `Cannot use ${this.pendingProviderValue ? getProviderDisplayName(this.pendingProviderValue) : 'provider'
       } without an API key.`,
     );
     this.resetPendingState();
