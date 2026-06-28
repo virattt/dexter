@@ -85,7 +85,7 @@ export const PROVIDERS: ProviderDef[] = [
     id: 'ollama-cloud',
     displayName: 'Ollama Cloud',
     modelPrefix: 'ollama-cloud:',
-    apiKeyEnvVar: 'OLLAMA_CLOUD_KEY',
+    apiKeyEnvVar: 'OLLAMA_CLOUD_API_KEY',
     contextWindow: 128_000,
   },
 ];
