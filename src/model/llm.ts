@@ -132,6 +132,15 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
       ...opts,
       ...(process.env.OLLAMA_BASE_URL ? { baseUrl: process.env.OLLAMA_BASE_URL } : {}),
     }),
+  'ollama-cloud': (name, opts) => {
+    const apiKey = process.env.OLLAMA_CLOUD_API_KEY;
+    return new ChatOllama({
+      model: name.replace(/^ollama-cloud:/, ''),
+      ...opts,
+      baseUrl: 'https://ollama.com',
+      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+    });
+  },
 };
 
 const DEFAULT_FACTORY: ModelFactory = (name, opts) =>
