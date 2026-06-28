@@ -81,6 +81,13 @@ export const PROVIDERS: ProviderDef[] = [
     modelPrefix: 'ollama:',
     contextWindow: 128_000,
   },
+  {
+    id: 'ollama-cloud',
+    displayName: 'Ollama Cloud',
+    modelPrefix: 'ollama-cloud:',
+    apiKeyEnvVar: 'OLLAMA_CLOUD_API_KEY',
+    contextWindow: 128_000,
+  },
 ];
 
 const defaultProvider = PROVIDERS.find((p) => p.id === 'openai')!;
