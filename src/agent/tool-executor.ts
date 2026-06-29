@@ -14,6 +14,7 @@ import type {
   ToolStartEvent,
 } from './types.js';
 import type { Question, UserAnswers } from '../tools/ask-user-question/types.js';
+import { evaluatePermission, sessionKey } from '../permissions/engine.js';
 import type { RunContext } from './run-context.js';
 
 type ToolExecutionEvent =
@@ -25,7 +26,6 @@ type ToolExecutionEvent =
   | ToolDeniedEvent
   | ToolLimitEvent;
 
-const TOOLS_REQUIRING_APPROVAL = ['write_file', 'edit_file'] as const;
 const DEFAULT_MAX_CONCURRENCY = 10;
 
 interface ToolCallBatch {
@@ -133,17 +133,24 @@ export class AgentToolExecutor {
     const toolCallId = call.id;
     const toolQuery = this.extractQueryFromArgs(toolArgs);
 
-    // Approval flow for sensitive tools
-    if (this.requiresApproval(toolName) && !this.sessionApprovedTools.has(toolName)) {
-      const decision = (await this.requestToolApproval?.({ tool: toolName, args: toolArgs })) ?? 'deny';
-      yield { type: 'tool_approval', tool: toolName, args: toolArgs, approved: decision };
-      if (decision === 'deny') {
-        yield { type: 'tool_denied', tool: toolName, args: toolArgs, toolCallId };
-        return;
-      }
-      if (decision === 'allow-session') {
-        for (const name of TOOLS_REQUIRING_APPROVAL) {
-          this.sessionApprovedTools.add(name);
+    // Permission gate: the engine decides allow / ask / deny per call.
+    const permission = evaluatePermission({ tool: toolName, args: toolArgs });
+    if (permission.mode === 'deny') {
+      // Denied by rule — never reaches the user (avoids rubber-stamp fatigue).
+      yield { type: 'tool_denied', tool: toolName, args: toolArgs, toolCallId };
+      return;
+    }
+    if (permission.mode === 'ask') {
+      const key = sessionKey(toolName, permission);
+      if (!this.sessionApprovedTools.has(key)) {
+        const decision = (await this.requestToolApproval?.({ tool: toolName, args: toolArgs })) ?? 'deny';
+        yield { type: 'tool_approval', tool: toolName, args: toolArgs, approved: decision };
+        if (decision === 'deny') {
+          yield { type: 'tool_denied', tool: toolName, args: toolArgs, toolCallId };
+          return;
+        }
+        if (decision === 'allow-session') {
+          this.sessionApprovedTools.add(key);
         }
       }
     }
@@ -207,9 +214,5 @@ export class AgentToolExecutor {
       }
     }
     return undefined;
-  }
-
-  private requiresApproval(toolName: string): boolean {
-    return (TOOLS_REQUIRING_APPROVAL as readonly string[]).includes(toolName);
   }
 }
