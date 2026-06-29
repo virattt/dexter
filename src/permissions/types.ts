@@ -27,6 +27,13 @@ export interface PermissionDecision {
   proposedRule?: string;
   /** Active sandbox level at decision time (Phase 3), surfaced in the prompt. */
   sandboxLevel?: string;
+  /**
+   * Whether an `allow-session` grant may be cached for this exact call. When false
+   * (e.g. a bash command containing shell metacharacters or an interpreter), the
+   * command always re-prompts and can never be silently skipped by a prior grant.
+   * Undefined is treated as cacheable (legacy file-write tools).
+   */
+  sessionCacheable?: boolean;
 }
 
 /** Input to the engine. */

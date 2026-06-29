@@ -29,4 +29,55 @@ describe('sessionKey', () => {
     const d = evaluatePermission({ tool: 'some_tool', args: {} });
     expect(sessionKey('some_tool', d)).toBe('some_tool');
   });
+
+  test('bash keys on the exact command', () => {
+    const a = evaluatePermission({ tool: 'bash', args: { command: 'ls -la' } });
+    const b = evaluatePermission({ tool: 'bash', args: { command: 'ls -lh' } });
+    expect(sessionKey('bash', a)).toBe('bash:ls -la');
+    expect(sessionKey('bash', a)).not.toBe(sessionKey('bash', b));
+  });
+});
+
+describe('evaluatePermission — bash gate (Phase 1)', () => {
+  const evalBash = (command: string) => evaluatePermission({ tool: 'bash', args: { command } });
+
+  test('always asks, and carries the command', () => {
+    const d = evalBash('ls -la');
+    expect(d.mode).toBe('ask');
+    expect(d.command).toBe('ls -la');
+  });
+
+  test('simple commands are session-cacheable', () => {
+    for (const c of ['ls', 'ls -la', 'git status', 'cat foo.txt', 'rm -rf build', 'FOO=bar ls']) {
+      expect(evalBash(c).sessionCacheable).toBe(true);
+    }
+  });
+
+  test('metacharacter / dynamic commands are NOT cacheable', () => {
+    const dangerous = [
+      'ls && rm -rf /',
+      'cat $(echo /etc/passwd)',
+      'echo `whoami`',
+      'ls | tee out.txt',
+      'cat a; cat b',
+      'echo ${HOME}',
+      'echo $HOME',
+      'cat < in.txt',
+      'echo hi > out.txt',
+      'foo &',
+      'echo {a,b}',
+      'sleep 1 &\nrm x',
+    ];
+    for (const c of dangerous) {
+      expect(evalBash(c).sessionCacheable).toBe(false);
+    }
+  });
+
+  test('interpreter / code-generator first words are NOT cacheable', () => {
+    for (const c of ['python script.py', 'python3 -c print(1)', 'node app.js', 'bash x.sh',
+      'sh x.sh', 'eval ls', 'env ls', 'xargs rm', 'find . -delete', 'awk "{print}"',
+      'sed s/a/b/', '/usr/bin/python x.py']) {
+      expect(evalBash(c).sessionCacheable).toBe(false);
+    }
+  });
 });

@@ -26,7 +26,7 @@ const MAX_OVERFLOW_RETRIES = 2;
 const OVERFLOW_KEEP_ROUNDS = 3;
 
 /** Tools that require an interactive user and are only bound on the CLI channel. */
-const CLI_ONLY_TOOLS = new Set<string>(['ask_user_question']);
+const CLI_ONLY_TOOLS = new Set<string>(['ask_user_question', 'bash']);
 
 /**
  * The core agent class that handles the agent loop and tool execution.
