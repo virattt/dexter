@@ -20,6 +20,7 @@ import { memoryGetTool, MEMORY_GET_DESCRIPTION, memorySearchTool, MEMORY_SEARCH_
 import { discoverSkills } from '../skills/index.js';
 import { createSpawnSubagent, SPAWN_SUBAGENT_DESCRIPTION } from './subagent/spawn-subagent.js';
 import { createAskUserQuestion, ASK_USER_QUESTION_DESCRIPTION } from './ask-user-question/ask-user-question.js';
+import { createBash, BASH_TOOL_DESCRIPTION } from './bash/bash-tool.js';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -211,6 +212,18 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: skillTool,
       description: SKILL_TOOL_DESCRIPTION,
       compactDescription: 'Invoke a specialized skill workflow (e.g., DCF valuation).',
+      concurrencySafe: false,
+    });
+  }
+
+  // bash: Unix/macOS only (uses /bin/sh + POSIX process groups). Channel gating
+  // (CLI-only) is handled by CLI_ONLY_TOOLS in Agent.create.
+  if (process.platform !== 'win32') {
+    tools.push({
+      name: 'bash',
+      tool: createBash(model),
+      description: BASH_TOOL_DESCRIPTION,
+      compactDescription: 'Run a shell command (stdout/stderr/exit code). CLI only; every command asks for approval.',
       concurrencySafe: false,
     });
   }

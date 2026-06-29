@@ -15,6 +15,7 @@ import type {
 } from './types.js';
 import type { Question, UserAnswers } from '../tools/ask-user-question/types.js';
 import { evaluatePermission, sessionKey } from '../permissions/engine.js';
+import type { PermissionDecision } from '../permissions/types.js';
 import type { RunContext } from './run-context.js';
 
 type ToolExecutionEvent =
@@ -51,6 +52,8 @@ export class AgentToolExecutor {
     private readonly requestToolApproval?: (request: {
       tool: string;
       args: Record<string, unknown>;
+      command?: string;
+      decision?: PermissionDecision;
     }) => Promise<ApprovalDecision>,
     sessionApprovedTools?: Set<string>,
     maxConcurrency?: number,
@@ -141,15 +144,23 @@ export class AgentToolExecutor {
       return;
     }
     if (permission.mode === 'ask') {
+      // Commands the engine marks non-cacheable always re-prompt (a prior
+      // allow-session grant can never silently skip them).
+      const cacheable = permission.sessionCacheable !== false;
       const key = sessionKey(toolName, permission);
-      if (!this.sessionApprovedTools.has(key)) {
-        const decision = (await this.requestToolApproval?.({ tool: toolName, args: toolArgs })) ?? 'deny';
+      if (!(cacheable && this.sessionApprovedTools.has(key))) {
+        const decision = (await this.requestToolApproval?.({
+          tool: toolName,
+          args: toolArgs,
+          command: permission.command,
+          decision: permission,
+        })) ?? 'deny';
         yield { type: 'tool_approval', tool: toolName, args: toolArgs, approved: decision };
         if (decision === 'deny') {
           yield { type: 'tool_denied', tool: toolName, args: toolArgs, toolCallId };
           return;
         }
-        if (decision === 'allow-session') {
+        if (decision === 'allow-session' && cacheable) {
           this.sessionApprovedTools.add(key);
         }
       }

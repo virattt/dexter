@@ -1,6 +1,7 @@
 import type { GroupContext } from './prompts.js';
 import type { MessageQueue } from '../utils/message-queue.js';
 import type { Question, UserAnswers } from '../tools/ask-user-question/types.js';
+import type { PermissionDecision } from '../permissions/types.js';
 
 // ============================================================================
 // Channel Profiles
@@ -52,7 +53,14 @@ export interface AgentConfig {
   /** Group chat context — when set, adds group-specific instructions to system prompt */
   groupContext?: GroupContext;
   /** Called when a tool needs explicit user approval to proceed */
-  requestToolApproval?: (request: { tool: string; args: Record<string, unknown> }) => Promise<ApprovalDecision>;
+  requestToolApproval?: (request: {
+    tool: string;
+    args: Record<string, unknown>;
+    /** For bash: the command being approved (shown instead of a file path). */
+    command?: string;
+    /** The engine's full decision (reason, classification, etc.) for richer prompts. */
+    decision?: PermissionDecision;
+  }) => Promise<ApprovalDecision>;
   /** CLI-only: called when the agent asks the user interactive questions mid-turn. */
   requestUserInput?: (request: { questions: Question[] }) => Promise<UserAnswers>;
   /** Shared set of tool names that have been session-approved (persists across queries) */
