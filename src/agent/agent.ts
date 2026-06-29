@@ -39,6 +39,7 @@ const CLI_ONLY_TOOLS = new Set<string>(['ask_user_question']);
  */
 export class Agent {
   private readonly model: string;
+  private readonly modelProvider?: string;
   private readonly maxIterations: number;
   private readonly tools: StructuredToolInterface[];
   private readonly toolMap: Map<string, StructuredToolInterface>;
@@ -56,6 +57,7 @@ export class Agent {
     concurrencyMap: Map<string, boolean>,
   ) {
     this.model = config.model ?? DEFAULT_MODEL;
+    this.modelProvider = config.modelProvider;
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
     this.tools = tools;
     this.toolMap = new Map(tools.map(t => [t.name, t]));
@@ -183,7 +185,7 @@ export class Agent {
           }
 
           const totalTime = Date.now() - ctx.startTime;
-          const provider = resolveProvider(this.model).displayName;
+          const provider = resolveProvider(this.model, this.modelProvider).displayName;
           yield {
             type: 'done',
             answer: `Error: ${formatUserFacingError(errorMessage, provider)}`,
@@ -323,6 +325,7 @@ export class Agent {
 
     for await (const chunk of streamLlmWithMessages(messages, {
       model: this.model,
+      modelProvider: this.modelProvider,
       tools: this.tools,
       signal: this.signal,
     })) {
@@ -368,6 +371,7 @@ export class Agent {
   ): Promise<{ response: AIMessage; usage?: TokenUsage }> {
     const result = await callLlmWithMessages(messages, {
       model: this.model,
+      modelProvider: this.modelProvider,
       tools: this.tools,
       signal: this.signal,
     });
@@ -564,7 +568,7 @@ export class Agent {
       : estimateTokens(messageState.messages.map(m =>
           typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
         ).join('\n'));
-    const threshold = getAutoCompactThreshold(this.model);
+    const threshold = getAutoCompactThreshold(this.model, this.modelProvider);
 
     if (estimatedContextTokens <= threshold) {
       return;
@@ -583,6 +587,7 @@ export class Agent {
       yield { type: 'memory_flush', phase: 'start' };
       const flushResult = await runMemoryFlush({
         model: this.model,
+        modelProvider: this.modelProvider,
         systemPrompt: this.systemPrompt,
         query,
         toolResults: fullToolResults,
@@ -606,6 +611,7 @@ export class Agent {
       try {
         const result = await compactContext({
           model: this.model,
+          modelProvider: this.modelProvider,
           systemPrompt: this.systemPrompt,
           query,
           toolResults: fullToolResults,
@@ -634,7 +640,7 @@ export class Agent {
           success: true,
           preCompactTokens: estimatedContextTokens,
           postCompactTokens,
-          compactionModel: resolveProvider(this.model).fastModel ?? this.model,
+          compactionModel: resolveProvider(this.model, this.modelProvider).fastModel ?? this.model,
         };
 
         return;
