@@ -15,6 +15,8 @@ export interface ApprovalPromptOptions {
   command?: string;
   /** Optional one-line explanation shown under the headline. */
   reason?: string;
+  /** For bash: a rule the user can persist via "always allow" (adds a 4th option). */
+  proposedRule?: string;
 }
 
 export class ApprovalPromptComponent extends Container {
@@ -23,7 +25,7 @@ export class ApprovalPromptComponent extends Container {
 
   constructor(tool: string, args: Record<string, unknown>, opts: ApprovalPromptOptions = {}) {
     super();
-    this.selector = createApprovalSelector((decision) => this.onSelect?.(decision));
+    this.selector = createApprovalSelector((decision) => this.onSelect?.(decision), opts.proposedRule);
     const width = Math.max(20, process.stdout.columns ?? 80);
     const border = theme.warning('─'.repeat(width));
 

@@ -1,55 +1,105 @@
 /**
  * Permission engine — decides allow / ask / deny for a tool call.
  *
- * Phase 0: behavior-preserving generalization of the previous per-tool gate.
- *   - write_file / edit_file → ask (unchanged)
- *   - everything else        → allow (unchanged)
+ *   - write_file / edit_file → ask (legacy parity)
+ *   - bash                   → parse → classify → match rules (this file's core)
+ *   - everything else        → allow
  *
- * Later phases extend `evaluatePermission` with the `bash` command gate
- * (strict-syntax in Phase 1; full rule engine + classifier in Phase 2).
+ * Bash matching contract (Phase 2; no OS sandbox yet, so read-only does NOT
+ * auto-allow — that arrives in Phase 3):
+ *   1. parser fails closed → ask (never cacheable)
+ *   2. built-in security floor (env injection / secret reads) → deny
+ *   3. any segment matches a user deny rule → deny
+ *   4. any segment matches an ask rule → ask
+ *   5. EVERY segment matches an allow rule → allow
+ *   6. else → defaultBashDecision (ask). Read-only is classified + shown but does
+ *      not auto-allow.
  */
-import type { PermissionDecision, PermissionRequest } from './types.js';
+import type { Classification, PermissionDecision, PermissionRequest } from './types.js';
+import { parseCommand, type ParsedCommand } from './command-parser.js';
+import { isReadOnly } from './read-only.js';
+import { builtinDeny, loadRuleSet, matchRuleSet, proposeRule, serializeRule, type RuleSet } from './rules.js';
 
 /** Tools that have always required explicit user approval before running. */
 const LEGACY_APPROVAL_TOOLS = new Set<string>(['write_file', 'edit_file']);
 
 /**
- * Phase-1 bash gate. The OS sandbox does not exist yet, so every command is
- * human-approved. This helper only decides whether an approval may be remembered
- * for the session (`allow-session`): a command is "simple" — and therefore
- * cacheable — only if it has no shell metacharacters / dynamic constructs AND its
- * first word is not an interpreter or code-generator. Anything else always
- * re-prompts, so the model can't prime a session grant on a deceptive command.
- *
- * Conservative by design (errs toward not-cacheable). Phase 2 replaces this with
- * the full command parser + classifier.
- */
-const SHELL_METACHARACTERS = /[`$|;&<>(){}\\#]|\n/;
-const INTERPRETER_DENYLIST = new Set<string>([
-  'python', 'python3', 'node', 'bun', 'ruby', 'perl', 'sh', 'bash', 'zsh', 'ksh',
-  'eval', 'exec', 'source', 'env', 'xargs', 'find', 'tee', 'awk', 'sed',
-]);
-
-function isSimpleBashCommand(command: string): boolean {
-  const cmd = command.trim();
-  if (!cmd) return false;
-  if (SHELL_METACHARACTERS.test(cmd)) return false;
-  // Strip leading `VAR=value` environment assignments before reading the command word.
-  const tokens = cmd.split(/[ \t]+/);
-  let i = 0;
-  while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i++;
-  const first = tokens[i];
-  if (!first) return false;
-  const base = first.split('/').pop() ?? first; // basename, so /usr/bin/python is caught
-  return !INTERPRETER_DENYLIST.has(base);
-}
-
-/**
- * Shared session-approval key for the file-writing tools. Using one key for both
- * preserves the legacy behavior where approving "allow all edits this session" on
- * one of write_file/edit_file also covers the other.
+ * Shared session-approval key for the file-writing tools, preserving the legacy
+ * behavior where approving one of write_file/edit_file covers the other.
  */
 const FILE_WRITE_SESSION_KEY = 'file:write';
+
+function classify(parsed: ParsedCommand): Classification {
+  if (parsed.unknown) return 'unknown';
+  return parsed.segments.every(isReadOnly) ? 'read-only' : 'mutating';
+}
+
+/** Pure bash decision with an injectable rule set (defaults to disk). Exported for tests. */
+export function evaluateBash(command: string, rules: RuleSet = loadRuleSet()): PermissionDecision {
+  const parsed = parseCommand(command);
+
+  // 1. Fail closed — can't analyze, so ask and never cache.
+  if (parsed.unknown) {
+    return {
+      mode: 'ask',
+      reason: `Command needs review (${parsed.reason ?? 'complex syntax'}).`,
+      command,
+      classification: 'unknown',
+      sessionCacheable: false,
+    };
+  }
+
+  const classification = classify(parsed);
+  // Only offer "always allow" for a single, fully-understood command.
+  const proposedRule = parsed.segments.length === 1 ? proposeRule(parsed.segments[0]) : undefined;
+
+  // 2. Built-in security floor (not user-overridable).
+  for (const seg of parsed.segments) {
+    const floor = builtinDeny(seg);
+    if (floor.denied) {
+      return { mode: 'deny', reason: floor.reason ?? 'Denied by policy.', command, classification, matchedRule: '(built-in)' };
+    }
+  }
+
+  // 3. User deny rules — any matching segment blocks the whole command.
+  for (const seg of parsed.segments) {
+    const rule = matchRuleSet(seg, rules.deny);
+    if (rule) {
+      return { mode: 'deny', reason: 'Denied by a rule.', command, classification, matchedRule: serializeRule(rule) };
+    }
+  }
+
+  // 4. Ask rules — any matching segment forces a prompt.
+  for (const seg of parsed.segments) {
+    const rule = matchRuleSet(seg, rules.ask);
+    if (rule) {
+      return { mode: 'ask', reason: 'Matches an ask rule.', command, classification, matchedRule: serializeRule(rule), proposedRule, sessionCacheable: true };
+    }
+  }
+
+  // 5. Allow only if EVERY segment is independently allowed. A segment with a
+  // write redirect can never be auto-allowed by a word-based rule (the rule can't
+  // express the redirect target), so it forces a prompt.
+  const allowMatches = parsed.segments.map((seg) =>
+    seg.hasWriteRedirect ? undefined : matchRuleSet(seg, rules.allow),
+  );
+  if (allowMatches.every((m) => m !== undefined)) {
+    return { mode: 'allow', reason: 'Matches an allow rule.', command, classification, matchedRule: serializeRule(allowMatches[0]!) };
+  }
+
+  // 6. Default. Read-only is recognized but does NOT auto-allow this phase.
+  return {
+    mode: rules.defaultBashDecision,
+    reason:
+      classification === 'read-only'
+        ? 'Read-only command (still asks until the sandbox lands).'
+        : 'No matching rule.',
+    command,
+    classification,
+    proposedRule,
+    sessionCacheable: true,
+  };
+}
 
 /**
  * Evaluate whether a tool call may proceed.
@@ -57,14 +107,7 @@ const FILE_WRITE_SESSION_KEY = 'file:write';
 export function evaluatePermission(req: PermissionRequest): PermissionDecision {
   if (req.tool === 'bash') {
     const command = typeof req.args.command === 'string' ? req.args.command : '';
-    // Phase 1: every command asks (no sandbox yet). Only the session-cache
-    // eligibility varies — simple commands may be remembered, complex ones never.
-    return {
-      mode: 'ask',
-      reason: 'Running a shell command needs your approval.',
-      command,
-      sessionCacheable: isSimpleBashCommand(command),
-    };
+    return evaluateBash(command);
   }
   if (LEGACY_APPROVAL_TOOLS.has(req.tool)) {
     return { mode: 'ask', reason: 'This tool modifies files and needs your approval.' };
@@ -76,16 +119,16 @@ export function evaluatePermission(req: PermissionRequest): PermissionDecision {
  * The key under which an `allow-session` grant is remembered. Approving the same
  * key again within the session skips the prompt.
  *
- * For the legacy file-write tools this is a shared key (legacy parity). For other
- * ask-gated tools it is the tool name; Phase 2 refines bash to key on the exact
- * matched rule so a session grant doesn't over-approve unrelated commands.
+ * Legacy file-write tools share one key. Bash keys on the **exact command** so an
+ * `allow-session` grant never extends to a different command — even one that shares
+ * a broad ask rule (e.g. approving `git status` must not also pass `git push --force`).
+ * Keeps the `bash:` prefix so the controller can prune bash grants per query.
  */
 export function sessionKey(tool: string, decision: PermissionDecision): string {
   if (LEGACY_APPROVAL_TOOLS.has(tool)) {
     return FILE_WRITE_SESSION_KEY;
   }
   if (tool === 'bash') {
-    // Key on the exact (trimmed) command, so a session grant never covers a different command.
     return `bash:${(decision.command ?? '').trim()}`;
   }
   return tool;

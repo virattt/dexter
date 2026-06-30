@@ -94,13 +94,21 @@ export function createModelSelector(
   return list;
 }
 
-export function createApprovalSelector(onSelect: (decision: ApprovalDecision) => void) {
-  const items: SelectItem[] = [
-    { value: 'allow-once', label: '1. Yes' },
-    { value: 'allow-session', label: '2. Yes, allow all edits this session' },
-    { value: 'deny', label: '3. No' },
-  ];
-  const list = new VimSelectList(items, 5, selectListTheme);
+export function createApprovalSelector(
+  onSelect: (decision: ApprovalDecision) => void,
+  proposedRule?: string,
+) {
+  const items: SelectItem[] = [{ value: 'allow-once', label: '1. Yes' }];
+  if (proposedRule) {
+    // bash: offer to persist a rule, and scope the session grant to this query.
+    items.push({ value: 'allow-always', label: `2. Yes, and always allow ${proposedRule}` });
+    items.push({ value: 'allow-session', label: '3. Yes, allow all bash this query' });
+    items.push({ value: 'deny', label: '4. No' });
+  } else {
+    items.push({ value: 'allow-session', label: '2. Yes, allow all edits this session' });
+    items.push({ value: 'deny', label: '3. No' });
+  }
+  const list = new VimSelectList(items, 6, selectListTheme);
   list.onSelect = (item) => onSelect(item.value as ApprovalDecision);
   list.onCancel = () => onSelect('deny');
   return list;

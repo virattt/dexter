@@ -605,6 +605,7 @@ export async function runCli() {
         {
           command: agentRunner.pendingApproval.command,
           reason: agentRunner.pendingApproval.decision?.reason,
+          proposedRule: agentRunner.pendingApproval.decision?.proposedRule,
         },
       );
       prompt.onSelect = (decision: ApprovalDecision) => {

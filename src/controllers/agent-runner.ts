@@ -161,6 +161,12 @@ export class AgentRunnerController {
     this.abortController = new AbortController();
     let finalAnswer: string | undefined;
 
+    // bash `allow-session` grants are scoped to a single query: prune them at the
+    // start of each new query while leaving write/edit (file:write) grants intact.
+    for (const key of this.sessionApprovedTools) {
+      if (key.startsWith('bash:')) this.sessionApprovedTools.delete(key);
+    }
+
     const startTime = Date.now();
     const item: HistoryItem = {
       id: String(startTime),

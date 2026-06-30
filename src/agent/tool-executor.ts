@@ -15,6 +15,7 @@ import type {
 } from './types.js';
 import type { Question, UserAnswers } from '../tools/ask-user-question/types.js';
 import { evaluatePermission, sessionKey } from '../permissions/engine.js';
+import { addRule } from '../permissions/rules.js';
 import type { PermissionDecision } from '../permissions/types.js';
 import type { RunContext } from './run-context.js';
 
@@ -162,6 +163,10 @@ export class AgentToolExecutor {
         }
         if (decision === 'allow-session' && cacheable) {
           this.sessionApprovedTools.add(key);
+        }
+        if (decision === 'allow-always' && permission.proposedRule) {
+          // Persist a permanent allow rule, then run this turn.
+          addRule('allow', permission.proposedRule);
         }
       }
     }

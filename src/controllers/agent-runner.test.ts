@@ -252,4 +252,23 @@ describe('AgentRunnerController', () => {
       expect(controller.workingState.status).toBe('idle');
     });
   });
+
+  describe('query-scoped bash session grants', () => {
+    test('prunes bash: keys at the start of a new query, keeps file:write', async () => {
+      const { controller } = createController();
+      const grants: Set<string> = (controller as unknown as { sessionApprovedTools: Set<string> }).sessionApprovedTools;
+      grants.add('bash:Bash(ls:*)');
+      grants.add('file:write');
+
+      const runPromise = controller.runQuery('test query');
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // bash grant pruned at query start; file:write preserved.
+      expect(grants.has('bash:Bash(ls:*)')).toBe(false);
+      expect(grants.has('file:write')).toBe(true);
+
+      controller.respondToApproval('deny');
+      await runPromise;
+    });
+  });
 });

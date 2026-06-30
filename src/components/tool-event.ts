@@ -69,6 +69,8 @@ function approvalLabel(decision: ApprovalDecision): string {
       return 'Approved';
     case 'allow-session':
       return 'Approved (session)';
+    case 'allow-always':
+      return 'Approved (always)';
     case 'deny':
       return 'Denied';
   }

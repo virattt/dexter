@@ -29,6 +29,13 @@ interface Config {
     embeddingModel?: string;
     maxSessionContextTokens?: number;
   };
+  /** Bash permission rules (allow/ask/deny), persisted from the approval prompt. */
+  permissions?: {
+    allow?: string[];
+    ask?: string[];
+    deny?: string[];
+    defaultBashDecision?: 'allow' | 'ask' | 'deny';
+  };
   [key: string]: unknown;
 }
 
