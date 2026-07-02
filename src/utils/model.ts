@@ -1,4 +1,5 @@
-import { PROVIDERS as PROVIDER_DEFS } from '@/providers';
+import { PROVIDERS as PROVIDER_DEFS, resolveProvider } from '@/providers';
+import { checkApiKeyExistsForProvider } from './env.js';
 
 export interface Model {
   id: string;
@@ -54,6 +55,35 @@ export function getModelIdsForProvider(providerId: string): string[] {
 export function getDefaultModelForProvider(providerId: string): string | undefined {
   const models = getModelsForProvider(providerId);
   return models[0]?.id;
+}
+
+export function getFirstProviderWithApiKey(): string | undefined {
+  return PROVIDER_DEFS.find((provider) =>
+    provider.apiKeyEnvVar ? checkApiKeyExistsForProvider(provider.id) : false,
+  )?.id;
+}
+
+export interface InitialModelSelectionOptions {
+  savedProvider?: string | null;
+  savedModel?: string | null;
+  defaultProvider: string;
+  defaultModel: string;
+}
+
+export function resolveInitialModelSelection({
+  savedProvider,
+  savedModel,
+  defaultProvider,
+  defaultModel,
+}: InitialModelSelectionOptions): { provider: string; model: string } {
+  const provider =
+    savedProvider ??
+    (savedModel ? resolveProvider(savedModel).id : undefined) ??
+    getFirstProviderWithApiKey() ??
+    defaultProvider;
+  const model = savedModel ?? getDefaultModelForProvider(provider) ?? defaultModel;
+
+  return { provider, model };
 }
 
 export function getModelDisplayName(modelId: string): string {
