@@ -344,7 +344,7 @@ export const FINANCIAL_FORMATTERS: Record<string, (data: unknown, args?: Rec) =>
 };
 
 export const MARKET_DATA_FORMATTERS: Record<string, (data: unknown, args?: Rec) => string> = {
-  get_stock_price_snapshot: formatStockPrice,
+  get_stock_price: formatStockPrice,
   get_stock_prices: formatStockPrices,
   get_crypto_price_snapshot: formatCryptoPrice,
   get_crypto_prices: formatStockPrices,

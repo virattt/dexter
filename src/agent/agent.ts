@@ -506,14 +506,14 @@ export class Agent {
   }
 
   private truncateMessages(messages: BaseMessage[], keepRounds: number): number {
-    let roundStartIndex = 0;
+    let roundStartIndex = -1;
     for (let i = 0; i < messages.length; i++) {
       if (messages[i] instanceof AIMessage) {
         roundStartIndex = i;
         break;
       }
     }
-    if (roundStartIndex === 0) return 0;
+    if (roundStartIndex === -1) return 0;
 
     const rounds: { start: number; end: number }[] = [];
     let i = roundStartIndex;
