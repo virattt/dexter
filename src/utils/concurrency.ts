@@ -1,6 +1,5 @@
 /**
  * Async generator concurrency utilities.
- * Async generator concurrency helpers.
  */
 
 interface QueuedGenerator<A> {
