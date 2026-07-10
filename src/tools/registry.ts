@@ -58,7 +58,7 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'get_market_data',
       tool: createGetMarketData(model),
       description: GET_MARKET_DATA_DESCRIPTION,
-      compactDescription: 'Stock/crypto prices, company news, and insider trades. Handles multi-asset queries in one call.',
+      compactDescription: 'Stock/crypto prices, company news, and insider trades/ownership. Handles multi-asset queries in one call.',
       concurrencySafe: true,
     },
     {

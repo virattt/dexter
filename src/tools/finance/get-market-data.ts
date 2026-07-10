@@ -27,6 +27,7 @@ Intelligent meta-tool for retrieving market data including prices, news, and ins
 - Company news and recent headlines
 - Broad market news (macro, rates, earnings, geopolitics)
 - Insider trading activity
+- Insider ownership statements (SEC Forms 3/5 — what insiders hold)
 - Institutional holdings (SEC 13F — who holds a security, what a filer holds)
 - Price move explanations ("why did X go up/down" → combines price + news)
 
@@ -57,6 +58,7 @@ import { getStockPrice, getStockPrices, getStockTickers } from './stock-price.js
 import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
 import { getCompanyNews } from './news.js';
 import { getInsiderTrades } from './insider_trades.js';
+import { getInsiderOwnership } from './insider_ownership.js';
 import { getInstitutionalHoldings } from './institutional_holdings.js';
 
 // All market data tools available for routing
@@ -72,6 +74,7 @@ const MARKET_DATA_TOOLS: StructuredToolInterface[] = [
   // News & Activity
   getCompanyNews,
   getInsiderTrades,
+  getInsiderOwnership,
   getInstitutionalHoldings,
 ];
 
@@ -108,6 +111,7 @@ Given a user's natural language query about market data, call the appropriate to
    - For company-specific news, catalysts, recent announcements → get_company_news with ticker
    - For broad market news (macro, rates, earnings, geopolitics) → get_company_news without ticker
    - For insider buying/selling activity → get_insider_trades
+   - For what insiders OWN (positions and holdings, initial Form 3 statements, annual Form 5 statements, options/RSUs held) → get_insider_ownership
    - For who holds a stock (largest holders, 13F holders of X) → get_institutional_holdings with ticker
    - For a specific manager's portfolio (Citadel, Berkshire, BlackRock, etc.) → get_institutional_holdings with filer_name (the tool resolves name → CIK internally; do NOT make a separate lookup call)
    - For "why did X go up/down" → combine get_stock_price + get_company_news
@@ -140,6 +144,7 @@ export function createGetMarketData(model: string): DynamicStructuredTool {
 - Company news and recent headlines
 - Broad market news (omit ticker)
 - Insider trading activity
+- Insider ownership statements (Forms 3/5)
 - Institutional holdings (SEC 13F)`,
     schema: GetMarketDataInputSchema,
     func: async (input, _runManager, config?: RunnableConfig) => {
