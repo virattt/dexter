@@ -201,6 +201,19 @@ export function formatInsiderOwnership(data: unknown): string {
   return lines.join('\n');
 }
 
+export function formatBeneficialOwnership(data: unknown): string {
+  const items = Array.isArray(data) ? data : [];
+  if (items.length === 0) return 'No beneficial ownership stakes found.';
+  const lines = ['Beneficial Ownership (5%+ stakes)', ''];
+  lines.push('| Owner | Ticker | Type | Form | % of Class | Shares | Filed |');
+  lines.push('|-------|--------|------|------|------------|--------|-------|');
+  for (const row of items.slice(0, 15) as Rec[]) {
+    const pct = row.percent_of_class != null ? `${row.percent_of_class}%` : '—';
+    lines.push(`| ${row.reporting_person_name ?? '—'} | ${row.ticker ?? '—'} | ${row.type ?? '—'} | ${row.form_type ?? '—'} | ${pct} | ${fmtNum(row.aggregate_amount_beneficially_owned)} | ${String(row.filing_date ?? '').slice(0, 10)} |`);
+  }
+  return lines.join('\n');
+}
+
 export function formatInstitutionalHoldings(data: unknown, args?: Rec): string {
   const items = Array.isArray(data) ? data : [];
   if (items.length === 0) return 'No institutional holdings found.';
@@ -366,4 +379,5 @@ export const MARKET_DATA_FORMATTERS: Record<string, (data: unknown, args?: Rec) 
   get_insider_trades: formatInsiderTrades,
   get_insider_ownership: formatInsiderOwnership,
   get_institutional_holdings: formatInstitutionalHoldings,
+  get_beneficial_ownership: formatBeneficialOwnership,
 };
