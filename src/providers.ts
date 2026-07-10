@@ -24,7 +24,7 @@ export const PROVIDERS: ProviderDef[] = [
     displayName: 'OpenAI',
     modelPrefix: '',
     apiKeyEnvVar: 'OPENAI_API_KEY',
-    fastModel: 'gpt-5.4-mini',
+    fastModel: 'gpt-5.6-luna',
     contextWindow: 1_047_576,
   },
   {

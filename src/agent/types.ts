@@ -41,7 +41,7 @@ export type ApprovalDecision = 'allow-once' | 'allow-session' | 'allow-always' |
  * Agent configuration
  */
 export interface AgentConfig {
-  /** Model to use for LLM calls (e.g., 'gpt-5.5', 'claude-sonnet-4-20250514') */
+  /** Model to use for LLM calls (e.g., 'gpt-5.6-sol', 'claude-sonnet-4-20250514') */
   model?: string;
   /** Model provider (e.g., 'openai', 'anthropic', 'google', 'ollama') */
   modelProvider?: string;
