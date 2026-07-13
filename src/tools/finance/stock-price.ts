@@ -4,7 +4,7 @@ import { api } from './api.js';
 import { formatToolResult } from '../types.js';
 
 export const STOCK_PRICE_DESCRIPTION = `
-Fetches current stock price snapshots for equities, including open, high, low, close prices, volume, and market cap. Powered by Financial Datasets.
+Fetches the current stock price snapshot for an equity: latest price and the day's change. For open/high/low/close and volume over a range, use historical prices. Powered by Financial Datasets.
 `.trim();
 
 const StockPriceInputSchema = z.object({
@@ -16,7 +16,7 @@ const StockPriceInputSchema = z.object({
 export const getStockPrice = new DynamicStructuredTool({
   name: 'get_stock_price',
   description:
-    'Fetches the current stock price snapshot for an equity ticker, including open, high, low, close prices, volume, and market cap.',
+    "Fetches the current stock price snapshot for an equity ticker: the latest price and the day's change. Does not include intraday OHLC or volume — use get_stock_prices for historical OHLCV.",
   schema: StockPriceInputSchema,
   func: async (input) => {
     const ticker = input.ticker.trim().toUpperCase();
@@ -44,10 +44,19 @@ export const getStockPrices = new DynamicStructuredTool({
     'Retrieves historical price data for a stock over a specified date range, including open, high, low, close prices and volume.',
   schema: StockPricesInputSchema,
   func: async (input) => {
+    // The API rejects a zero-width range (start_date == end_date) with a 400.
+    // Widen a same-day request back a week so "price on date X" queries return
+    // the row for X (or the nearest prior trading day) instead of erroring.
+    let startDate = input.start_date;
+    if (startDate >= input.end_date) {
+      const widened = new Date(input.end_date + 'T00:00:00');
+      widened.setDate(widened.getDate() - 7);
+      startDate = widened.toISOString().slice(0, 10);
+    }
     const params = {
       ticker: input.ticker.trim().toUpperCase(),
       interval: input.interval,
-      start_date: input.start_date,
+      start_date: startDate,
       end_date: input.end_date,
     };
     // Cache when the date window is fully closed (OHLCV data is final)

@@ -58,31 +58,32 @@ function formatSubToolName(name: string): string {
 import { getStockPrice, getStockPrices, getStockTickers } from './stock-price.js';
 import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
 import { getCompanyNews } from './news.js';
-import { getInsiderTrades } from './insider_trades.js';
+import { createGetInsiderTrades, getInsiderNames } from './insider_trades.js';
 import { getInsiderOwnership } from './insider_ownership.js';
 import { getInstitutionalHoldings } from './institutional_holdings.js';
 import { getBeneficialOwnership } from './beneficial_ownership.js';
 
-// All market data tools available for routing
-const MARKET_DATA_TOOLS: StructuredToolInterface[] = [
-  // Stock Prices
-  getStockPrice,
-  getStockPrices,
-  getStockTickers,
-  // Crypto Prices
-  getCryptoPriceSnapshot,
-  getCryptoPrices,
-  getCryptoTickers,
-  // News & Activity
-  getCompanyNews,
-  getInsiderTrades,
-  getInsiderOwnership,
-  getInstitutionalHoldings,
-  getBeneficialOwnership,
-];
-
-// Create a map for quick tool lookup by name
-const MARKET_DATA_TOOL_MAP = new Map(MARKET_DATA_TOOLS.map(t => [t.name, t]));
+// All market data tools available for routing. Built per-instance because
+// get_insider_trades needs the model for its LLM name-resolution fallback.
+function buildMarketDataTools(model: string): StructuredToolInterface[] {
+  return [
+    // Stock Prices
+    getStockPrice,
+    getStockPrices,
+    getStockTickers,
+    // Crypto Prices
+    getCryptoPriceSnapshot,
+    getCryptoPrices,
+    getCryptoTickers,
+    // News & Activity
+    getCompanyNews,
+    createGetInsiderTrades(model),
+    getInsiderNames,
+    getInsiderOwnership,
+    getInstitutionalHoldings,
+    getBeneficialOwnership,
+  ];
+}
 
 // Build the router system prompt for market data
 function buildRouterPrompt(): string {
@@ -113,7 +114,8 @@ Given a user's natural language query about market data, call the appropriate to
    - For "what cryptos are available" or crypto ticker lookup → get_crypto_tickers
    - For company-specific news, catalysts, recent announcements → get_company_news with ticker
    - For broad market news (macro, rates, earnings, geopolitics) → get_company_news without ticker
-   - For insider buying/selling activity → get_insider_trades
+   - For insider buying/selling activity → get_insider_trades (the name filter accepts common names like 'Jensen Huang' and resolves them to the SEC spelling internally; do NOT make a separate lookup call)
+   - For "who are the insiders at X" or to list a company's insiders by name → get_insider_names with ticker
    - For what insiders OWN (positions and holdings, initial Form 3 statements, annual Form 5 statements, options/RSUs held) → get_insider_ownership
    - For who holds a stock (largest holders, 13F holders of X) → get_institutional_holdings with ticker
    - For a specific manager's portfolio (Citadel, Berkshire, BlackRock, etc.) → get_institutional_holdings with filer_name (the tool resolves name → CIK internally; do NOT make a separate lookup call)
@@ -140,6 +142,8 @@ const GetMarketDataInputSchema = z.object({
  * Uses native LLM tool calling for routing queries to market data tools.
  */
 export function createGetMarketData(model: string): DynamicStructuredTool {
+  const marketDataTools = buildMarketDataTools(model);
+  const marketDataToolMap = new Map(marketDataTools.map(t => [t.name, t]));
   return new DynamicStructuredTool({
     name: 'get_market_data',
     description: `Intelligent meta-tool for retrieving market data including prices, news, and insider activity. Takes a natural language query and automatically routes to appropriate market data tools. Use for:
@@ -161,7 +165,7 @@ export function createGetMarketData(model: string): DynamicStructuredTool {
       const { response } = await callLlm(input.query, {
         model,
         systemPrompt: buildRouterPrompt(),
-        tools: MARKET_DATA_TOOLS,
+        tools: marketDataTools,
       });
       const aiMessage = response as AIMessage;
 
@@ -177,7 +181,7 @@ export function createGetMarketData(model: string): DynamicStructuredTool {
       const results = await Promise.all(
         toolCalls.map(async (tc) => {
           try {
-            const tool = MARKET_DATA_TOOL_MAP.get(tc.name);
+            const tool = marketDataToolMap.get(tc.name);
             if (!tool) {
               throw new Error(`Tool '${tc.name}' not found`);
             }

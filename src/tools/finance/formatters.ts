@@ -37,6 +37,13 @@ function fmtPrice(n: unknown): string {
   return `$${num.toFixed(2)}`;
 }
 
+function fmtRatio(n: unknown): string {
+  if (n === null || n === undefined) return '—';
+  const num = Number(n);
+  if (isNaN(num)) return '—';
+  return num.toFixed(1);
+}
+
 function fmtDate(d: unknown): string {
   if (!d) return '—';
   const str = String(d);
@@ -52,6 +59,15 @@ function fmtDate(d: unknown): string {
 
 type Rec = Record<string, unknown>;
 
+// Period label for statement/metric rows. Prefers the API's authoritative
+// fiscal_period ("FY2026", "2027-Q1") — deriving a calendar quarter from
+// report_period mislabels annual rows as "Q1 26" and misassigns quarters for
+// non-calendar fiscal years (e.g. NVDA's late-January year-end).
+function fmtPeriod(row: Rec): string {
+  if (row.fiscal_period) return String(row.fiscal_period);
+  return fmtDate(row.report_period ?? row.date);
+}
+
 // ---------------------------------------------------------------------------
 // Financial statement formatters
 // ---------------------------------------------------------------------------
@@ -64,7 +80,7 @@ export function formatIncomeStatements(data: unknown, args?: Rec): string {
   lines.push('| Period | Revenue | Op Inc | Net Inc | EPS |');
   lines.push('|--------|---------|--------|---------|-----|');
   for (const row of items as Rec[]) {
-    lines.push(`| ${fmtDate(row.report_period)} | ${fmtNum(row.revenue)} | ${fmtNum(row.operating_income)} | ${fmtNum(row.net_income)} | ${fmtPrice(row.earnings_per_share ?? row.basic_earnings_per_share)} |`);
+    lines.push(`| ${fmtPeriod(row)} | ${fmtNum(row.revenue)} | ${fmtNum(row.operating_income)} | ${fmtNum(row.net_income)} | ${fmtPrice(row.earnings_per_share ?? row.basic_earnings_per_share)} |`);
   }
   return lines.join('\n');
 }
@@ -77,7 +93,7 @@ export function formatBalanceSheets(data: unknown, args?: Rec): string {
   lines.push('| Period | Total Assets | Total Liab | Equity | Cash |');
   lines.push('|--------|-------------|------------|--------|------|');
   for (const row of items as Rec[]) {
-    lines.push(`| ${fmtDate(row.report_period)} | ${fmtNum(row.total_assets)} | ${fmtNum(row.total_liabilities)} | ${fmtNum(row.shareholders_equity ?? row.total_equity)} | ${fmtNum(row.cash_and_equivalents)} |`);
+    lines.push(`| ${fmtPeriod(row)} | ${fmtNum(row.total_assets)} | ${fmtNum(row.total_liabilities)} | ${fmtNum(row.shareholders_equity ?? row.total_equity)} | ${fmtNum(row.cash_and_equivalents)} |`);
   }
   return lines.join('\n');
 }
@@ -91,9 +107,11 @@ export function formatCashFlowStatements(data: unknown, args?: Rec): string {
   lines.push('|--------|-------|-------|-----|');
   for (const row of items as Rec[]) {
     const opCF = Number(row.operating_cash_flow ?? row.net_cash_flow_from_operations ?? 0);
-    const capex = Math.abs(Number(row.capital_expenditure ?? row.capital_expenditures ?? 0));
-    const fcf = opCF - capex;
-    lines.push(`| ${fmtDate(row.report_period)} | ${fmtNum(opCF)} | ${fmtNum(capex)} | ${fmtNum(fcf)} |`);
+    // capital_expenditure is often null; the capex outflow lands in
+    // property_plant_and_equipment. Prefer the API's own free_cash_flow.
+    const capex = Math.abs(Number(row.capital_expenditure ?? row.property_plant_and_equipment ?? 0));
+    const fcf = row.free_cash_flow != null ? Number(row.free_cash_flow) : opCF - capex;
+    lines.push(`| ${fmtPeriod(row)} | ${fmtNum(opCF)} | ${fmtNum(capex)} | ${fmtNum(fcf)} |`);
   }
   return lines.join('\n');
 }
@@ -117,14 +135,13 @@ export function formatKeyRatios(data: unknown, args?: Rec): string {
   const ticker = ((d.ticker ?? args?.ticker) as string)?.toUpperCase() ?? '';
   const lines = [`${ticker} Key Metrics`];
   lines.push(`- Market Cap: ${fmtNum(d.market_cap)}`);
-  lines.push(`- P/E: ${d.pe_ratio ?? '—'} | EPS: ${fmtPrice(d.eps)}`);
-  lines.push(`- Revenue Growth: ${fmtPct(d.revenue_growth_rate)} | Earnings Growth: ${fmtPct(d.earnings_growth_rate)}`);
+  lines.push(`- P/E: ${fmtRatio(d.price_to_earnings_ratio)} | P/S: ${fmtRatio(d.price_to_sales_ratio)} | P/B: ${fmtRatio(d.price_to_book_ratio)} | EPS: ${fmtPrice(d.earnings_per_share)}`);
+  lines.push(`- Revenue Growth: ${fmtPct(d.revenue_growth)} | Earnings Growth: ${fmtPct(d.earnings_growth)}`);
   if (d.gross_margin !== undefined || d.operating_margin !== undefined || d.net_margin !== undefined) {
     lines.push(`- Gross Margin: ${fmtPct(d.gross_margin)} | Op Margin: ${fmtPct(d.operating_margin)} | Net Margin: ${fmtPct(d.net_margin)}`);
   }
-  if (d.roe !== undefined) lines.push(`- ROE: ${fmtPct(d.roe)} | ROIC: ${fmtPct(d.roic)}`);
-  if (d.dividend_yield !== undefined) lines.push(`- Dividend Yield: ${fmtPct(d.dividend_yield)}`);
-  if (d.debt_to_equity !== undefined) lines.push(`- D/E: ${Number(d.debt_to_equity)?.toFixed(2) ?? '—'}`);
+  if (d.return_on_equity !== undefined) lines.push(`- ROE: ${fmtPct(d.return_on_equity)} | ROIC: ${fmtPct(d.return_on_invested_capital)}`);
+  if (d.debt_to_equity !== undefined) lines.push(`- D/E: ${fmtRatio(d.debt_to_equity)}`);
   return lines.join('\n');
 }
 
@@ -136,7 +153,7 @@ export function formatHistoricalKeyRatios(data: unknown, args?: Rec): string {
   lines.push('| Period | P/E | EPS | Rev Growth | Op Margin | ROE |');
   lines.push('|--------|-----|-----|------------|-----------|-----|');
   for (const row of items as Rec[]) {
-    lines.push(`| ${fmtDate(row.report_period ?? row.date)} | ${row.pe_ratio ?? '—'} | ${fmtPrice(row.eps)} | ${fmtPct(row.revenue_growth_rate)} | ${fmtPct(row.operating_margin)} | ${fmtPct(row.roe)} |`);
+    lines.push(`| ${fmtPeriod(row)} | ${fmtRatio(row.price_to_earnings_ratio)} | ${fmtPrice(row.earnings_per_share)} | ${fmtPct(row.revenue_growth)} | ${fmtPct(row.operating_margin)} | ${fmtPct(row.return_on_equity)} |`);
   }
   return lines.join('\n');
 }
@@ -148,7 +165,12 @@ export function formatHistoricalKeyRatios(data: unknown, args?: Rec): string {
 export function formatStockPrice(data: unknown): string {
   const d = (data && typeof data === 'object') ? data as Rec : {};
   const ticker = (d.ticker as string)?.toUpperCase() ?? '';
-  return `${ticker}: ${fmtPrice(d.close ?? d.price)} (H: ${fmtPrice(d.high)} L: ${fmtPrice(d.low)}) Vol: ${fmtNum(d.volume)}`;
+  // The /prices/snapshot/ endpoint is a last-trade snapshot: price + day change,
+  // no OHLC/volume. Show the day move instead of blank H/L/Vol columns.
+  const chg = d.day_change_percent != null
+    ? ` (${Number(d.day_change_percent) >= 0 ? '+' : ''}${Number(d.day_change_percent).toFixed(2)}% today)`
+    : '';
+  return `${ticker}: ${fmtPrice(d.price ?? d.close)}${chg}`;
 }
 
 export function formatStockPrices(data: unknown): string {
@@ -158,7 +180,7 @@ export function formatStockPrices(data: unknown): string {
   lines.push('| Date | Open | Close | Volume |');
   lines.push('|------|------|-------|--------|');
   for (const row of items.slice(0, 20) as Rec[]) {
-    lines.push(`| ${row.date ?? '—'} | ${fmtPrice(row.open)} | ${fmtPrice(row.close)} | ${fmtNum(row.volume)} |`);
+    lines.push(`| ${row.time ?? row.date ?? '—'} | ${fmtPrice(row.open)} | ${fmtPrice(row.close)} | ${fmtNum(row.volume)} |`);
   }
   if (items.length > 20) lines.push(`... and ${items.length - 20} more rows`);
   return lines.join('\n');
@@ -178,18 +200,43 @@ export function formatNews(data: unknown): string {
 export function formatInsiderTrades(data: unknown): string {
   const items = Array.isArray(data) ? data : [];
   if (items.length === 0) return 'No insider trades found.';
-  const lines = ['Insider Trades', ''];
-  lines.push('| Name | Title | Type | Shares | Price | Date |');
-  lines.push('|------|-------|------|--------|-------|------|');
-  for (const row of items.slice(0, 15) as Rec[]) {
-    lines.push(`| ${row.full_name ?? row.owner ?? '—'} | ${row.officer_title ?? '—'} | ${row.transaction_type ?? '—'} | ${fmtNum(row.shares ?? row.securities_transacted)} | ${fmtPrice(row.price_per_share)} | ${String(row.filing_date ?? row.transaction_date ?? '').slice(0, 10)} |`);
+  // Totals cover ALL rows so aggregate questions ("how much did X sell?")
+  // are answerable even though the table below is truncated.
+  const totals = new Map<string, { count: number; shares: number; value: number }>();
+  for (const row of items as Rec[]) {
+    const type = String(row.transaction_type ?? 'Other');
+    const t = totals.get(type) ?? { count: 0, shares: 0, value: 0 };
+    t.count += 1;
+    t.shares += Number(row.transaction_shares) || 0;
+    t.value += Number(row.transaction_value) || 0;
+    totals.set(type, t);
   }
+  const lines = [`Insider Trades — ${items.length} transactions`, ''];
+  lines.push('Totals by type (all rows):');
+  for (const [type, t] of totals) {
+    lines.push(`- ${type}: ${t.count} txns, ${fmtNum(t.shares)} shares, $${fmtNum(t.value)}`);
+  }
+  lines.push('');
+  lines.push('| Name | Title | Type | Shares | Price | Value | Owned After | Date |');
+  lines.push('|------|-------|------|--------|-------|-------|-------------|------|');
+  for (const row of items.slice(0, 15) as Rec[]) {
+    const title = row.title ?? (row.is_board_director ? 'Director' : '—');
+    lines.push(`| ${row.name ?? '—'} | ${title} | ${row.transaction_type ?? '—'} | ${fmtNum(row.transaction_shares)} | ${fmtPrice(row.transaction_price_per_share)} | ${fmtNum(row.transaction_value)} | ${fmtNum(row.shares_owned_after_transaction)} | ${String(row.filing_date ?? row.transaction_date ?? '').slice(0, 10)} |`);
+  }
+  if (items.length > 15) lines.push(`... and ${items.length - 15} more rows (totals above cover all rows)`);
   return lines.join('\n');
+}
+
+export function formatInsiderNames(data: unknown, args?: Rec): string {
+  const names = Array.isArray(data) ? data : [];
+  if (names.length === 0) return 'No insider names found.';
+  const ticker = (args?.ticker as string)?.toUpperCase() ?? '';
+  return `Insider names${ticker ? ` — ${ticker}` : ''} (exact SEC filing spellings, use verbatim as the name filter):\n${names.join('; ')}`;
 }
 
 export function formatInsiderOwnership(data: unknown): string {
   const items = Array.isArray(data) ? data : [];
-  if (items.length === 0) return 'No insider ownership statements found.';
+  if (items.length === 0) return 'No Form 3/5 ownership statements on file for this ticker. This is normal — many insiders report via Form 4 transactions instead (see get_insider_trades). Absence here does not imply missing coverage.';
   const lines = ['Insider Ownership', ''];
   lines.push('| Name | Title | Form | Holding | Security | Shares | D/I | As of |');
   lines.push('|------|-------|------|---------|----------|--------|-----|-------|');
@@ -272,7 +319,7 @@ export function formatEarnings(data: unknown, args?: Rec): string {
           .join('; ')
         : '';
 
-      lines.push(`| ${cell(String(row.ticker ?? '—').toUpperCase())} | ${cell(fmtDate(row.report_period))} | ${cell(row.fiscal_period)} | ${cell(row.source_type)} | ${cell(fmtDate(row.filing_date))} | ${cell(fmtNum(figures.revenue))} | ${cell(fmtPrice(eps))} | ${cell(signals || '—')} |`);
+      lines.push(`| ${cell(String(row.ticker ?? '—').toUpperCase())} | ${cell(fmtPeriod(row))} | ${cell(row.fiscal_period)} | ${cell(row.source_type)} | ${cell(String(row.filing_date ?? '—').slice(0, 10))} | ${cell(fmtNum(figures.revenue))} | ${cell(fmtPrice(eps))} | ${cell(signals || '—')} |`);
     }
 
     if (rows.length > 15) lines.push('', `(showing 15 of ${rows.length})`);
@@ -296,15 +343,22 @@ export function formatEarnings(data: unknown, args?: Rec): string {
   if (figures.net_income !== undefined) lines.push(`Net Income: ${fmtNum(figures.net_income)}`);
   const eps = figures.earnings_per_share ?? figures.eps;
   if (eps !== undefined) lines.push(`EPS: ${fmtPrice(eps)}`);
-  if (figures.revenue_surprise !== undefined) lines.push(`Revenue Surprise: ${fmtPct(figures.revenue_surprise)}`);
-  if (figures.eps_surprise !== undefined) lines.push(`EPS Surprise: ${fmtPct(figures.eps_surprise)}`);
+  // *_surprise holds the BEAT/MISS/MEET label; the magnitude is in *_surprise_pct.
+  if (figures.revenue_surprise !== undefined) lines.push(`Revenue Surprise: ${figures.revenue_surprise}${figures.revenue_surprise_pct != null ? ` (${fmtPct(figures.revenue_surprise_pct)})` : ''}`);
+  if (figures.eps_surprise !== undefined) lines.push(`EPS Surprise: ${figures.eps_surprise}${figures.eps_surprise_pct != null ? ` (${fmtPct(figures.eps_surprise_pct)})` : ''}`);
   return lines.join('\n');
 }
 
 export function formatCryptoPrice(data: unknown): string {
   const d = (data && typeof data === 'object') ? data as Rec : {};
   const ticker = (d.ticker as string)?.toUpperCase() ?? '';
-  return `${ticker}: ${fmtPrice(d.close ?? d.price)} (H: ${fmtPrice(d.high)} L: ${fmtPrice(d.low)}) Vol: ${fmtNum(d.volume)}`;
+  // Only surface OHLC/volume when the snapshot actually carries them; the
+  // last-trade snapshot has just price + day change.
+  const extras: string[] = [];
+  if (d.high != null || d.low != null) extras.push(`H: ${fmtPrice(d.high)} L: ${fmtPrice(d.low)}`);
+  if (d.volume != null) extras.push(`Vol: ${fmtNum(d.volume)}`);
+  if (d.day_change_percent != null) extras.push(`${Number(d.day_change_percent) >= 0 ? '+' : ''}${Number(d.day_change_percent).toFixed(2)}% today`);
+  return `${ticker}: ${fmtPrice(d.price ?? d.close)}${extras.length ? ` (${extras.join(' ')})` : ''}`;
 }
 
 export function formatFinancialSegments(data: unknown, args?: Rec): string {
@@ -377,6 +431,7 @@ export const MARKET_DATA_FORMATTERS: Record<string, (data: unknown, args?: Rec) 
   get_crypto_prices: formatStockPrices,
   get_company_news: formatNews,
   get_insider_trades: formatInsiderTrades,
+  get_insider_names: formatInsiderNames,
   get_insider_ownership: formatInsiderOwnership,
   get_institutional_holdings: formatInstitutionalHoldings,
   get_beneficial_ownership: formatBeneficialOwnership,
