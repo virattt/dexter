@@ -135,7 +135,7 @@ To press Enter:
  */
 async function ensureBrowser(): Promise<Page> {
   if (!browser) {
-    browser = await chromium.launch({ headless: false });
+    browser = await chromium.launch({ headless: true });
   }
   if (!page) {
     const context = await browser.newContext();
