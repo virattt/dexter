@@ -2,21 +2,28 @@
  * LangSmith Evaluation Runner for Dexter
  * 
  * Usage:
- *   bun run src/evals/run.ts              # Run on all questions
- *   bun run src/evals/run.ts --sample 10  # Run on random sample of 10 questions
+ *   bun run src/evals/run.ts                                      # Run on all questions
+ *   bun run src/evals/run.ts --sample 10                          # Run on random sample
+ *   bun run src/evals/run.ts --model gpt-5.6-terra                # Evaluate Terra
+ *   bun run src/evals/run.ts --model gpt-5.6-luna                 # Evaluate Luna
+ *   bun run src/evals/run.ts --model claude-opus-4-8              # Evaluate Opus 4.8
+ *   bun run src/evals/run.ts --model claude-fable-5               # Evaluate Fable 5
+ *   bun run src/evals/run.ts --model claude-opus-4-8 --judge-model gpt-5.6-luna
  */
 
 import 'dotenv/config';
 import { ProcessTerminal, TUI } from '@mariozechner/pi-tui';
 import { Client } from 'langsmith';
 import type { EvaluationResult } from 'langsmith/evaluation';
-import { ChatOpenAI } from '@langchain/openai';
 import { z } from 'zod';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Agent } from '../agent/agent.js';
+import { getChatModel } from '../model/llm.js';
+import { getModelDisplayName } from '../utils/model.js';
 import { EvalApp, type EvalProgressEvent } from './components/index.js';
+import { parseEvalOptions, type EvalOptions } from './options.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -140,8 +147,8 @@ function shuffleArray<T>(array: T[]): T[] {
 // Target function - wraps Dexter agent
 // ============================================================================
 
-async function target(inputs: { question: string }): Promise<{ answer: string }> {
-  const agent = await Agent.create({ model: 'gpt-5.5', maxIterations: 10 });
+async function target(inputs: { question: string }, model: string): Promise<{ answer: string }> {
+  const agent = await Agent.create({ model, maxIterations: 10 });
   let answer = '';
   
   for await (const event of agent.run(inputs.question)) {
@@ -154,7 +161,7 @@ async function target(inputs: { question: string }): Promise<{ answer: string }>
 }
 
 // ============================================================================
-// Correctness evaluator - LLM-as-judge using gpt-5.5
+// Correctness evaluator - LLM-as-judge
 // ============================================================================
 
 const EvaluatorOutputSchema = z.object({
@@ -162,25 +169,21 @@ const EvaluatorOutputSchema = z.object({
   comment: z.string(),
 });
 
-const llm = new ChatOpenAI({
-  model: 'gpt-5.5',
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function createCorrectnessEvaluator(judgeModel: string) {
+  const structuredLlm = getChatModel(judgeModel).withStructuredOutput(EvaluatorOutputSchema);
 
-const structuredLlm = llm.withStructuredOutput(EvaluatorOutputSchema);
+  return async function correctnessEvaluator({
+    outputs,
+    referenceOutputs,
+  }: {
+    inputs: Record<string, unknown>;
+    outputs: Record<string, unknown>;
+    referenceOutputs?: Record<string, unknown>;
+  }): Promise<EvaluationResult> {
+    const actualAnswer = (outputs?.answer as string) || '';
+    const expectedAnswer = (referenceOutputs?.answer as string) || '';
 
-async function correctnessEvaluator({
-  outputs,
-  referenceOutputs,
-}: {
-  inputs: Record<string, unknown>;
-  outputs: Record<string, unknown>;
-  referenceOutputs?: Record<string, unknown>;
-}): Promise<EvaluationResult> {
-  const actualAnswer = (outputs?.answer as string) || '';
-  const expectedAnswer = (referenceOutputs?.answer as string) || '';
-
-  const prompt = `You are evaluating the correctness of an AI assistant's answer to a financial question.
+    const prompt = `You are evaluating the correctness of an AI assistant's answer to a financial question.
 
 Compare the actual answer to the expected answer. The actual answer is considered correct if it conveys the same key information as the expected answer. Minor differences in wording, formatting, or additional context are acceptable as long as the core facts are correct.
 
@@ -194,28 +197,41 @@ Evaluate and provide:
 - score: 1 if the answer is correct (contains the key information), 0 if incorrect
 - comment: brief explanation of why the answer is correct or incorrect`;
 
-  try {
-    const result = await structuredLlm.invoke(prompt);
-    return {
-      key: 'correctness',
-      score: result.score,
-      comment: result.comment,
-    };
-  } catch (error) {
-    return {
-      key: 'correctness',
-      score: 0,
-      comment: `Evaluator error: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
+    try {
+      const result = await structuredLlm.invoke(prompt);
+      return {
+        key: 'correctness',
+        score: result.score,
+        comment: result.comment,
+      };
+    } catch (error) {
+      return {
+        key: 'correctness',
+        score: 0,
+        comment: `Evaluator error: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  };
+}
+
+function slugifyModelId(modelId: string): string {
+  return modelId
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase() || 'model';
 }
 
 // ============================================================================
 // Evaluation generator - yields progress events for the UI
 // ============================================================================
 
-function createEvaluationRunner(sampleSize?: number) {
+function createEvaluationRunner(options: EvalOptions) {
   return async function* runEvaluation(): AsyncGenerator<EvalProgressEvent, void, unknown> {
+    const { model, judgeModel, sampleSize } = options;
+    const modelDisplayName = getModelDisplayName(model);
+    const judgeModelDisplayName = getModelDisplayName(judgeModel);
+    const correctnessEvaluator = createCorrectnessEvaluator(judgeModel);
+
     // Load and parse dataset
     const csvPath = path.join(__dirname, 'dataset', 'finance_agent.csv');
     const csvContent = fs.readFileSync(csvPath, 'utf-8');
@@ -240,6 +256,10 @@ function createEvaluationRunner(sampleSize?: number) {
       type: 'init',
       total: examples.length,
       datasetName: sampleSize ? `finance_agent (sample ${sampleSize}/${totalCount})` : 'finance_agent',
+      model,
+      modelDisplayName,
+      judgeModel,
+      judgeModelDisplayName,
     };
 
     // Check if dataset exists (only for full runs)
@@ -270,7 +290,13 @@ function createEvaluationRunner(sampleSize?: number) {
     }
 
     // Generate experiment name for tracking
-    const experimentName = `dexter-eval-${Date.now().toString(36)}`;
+    const experimentName = [
+      'dexter-eval',
+      slugifyModelId(model),
+      'judge',
+      slugifyModelId(judgeModel),
+      Date.now().toString(36),
+    ].join('-');
 
     // Run evaluation manually - process each example one by one
     for (const example of examples) {
@@ -284,7 +310,7 @@ function createEvaluationRunner(sampleSize?: number) {
 
       // Run the agent to get an answer
       const startTime = Date.now();
-      const outputs = await target(example.inputs);
+      const outputs = await target(example.inputs, model);
       const endTime = Date.now();
 
       // Run the correctness evaluator
@@ -305,6 +331,16 @@ function createEvaluationRunner(sampleSize?: number) {
         project_name: experimentName,
         extra: {
           dataset: datasetName,
+          models: {
+            target: {
+              id: model,
+              display_name: modelDisplayName,
+            },
+            judge: {
+              id: judgeModel,
+              display_name: judgeModelDisplayName,
+            },
+          },
           reference_outputs: example.outputs,
           evaluation: {
             score: evalResult.score,
@@ -326,6 +362,10 @@ function createEvaluationRunner(sampleSize?: number) {
     yield {
       type: 'complete',
       experimentName,
+      model,
+      modelDisplayName,
+      judgeModel,
+      judgeModelDisplayName,
     };
   };
 }
@@ -335,13 +375,9 @@ function createEvaluationRunner(sampleSize?: number) {
 // ============================================================================
 
 async function main() {
-  // Parse CLI arguments
-  const args = process.argv.slice(2);
-  const sampleIndex = args.indexOf('--sample');
-  const sampleSize = sampleIndex !== -1 ? parseInt(args[sampleIndex + 1]) : undefined;
+  const options = parseEvalOptions(process.argv.slice(2));
 
-  // Create the evaluation runner with the sample size
-  const runEvaluation = createEvaluationRunner(sampleSize);
+  const runEvaluation = createEvaluationRunner(options);
 
   const tui = new TUI(new ProcessTerminal());
   const evalApp = new EvalApp(tui, runEvaluation);

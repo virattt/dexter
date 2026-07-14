@@ -26,3 +26,20 @@ describe('OpenAI model catalog', () => {
     expect(getModelDisplayName('gpt-5.6-luna')).toBe('GPT 5.6 Luna');
   });
 });
+
+describe('Anthropic model catalog', () => {
+  test('offers the current Claude family with Sonnet as the default', () => {
+    expect(getModelIdsForProvider('anthropic')).toEqual([
+      'claude-sonnet-4-6',
+      'claude-opus-4-8',
+      'claude-fable-5',
+    ]);
+    expect(getDefaultModelForProvider('anthropic')).toBe('claude-sonnet-4-6');
+  });
+
+  test('shows the Claude model names in the UI', () => {
+    expect(getModelDisplayName('claude-sonnet-4-6')).toBe('Sonnet 4.6');
+    expect(getModelDisplayName('claude-opus-4-8')).toBe('Opus 4.8');
+    expect(getModelDisplayName('claude-fable-5')).toBe('Fable 5');
+  });
+});

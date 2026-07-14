@@ -17,6 +17,10 @@ interface EvalState {
   startTime: number;
   experimentName: string | null;
   datasetName: string | null;
+  model: string | null;
+  modelDisplayName: string | null;
+  judgeModel: string | null;
+  judgeModelDisplayName: string | null;
 }
 
 export interface EvalProgressEvent {
@@ -28,6 +32,10 @@ export interface EvalProgressEvent {
   comment?: string;
   experimentName?: string;
   averageScore?: number;
+  model?: string;
+  modelDisplayName?: string;
+  judgeModel?: string;
+  judgeModelDisplayName?: string;
 }
 
 export class EvalApp extends Container {
@@ -47,6 +55,10 @@ export class EvalApp extends Container {
     startTime: Date.now(),
     experimentName: null,
     datasetName: null,
+    model: null,
+    modelDisplayName: null,
+    judgeModel: null,
+    judgeModelDisplayName: null,
   };
 
   constructor(tui: TUI, runEvaluation: () => AsyncGenerator<EvalProgressEvent, void, unknown>) {
@@ -67,6 +79,10 @@ export class EvalApp extends Container {
             status: 'running',
             total: event.total ?? 0,
             datasetName: event.datasetName ?? null,
+            model: event.model ?? null,
+            modelDisplayName: event.modelDisplayName ?? null,
+            judgeModel: event.judgeModel ?? null,
+            judgeModelDisplayName: event.judgeModelDisplayName ?? null,
             startTime: Date.now(),
           };
           break;
@@ -97,6 +113,10 @@ export class EvalApp extends Container {
             ...this.state,
             status: 'complete',
             experimentName: event.experimentName ?? null,
+            model: event.model ?? this.state.model,
+            modelDisplayName: event.modelDisplayName ?? this.state.modelDisplayName,
+            judgeModel: event.judgeModel ?? this.state.judgeModel,
+            judgeModelDisplayName: event.judgeModelDisplayName ?? this.state.judgeModelDisplayName,
             currentQuestion: null,
           };
           break;
@@ -132,8 +152,7 @@ export class EvalApp extends Container {
   }
 
   private renderRunningState() {
-    const datasetLabel = this.state.datasetName ? ` • ${this.state.datasetName}` : '';
-    this.addChild(new Text(`${theme.bold(theme.primary('Dexter Eval'))}${theme.muted(datasetLabel)}`, 0, 0));
+    this.addChild(new Text(`${theme.bold(theme.primary('Dexter Eval'))}${theme.muted(this.headerDetails())}`, 0, 0));
     this.addChild(new Spacer(1));
 
     this.progress.setProgress(this.state.completed, this.state.total);
@@ -175,6 +194,8 @@ export class EvalApp extends Container {
     this.addChild(new Text(theme.bold('EVALUATION COMPLETE'), 0, 0));
     this.addChild(new Text('═'.repeat(70), 0, 0));
     this.addChild(new Text(`Experiment: ${this.state.experimentName ?? 'unknown'}`, 0, 0));
+    this.addChild(new Text(`Target model: ${this.modelLabel('target')}`, 0, 0));
+    this.addChild(new Text(`Judge model: ${this.modelLabel('judge')}`, 0, 0));
     this.addChild(new Text(`Examples evaluated: ${this.state.results.length}`, 0, 0));
     this.addChild(
       new Text(
@@ -212,5 +233,31 @@ export class EvalApp extends Container {
       return value;
     }
     return `${value.slice(0, maxLength)}...`;
+  }
+
+  private headerDetails(): string {
+    const details = [
+      this.state.datasetName,
+      `Target: ${this.modelLabel('target')}`,
+      `Judge: ${this.modelLabel('judge')}`,
+    ].filter(Boolean);
+
+    return details.length > 0 ? ` • ${details.join(' • ')}` : '';
+  }
+
+  private modelLabel(kind: 'target' | 'judge'): string {
+    const id = kind === 'target' ? this.state.model : this.state.judgeModel;
+    const displayName =
+      kind === 'target' ? this.state.modelDisplayName : this.state.judgeModelDisplayName;
+
+    if (!id && !displayName) {
+      return 'unknown';
+    }
+
+    if (!id || id === displayName) {
+      return displayName ?? id ?? 'unknown';
+    }
+
+    return `${displayName ?? id} (${id})`;
   }
 }
