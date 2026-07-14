@@ -2,9 +2,17 @@ import { Container, Text } from '@mariozechner/pi-tui';
 import { theme } from '../../theme.js';
 
 export interface EvalResult {
+  index: number;
   question: string;
-  score: number;
+  questionType: string;
+  score: number | null;
   comment: string;
+  failureType?: string;
+  trackingError?: string;
+  contradictionDetected: boolean;
+  passedCriteria: number;
+  totalCriteria: number;
+  latencyMs: number;
 }
 
 function truncateAtWord(str: string, maxLength: number): string {
@@ -29,10 +37,23 @@ export class EvalRecentResults extends Container {
     const recentResults = results.slice(-maxDisplay);
 
     for (const result of recentResults) {
-      const isCorrect = result.score === 1;
-      const icon = isCorrect ? '✓' : '✗';
-      const color = isCorrect ? theme.success : theme.error;
-      this.addChild(new Text(`${color(icon)} ${truncateAtWord(result.question, 60)}`, 0, 0));
+      const hasFailure = Boolean(result.failureType);
+      const score = result.score === null ? 'n/a' : `${Math.round(result.score * 100)}%`;
+      const icon = hasFailure ? '!' : result.score === 1 ? '✓' : result.contradictionDetected ? '✗' : '~';
+      const color = hasFailure
+        ? theme.error
+        : result.score === 1
+          ? theme.success
+          : result.contradictionDetected
+            ? theme.error
+            : theme.primary;
+      this.addChild(
+        new Text(
+          `${color(icon)} ${theme.muted(`[${score}]`)} ${truncateAtWord(result.question, 54)}`,
+          0,
+          0,
+        ),
+      );
     }
   }
 }

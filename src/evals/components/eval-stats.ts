@@ -14,8 +14,12 @@ function formatElapsed(startTime: number): string {
 export class EvalStats extends Container {
   private readonly tui: TUI;
   private readonly statsText: Text;
-  private correct = 0;
-  private incorrect = 0;
+  private exactPass = 0;
+  private completed = 0;
+  private averageScore = 0;
+  private contradictions = 0;
+  private failures = 0;
+  private trackingErrors = 0;
   private startTime: number | null = null;
   private timer: NodeJS.Timeout | null = null;
 
@@ -26,12 +30,24 @@ export class EvalStats extends Container {
     this.addChild(this.statsText);
   }
 
-  setStats(correct: number, incorrect: number, startTime: number | null) {
-    this.correct = correct;
-    this.incorrect = incorrect;
-    this.startTime = startTime;
+  setStats(stats: {
+    exactPass: number;
+    completed: number;
+    averageScore: number;
+    contradictions: number;
+    failures: number;
+    trackingErrors: number;
+    startTime: number | null;
+  }) {
+    this.exactPass = stats.exactPass;
+    this.completed = stats.completed;
+    this.averageScore = stats.averageScore;
+    this.contradictions = stats.contradictions;
+    this.failures = stats.failures;
+    this.trackingErrors = stats.trackingErrors;
+    this.startTime = stats.startTime;
     this.refresh();
-    if (startTime === null) {
+    if (stats.startTime === null) {
       this.stopTimer();
       return;
     }
@@ -45,9 +61,11 @@ export class EvalStats extends Container {
   private refresh() {
     const elapsed = this.startTime === null ? '0s' : formatElapsed(this.startTime);
     this.statsText.setText(
-      `${theme.success(`✓ ${this.correct} correct`)}  ${theme.error(
-        `✗ ${this.incorrect} incorrect`,
-      )}  ${theme.muted(`⏱ ${elapsed}`)}`,
+      `${theme.success(`✓ ${this.exactPass} exact`)}  ${theme.primary(
+        `avg ${(this.averageScore * 100).toFixed(1)}%`,
+      )}  ${theme.error(`fail ${this.failures}`)}  ${theme.error(
+        `contr ${this.contradictions}`,
+      )}  ${theme.muted(`track ${this.trackingErrors}`)}  ${theme.muted(`⏱ ${elapsed}`)}`,
     );
   }
 

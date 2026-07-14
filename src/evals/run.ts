@@ -1,217 +1,67 @@
 /**
  * LangSmith Evaluation Runner for Dexter
- * 
+ *
  * Usage:
  *   bun run src/evals/run.ts                                      # Run on all questions
- *   bun run src/evals/run.ts --sample 10                          # Run on random sample
+ *   bun run src/evals/run.ts --quick                              # Run fixed stratified smoke suite
+ *   bun run src/evals/run.ts --sample 10 --seed model-check       # Run seeded stratified sample
  *   bun run src/evals/run.ts --model gpt-5.6-terra                # Evaluate Terra
- *   bun run src/evals/run.ts --model gpt-5.6-luna                 # Evaluate Luna
- *   bun run src/evals/run.ts --model claude-opus-4-8              # Evaluate Opus 4.8
- *   bun run src/evals/run.ts --model claude-fable-5               # Evaluate Fable 5
  *   bun run src/evals/run.ts --model claude-opus-4-8 --judge-model gpt-5.6-luna
  */
 
 import 'dotenv/config';
 import { ProcessTerminal, TUI } from '@mariozechner/pi-tui';
 import { Client } from 'langsmith';
-import type { EvaluationResult } from 'langsmith/evaluation';
-import { z } from 'zod';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Agent } from '../agent/agent.js';
-import { getChatModel } from '../model/llm.js';
+import type { DoneEvent } from '../agent/types.js';
 import { getModelDisplayName } from '../utils/model.js';
 import { EvalApp, type EvalProgressEvent } from './components/index.js';
+import { loadEvalDataset, type EvalExample } from './dataset.js';
+import {
+  createRubricEvaluator,
+  type RubricEvaluationResult,
+} from './evaluator.js';
 import { parseEvalOptions, type EvalOptions } from './options.js';
+import { selectEvalExamples } from './sampling.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Types
-interface Example {
-  inputs: { question: string };
-  outputs: { answer: string };
+type FailureType = 'agent_error' | 'timeout' | 'judge_error';
+
+interface TargetResult {
+  answer: string;
+  iterations: number;
+  totalTimeMs: number;
+  toolCallCount: number;
+  toolCalls: DoneEvent['toolCalls'];
+  failureType?: FailureType;
+  failureMessage?: string;
 }
 
-// ============================================================================
-// CSV Parser - handles multi-line quoted fields
-// ============================================================================
-
-function parseCSV(csvContent: string): Example[] {
-  const examples: Example[] = [];
-  const lines = csvContent.split('\n');
-  
-  let i = 1; // Skip header row
-  
-  while (i < lines.length) {
-    const result = parseRow(lines, i);
-    if (result) {
-      const { row, nextIndex } = result;
-      if (row.length >= 2 && row[0].trim()) {
-        examples.push({
-          inputs: { question: row[0] },
-          outputs: { answer: row[1] }
-        });
-      }
-      i = nextIndex;
-    } else {
-      i++;
-    }
-  }
-  
-  return examples;
-}
-
-function parseRow(lines: string[], startIndex: number): { row: string[]; nextIndex: number } | null {
-  if (startIndex >= lines.length || !lines[startIndex].trim()) {
-    return null;
-  }
-  
-  const fields: string[] = [];
-  let currentField = '';
-  let inQuotes = false;
-  let lineIndex = startIndex;
-  let charIndex = 0;
-  
-  while (lineIndex < lines.length) {
-    const line = lines[lineIndex];
-    
-    while (charIndex < line.length) {
-      const char = line[charIndex];
-      const nextChar = line[charIndex + 1];
-      
-      if (inQuotes) {
-        if (char === '"' && nextChar === '"') {
-          // Escaped quote
-          currentField += '"';
-          charIndex += 2;
-        } else if (char === '"') {
-          // End of quoted field
-          inQuotes = false;
-          charIndex++;
-        } else {
-          currentField += char;
-          charIndex++;
-        }
-      } else {
-        if (char === '"') {
-          // Start of quoted field
-          inQuotes = true;
-          charIndex++;
-        } else if (char === ',') {
-          // End of field
-          fields.push(currentField);
-          currentField = '';
-          charIndex++;
-        } else {
-          currentField += char;
-          charIndex++;
-        }
-      }
-    }
-    
-    if (inQuotes) {
-      // Continue to next line (multi-line field)
-      currentField += '\n';
-      lineIndex++;
-      charIndex = 0;
-    } else {
-      // Row complete
-      fields.push(currentField);
-      return { row: fields, nextIndex: lineIndex + 1 };
-    }
-  }
-  
-  // Handle case where file ends while in quotes
-  if (currentField) {
-    fields.push(currentField);
-  }
-  return { row: fields, nextIndex: lineIndex };
-}
-
-// ============================================================================
-// Sampling utilities
-// ============================================================================
-
-function shuffleArray<T>(array: T[]): T[] {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
-
-// ============================================================================
-// Target function - wraps Dexter agent
-// ============================================================================
-
-async function target(inputs: { question: string }, model: string): Promise<{ answer: string }> {
-  const agent = await Agent.create({ model, maxIterations: 10 });
-  let answer = '';
-  
-  for await (const event of agent.run(inputs.question)) {
-    if (event.type === 'done') {
-      answer = event.answer;
-    }
-  }
-  
-  return { answer };
-}
-
-// ============================================================================
-// Correctness evaluator - LLM-as-judge
-// ============================================================================
-
-const EvaluatorOutputSchema = z.object({
-  score: z.number().min(0).max(1),
-  comment: z.string(),
-});
-
-function createCorrectnessEvaluator(judgeModel: string) {
-  const structuredLlm = getChatModel(judgeModel).withStructuredOutput(EvaluatorOutputSchema);
-
-  return async function correctnessEvaluator({
-    outputs,
-    referenceOutputs,
-  }: {
-    inputs: Record<string, unknown>;
-    outputs: Record<string, unknown>;
-    referenceOutputs?: Record<string, unknown>;
-  }): Promise<EvaluationResult> {
-    const actualAnswer = (outputs?.answer as string) || '';
-    const expectedAnswer = (referenceOutputs?.answer as string) || '';
-
-    const prompt = `You are evaluating the correctness of an AI assistant's answer to a financial question.
-
-Compare the actual answer to the expected answer. The actual answer is considered correct if it conveys the same key information as the expected answer. Minor differences in wording, formatting, or additional context are acceptable as long as the core facts are correct.
-
-Expected Answer:
-${expectedAnswer}
-
-Actual Answer:
-${actualAnswer}
-
-Evaluate and provide:
-- score: 1 if the answer is correct (contains the key information), 0 if incorrect
-- comment: brief explanation of why the answer is correct or incorrect`;
-
-    try {
-      const result = await structuredLlm.invoke(prompt);
-      return {
-        key: 'correctness',
-        score: result.score,
-        comment: result.comment,
-      };
-    } catch (error) {
-      return {
-        key: 'correctness',
-        score: 0,
-        comment: `Evaluator error: ${error instanceof Error ? error.message : String(error)}`,
-      };
-    }
-  };
+export interface EvalQuestionResult {
+  index: number;
+  id: string;
+  question: string;
+  questionType: string;
+  score: number | null;
+  exactPass: boolean;
+  comment: string;
+  answer: string;
+  failureType?: FailureType;
+  failureMessage?: string;
+  trackingError?: string;
+  contradictionDetected: boolean;
+  passedCriteria: number;
+  totalCriteria: number;
+  criteria: RubricEvaluationResult['criteria'];
+  latencyMs: number;
+  agentLatencyMs: number;
+  judgeLatencyMs: number;
+  iterations: number;
+  toolCallCount: number;
 }
 
 function slugifyModelId(modelId: string): string {
@@ -221,140 +71,388 @@ function slugifyModelId(modelId: string): string {
     .toLowerCase() || 'model';
 }
 
+function classifyAgentAnswer(answer: string): Pick<TargetResult, 'failureType' | 'failureMessage'> {
+  if (answer.startsWith('Reached maximum iterations')) {
+    return {
+      failureType: 'agent_error',
+      failureMessage: answer,
+    };
+  }
+
+  if (answer.startsWith('Error:')) {
+    return {
+      failureType: 'agent_error',
+      failureMessage: answer,
+    };
+  }
+
+  return {};
+}
+
+async function target(
+  example: EvalExample,
+  options: EvalOptions,
+): Promise<TargetResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
+  const start = Date.now();
+
+  try {
+    const agent = await Agent.create({
+      model: options.model,
+      maxIterations: 10,
+      memoryEnabled: false,
+      channel: 'eval',
+      signal: controller.signal,
+    });
+    let doneEvent: DoneEvent | null = null;
+
+    for await (const event of agent.run(example.inputs.question)) {
+      if (event.type === 'done') {
+        doneEvent = event;
+      }
+    }
+
+    if (!doneEvent) {
+      return {
+        answer: '',
+        iterations: 0,
+        totalTimeMs: Date.now() - start,
+        toolCallCount: 0,
+        toolCalls: [],
+        failureType: 'agent_error',
+        failureMessage: 'Agent did not produce a final answer.',
+      };
+    }
+
+    const classified = classifyAgentAnswer(doneEvent.answer);
+    return {
+      answer: doneEvent.answer,
+      iterations: doneEvent.iterations,
+      totalTimeMs: doneEvent.totalTime,
+      toolCallCount: doneEvent.toolCalls.length,
+      toolCalls: doneEvent.toolCalls,
+      ...classified,
+    };
+  } catch (error) {
+    const isTimeout = controller.signal.aborted;
+    return {
+      answer: '',
+      iterations: 0,
+      totalTimeMs: Date.now() - start,
+      toolCallCount: 0,
+      toolCalls: [],
+      failureType: isTimeout ? 'timeout' : 'agent_error',
+      failureMessage: error instanceof Error ? error.message : String(error),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function evaluateExample(
+  example: EvalExample,
+  index: number,
+  options: EvalOptions,
+  evaluateRubric: ReturnType<typeof createRubricEvaluator>,
+): Promise<EvalQuestionResult> {
+  const start = Date.now();
+  const targetResult = await target(example, options);
+  const agentLatencyMs = Date.now() - start;
+
+  if (targetResult.failureType) {
+    return {
+      index,
+      id: example.id,
+      question: example.inputs.question,
+      questionType: example.questionType,
+      score: null,
+      exactPass: false,
+      comment: targetResult.failureMessage ?? targetResult.failureType,
+      answer: targetResult.answer,
+      failureType: targetResult.failureType,
+      failureMessage: targetResult.failureMessage,
+      contradictionDetected: false,
+      passedCriteria: 0,
+      totalCriteria: example.rubric.filter((criterion) => criterion.operator === 'correctness').length,
+      criteria: [],
+      latencyMs: Date.now() - start,
+      agentLatencyMs,
+      judgeLatencyMs: 0,
+      iterations: targetResult.iterations,
+      toolCallCount: targetResult.toolCallCount,
+    };
+  }
+
+  const judgeStart = Date.now();
+  try {
+    const evalResult = await evaluateRubric(example, targetResult.answer);
+    const judgeLatencyMs = Date.now() - judgeStart;
+    return {
+      index,
+      id: example.id,
+      question: example.inputs.question,
+      questionType: example.questionType,
+      score: evalResult.score,
+      exactPass: evalResult.score === 1,
+      comment: evalResult.comment,
+      answer: targetResult.answer,
+      contradictionDetected: evalResult.contradictionDetected,
+      passedCriteria: evalResult.passedCriteria,
+      totalCriteria: evalResult.totalCriteria,
+      criteria: evalResult.criteria,
+      latencyMs: Date.now() - start,
+      agentLatencyMs,
+      judgeLatencyMs,
+      iterations: targetResult.iterations,
+      toolCallCount: targetResult.toolCallCount,
+    };
+  } catch (error) {
+    return {
+      index,
+      id: example.id,
+      question: example.inputs.question,
+      questionType: example.questionType,
+      score: null,
+      exactPass: false,
+      comment: `Judge error: ${error instanceof Error ? error.message : String(error)}`,
+      answer: targetResult.answer,
+      failureType: 'judge_error',
+      failureMessage: error instanceof Error ? error.message : String(error),
+      contradictionDetected: false,
+      passedCriteria: 0,
+      totalCriteria: example.rubric.filter((criterion) => criterion.operator === 'correctness').length,
+      criteria: [],
+      latencyMs: Date.now() - start,
+      agentLatencyMs,
+      judgeLatencyMs: Date.now() - judgeStart,
+      iterations: targetResult.iterations,
+      toolCallCount: targetResult.toolCallCount,
+    };
+  }
+}
+
+async function ensureLangSmithDataset(
+  client: Client,
+  datasetName: string,
+  examples: EvalExample[],
+  datasetHash: string,
+) {
+  try {
+    return await client.readDataset({ datasetName });
+  } catch {
+    return client.createDataset(datasetName, {
+      description: `Dexter finance eval dataset hash ${datasetHash}`,
+    }).then(async (dataset) => {
+      await client.createExamples({
+        datasetId: dataset.id,
+        inputs: examples.map((example) => example.inputs),
+        outputs: examples.map((example) => example.outputs),
+      });
+      return dataset;
+    });
+  }
+}
+
+async function trackResult(
+  client: Client,
+  experimentName: string,
+  datasetName: string,
+  datasetHash: string,
+  example: EvalExample,
+  result: EvalQuestionResult,
+  options: EvalOptions,
+  modelDisplayName: string,
+  judgeModelDisplayName: string,
+): Promise<string | undefined> {
+  try {
+    await client.createRun({
+      name: 'dexter-eval-run',
+      run_type: 'chain',
+      inputs: example.inputs,
+      outputs: { answer: result.answer },
+      start_time: Date.now() - result.latencyMs,
+      end_time: Date.now(),
+      project_name: experimentName,
+      extra: {
+        dataset: datasetName,
+        dataset_hash: datasetHash,
+        question_type: example.questionType,
+        expert_time_minutes: example.expertTimeMinutes,
+        models: {
+          target: {
+            id: options.model,
+            display_name: modelDisplayName,
+          },
+          judge: {
+            id: options.judgeModel,
+            display_name: judgeModelDisplayName,
+          },
+        },
+        eval_options: {
+          quick: options.quick,
+          sample_size: options.sampleSize,
+          seed: options.seed,
+          concurrency: options.concurrency,
+          timeout_ms: options.timeoutMs,
+        },
+        reference_outputs: example.outputs,
+        evaluation: {
+          score: result.score,
+          exact_pass: result.exactPass,
+          comment: result.comment,
+          contradiction_detected: result.contradictionDetected,
+          passed_criteria: result.passedCriteria,
+          total_criteria: result.totalCriteria,
+          criteria: result.criteria,
+          failure_type: result.failureType,
+          failure_message: result.failureMessage,
+        },
+        telemetry: {
+          latency_ms: result.latencyMs,
+          agent_latency_ms: result.agentLatencyMs,
+          judge_latency_ms: result.judgeLatencyMs,
+          iterations: result.iterations,
+          tool_call_count: result.toolCallCount,
+        },
+      },
+    });
+    return undefined;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
+function buildDatasetName(baseName: string, options: EvalOptions, datasetHash: string): string {
+  if (options.quick) {
+    return `${baseName}-${datasetHash}-quick`;
+  }
+
+  if (options.sampleSize !== undefined) {
+    return `${baseName}-${datasetHash}-sample-${options.sampleSize}-${slugifyModelId(options.seed)}`;
+  }
+
+  return `${baseName}-${datasetHash}`;
+}
+
+async function* runExamples(
+  examples: EvalExample[],
+  options: EvalOptions,
+  evaluateRubric: ReturnType<typeof createRubricEvaluator>,
+): AsyncGenerator<
+  | { type: 'start'; example: EvalExample; index: number }
+  | { type: 'end'; example: EvalExample; result: EvalQuestionResult },
+  void,
+  unknown
+> {
+  let nextIndex = 0;
+  const running = new Map<number, Promise<EvalQuestionResult>>();
+
+  while (nextIndex < examples.length || running.size > 0) {
+    while (nextIndex < examples.length && running.size < options.concurrency) {
+      const index = nextIndex;
+      const example = examples[index];
+      yield { type: 'start', example, index };
+      running.set(index, evaluateExample(example, index, options, evaluateRubric));
+      nextIndex++;
+    }
+
+    const result = await Promise.race(
+      [...running.entries()].map(async ([index, promise]) => ({
+        index,
+        result: await promise,
+      })),
+    );
+
+    running.delete(result.index);
+    yield {
+      type: 'end',
+      example: examples[result.index],
+      result: result.result,
+    };
+  }
+}
+
 // ============================================================================
 // Evaluation generator - yields progress events for the UI
 // ============================================================================
 
 function createEvaluationRunner(options: EvalOptions) {
   return async function* runEvaluation(): AsyncGenerator<EvalProgressEvent, void, unknown> {
-    const { model, judgeModel, sampleSize } = options;
-    const modelDisplayName = getModelDisplayName(model);
-    const judgeModelDisplayName = getModelDisplayName(judgeModel);
-    const correctnessEvaluator = createCorrectnessEvaluator(judgeModel);
-
-    // Load and parse dataset
+    const modelDisplayName = getModelDisplayName(options.model);
+    const judgeModelDisplayName = getModelDisplayName(options.judgeModel);
+    const evaluateRubric = createRubricEvaluator(options.judgeModel);
     const csvPath = path.join(__dirname, 'dataset', 'finance_agent.csv');
-    const csvContent = fs.readFileSync(csvPath, 'utf-8');
-    let examples = parseCSV(csvContent);
-    const totalCount = examples.length;
-
-    // Apply sampling if requested
-    if (sampleSize && sampleSize < examples.length) {
-      examples = shuffleArray(examples).slice(0, sampleSize);
-    }
-
-    // Create LangSmith client
+    const dataset = loadEvalDataset(csvPath);
+    const examples = selectEvalExamples(dataset.examples, options);
     const client = new Client();
-
-    // Create a unique dataset name for this run (sampling creates different datasets)
-    const datasetName = sampleSize 
-      ? `dexter-finance-eval-sample-${sampleSize}-${Date.now()}`
-      : 'dexter-finance-eval';
+    const datasetName = buildDatasetName('dexter-finance-eval', options, dataset.hash);
 
     // Yield init event
     yield {
       type: 'init',
       total: examples.length,
-      datasetName: sampleSize ? `finance_agent (sample ${sampleSize}/${totalCount})` : 'finance_agent',
-      model,
+      datasetName: options.quick
+        ? `finance_agent (quick ${examples.length}/${dataset.examples.length})`
+        : options.sampleSize
+          ? `finance_agent (sample ${examples.length}/${dataset.examples.length})`
+          : 'finance_agent',
+      model: options.model,
       modelDisplayName,
-      judgeModel,
+      judgeModel: options.judgeModel,
       judgeModelDisplayName,
+      datasetHash: dataset.hash,
+      seed: options.seed,
+      concurrency: options.concurrency,
+      timeoutMs: options.timeoutMs,
     };
 
-    // Check if dataset exists (only for full runs)
-    let dataset;
-    if (!sampleSize) {
-      try {
-        dataset = await client.readDataset({ datasetName });
-      } catch {
-        // Dataset doesn't exist, will create
-        dataset = null;
-      }
-    }
-
-    // Create dataset if needed
-    if (!dataset) {
-      dataset = await client.createDataset(datasetName, {
-        description: sampleSize 
-          ? `Finance agent evaluation (sample of ${sampleSize})`
-          : 'Finance agent evaluation dataset',
-      });
-
-      // Upload examples
-      await client.createExamples({
-        datasetId: dataset.id,
-        inputs: examples.map((e) => e.inputs),
-        outputs: examples.map((e) => e.outputs),
-      });
+    let datasetSetupError: string | undefined;
+    try {
+      await ensureLangSmithDataset(client, datasetName, examples, dataset.hash);
+    } catch (error) {
+      datasetSetupError = error instanceof Error ? error.message : String(error);
     }
 
     // Generate experiment name for tracking
     const experimentName = [
       'dexter-eval',
-      slugifyModelId(model),
+      slugifyModelId(options.model),
       'judge',
-      slugifyModelId(judgeModel),
+      slugifyModelId(options.judgeModel),
+      dataset.hash,
       Date.now().toString(36),
     ].join('-');
 
-    // Run evaluation manually - process each example one by one
-    for (const example of examples) {
-      const question = example.inputs.question;
+    for await (const event of runExamples(examples, options, evaluateRubric)) {
+      if (event.type === 'start') {
+        yield {
+          type: 'question_start',
+          index: event.index,
+          question: event.example.inputs.question,
+          questionType: event.example.questionType,
+        };
+        continue;
+      }
 
-      // Yield question start - UI shows this immediately
-      yield {
-        type: 'question_start',
-        question,
-      };
-
-      // Run the agent to get an answer
-      const startTime = Date.now();
-      const outputs = await target(example.inputs, model);
-      const endTime = Date.now();
-
-      // Run the correctness evaluator
-      const evalResult = await correctnessEvaluator({
-        inputs: example.inputs,
-        outputs,
-        referenceOutputs: example.outputs,
-      });
-
-      // Log to LangSmith for tracking
-      await client.createRun({
-        name: 'dexter-eval-run',
-        run_type: 'chain',
-        inputs: example.inputs,
-        outputs,
-        start_time: startTime,
-        end_time: endTime,
-        project_name: experimentName,
-        extra: {
-          dataset: datasetName,
-          models: {
-            target: {
-              id: model,
-              display_name: modelDisplayName,
-            },
-            judge: {
-              id: judgeModel,
-              display_name: judgeModelDisplayName,
-            },
-          },
-          reference_outputs: example.outputs,
-          evaluation: {
-            score: evalResult.score,
-            comment: evalResult.comment,
-          },
-        },
-      });
+      const { example, result } = event;
+      const trackingError = await trackResult(
+        client,
+        experimentName,
+        datasetName,
+        dataset.hash,
+        example,
+        result,
+        options,
+        modelDisplayName,
+        judgeModelDisplayName,
+      );
 
       // Yield question end with result - UI updates progress bar
       yield {
         type: 'question_end',
-        question,
-        score: typeof evalResult.score === 'number' ? evalResult.score : 0,
-        comment: evalResult.comment || '',
+        ...result,
+        trackingError: trackingError ?? datasetSetupError,
       };
     }
 
@@ -362,10 +460,11 @@ function createEvaluationRunner(options: EvalOptions) {
     yield {
       type: 'complete',
       experimentName,
-      model,
+      model: options.model,
       modelDisplayName,
-      judgeModel,
+      judgeModel: options.judgeModel,
       judgeModelDisplayName,
+      datasetHash: dataset.hash,
     };
   };
 }
