@@ -10,6 +10,7 @@ Dexter is an autonomous financial research agent that thinks, plans, and learns 
 - [✅ Prerequisites](#-prerequisites)
 - [💻 How to Install](#-how-to-install)
 - [🚀 How to Run](#-how-to-run)
+- [🔌 Data Sources (Key-Free Alternatives)](#-data-sources-key-free-alternatives)
 - [📊 How to Evaluate](#-how-to-evaluate)
 - [🐛 How to Debug](#-how-to-debug)
 - [📱 How to Use with WhatsApp](#-how-to-use-with-whatsapp)
@@ -49,7 +50,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 
 - [Bun](https://bun.com) runtime (v1.0 or higher)
 - OpenAI API key (get [here](https://platform.openai.com/api-keys))
-- Financial Datasets API key (get [here](https://financialdatasets.ai))
+- Financial Datasets API key (get [here](https://financialdatasets.ai)) — optional; see [Data Sources](#-data-sources-key-free-alternatives) for key-free alternatives
 - Exa API key (get [here](https://exa.ai)) - optional, for web search
 
 #### Installing Bun
@@ -118,6 +119,65 @@ Or with watch mode for development:
 ```bash
 bun dev
 ```
+
+## 🔌 Data Sources (Key-Free Alternatives)
+
+By default Dexter pulls market data from the Financial Datasets API via `FINANCIAL_DATASETS_API_KEY`. The data layer in `src/tools/finance/api.ts` is **pluggable**: each endpoint category is routed to a configurable source, so you can run a fully key-free stack. Unsupported endpoints fall back to Financial Datasets and return a clear error when its key is absent, letting the agent degrade to web research.
+
+| Endpoint category | Source | Activation |
+|---|---|---|
+| Prices & crypto (`/prices`, `/crypto`) | **Futu OpenD** | `FUTU_BRIDGE_URL` |
+| SEC filings (`/filings`) | **SEC EDGAR** | `USE_SEC_EDGAR=true` (no key) |
+| Fundamentals, metrics, earnings, news, institutional holdings | **Financial Modeling Prep** | `FMP_API_KEY` |
+| Insider trades, beneficial ownership, stock screener | Financial Datasets | no free source; 401s gracefully when unset |
+
+### Market data via Futu OpenD
+
+`futu-api` is Python-only, so Dexter talks to a small local bridge (`futu-bridge/server.py`) that proxies FutuOpenD over REST.
+
+1. Create a venv and install the bridge dependency:
+```bash
+python3 -m venv futu-bridge/.venv
+futu-bridge/.venv/bin/pip install futu-api
+```
+
+2. Start the bridge (requires FutuOpenD running on `127.0.0.1:11111`):
+```bash
+futu-bridge/.venv/bin/python futu-bridge/server.py
+```
+
+3. Point Dexter at the bridge in `.env`:
+```bash
+FUTU_BRIDGE_URL=http://127.0.0.1:8765
+```
+
+> **Note:** Crypto codes are resolved as `US.<SYMBOL>` (e.g. `BTC-USD` → `US.BTC`), which maps to a Bitcoin trust ETF on some accounts when spot crypto is not enabled. Update the prefix in `futu-bridge/server.py` if your account exposes true spot symbols.
+
+### SEC filings via SEC EDGAR (no key required)
+
+```bash
+USE_SEC_EDGAR=true
+```
+Routes 10-K / 10-Q / 8-K lookups to the free [SEC EDGAR](https://www.sec.gov/edgar) API.
+
+### Fundamentals via Financial Modeling Prep
+
+Register a free key at [financialmodelingprep.com](https://financialmodelingprep.com) and set:
+```bash
+FMP_API_KEY=your-fmp-api-key
+```
+
+### Running Dexter
+
+With the bridge running and `.env` configured, start Dexter as usual:
+```bash
+bun start
+```
+
+> **Running without Bun:** if your environment's `better-sqlite3` native binding was built against a different Node ABI, run Dexter directly on a matching Node via `tsx`:
+> ```bash
+> env -u NODE_OPTIONS /opt/homebrew/opt/node@20/bin/node node_modules/tsx/dist/cli.mjs src/index.tsx
+> ```
 
 ## 📊 How to Evaluate
 
