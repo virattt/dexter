@@ -52,6 +52,12 @@ yarn-error.log*
 # Cursor files
 .cursor/
 
+# workbuddy
+.workbuddy/
+
+# Futu bridge runtime logs
+futu-bridge/*.log
+
 # Dexter context files (offloaded tool outputs)
 .dexter/*
 

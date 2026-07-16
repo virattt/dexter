@@ -19,11 +19,53 @@ export interface FilingItemTypes {
 let cachedItemTypes: FilingItemTypes | null = null;
 
 /**
+ * Canonical SEC item types, used when filings are served from SEC EDGAR
+ * (USE_SEC_EDGAR=true) so we don't depend on the Financial Datasets API.
+ */
+const SEC_ITEM_TYPES: FilingItemTypes = {
+  '10-K': [
+    { name: 'Item-1', title: 'Business', description: 'Overview of the company’s operations, products, and markets.' },
+    { name: 'Item-1A', title: 'Risk Factors', description: 'Principal risks affecting the business.' },
+    { name: 'Item-1B', title: 'Unresolved Staff Comments', description: 'Comments from SEC staff not yet resolved.' },
+    { name: 'Item-2', title: 'Properties', description: 'Material physical properties owned or leased.' },
+    { name: 'Item-3', title: 'Legal Proceedings', description: 'Significant pending legal proceedings.' },
+    { name: 'Item-4', title: 'Mine Safety Disclosures', description: 'Mine safety disclosures if applicable.' },
+    { name: 'Item-5', title: 'Market for Common Equity', description: 'Market info, dividends, and equity compensation.' },
+    { name: 'Item-7', title: "Management’s Discussion and Analysis", description: 'MD&A of financial condition and results of operations.' },
+    { name: 'Item-7A', title: 'Market Risk Disclosures', description: 'Quantitative/qualitative disclosures about market risk.' },
+    { name: 'Item-8', title: 'Financial Statements', description: 'Consolidated financial statements and supplementary data.' },
+    { name: 'Item-9', title: 'Changes in Accountants', description: 'Changes and disagreements with accountants.' },
+    { name: 'Item-9A', title: 'Controls and Procedures', description: 'Disclosure controls and internal control over financial reporting.' },
+    { name: 'Item-11', title: 'Executive Compensation', description: 'Executive compensation disclosure.' },
+    { name: 'Item-12', title: 'Security Ownership', description: 'Beneficial ownership of securities.' },
+    { name: 'Item-13', title: 'Certain Relationships', description: 'Related-party transactions.' },
+    { name: 'Item-15', title: 'Exhibits', description: 'List of exhibits filed with the report.' },
+  ],
+  '10-Q': [
+    { name: 'Part-1,Item-1', title: 'Financial Statements', description: 'Condensed consolidated financial statements.' },
+    { name: 'Part-1,Item-2', title: "Management’s Discussion and Analysis", description: 'MD&A of financial condition and results of operations.' },
+    { name: 'Part-1,Item-3', title: 'Market Risk Disclosures', description: 'Quantitative/qualitative disclosures about market risk.' },
+    { name: 'Part-2,Item-1', title: 'Legal Proceedings', description: 'Updates to significant legal proceedings.' },
+    { name: 'Part-2,Item-1A', title: 'Risk Factors', description: 'Risk factors (updates to 10-K).' },
+    { name: 'Part-2,Item-3', title: 'Defaults', description: 'Defaults upon senior securities.' },
+    { name: 'Part-2,Item-5', title: 'Other Information', description: 'Other information.' },
+    { name: 'Part-2,Item-6', title: 'Exhibits', description: 'List of exhibits filed with the report.' },
+  ],
+};
+
+/**
  * Fetches canonical item type names from the API.
  * Used to provide the inner LLM with exact item names for selective retrieval.
  */
 export async function getFilingItemTypes(): Promise<FilingItemTypes> {
   if (cachedItemTypes) {
+    return cachedItemTypes;
+  }
+
+  // When serving filings from SEC EDGAR, use the canonical SEC item taxonomy
+  // instead of calling the (keyed) Financial Datasets endpoint.
+  if ((process.env.USE_SEC_EDGAR || '').toLowerCase() === 'true') {
+    cachedItemTypes = SEC_ITEM_TYPES;
     return cachedItemTypes;
   }
 
