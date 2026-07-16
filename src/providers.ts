@@ -76,6 +76,14 @@ export const PROVIDERS: ProviderDef[] = [
     contextWindow: 128_000,
   },
   {
+    id: 'requesty',
+    displayName: 'Requesty',
+    modelPrefix: 'requesty:',
+    apiKeyEnvVar: 'REQUESTY_API_KEY',
+    fastModel: 'requesty:openai/gpt-4o-mini',
+    contextWindow: 128_000,
+  },
+  {
     id: 'ollama',
     displayName: 'Ollama',
     modelPrefix: 'ollama:',
