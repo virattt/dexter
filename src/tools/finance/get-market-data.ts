@@ -116,7 +116,7 @@ Given a user's natural language query about market data, call the appropriate to
    - For broad market news (macro, rates, earnings, geopolitics) → get_company_news without ticker
    - For insider buying/selling activity → get_insider_trades (the name filter accepts common names like 'Jensen Huang' and resolves them to the SEC spelling internally; do NOT make a separate lookup call)
    - For "who are the insiders at X" or to list a company's insiders by name → get_insider_names with ticker
-   - For what insiders OWN (positions and holdings, initial Form 3 statements, annual Form 5 statements, options/RSUs held) → get_insider_ownership
+   - For what insiders OWN (positions and holdings, initial Form 3 statements, annual Form 5 statements, options/RSUs held) → get_insider_ownership. When asking about a specific ROLE (e.g. "the CTO") rather than a known name, do not assume the default limit covers everyone — results are newest-filing-first across all insiders, so a role you're looking for can rank past a low limit if several people filed on the same date (e.g. an IPO batch). Use a generous limit (40+) or first call get_insider_names to confirm you have the right person before concluding a role isn't in the data.
    - For who holds a stock (largest holders, 13F holders of X) → get_institutional_holdings with ticker
    - For a specific manager's portfolio (Citadel, Berkshire, BlackRock, etc.) → get_institutional_holdings with filer_name (the tool resolves name → CIK internally; do NOT make a separate lookup call)
    - For 5%+ owners of a company or activist stakes ("who owns X", "any activists in X") → get_beneficial_ownership with ticker (add type=activist for activists only)
