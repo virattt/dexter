@@ -96,6 +96,15 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
         baseURL: 'https://openrouter.ai/api/v1',
       },
     }),
+  atlascloud: (name, opts) =>
+    new ChatOpenAI({
+      model: name.replace(/^atlascloud:/, ''),
+      ...opts,
+      apiKey: getApiKey('ATLASCLOUD_API_KEY'),
+      configuration: {
+        baseURL: 'https://api.atlascloud.ai/v1',
+      },
+    }),
   moonshot: (name, opts) =>
     new ChatOpenAI({
       model: name,

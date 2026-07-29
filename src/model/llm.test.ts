@@ -20,3 +20,25 @@ describe('OpenAI API routing', () => {
     }
   });
 });
+
+describe('Atlas Cloud API routing', () => {
+  test('uses the OpenAI-compatible endpoint without the provider prefix', () => {
+    const previousApiKey = process.env.ATLASCLOUD_API_KEY;
+    process.env.ATLASCLOUD_API_KEY = 'test-key';
+
+    try {
+      const llm = getChatModel('atlascloud:deepseek-ai/deepseek-v4-pro') as {
+        model?: string;
+        clientConfig?: { baseURL?: string };
+      };
+      expect(llm.model).toBe('deepseek-ai/deepseek-v4-pro');
+      expect(llm.clientConfig?.baseURL).toBe('https://api.atlascloud.ai/v1');
+    } finally {
+      if (previousApiKey === undefined) {
+        delete process.env.ATLASCLOUD_API_KEY;
+      } else {
+        process.env.ATLASCLOUD_API_KEY = previousApiKey;
+      }
+    }
+  });
+});
