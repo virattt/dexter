@@ -12,6 +12,7 @@ import {
   getProviderDisplayName,
   getSearchProviderDisplayName,
 } from './utils/env.js';
+import { getProviderById } from './providers.js';
 import { dexterPath } from './utils/paths.js';
 import { defaultQueue } from './utils/message-queue.js';
 import { logger } from './utils/logger.js';
@@ -671,11 +672,18 @@ export async function runCli() {
       const input = new ApiKeyInputComponent();
       input.onSubmit = (value) => modelSelection.handleModelInputSubmit(value);
       input.onCancel = () => modelSelection.handleModelInputSubmit(null);
+      const provider = getProviderById(state.pendingProvider);
+      const catalogHint = provider?.modelCatalogUrl
+        ? `Type or paste the model name from ${provider.modelCatalogUrl}`
+        : 'Type or paste the model name';
+      const exampleHint = provider?.modelExamples?.length
+        ? `Examples: ${provider.modelExamples.join(', ')}\n`
+        : '';
       showScreenView(
         `Enter model name for ${getProviderDisplayName(state.pendingProvider)}`,
-        'Type or paste the model name from openrouter.ai/models',
+        catalogHint,
         input,
-        'Examples: anthropic/claude-3.5-sonnet, openai/gpt-4-turbo, meta-llama/llama-3-70b\nEnter to confirm · esc to go back',
+        `${exampleHint}Enter to confirm · esc to go back`,
         input,
       );
       return;

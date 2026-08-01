@@ -16,6 +16,10 @@ export interface ProviderDef {
   fastModel?: string;
   /** Default context window size in tokens. Used for model-aware compaction thresholds. */
   contextWindow?: number;
+  /** Catalog URL shown when the provider expects a free-form model id (routers). */
+  modelCatalogUrl?: string;
+  /** Example model ids shown alongside the catalog URL. */
+  modelExamples?: string[];
 }
 
 export const PROVIDERS: ProviderDef[] = [
@@ -74,6 +78,26 @@ export const PROVIDERS: ProviderDef[] = [
     apiKeyEnvVar: 'OPENROUTER_API_KEY',
     fastModel: 'openrouter:openai/gpt-4o-mini',
     contextWindow: 128_000,
+    modelCatalogUrl: 'openrouter.ai/models',
+    modelExamples: [
+      'anthropic/claude-3.5-sonnet',
+      'openai/gpt-4-turbo',
+      'meta-llama/llama-3-70b',
+    ],
+  },
+  {
+    id: 'orcarouter',
+    displayName: 'OrcaRouter',
+    modelPrefix: 'orcarouter:',
+    apiKeyEnvVar: 'ORCAROUTER_API_KEY',
+    fastModel: 'orcarouter:openai/gpt-5.4-mini',
+    contextWindow: 128_000,
+    modelCatalogUrl: 'www.orcarouter.ai',
+    modelExamples: [
+      'openai/gpt-5.6-sol',
+      'anthropic/claude-sonnet-5',
+      'google/gemini-3.1-pro-preview',
+    ],
   },
   {
     id: 'ollama',
