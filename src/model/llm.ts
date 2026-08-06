@@ -96,6 +96,15 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
         baseURL: 'https://openrouter.ai/api/v1',
       },
     }),
+  orcarouter: (name, opts) =>
+    new ChatOpenAI({
+      model: name.replace(/^orcarouter:/, ''),
+      ...opts,
+      apiKey: getApiKey('ORCAROUTER_API_KEY'),
+      configuration: {
+        baseURL: 'https://api.orcarouter.ai/v1',
+      },
+    }),
   moonshot: (name, opts) =>
     new ChatOpenAI({
       model: name,

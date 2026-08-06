@@ -94,7 +94,9 @@ export class ModelSelectionController {
     }
 
     this.pendingProviderValue = providerId;
-    if (providerId === 'openrouter') {
+    // Routers expose thousands of namespaced model ids, so ask the user to type one
+    // instead of shipping a curated list that would go stale.
+    if (providerId === 'openrouter' || providerId === 'orcarouter') {
       this.pendingModelsValue = [];
       this.appStateValue = 'model_input';
       this.emitChange();
