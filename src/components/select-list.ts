@@ -56,21 +56,22 @@ export function createProviderSelector(
 
 export function createSearchProviderSelector(
   currentProvider: string,
-  onSelect: (providerId: 'exa' | 'perplexity' | 'tavily' | 'langsearch') => void,
+  onSelect: (providerId: 'exa' | 'perplexity' | 'tavily' | 'langsearch' | 'caesar') => void,
   onCancel: () => void,
 ) {
-  const providers: { id: 'exa' | 'perplexity' | 'tavily' | 'langsearch'; displayName: string }[] = [
+  const providers: { id: 'exa' | 'perplexity' | 'tavily' | 'langsearch' | 'caesar'; displayName: string }[] = [
     { id: 'exa', displayName: 'Exa' },
     { id: 'perplexity', displayName: 'Perplexity' },
     { id: 'tavily', displayName: 'Tavily' },
     { id: 'langsearch', displayName: 'LangSearch' },
+    { id: 'caesar', displayName: 'Caesar' },
   ];
   const items: SelectItem[] = providers.map((provider, index) => ({
     value: provider.id,
     label: `${index + 1}. ${provider.displayName}${currentProvider === provider.id ? ' ✓' : ''}`,
   }));
   const list = new VimSelectList(items, 5, selectListTheme);
-  list.onSelect = (item) => onSelect(item.value as 'exa' | 'perplexity' | 'tavily' | 'langsearch');
+  list.onSelect = (item) => onSelect(item.value as 'exa' | 'perplexity' | 'tavily' | 'langsearch' | 'caesar');
   list.onCancel = () => onCancel();
   return list;
 }
