@@ -93,10 +93,16 @@ export const PROVIDERS: ProviderDef[] = [
 const defaultProvider = PROVIDERS.find((p) => p.id === 'openai')!;
 
 /**
- * Resolve the provider for a given model name based on its prefix.
- * Falls back to OpenAI when no prefix matches.
+ * Resolve the provider for a given model name.
+ * Explicit provider settings take precedence over model-name prefix routing.
+ * Falls back to OpenAI when no prefix matches or an override is unknown.
  */
-export function resolveProvider(modelName: string): ProviderDef {
+export function resolveProvider(modelName: string, providerOverride?: string): ProviderDef {
+  if (providerOverride) {
+    const provider = getProviderById(providerOverride);
+    if (provider) return provider;
+  }
+
   return (
     PROVIDERS.find((p) => p.modelPrefix && modelName.startsWith(p.modelPrefix)) ??
     defaultProvider

@@ -168,6 +168,8 @@ Continue working toward answering the query without asking the user any further 
 export interface CompactContextParams {
   /** Main model name (used to resolve provider and fast model). */
   model: string;
+  /** Explicit provider override from agent settings. */
+  modelProvider?: string;
   /** System prompt for the compaction call. */
   systemPrompt: string;
   /** Original user query. */
@@ -192,10 +194,10 @@ export interface CompactResult {
  * Throws on failure — caller is responsible for fallback to clearing.
  */
 export async function compactContext(params: CompactContextParams): Promise<CompactResult> {
-  const { model, systemPrompt, query, toolResults, signal } = params;
+  const { model, modelProvider, systemPrompt, query, toolResults, signal } = params;
 
   // Resolve fast model for the current provider
-  const provider = resolveProvider(model);
+  const provider = resolveProvider(model, modelProvider);
   const fastModel = provider.fastModel ?? model;
 
   // Build the compaction prompt
@@ -204,6 +206,7 @@ export async function compactContext(params: CompactContextParams): Promise<Comp
   // Call LLM with no tools bound — callLlm returns string in this case
   const result = await callLlm(prompt, {
     model: fastModel,
+    modelProvider: provider.id,
     systemPrompt,
     signal,
   });
