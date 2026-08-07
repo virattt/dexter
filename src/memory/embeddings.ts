@@ -2,6 +2,7 @@ import { GoogleGenerativeAIEmbeddings } from '@langchain/google-genai';
 import { OllamaEmbeddings } from '@langchain/ollama';
 import { OpenAIEmbeddings } from '@langchain/openai';
 import type { EmbeddingProviderId, MemoryEmbeddingClient } from './types.js';
+import { checkApiKeyExists } from '../utils/env.js';
 
 const DEFAULT_OPENAI_MODEL = 'text-embedding-3-small';
 const DEFAULT_GEMINI_MODEL = 'gemini-embedding-001';
@@ -28,10 +29,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 }
 
 function resolveProvider(preferred: EmbeddingProviderId): ResolvedProvider | null {
-  if (preferred === 'openai' && process.env.OPENAI_API_KEY) {
+  if (preferred === 'openai' && checkApiKeyExists('OPENAI_API_KEY')) {
     return 'openai';
   }
-  if (preferred === 'gemini' && process.env.GOOGLE_API_KEY) {
+  if (preferred === 'gemini' && checkApiKeyExists('GOOGLE_API_KEY')) {
     return 'gemini';
   }
   if (preferred === 'ollama') {
@@ -39,10 +40,10 @@ function resolveProvider(preferred: EmbeddingProviderId): ResolvedProvider | nul
   }
 
   if (preferred === 'auto') {
-    if (process.env.OPENAI_API_KEY) {
+    if (checkApiKeyExists('OPENAI_API_KEY')) {
       return 'openai';
     }
-    if (process.env.GOOGLE_API_KEY) {
+    if (checkApiKeyExists('GOOGLE_API_KEY')) {
       return 'gemini';
     }
     if (process.env.OLLAMA_BASE_URL) {
