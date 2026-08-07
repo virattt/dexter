@@ -25,6 +25,8 @@ const PROVIDER_MODELS: Record<string, Model[]> = {
   google: [
     { id: 'gemini-3-flash-preview', displayName: 'Gemini 3 Flash' },
     { id: 'gemini-3.1-pro-preview', displayName: 'Gemini 3.1 Pro' },
+    { id: 'gemma-4-31b-it', displayName: 'Gemma 4 31B' },
+    { id: 'gemma-4-26b-a4b-it', displayName: 'Gemma 4 26B A4B' },
   ],
   xai: [
     { id: 'grok-4-0709', displayName: 'Grok 4' },
