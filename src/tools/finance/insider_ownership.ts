@@ -12,8 +12,8 @@ const InsiderOwnershipInputSchema = z.object({
     .describe("The stock ticker symbol to fetch insider ownership statements for. For example, 'AAPL' for Apple."),
   limit: z
     .number()
-    .default(10)
-    .describe('Maximum number of ownership rows to return (default: 10, max: 1000). Increase this for longer historical windows when needed.'),
+    .default(30)
+    .describe('Maximum number of ownership rows to return (default: 30, max: 1000). Results are newest-filing-first across ALL insiders (not per-insider), so a company with many Form 3/5 filings on the same date (e.g. an IPO batch) can push a specific executive past a low limit. Use a higher limit, or the name filter, when looking for a specific person or role.'),
   name: z
     .string()
     .optional()
