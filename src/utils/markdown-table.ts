@@ -6,6 +6,7 @@
  */
 
 import chalk from 'chalk';
+import { transformChartsInResponse } from './charts.js';
 
 // Box-drawing characters
 const BOX = {
@@ -221,6 +222,7 @@ export function transformBold(content: string): string {
  */
 export function formatResponse(content: string): string {
   let result = content;
+  result = transformChartsInResponse(result);
   result = transformMarkdownTables(result);
   result = transformBold(result);
   return result;
