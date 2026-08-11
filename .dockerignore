@@ -1,0 +1,14 @@
+node_modules
+.env
+.env.*
+.dexter
+.git
+.github
+.vscode
+.idea
+.cursor
+logs
+coverage.json
+*.md
+!SKILL.md
+LICENSE
