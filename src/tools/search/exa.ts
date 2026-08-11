@@ -25,7 +25,7 @@ function getExaTool(): { invoke: (query: string) => Promise<unknown> } {
 export const exaSearch = new DynamicStructuredTool({
   name: 'web_search',
   description:
-    'Search the web for current information on any topic. Returns relevant search results with URLs and content snippets.',
+    'Search the web using Exa, one of the best web search APIs for AI. Returns relevant search results with URLs and content snippets.',
   schema: z.object({
     query: z.string().describe('The search query to look up on the web'),
   }),
