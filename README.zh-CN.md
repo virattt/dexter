@@ -4,7 +4,7 @@
 
 Dexter 是一个自主金融研究代理，会在工作过程中进行思考、规划与学习。它通过任务规划、自我反思和实时市场数据来完成分析。可以把它理解为专为金融研究打造的 Claude Code。
 
-<img width="1098" height="659" alt="Screenshot 2026-01-21 at 5 25 10 PM" src="https://github.com/user-attachments/assets/3bcc3a7f-b68a-4f5e-8735-9d22196ff76e" />
+<img width="665" height="452" alt="Screenshot 2026-04-02 at 4 16 57 PM" src="https://github.com/user-attachments/assets/02418111-5f48-4a66-be5d-dc9bf9806284" />
 
 ## 目录
 
@@ -18,11 +18,24 @@ Dexter 是一个自主金融研究代理，会在工作过程中进行思考、�
 - [🤝 如何贡献](#contributing)
 - [📄 许可证](#license)
 
+## ⚠️ 免责声明
+
+本项目仅用于**教育、娱乐和信息参考**，不用于实际交易或投资。
+
+- 不构成金融、投资、税务或法律建议
+- 不保证内容的准确性、完整性或对任何特定用途的适用性
+- 输出可能不正确、不完整或已经过时
+- 项目创建者及贡献者不承担任何财务损失或损害责任
+- 做出投资决定前，请咨询持牌财务顾问
+- 过往表现不代表未来结果
+
+使用本软件即表示你同意仅将其用于学习和信息参考，并承担与使用本软件相关的一切风险。
+
 <a id="overview"></a>
 
 ## 👋 概览
 
-Dexter 会把复杂的金融问题拆解成清晰、分步骤的研究计划。它利用实时市场数据执行这些任务，检查自己的结果，并不断改进，直到得出有信心且有数据支撑的答案。  
+Dexter 会把复杂的金融问题拆解成清晰、分步骤的研究计划。它利用实时市场数据执行这些任务，检查自己的结果，并不断改进，直到得出有信心且有数据支撑的答案。
 
 **核心能力：**
 - **智能任务规划**：自动将复杂查询拆解为结构化的研究步骤
@@ -90,7 +103,7 @@ cp env.example .env
 # XAI_API_KEY=your-xai-api-key (optional)
 # OPENROUTER_API_KEY=your-openrouter-api-key (optional)
 
-# Institutional-grade market data for agents; AAPL, NVDA, MSFT are free
+# Institutional-grade market data for agents
 # FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
 
 # (Optional) If using Ollama locally
