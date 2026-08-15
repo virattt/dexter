@@ -76,6 +76,14 @@ export const PROVIDERS: ProviderDef[] = [
     contextWindow: 128_000,
   },
   {
+    id: 'trustedrouter',
+    displayName: 'TrustedRouter',
+    modelPrefix: 'trustedrouter:',
+    apiKeyEnvVar: 'TRUSTEDROUTER_API_KEY',
+    fastModel: 'trustedrouter:trustedrouter/fast',
+    contextWindow: 200_000,
+  },
+  {
     id: 'ollama',
     displayName: 'Ollama',
     modelPrefix: 'ollama:',
