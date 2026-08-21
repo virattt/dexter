@@ -20,6 +20,10 @@ const SKILL_DIRECTORIES: { path: string; source: SkillSource }[] = [
 // Cache for discovered skills (metadata only)
 let skillMetadataCache: Map<string, SkillMetadata> | null = null;
 
+function isSkillAvailable(skill: SkillMetadata): boolean {
+  return !skill.requiresAnyEnv || skill.requiresAnyEnv.some((name) => process.env[name]);
+}
+
 /**
  * Scan a directory for SKILL.md files and return their metadata.
  * Looks for directories containing SKILL.md files.
@@ -42,7 +46,9 @@ function scanSkillDirectory(dirPath: string, source: SkillSource): SkillMetadata
       if (existsSync(skillFilePath)) {
         try {
           const metadata = extractSkillMetadata(skillFilePath, source);
-          skills.push(metadata);
+          if (isSkillAvailable(metadata)) {
+            skills.push(metadata);
+          }
         } catch {
           // Skip invalid skill files silently
         }

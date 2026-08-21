@@ -67,7 +67,7 @@ Call `read_filings`:
 Call `memory_search` with the ticker — surfaces any prior notes, prior memos, or user-provided constraints (e.g., risk tolerance, sector exposure already in book).
 
 ### 2.5 Sentiment (optional, only if time-sensitive)
-Call `x_search` for recent material chatter on the ticker. Skip if the thesis is fundamental and not catalyst-driven this week.
+When available, call `x_search` for recent material chatter. Skip it for a fundamental thesis without a near-term catalyst.
 
 ## Step 3: Build Scenarios
 

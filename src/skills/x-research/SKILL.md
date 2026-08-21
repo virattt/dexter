@@ -1,5 +1,8 @@
 ---
 name: x-research
+requiresAnyEnv:
+  - X_BEARER_TOKEN
+  - XQUIK_API_KEY
 description: >
   X/Twitter public sentiment research. Searches X for real-time perspectives,
   market sentiment, expert opinions, breaking news, and community discourse.
@@ -81,4 +84,4 @@ Present a structured briefing:
 1. **Query Summary**: what was searched and time window
 2. **Sentiment Themes**: grouped findings with sourced quotes and tweet links
 3. **Overall Sentiment**: tone, confidence, key voices
-4. **Caveats**: X sentiment is not a reliable predictor; sample bias toward vocal minorities; last-7-days window only
+4. **Caveats**: X sentiment is not a reliable predictor; note sample bias and the configured provider's coverage window

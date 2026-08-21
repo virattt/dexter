@@ -1,6 +1,12 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
+import { getXSearchProvider, type XTweet } from './x-search-provider.js';
+import {
+  getXquikProfile,
+  getXquikThread,
+  searchXquikTweets,
+} from './xquik.js';
 
 const X_API_BASE = 'https://api.x.com/2';
 const RATE_DELAY_MS = 350; // Delay between pagination requests to reduce rate-limit risk
@@ -11,23 +17,6 @@ const TWEET_FIELDS =
   'tweet.fields=created_at,public_metrics,author_id,conversation_id,entities' +
   '&expansions=author_id' +
   '&user.fields=username,name,public_metrics';
-
-interface XTweet {
-  id: string;
-  text: string;
-  author_id: string;
-  username: string;
-  name: string;
-  created_at: string;
-  metrics: {
-    likes: number;
-    retweets: number;
-    replies: number;
-    impressions: number;
-  };
-  urls: string[];
-  tweet_url: string;
-}
 
 interface RawXResponse {
   data?: Record<string, unknown>[];
@@ -133,7 +122,7 @@ function parseSince(since: string): string | null {
   return null;
 }
 
-async function searchTweets(
+async function searchOfficialTweets(
   query: string,
   opts: {
     pages?: number;
@@ -179,7 +168,7 @@ async function searchTweets(
   });
 }
 
-async function getProfile(
+async function getOfficialProfile(
   username: string,
   count: number,
 ): Promise<{ user: Record<string, unknown>; tweets: XTweet[] }> {
@@ -193,7 +182,7 @@ async function getProfile(
   await sleep(RATE_DELAY_MS);
 
   const query = `from:${username} -is:retweet -is:reply`;
-  const tweets = await searchTweets(query, {
+  const tweets = await searchOfficialTweets(query, {
     maxResults: Math.min(count, 100),
     sortOrder: 'recency',
   });
@@ -201,9 +190,49 @@ async function getProfile(
   return { user, tweets };
 }
 
-async function getThread(conversationId: string): Promise<XTweet[]> {
+async function getOfficialThread(conversationId: string): Promise<XTweet[]> {
   const query = `conversation_id:${conversationId}`;
-  return searchTweets(query, { pages: 2, sortOrder: 'recency' });
+  return searchOfficialTweets(query, { pages: 2, sortOrder: 'recency' });
+}
+
+async function searchTweets(
+  query: string,
+  opts: {
+    pages?: number;
+    maxResults?: number;
+    sortOrder?: 'relevancy' | 'recency';
+    since?: string;
+  } = {},
+): Promise<XTweet[]> {
+  const provider = getXSearchProvider();
+  if (provider === 'official') return searchOfficialTweets(query, opts);
+  if (provider === 'xquik') {
+    const since = opts.since ? parseSince(opts.since) ?? undefined : undefined;
+    return searchXquikTweets(query, {
+      pages: Math.min(opts.pages ?? 1, 5),
+      maxResults: Math.max(Math.min(opts.maxResults ?? 100, 100), 10),
+      sortOrder: opts.sortOrder ?? 'relevancy',
+      since,
+    });
+  }
+  throw new Error('Configure X_BEARER_TOKEN or XQUIK_API_KEY to use X search');
+}
+
+async function getProfile(
+  username: string,
+  count: number,
+): Promise<{ user: Record<string, unknown>; tweets: XTweet[] }> {
+  const provider = getXSearchProvider();
+  if (provider === 'official') return getOfficialProfile(username, count);
+  if (provider === 'xquik') return getXquikProfile(username, count);
+  throw new Error('Configure X_BEARER_TOKEN or XQUIK_API_KEY to use X search');
+}
+
+async function getThread(conversationId: string): Promise<XTweet[]> {
+  const provider = getXSearchProvider();
+  if (provider === 'official') return getOfficialThread(conversationId);
+  if (provider === 'xquik') return getXquikThread(conversationId);
+  throw new Error('Configure X_BEARER_TOKEN or XQUIK_API_KEY to use X search');
 }
 
 // ─── Tool definition ─────────────────────────────────────────────────────────
@@ -261,7 +290,7 @@ export const xSearchTool = new DynamicStructuredTool({
   name: 'x_search',
   description:
     'Search X/Twitter for real-time public sentiment, news, and expert opinions. ' +
-    'Uses the official X API v2 (read-only).',
+    'Uses a configured read-only X data provider.',
   schema,
   func: async (input) => {
     try {
@@ -325,7 +354,7 @@ export const xSearchTool = new DynamicStructuredTool({
 
 export const X_SEARCH_DESCRIPTION = `
 Search X/Twitter for real-time public sentiment, market opinions, breaking news, and expert takes.
-Uses the official X API v2 (read-only, last 7 days).
+Uses the official X API v2 or Xquik in read-only mode.
 
 ## When to Use
 
@@ -339,7 +368,6 @@ Uses the official X API v2 (read-only, last 7 days).
 ## When NOT to Use
 
 - Structured financial data (use get_financials instead)
-- Historical data beyond 7 days (X recent search is limited to last 7 days)
 - General web research (use web_search instead)
 
 ## Commands
@@ -354,6 +382,8 @@ Uses the official X API v2 (read-only, last 7 days).
 - Use \`sort: "likes"\` to surface highest-signal tweets
 - Use \`min_likes\` to filter noise (e.g. 10+ likes for quality signal)
 - Use \`since\` for time-bounded research: "1h", "3h", "12h", "1d", "7d"
-- Each page fetches up to 100 tweets (~$0.50 API cost); use \`pages: 1\` (default) for most queries
-- Requires \`X_BEARER_TOKEN\` environment variable (get one at developer.x.com)
+- Historical coverage depends on the provider; the official recent-search endpoint covers 7 days
+- Each page fetches up to 100 tweets; use \`pages: 1\` for most queries
+- Configure \`X_BEARER_TOKEN\` for the official API or \`XQUIK_API_KEY\` for Xquik
+- The official API is preferred when both keys are configured
 `.trim();
