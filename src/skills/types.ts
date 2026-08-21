@@ -7,7 +7,7 @@ export type SkillSource = 'builtin' | 'user' | 'project';
 
 /**
  * Skill metadata - lightweight info loaded at startup for system prompt injection.
- * Only contains the name and description from YAML frontmatter.
+ * Contains discovery fields from YAML frontmatter.
  */
 export interface SkillMetadata {
   /** Unique skill name (e.g., "dcf") */
@@ -18,6 +18,8 @@ export interface SkillMetadata {
   path: string;
   /** Where this skill was discovered from */
   source: SkillSource;
+  /** Environment variables where at least one must be configured */
+  requiresAnyEnv?: string[];
 }
 
 /**

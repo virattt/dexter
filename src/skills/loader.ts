@@ -1,6 +1,35 @@
 import { readFileSync } from 'fs';
 import matter from 'gray-matter';
-import type { Skill, SkillSource } from './types.js';
+import type { Skill, SkillMetadata, SkillSource } from './types.js';
+
+function parseMetadata(
+  data: Record<string, unknown>,
+  path: string,
+  source: SkillSource,
+): SkillMetadata {
+  if (!data.name || typeof data.name !== 'string') {
+    throw new Error(`Skill at ${path} is missing required 'name' field in frontmatter`);
+  }
+  if (!data.description || typeof data.description !== 'string') {
+    throw new Error(`Skill at ${path} is missing required 'description' field in frontmatter`);
+  }
+  if (
+    data.requiresAnyEnv !== undefined &&
+    (!Array.isArray(data.requiresAnyEnv) ||
+      data.requiresAnyEnv.length === 0 ||
+      data.requiresAnyEnv.some((name) => typeof name !== 'string' || !name))
+  ) {
+    throw new Error(`Skill at ${path} has an invalid 'requiresAnyEnv' field`);
+  }
+
+  return {
+    name: data.name,
+    description: data.description,
+    path,
+    source,
+    ...(data.requiresAnyEnv ? { requiresAnyEnv: data.requiresAnyEnv as string[] } : {}),
+  };
+}
 
 /**
  * Parse a SKILL.md file content into a Skill object.
@@ -15,19 +44,8 @@ import type { Skill, SkillSource } from './types.js';
 export function parseSkillFile(content: string, path: string, source: SkillSource): Skill {
   const { data, content: instructions } = matter(content);
 
-  // Validate required frontmatter fields
-  if (!data.name || typeof data.name !== 'string') {
-    throw new Error(`Skill at ${path} is missing required 'name' field in frontmatter`);
-  }
-  if (!data.description || typeof data.description !== 'string') {
-    throw new Error(`Skill at ${path} is missing required 'description' field in frontmatter`);
-  }
-
   return {
-    name: data.name,
-    description: data.description,
-    path,
-    source,
+    ...parseMetadata(data, path, source),
     instructions: instructions.trim(),
   };
 }
@@ -53,21 +71,8 @@ export function loadSkillFromPath(path: string, source: SkillSource): Skill {
  * @param source - Where this skill came from
  * @returns Skill metadata (name, description, path, source)
  */
-export function extractSkillMetadata(path: string, source: SkillSource): { name: string; description: string; path: string; source: SkillSource } {
+export function extractSkillMetadata(path: string, source: SkillSource): SkillMetadata {
   const content = readFileSync(path, 'utf-8');
   const { data } = matter(content);
-
-  if (!data.name || typeof data.name !== 'string') {
-    throw new Error(`Skill at ${path} is missing required 'name' field in frontmatter`);
-  }
-  if (!data.description || typeof data.description !== 'string') {
-    throw new Error(`Skill at ${path} is missing required 'description' field in frontmatter`);
-  }
-
-  return {
-    name: data.name,
-    description: data.description,
-    path,
-    source,
-  };
+  return parseMetadata(data, path, source);
 }

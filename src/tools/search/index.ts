@@ -31,3 +31,4 @@ export { exaSearch } from './exa.js';
 export { perplexitySearch } from './perplexity.js';
 export { langSearch } from './langsearch.js';
 export { xSearchTool, X_SEARCH_DESCRIPTION } from './x-search.js';
+export { hasXSearchProvider } from './x-search-provider.js';
