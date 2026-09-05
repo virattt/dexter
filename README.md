@@ -119,6 +119,24 @@ Or with watch mode for development:
 bun dev
 ```
 
+### Optional keyless web search
+
+Run `/search` and select **Parallel (free, no API key)** to use
+[Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp).
+No Parallel account or API key is needed. Free access is rate limited.
+
+While selected, the agent can send search queries to `https://search.parallel.ai/mcp`
+during research. Queries are sent as both the search objective and query text.
+Parallel runs first, followed by any existing providers with configured keys if
+it fails. A fallback does not undo the query already sent to Parallel.
+
+Select another provider with `/search` to stop using Parallel, or remove
+`webSearchPreferredProvider` from `.dexter/settings.json` to restore default
+routing. Parallel is never an automatic fallback for another preference. Existing
+defaults and behavior with no configured search provider stay the same.
+The adapter returns up to five results with bounded snippets, source URLs,
+and service warnings. It only adds search; Dexter's page-fetch tools are unchanged.
+
 ## 📊 How to Evaluate
 
 Dexter includes an evaluation suite that tests the agent against a dataset of financial questions. Evals use LangSmith for tracking and an LLM-as-judge approach for scoring correctness.

@@ -718,7 +718,7 @@ export async function runCli() {
       );
       showScreenView(
         'Select web search provider',
-        'Dexter tries your preferred provider first and falls back to the others.',
+        'Dexter tries your preference, then configured providers. Selecting Parallel allows agent search queries to be sent to Parallel (free, rate limited).',
         selector,
         'Enter to confirm · esc to exit',
         selector,
