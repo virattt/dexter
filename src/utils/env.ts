@@ -100,13 +100,18 @@ export function saveApiKeyForProvider(providerId: string, apiKey: string): boole
   return saveApiKeyToEnv(apiKeyName, apiKey);
 }
 
-export type SearchProviderId = 'exa' | 'perplexity' | 'tavily' | 'langsearch';
+export type SearchProviderId = 'exa' | 'perplexity' | 'tavily' | 'langsearch' | 'keenable';
 
-export const SEARCH_PROVIDERS: Record<SearchProviderId, { displayName: string; apiKeyEnvVar: string }> = {
+export const SEARCH_PROVIDERS: Record<
+  SearchProviderId,
+  { displayName: string; apiKeyEnvVar: string; apiKeyOptional?: boolean }
+> = {
   exa: { displayName: 'Exa', apiKeyEnvVar: 'EXASEARCH_API_KEY' },
   perplexity: { displayName: 'Perplexity', apiKeyEnvVar: 'PERPLEXITY_API_KEY' },
   tavily: { displayName: 'Tavily', apiKeyEnvVar: 'TAVILY_API_KEY' },
   langsearch: { displayName: 'LangSearch', apiKeyEnvVar: 'LANGSEARCH_API_KEY' },
+  // Works without a key via its public endpoint; the key only lifts rate limits.
+  keenable: { displayName: 'Keenable', apiKeyEnvVar: 'KEENABLE_API_KEY', apiKeyOptional: true },
 };
 
 export function getSearchProviderDisplayName(providerId: SearchProviderId): string {
@@ -118,7 +123,9 @@ export function getApiKeyNameForSearchProvider(providerId: SearchProviderId): st
 }
 
 export function checkApiKeyForSearchProvider(providerId: SearchProviderId): boolean {
-  return checkApiKeyExists(SEARCH_PROVIDERS[providerId].apiKeyEnvVar);
+  const provider = SEARCH_PROVIDERS[providerId];
+  if (provider.apiKeyOptional) return true;
+  return checkApiKeyExists(provider.apiKeyEnvVar);
 }
 
 export function saveApiKeyForSearchProvider(providerId: SearchProviderId, apiKey: string): boolean {
