@@ -13,27 +13,24 @@ interface Provider {
 
 const PROVIDER_MODELS: Record<string, Model[]> = {
   openai: [
-    { id: 'gpt-5.6-sol', displayName: 'GPT 5.6 Sol' },
-    { id: 'gpt-5.6-terra', displayName: 'GPT 5.6 Terra' },
-    { id: 'gpt-5.6-luna', displayName: 'GPT 5.6 Luna' },
+    { id: 'gpt-6-astra', displayName: 'GPT 6 Astra' },
+    { id: 'gpt-6-sol', displayName: 'GPT 6 Sol' },
+    { id: 'gpt-6-luna', displayName: 'GPT 6 Luna' },
   ],
   anthropic: [
-    { id: 'claude-sonnet-4-6', displayName: 'Sonnet 4.6' },
-    { id: 'claude-opus-4-8', displayName: 'Opus 4.8' },
-    { id: 'claude-fable-5', displayName: 'Fable 5' },
+    { id: 'claude-sonnet-5', displayName: 'Sonnet 5' },
+    { id: 'claude-opus-5-5', displayName: 'Opus 5.5' },
+    { id: 'claude-fable-5-1', displayName: 'Fable 5.1' },
   ],
   google: [
-    { id: 'gemini-3-flash-preview', displayName: 'Gemini 3 Flash' },
+    { id: 'gemini-3.8-flash', displayName: 'Gemini 3.8 Flash' },
     { id: 'gemini-3.1-pro-preview', displayName: 'Gemini 3.1 Pro' },
   ],
-  xai: [
-    { id: 'grok-4-0709', displayName: 'Grok 4' },
-    { id: 'grok-4-1-fast-reasoning', displayName: 'Grok 4.1 Fast Reasoning' },
-  ],
-  moonshot: [{ id: 'kimi-k2-5', displayName: 'Kimi K2.5' }],
+  xai: [{ id: 'grok-4.7', displayName: 'Grok 4.7' }],
+  moonshot: [{ id: 'kimi-k3', displayName: 'Kimi K3' }],
   deepseek: [
     { id: 'deepseek-v4-pro', displayName: 'DeepSeek V4 Pro' },
-    { id: 'deepseek-v4-flash', displayName: 'DeepSeek V4 Flash' },
+    { id: 'deepseek-flash', displayName: 'DeepSeek V4.1 Flash' },
   ],
 };
 
