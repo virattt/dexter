@@ -329,7 +329,11 @@ export async function runCli() {
   const queuedMessages = new Container();
   defaultQueue.subscribe(() => {
     queuedMessages.clear();
-    for (const msg of defaultQueue.snapshot()) {
+    const queued = defaultQueue.snapshot();
+    if (queued.length > 0) {
+      queuedMessages.addChild(new Spacer(1)); // gap under the working indicator
+    }
+    for (const msg of queued) {
       queuedMessages.addChild(new Text(theme.muted(`❯ ${msg.text}`), 0, 0));
     }
     tui.requestRender();
