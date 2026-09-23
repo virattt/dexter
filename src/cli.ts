@@ -175,11 +175,12 @@ function renderEvent(
     chatLog.addMicrocompact(event.cleared, event.tokensSaved);
   }
   if (event.type === 'queue_drain') {
-    // The queued text moves from below the working indicator into the log now that it is in play.
+    // Picked up mid-run: the queued text leaves the area below the working
+    // indicator and joins the log as a normal query row.
     for (const text of event.texts) {
-      chatLog.addQueuedMessage(text);
+      chatLog.addQuery(text);
     }
-    chatLog.addQueueDrain(event.messageCount);
+    chatLog.resetToolGrouping();
   }
   if (event.type === 'compaction' && event.phase === 'end') {
     chatLog.addCompaction(event.success ?? false, event.preCompactTokens, event.postCompactTokens);
