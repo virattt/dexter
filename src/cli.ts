@@ -812,6 +812,8 @@ export async function runCli() {
     slashSuggestions = matchCommands(text);
     slashSelectedIndex = 0;
     slashActive = slashSuggestions.length > 0;
+    // No matches (e.g. "/compact focus on X"): let Enter submit the text as typed.
+    editor.slashActive = slashActive;
     updateView();
     tui.requestRender();
   };
@@ -833,6 +835,17 @@ export async function runCli() {
       slashSuggestions = [];
       editor.setText('');
       void handleSlashCommand(selected.name);
+    }
+    updateView();
+    tui.requestRender();
+  };
+
+  editor.onSlashComplete = () => {
+    const selected = slashSuggestions[slashSelectedIndex];
+    slashActive = false;
+    slashSuggestions = [];
+    if (selected) {
+      editor.setText(`/${selected.name} `);
     }
     updateView();
     tui.requestRender();
