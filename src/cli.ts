@@ -175,6 +175,10 @@ function renderEvent(
     chatLog.addMicrocompact(event.cleared, event.tokensSaved);
   }
   if (event.type === 'queue_drain') {
+    // The queued text moves from below the working indicator into the log now that it is in play.
+    for (const text of event.texts) {
+      chatLog.addQueuedMessage(text);
+    }
     chatLog.addQueueDrain(event.messageCount);
   }
   if (event.type === 'compaction' && event.phase === 'end') {
@@ -320,12 +324,22 @@ export async function runCli() {
   const hintBar = new HintBarComponent();
   const debugPanel = new DebugPanelComponent(8, true);
   const spacer = new Spacer(1);
+  // Queued messages wait below the working indicator until the agent picks them up.
+  const queuedMessages = new Container();
+  defaultQueue.subscribe(() => {
+    queuedMessages.clear();
+    for (const msg of defaultQueue.snapshot()) {
+      queuedMessages.addChild(new Text(theme.muted(`❯ ${msg.text}`), 0, 0));
+    }
+    tui.requestRender();
+  });
 
   // Build the component tree ONCE — stable structure, no root.clear()
   root.addChild(intro);
   root.addChild(chatLog);
   root.addChild(errorText);
   root.addChild(workingIndicator);
+  root.addChild(queuedMessages);
   root.addChild(spacer);
   root.addChild(editor);
   root.addChild(hintBar);
@@ -454,7 +468,6 @@ export async function runCli() {
         source: 'cli',
       });
       await inputHistory.saveMessage(query);
-      chatLog.addQueuedMessage(query);
       tui.requestRender();
       return;
     }

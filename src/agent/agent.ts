@@ -271,7 +271,7 @@ export class Agent {
       const drainResult = this.drainQueue();
       if (drainResult) {
         messages.push(new HumanMessage(drainResult.text));
-        yield { type: 'queue_drain', messageCount: drainResult.count, mergedText: drainResult.text } as QueueDrainEvent;
+        yield { type: 'queue_drain', messageCount: drainResult.count, mergedText: drainResult.text, texts: drainResult.texts } as QueueDrainEvent;
       }
     }
 
@@ -435,15 +435,17 @@ export class Agent {
    * Drain all queued messages, merge into a single text block.
    * Returns null if the queue is empty or not configured.
    */
-  private drainQueue(): { text: string; count: number } | null {
+  private drainQueue(): { text: string; count: number; texts: string[] } | null {
     if (!this.messageQueue || this.messageQueue.isEmpty()) {
       return null;
     }
     const messages = this.messageQueue.dequeueAll();
     if (messages.length === 0) return null;
+    const texts = messages.map(m => m.text);
     return {
-      text: messages.map(m => m.text).join('\n\n'),
+      text: texts.join('\n\n'),
       count: messages.length,
+      texts,
     };
   }
 
