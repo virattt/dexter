@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
-import { logger } from '@/utils';
+import { logger } from '../../utils/logger.js';
 
 const LANGSEARCH_API_URL = 'https://api.langsearch.com/v1/web-search';
 

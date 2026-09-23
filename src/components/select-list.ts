@@ -2,6 +2,7 @@ import { Container, Input, SelectList, Text, type SelectItem, getEditorKeybindin
 import { PROVIDERS, type Model } from '../utils/model.js';
 import type { ApprovalDecision } from '../agent/types.js';
 import { selectListTheme, theme } from '../theme.js';
+import { SEARCH_PROVIDERS, type SearchProviderId } from '../utils/env.js';
 
 export class VimSelectList extends SelectList {
   handleInput(keyData: string): void {
@@ -56,21 +57,15 @@ export function createProviderSelector(
 
 export function createSearchProviderSelector(
   currentProvider: string,
-  onSelect: (providerId: 'exa' | 'perplexity' | 'tavily' | 'langsearch') => void,
+  onSelect: (providerId: SearchProviderId) => void,
   onCancel: () => void,
 ) {
-  const providers: { id: 'exa' | 'perplexity' | 'tavily' | 'langsearch'; displayName: string }[] = [
-    { id: 'exa', displayName: 'Exa' },
-    { id: 'perplexity', displayName: 'Perplexity' },
-    { id: 'tavily', displayName: 'Tavily' },
-    { id: 'langsearch', displayName: 'LangSearch' },
-  ];
-  const items: SelectItem[] = providers.map((provider, index) => ({
-    value: provider.id,
-    label: `${index + 1}. ${provider.displayName}${currentProvider === provider.id ? ' ✓' : ''}`,
+  const items: SelectItem[] = Object.entries(SEARCH_PROVIDERS).map(([id, provider], index) => ({
+    value: id,
+    label: `${index + 1}. ${provider.displayName}${currentProvider === id ? ' ✓' : ''}`,
   }));
   const list = new VimSelectList(items, 5, selectListTheme);
-  list.onSelect = (item) => onSelect(item.value as 'exa' | 'perplexity' | 'tavily' | 'langsearch');
+  list.onSelect = (item) => onSelect(item.value as SearchProviderId);
   list.onCancel = () => onCancel();
   return list;
 }

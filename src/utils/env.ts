@@ -100,27 +100,30 @@ export function saveApiKeyForProvider(providerId: string, apiKey: string): boole
   return saveApiKeyToEnv(apiKeyName, apiKey);
 }
 
-export type SearchProviderId = 'exa' | 'perplexity' | 'tavily' | 'langsearch';
+export type SearchProviderId = 'exa' | 'perplexity' | 'tavily' | 'langsearch' | 'parallel';
 
-export const SEARCH_PROVIDERS: Record<SearchProviderId, { displayName: string; apiKeyEnvVar: string }> = {
+export const SEARCH_PROVIDERS: Record<SearchProviderId, { displayName: string; apiKeyEnvVar?: string }> = {
   exa: { displayName: 'Exa', apiKeyEnvVar: 'EXASEARCH_API_KEY' },
   perplexity: { displayName: 'Perplexity', apiKeyEnvVar: 'PERPLEXITY_API_KEY' },
   tavily: { displayName: 'Tavily', apiKeyEnvVar: 'TAVILY_API_KEY' },
   langsearch: { displayName: 'LangSearch', apiKeyEnvVar: 'LANGSEARCH_API_KEY' },
+  parallel: { displayName: 'Parallel (free, no API key)' },
 };
 
 export function getSearchProviderDisplayName(providerId: SearchProviderId): string {
   return SEARCH_PROVIDERS[providerId].displayName;
 }
 
-export function getApiKeyNameForSearchProvider(providerId: SearchProviderId): string {
+export function getApiKeyNameForSearchProvider(providerId: SearchProviderId): string | undefined {
   return SEARCH_PROVIDERS[providerId].apiKeyEnvVar;
 }
 
 export function checkApiKeyForSearchProvider(providerId: SearchProviderId): boolean {
-  return checkApiKeyExists(SEARCH_PROVIDERS[providerId].apiKeyEnvVar);
+  const keyName = getApiKeyNameForSearchProvider(providerId);
+  return keyName ? checkApiKeyExists(keyName) : true;
 }
 
 export function saveApiKeyForSearchProvider(providerId: SearchProviderId, apiKey: string): boolean {
-  return saveApiKeyToEnv(SEARCH_PROVIDERS[providerId].apiKeyEnvVar, apiKey);
+  const keyName = getApiKeyNameForSearchProvider(providerId);
+  return keyName ? saveApiKeyToEnv(keyName, apiKey) : false;
 }

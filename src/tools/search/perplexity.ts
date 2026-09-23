@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
-import { logger } from '@/utils';
+import { logger } from '../../utils/logger.js';
 
 const PERPLEXITY_API_URL = 'https://api.perplexity.ai/chat/completions';
 const SONAR_MODEL = 'sonar';
