@@ -94,7 +94,7 @@ export class ModelSelectionController {
     }
 
     this.pendingProviderValue = providerId;
-    if (providerId === 'openrouter') {
+    if (providerId === 'openrouter' || providerId === 'trustedrouter') {
       this.pendingModelsValue = [];
       this.appStateValue = 'model_input';
       this.emitChange();

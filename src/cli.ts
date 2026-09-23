@@ -684,11 +684,16 @@ export async function runCli() {
       const input = new ApiKeyInputComponent();
       input.onSubmit = (value) => modelSelection.handleModelInputSubmit(value);
       input.onCancel = () => modelSelection.handleModelInputSubmit(null);
+      const isTrustedRouter = state.pendingProvider === 'trustedrouter';
       showScreenView(
         `Enter model name for ${getProviderDisplayName(state.pendingProvider)}`,
-        'Type or paste the model name from openrouter.ai/models',
+        isTrustedRouter
+          ? 'Type or paste the model name from api.trustedrouter.com/v1/models'
+          : 'Type or paste the model name from openrouter.ai/models',
         input,
-        'Examples: anthropic/claude-3.5-sonnet, openai/gpt-4-turbo, meta-llama/llama-3-70b\nEnter to confirm · esc to go back',
+        isTrustedRouter
+          ? 'Examples: trustedrouter/auto, anthropic/claude-opus-4-7, openai/gpt-5.4-mini\nEnter to confirm · esc to go back'
+          : 'Examples: anthropic/claude-3.5-sonnet, openai/gpt-4-turbo, meta-llama/llama-3-70b\nEnter to confirm · esc to go back',
         input,
       );
       return;

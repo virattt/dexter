@@ -96,6 +96,15 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
         baseURL: 'https://openrouter.ai/api/v1',
       },
     }),
+  trustedrouter: (name, opts) =>
+    new ChatOpenAI({
+      model: name.replace(/^trustedrouter:/, ''),
+      ...opts,
+      apiKey: getApiKey('TRUSTEDROUTER_API_KEY'),
+      configuration: {
+        baseURL: 'https://api.trustedrouter.com/v1',
+      },
+    }),
   moonshot: (name, opts) =>
     new ChatOpenAI({
       model: name,
