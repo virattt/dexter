@@ -335,16 +335,12 @@ export async function runCli() {
     tui.requestRender();
   });
 
-  // Build the component tree ONCE — stable structure, no root.clear()
-  root.addChild(intro);
-  root.addChild(chatLog);
-  root.addChild(errorText);
-  root.addChild(workingIndicator);
-  root.addChild(queuedMessages);
-  root.addChild(spacer);
-  root.addChild(editor);
-  root.addChild(hintBar);
-  root.addChild(debugPanel);
+  // The main view, top to bottom. Built once here and again by restoreMainView()
+  // after an overlay screen closes, so both must use this one list.
+  const mainViewChildren = [intro, chatLog, errorText, workingIndicator, queuedMessages, spacer, editor, hintBar, debugPanel];
+  for (const child of mainViewChildren) {
+    root.addChild(child);
+  }
   tui.addChild(root);
   initSpinner(tui);
 
@@ -571,14 +567,9 @@ export async function runCli() {
    */
   const restoreMainView = () => {
     root.clear();
-    root.addChild(intro);
-    root.addChild(chatLog);
-    root.addChild(errorText);
-    root.addChild(workingIndicator);
-    root.addChild(spacer);
-    root.addChild(editor);
-    root.addChild(hintBar);
-    root.addChild(debugPanel);
+    for (const child of mainViewChildren) {
+      root.addChild(child);
+    }
     updateView();
   };
 
