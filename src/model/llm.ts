@@ -229,18 +229,22 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
   const finalSystemPrompt = systemPrompt || DEFAULT_SYSTEM_PROMPT;
 
   const llm = getChatModel(model, false);
+  const provider = resolveProvider(model);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let runnable: Runnable<any, any> = llm;
 
   if (outputSchema) {
-    runnable = llm.withStructuredOutput(outputSchema, { strict: false });
+    // Anthropic: forced tool calling (the default method) is rejected when thinking is on,
+    // which Claude 5 models always have. Their native JSON-schema output mode has no such limit.
+    runnable = provider.id === 'anthropic'
+      ? llm.withStructuredOutput(outputSchema, { method: 'jsonSchema' })
+      : llm.withStructuredOutput(outputSchema, { strict: false });
   } else if (tools && tools.length > 0 && llm.bindTools) {
     runnable = llm.bindTools(tools);
   }
 
   const invokeOpts = signal ? { signal } : undefined;
-  const provider = resolveProvider(model);
   let result;
 
   if (provider.id === 'anthropic') {
