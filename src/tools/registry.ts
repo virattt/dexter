@@ -17,6 +17,12 @@ import { SCREEN_STOCKS_DESCRIPTION } from './finance/screen-stocks.js';
 import { heartbeatTool, HEARTBEAT_TOOL_DESCRIPTION } from './heartbeat/heartbeat-tool.js';
 import { cronTool, CRON_TOOL_DESCRIPTION } from './cron/cron-tool.js';
 import { memoryGetTool, MEMORY_GET_DESCRIPTION, memorySearchTool, MEMORY_SEARCH_DESCRIPTION, memoryUpdateTool, MEMORY_UPDATE_DESCRIPTION } from './memory/index.js';
+import {
+  notesTool, NOTES_DESCRIPTION,
+  historyTool, HISTORY_DESCRIPTION,
+  getContextRemainingTool, GET_CONTEXT_REMAINING_DESCRIPTION,
+  newContextWindowTool, NEW_CONTEXT_WINDOW_DESCRIPTION,
+} from './context/index.js';
 import { discoverSkills } from '../skills/index.js';
 import { createSpawnSubagent, SPAWN_SUBAGENT_DESCRIPTION } from './subagent/spawn-subagent.js';
 import { createAskUserQuestion, ASK_USER_QUESTION_DESCRIPTION } from './ask-user-question/ask-user-question.js';
@@ -157,6 +163,34 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: memoryUpdateTool,
       description: MEMORY_UPDATE_DESCRIPTION,
       compactDescription: 'Add, edit, or delete persistent memory entries.',
+      concurrencySafe: false,
+    },
+    {
+      name: 'notes',
+      tool: notesTool,
+      description: NOTES_DESCRIPTION,
+      compactDescription: 'Write, append, read, list, or search session notes that survive context-window resets.',
+      concurrencySafe: false,
+    },
+    {
+      name: 'history',
+      tool: historyTool,
+      description: HISTORY_DESCRIPTION,
+      compactDescription: 'List, read, or search messages from earlier context windows in this session.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'get_context_remaining',
+      tool: getContextRemainingTool,
+      description: GET_CONTEXT_REMAINING_DESCRIPTION,
+      compactDescription: 'Get the remaining tokens in the current context window.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'new_context_window',
+      tool: newContextWindowTool,
+      description: NEW_CONTEXT_WINDOW_DESCRIPTION,
+      compactDescription: 'Start a fresh context window after this turn. Notes and history persist.',
       concurrencySafe: false,
     },
   ];

@@ -6,6 +6,7 @@ import type {
   AgentEvent,
   ApprovalDecision,
   DoneEvent,
+  QueueDrainEvent,
 } from '../agent/index.js';
 import type { Question, UserAnswers } from '../tools/ask-user-question/types.js';
 import type { PermissionDecision } from '../permissions/types.js';
@@ -330,11 +331,18 @@ export class AgentRunnerController {
           completed: true,
         });
         break;
+      case 'queue_drain':
+        this.inMemoryChatHistory.addFollowUpToOpenTurn((event as QueueDrainEvent).mergedText);
+        this.pushEvent({
+          id: `${event.type}-${Date.now()}`,
+          event,
+          completed: true,
+        });
+        break;
       case 'tool_limit':
       case 'context_cleared':
       case 'compaction':
       case 'microcompact':
-      case 'queue_drain':
         this.pushEvent({
           id: `${event.type}-${Date.now()}`,
           event,

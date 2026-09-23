@@ -278,6 +278,24 @@ export interface CompactionEvent {
 }
 
 /**
+ * A fresh context window was started. Old messages were archived to session history.
+ */
+export interface ContextResetEvent {
+  type: 'context_reset';
+  windowNumber: number;
+  /** Messages written to history for the closed window. */
+  archivedItems: number;
+  /** Note files that existed at reset time. */
+  notesCount: number;
+  /** True when no notes existed and an LLM summary was used as the hint instead. */
+  usedSummaryFallback: boolean;
+  /** Size of the hint injected into the new window. */
+  hintBytes: number;
+  /** Estimated tokens in the window before reset. */
+  preResetTokens: number;
+}
+
+/**
  * Agent completed with final result
  */
 export interface DoneEvent {
@@ -306,6 +324,7 @@ export type AgentEvent =
   | QueueDrainEvent
   | MicrocompactEvent
   | CompactionEvent
+  | ContextResetEvent
   | MemoryRecalledEvent
   | MemoryFlushEvent
   | StreamProgressEvent

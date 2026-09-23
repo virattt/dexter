@@ -20,6 +20,7 @@
   - Utils: `src/utils/` (env, config, caching, token estimation, markdown tables)
   - Evals: `src/evals/` (LangSmith evaluation runner with Ink UI)
 - Config: `.dexter/settings.json` (persisted model/provider selection)
+- Session context: `.dexter/sessions/<id>/{notes,history}/` (agent notes and archived context windows; gitignored)
 - Environment: `.env` (API keys; see `env.example`)
 - Scripts: `scripts/release.sh`
 
@@ -59,6 +60,7 @@
 - `web_search`: general web search (Exa if `EXASEARCH_API_KEY` set, else Tavily if `TAVILY_API_KEY` set).
 - `browser`: Playwright-based web scraping for reading pages the agent discovers.
 - `skill`: invokes SKILL.md-defined workflows (e.g. DCF valuation). Each skill runs at most once per query.
+- `notes`, `history`, `get_context_remaining`, `new_context_window`: Codex-style context management. The agent saves notes as it works; when the window fills it is reset (old messages archived to history, notes carried forward). See `src/context/`.
 - Tool registry: `src/tools/registry.ts`. Tools are conditionally included based on env vars.
 
 ## Skills

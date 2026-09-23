@@ -21,6 +21,7 @@ export type {
   MemoryRecalledEvent,
   MemoryFlushEvent,
   DoneEvent,
+  QueueDrainEvent,
 } from './types.js';
 
 export type { 

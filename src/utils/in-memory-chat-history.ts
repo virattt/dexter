@@ -1,5 +1,6 @@
 import { HumanMessage, AIMessage, type BaseMessage } from '@langchain/core/messages';
 import { callLlm, DEFAULT_MODEL } from '../model/llm.js';
+import { resolveProvider } from '../providers.js';
 
 const DEFAULT_HISTORY_LIMIT = 10;
 const FULL_ANSWER_TURNS = 3;
@@ -10,6 +11,8 @@ const FULL_ANSWER_TURNS = 3;
 export interface Message {
   id: number;
   query: string;
+  /** User messages picked up from the queue mid-run. Answered together with `query`. */
+  followUps: string[];
   answer: string | null;   // null until answer completes
   summary: string | null;  // LLM-generated summary, null until answer arrives
 }
@@ -70,9 +73,27 @@ Generate a brief 1-2 sentence summary of this answer.`;
     this.messages.push({
       id: this.messages.length,
       query,
+      followUps: [],
       answer: null,
       summary: null,
     });
+  }
+
+  /** Every user message of a turn, in the order the model saw them. */
+  private userMessagesOf(message: Message): string[] {
+    return [message.query, ...message.followUps];
+  }
+
+  /**
+   * Records a follow-up the agent picked up from the queue mid-run as its own
+   * user message on the open turn, so /compact, history, and summaries see it.
+   */
+  addFollowUpToOpenTurn(text: string): void {
+    const lastMessage = this.messages[this.messages.length - 1];
+    if (!lastMessage || lastMessage.answer !== null) {
+      return;
+    }
+    lastMessage.followUps.push(text);
   }
 
   /**
@@ -85,7 +106,7 @@ Generate a brief 1-2 sentence summary of this answer.`;
     }
 
     lastMessage.answer = answer;
-    lastMessage.summary = await this.generateSummary(lastMessage.query, answer);
+    lastMessage.summary = await this.generateSummary(this.userMessagesOf(lastMessage).join('\n\n'), answer);
   }
 
   /**
@@ -115,7 +136,7 @@ Generate a brief 1-2 sentence summary of this answer.`;
         : (message.summary ?? message.answer);
 
       return [
-        new HumanMessage(message.query),
+        ...this.userMessagesOf(message).map((text) => new HumanMessage(text)),
         new AIMessage(assistantContent ?? ''),
       ];
     });
@@ -136,6 +157,49 @@ Generate a brief 1-2 sentence summary of this answer.`;
     if (this.messages.length > 0) {
       this.messages.pop();
     }
+  }
+
+  /**
+   * Summarize all history into a single synthetic turn, freeing context.
+   */
+  async compact(customInstructions?: string): Promise<string> {
+    const completed = this.messages.filter(m => m.answer !== null);
+    if (completed.length < 2) {
+      throw new Error('Not enough history to compact.');
+    }
+
+    const transcript = completed
+      .map(m => `${this.userMessagesOf(m).map((text) => `User: ${text}`).join('\n')}\nAssistant: ${m.summary ?? m.answer}`)
+      .join('\n\n');
+
+    const provider = resolveProvider(this.model);
+    const fastModel = provider.fastModel ?? this.model;
+
+    const prompt = [
+      customInstructions
+        ? `Summarize this conversation. Additional instructions: ${customInstructions}`
+        : 'Summarize this conversation.',
+      'Preserve key facts, numbers, decisions, and open questions.',
+      'Be concise but do not drop important details.\n',
+      transcript,
+    ].join('\n');
+
+    const { response } = await callLlm(prompt, {
+      model: fastModel,
+      systemPrompt: 'You are a concise summarizer. Produce a structured summary of the conversation.',
+    });
+
+    const summary = typeof response === 'string' ? response.trim() : String(response).trim();
+
+    this.messages = [{
+      id: 0,
+      query: '[Compacted conversation]',
+      followUps: [],
+      answer: summary,
+      summary,
+    }];
+
+    return summary;
   }
 
   /**

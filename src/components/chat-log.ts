@@ -329,6 +329,14 @@ export class ChatLogComponent extends Container {
     );
   }
 
+  /** Header row plus nested detail rows, matching the tool-row layout. */
+  addContextCompacted(headline: string, details: string[]) {
+    this.addChild(new Text(`${theme.primary('⏺')} Context compacted ${theme.muted(`· ${headline}`)}`, 0, 0));
+    for (const detail of details) {
+      this.addChild(new Text(theme.muted(`⎿  ${detail}`), 0, 0));
+    }
+  }
+
   addCompaction(success: boolean, preTokens?: number, postTokens?: number) {
     if (success && preTokens && postTokens) {
       const saved = preTokens - postTokens;

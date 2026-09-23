@@ -11,6 +11,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'memory', description: 'Show what Dexter remembers about you' },
   { name: 'heartbeat', description: 'Show your heartbeat monitoring checklist' },
   { name: 'history', description: 'Show recent conversation summaries' },
+  { name: 'compact', description: 'Start a fresh context window (notes and history persist)' },
+  { name: 'notes', description: 'Show notes saved by the agent this session' },
   { name: 'help', description: 'Show keyboard shortcuts and tips' },
 ];
 

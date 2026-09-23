@@ -38,6 +38,9 @@ import {
 } from './components/index.js';
 import { editorTheme, theme } from './theme.js';
 import { matchCommands, type SlashCommand } from './commands/index.js';
+import { AIMessage, HumanMessage } from '@langchain/core/messages';
+import { SessionStore } from './context/session-store.js';
+import { isHiddenContextTool } from './tools/context/index.js';
 import { initSpinner } from './utils/spinner.js';
 
 function truncateForHistory(text: string): string {
@@ -137,6 +140,10 @@ function renderEvent(
     if (toolStart.tool === 'ask_user_question') {
       return;
     }
+    // Context tools (notes, history, budget) are bookkeeping: no row. /notes shows the text.
+    if (isHiddenContextTool(toolStart.tool)) {
+      return;
+    }
     const component = chatLog.startTool(display.id, toolStart.tool, toolStart.args);
     if (display.completed && display.endEvent?.type === 'tool_end') {
       const done = display.endEvent as ToolEndEvent;
@@ -185,9 +192,14 @@ function renderEvent(
   if (event.type === 'compaction' && event.phase === 'end') {
     chatLog.addCompaction(event.success ?? false, event.preCompactTokens, event.postCompactTokens);
   }
+  if (event.type === 'context_reset') {
+    const n = event.archivedItems;
+    chatLog.addContextCompacted(`${n} message${n !== 1 ? 's' : ''} saved to history`, []);
+  }
 }
 
 export async function runCli() {
+  SessionStore.init(SessionStore.defaultSessionId());
   const tui = new TUI(new ProcessTerminal());
   const root = new Container();
   const chatLog = new ChatLogComponent(tui);
@@ -365,6 +377,9 @@ export async function runCli() {
     errorText.setText(message ? theme.error(`Error: ${message}`) : '');
   };
 
+  /** How many archived queries the /compact row lists. */
+  const MAX_ARCHIVED_ROWS = 5;
+
   // Slash command autocomplete state
   let slashSuggestions: SlashCommand[] = [];
   let slashSelectedIndex = 0;
@@ -377,9 +392,11 @@ export async function runCli() {
   /search      Choose preferred web search provider
   /rules       Show research rules
   /clear       Clear conversation
+  /compact     Start a fresh context window
+  /notes       Show notes saved this session
   ↑ / ↓        Navigate input history`;
 
-  const handleSlashCommand = async (command: string) => {
+  const handleSlashCommand = async (command: string, commandArgs: string = '') => {
     switch (command) {
       case 'model':
         modelSelection.startSelection();
@@ -404,6 +421,65 @@ export async function runCli() {
         chatLog.clearAll();
         tui.requestRender();
         break;
+      case 'compact': {
+        chatLog.addChild(new Spacer(1));
+        try {
+          const store = SessionStore.get();
+          const history = modelSelection.inMemoryChatHistory;
+          const completed = history.getMessages().filter(m => m.answer !== null);
+          if (completed.length === 0) {
+            throw new Error('Not enough history to compact.');
+          }
+          await store.archiveWindow(
+            store.windowState.currentWindowId,
+            completed.flatMap(m => [
+              new HumanMessage(m.query),
+              ...m.followUps.map(text => new HumanMessage(text)),
+              new AIMessage(m.answer ?? ''),
+            ]),
+          );
+          const notes = await store.listNotes();
+          if (notes.length === 0 && completed.length >= 2) {
+            // No notes to carry forward: fall back to an LLM summary (takes a few seconds).
+            chatLog.addChild(new Text(theme.muted('Summarizing…'), 0, 0));
+            tui.requestRender();
+            await history.compact(commandArgs || undefined);
+          } else {
+            history.clear();
+          }
+          store.advanceWindow();
+
+          const userMessages = completed.flatMap(m => [m.query, ...m.followUps]);
+          const latest = userMessages.slice(-MAX_ARCHIVED_ROWS);
+          const details = latest.map(text => truncateAtWord(text.replace(/\n/g, ' '), 70));
+          if (userMessages.length > latest.length) {
+            details.push(`… and ${userMessages.length - latest.length} more`);
+          }
+          const n = completed.length;
+          chatLog.addContextCompacted(`${n} turn${n !== 1 ? 's' : ''} saved to history`, details);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          chatLog.addChild(new Text(theme.muted(msg), 0, 0));
+        }
+        tui.requestRender();
+        break;
+      }
+      case 'notes': {
+        const store = SessionStore.get();
+        const paths = await store.listNotes();
+        chatLog.addChild(new Spacer(1));
+        if (paths.length === 0) {
+          chatLog.addChild(new Text(theme.muted('No notes saved yet this session.'), 0, 0));
+        } else {
+          chatLog.addChild(new Text(theme.muted(`Notes (context window ${store.windowState.windowNumber}):`), 0, 0));
+          for (const p of paths) {
+            chatLog.addChild(new Text(theme.muted(`## ${p}`), 0, 0));
+            chatLog.addChild(new Text(await store.readNote(p), 0, 0));
+          }
+        }
+        tui.requestRender();
+        break;
+      }
       case 'memory':
         await agentRunner.runQuery('Show me what you know about me from memory. Use memory_search and memory_get.');
         break;
@@ -445,10 +521,13 @@ export async function runCli() {
 
     // Handle all slash commands
     if (query.startsWith('/')) {
-      const command = query.slice(1).trim().toLowerCase();
+      const rawCommand = query.slice(1).trim();
+      const spaceIdx = rawCommand.indexOf(' ');
+      const command = spaceIdx === -1 ? rawCommand.toLowerCase() : rawCommand.slice(0, spaceIdx).toLowerCase();
+      const commandArgs = spaceIdx === -1 ? '' : rawCommand.slice(spaceIdx + 1).trim();
       slashActive = false;
       slashSuggestions = [];
-      await handleSlashCommand(command);
+      await handleSlashCommand(command, commandArgs);
       return;
     }
 

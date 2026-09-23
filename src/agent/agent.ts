@@ -9,9 +9,12 @@ import { estimateTokens, getAutoCompactThreshold, KEEP_TOOL_USES } from '../util
 import { exceedsSizeCap, persistLargeResult, buildPersistedContent } from '../utils/tool-result-storage.js';
 import { enforceResultBudget } from '../utils/tool-result-budget.js';
 import { formatUserFacingError, isContextOverflowError } from '../utils/errors.js';
-import type { AgentConfig, AgentEvent, CompactionEvent, ContextClearedEvent, MicrocompactEvent, QueueDrainEvent, StreamMode, StreamProgressEvent, TokenUsage } from '../agent/types.js';
+import type { AgentConfig, AgentEvent, ContextClearedEvent, ContextResetEvent, MicrocompactEvent, QueueDrainEvent, StreamMode, StreamProgressEvent, TokenUsage } from '../agent/types.js';
 import type { MessageQueue } from '../utils/message-queue.js';
-import { compactContext, MAX_CONSECUTIVE_COMPACTION_FAILURES, MIN_TOOL_RESULTS_FOR_COMPACTION } from './compact.js';
+import { compactContext } from './compact.js';
+import { SessionStore } from '../context/session-store.js';
+import { buildContextWindowBlock, buildReminder, CONTEXT_WINDOW_GUIDANCE, FALLBACK_PROMPT } from '../context/prompts.js';
+import { FALLBACK_BUFFER_TOKENS, REMINDER_THRESHOLD_TOKENS } from '../context/constants.js';
 import { microcompactMessages } from './microcompact.js';
 import { createRunContext, type RunContext } from './run-context.js';
 import { AgentToolExecutor } from './tool-executor.js';
@@ -20,7 +23,7 @@ import { runMemoryFlush, shouldRunMemoryFlush } from '../memory/flush.js';
 import { resolveProvider } from '../providers.js';
 
 
-const DEFAULT_MODEL = 'gpt-5.6-sol';
+const DEFAULT_MODEL = 'gpt-6-astra';
 const DEFAULT_MAX_ITERATIONS = 10;
 const MAX_OVERFLOW_RETRIES = 2;
 const OVERFLOW_KEEP_ROUNDS = 3;
@@ -47,7 +50,6 @@ export class Agent {
   private readonly signal?: AbortSignal;
   private readonly memoryEnabled: boolean;
   private readonly messageQueue?: MessageQueue;
-  private compactionFailures: number = 0;
 
   private constructor(
     config: AgentConfig,
@@ -140,6 +142,7 @@ export class Agent {
     const historyMessages = inMemoryHistory?.getRecentTurnsAsMessages() ?? [];
     let messages: BaseMessage[] = [
       new SystemMessage(this.systemPrompt),
+      await this.buildContextWindowMessage(null),
       ...historyMessages,
       new HumanMessage(query),
     ];
@@ -541,38 +544,63 @@ export class Agent {
     return removed;
   }
 
-  /**
-   * Replace message array with compacted version after LLM summarization.
-   */
-  private compactMessages(messages: BaseMessage[], summary: string, query: string): BaseMessage[] {
-    return [
-      messages[0], // SystemMessage
-      new HumanMessage(`${query}\n\n${summary}`),
-    ];
-  }
+  // ---------------------------------------------------------------------------
+  // Context window management (Codex-style: notes + fresh windows, no summary)
+  // ---------------------------------------------------------------------------
 
-  // ---------------------------------------------------------------------------
-  // Context threshold management
-  // ---------------------------------------------------------------------------
+  /**
+   * Guidance + `<context_window>` block for the start of a window.
+   * Kept out of the SystemMessage so provider prompt caching survives resets.
+   */
+  private async buildContextWindowMessage(hint: string | null | undefined): Promise<HumanMessage> {
+    const store = SessionStore.get();
+    const resolvedHint = hint === undefined ? await store.buildThreadHint(this.model, this.signal) : hint;
+    const w = store.windowState;
+    const block = buildContextWindowBlock({
+      windowNumber: w.windowNumber,
+      currentWindowId: w.currentWindowId,
+      previousWindowId: w.previousWindowId,
+      tokensLeft: store.tokensLeft,
+      hint: resolvedHint,
+    });
+    return new HumanMessage(`${CONTEXT_WINDOW_GUIDANCE}\n\n${block}`);
+  }
 
   private async *manageContextThreshold(
     ctx: RunContext,
     query: string,
     memoryFlushState: { alreadyFlushed: boolean },
     messageState: { messages: BaseMessage[] },
-  ): AsyncGenerator<ContextClearedEvent | CompactionEvent | AgentEvent, void> {
+  ): AsyncGenerator<ContextClearedEvent | ContextResetEvent | AgentEvent, void> {
+    const store = SessionStore.get();
     const estimatedContextTokens = ctx.lastApiInputTokens > 0
       ? ctx.lastApiInputTokens
       : estimateTokens(messageState.messages.map(m =>
           typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
         ).join('\n'));
     const threshold = getAutoCompactThreshold(this.model);
+    const tokensLeft = threshold - estimatedContextTokens;
+    store.tokensLeft = Math.max(0, tokensLeft);
 
-    if (estimatedContextTokens <= threshold) {
+    if (store.newWindowRequested) {
+      yield* this.resetContextWindow(ctx, query, memoryFlushState, messageState, estimatedContextTokens);
       return;
     }
 
-    // Step 1: Memory flush
+    if (tokensLeft > REMINDER_THRESHOLD_TOKENS) {
+      return;
+    }
+
+    if (!store.reminderSent) {
+      store.reminderSent = true;
+      messageState.messages.push(new HumanMessage(buildReminder(Math.max(0, tokensLeft))));
+    }
+
+    if (tokensLeft > 0) {
+      return;
+    }
+
+    // Over threshold: flush memory once, then give the model one grace turn to write notes.
     const fullToolResults = ctx.scratchpad.getToolResults();
     if (
       this.memoryEnabled &&
@@ -598,64 +626,79 @@ export class Agent {
       };
     }
 
-    // Step 2: Compaction
-    if (
-      this.compactionFailures < MAX_CONSECUTIVE_COMPACTION_FAILURES &&
-      ctx.scratchpad.getActiveToolResultCount() >= MIN_TOOL_RESULTS_FOR_COMPACTION
-    ) {
-      yield { type: 'compaction', phase: 'start', preCompactTokens: estimatedContextTokens };
+    const graceExhausted = estimatedContextTokens > threshold + FALLBACK_BUFFER_TOKENS;
+    if (!store.fallbackSent && !graceExhausted) {
+      store.fallbackSent = true;
+      messageState.messages.push(new HumanMessage(FALLBACK_PROMPT));
+      return;
+    }
 
-      try {
+    yield* this.resetContextWindow(ctx, query, memoryFlushState, messageState, estimatedContextTokens);
+  }
+
+  /**
+   * Archive the current window and start a fresh one.
+   * Uses notes as the hint; falls back to an LLM summary when no notes exist.
+   * If archiving fails, falls back to truncating the oldest rounds.
+   */
+  private async *resetContextWindow(
+    ctx: RunContext,
+    query: string,
+    memoryFlushState: { alreadyFlushed: boolean },
+    messageState: { messages: BaseMessage[] },
+    preResetTokens: number,
+  ): AsyncGenerator<ContextResetEvent | ContextClearedEvent, void> {
+    const store = SessionStore.get();
+    const messages = messageState.messages;
+
+    try {
+      const archivedItems = await store.archiveWindow(store.windowState.currentWindowId, messages.slice(1));
+      const notes = await store.listNotes();
+
+      let hint: string | null;
+      let usedSummaryFallback = false;
+      if (notes.length === 0) {
+        usedSummaryFallback = true;
         const result = await compactContext({
           model: this.model,
           systemPrompt: this.systemPrompt,
           query,
-          toolResults: fullToolResults,
+          toolResults: ctx.scratchpad.getToolResults(),
           signal: this.signal,
         });
-
-        messageState.messages = this.compactMessages(messageState.messages, result.summary, query);
-        ctx.scratchpad.setCompactionSummary(result.summary);
-
-        if (result.usage) {
-          ctx.tokenCounter.add(result.usage);
-        }
-
-        this.compactionFailures = 0;
-        memoryFlushState.alreadyFlushed = false;
-
-        const postCompactTokens = estimateTokens(
-          messageState.messages.map(m =>
-            typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
-          ).join('\n'),
-        );
-
-        yield {
-          type: 'compaction',
-          phase: 'end',
-          success: true,
-          preCompactTokens: estimatedContextTokens,
-          postCompactTokens,
-          compactionModel: resolveProvider(this.model).fastModel ?? this.model,
-        };
-
-        return;
-      } catch {
-        this.compactionFailures++;
-        yield {
-          type: 'compaction',
-          phase: 'end',
-          success: false,
-          preCompactTokens: estimatedContextTokens,
-        };
+        hint = result.summary;
+        if (result.usage) ctx.tokenCounter.add(result.usage);
+      } else {
+        hint = await store.buildThreadHint(this.model, this.signal);
       }
-    }
 
-    // Step 3: Fallback — truncate oldest rounds
-    const removed = this.truncateMessages(messageState.messages, KEEP_TOOL_USES);
-    if (removed > 0) {
+      ctx.scratchpad.setCompactionSummary(hint ?? '');
+      const window = store.advanceWindow();
+      store.tokensLeft = null;
       memoryFlushState.alreadyFlushed = false;
-      yield { type: 'context_cleared', clearedCount: removed, keptCount: KEEP_TOOL_USES };
+
+      messageState.messages = [
+        messages[0],
+        await this.buildContextWindowMessage(hint),
+        new HumanMessage(query),
+      ];
+
+      yield {
+        type: 'context_reset',
+        windowNumber: window.windowNumber,
+        archivedItems,
+        notesCount: notes.length,
+        usedSummaryFallback,
+        hintBytes: hint ? Buffer.byteLength(hint, 'utf8') : 0,
+        preResetTokens,
+      };
+    } catch {
+      store.newWindowRequested = false;
+      const removed = this.truncateMessages(messages, KEEP_TOOL_USES);
+      if (removed > 0) {
+        memoryFlushState.alreadyFlushed = false;
+        yield { type: 'context_cleared', clearedCount: removed, keptCount: KEEP_TOOL_USES };
+      }
     }
   }
 }
