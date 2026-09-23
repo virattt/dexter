@@ -18,14 +18,25 @@ const MODEL_TO_PROVIDER_MAP: Record<string, string> = {
 
 // Deprecated model IDs to upgrade on load
 const DEPRECATED_MODEL_UPGRADES: Record<string, string> = {
-  'gpt-5.5': 'gpt-5.6-sol',
-  'gpt-5.4': 'gpt-5.6-sol',
-  'gpt-5.2': 'gpt-5.6-sol',
+  'gpt-5.6-sol': 'gpt-6-sol',
+  'gpt-5.6-terra': 'gpt-6-sol',
+  'gpt-5.6-luna': 'gpt-6-luna',
+  'gpt-5.5': 'gpt-6-astra',
+  'gpt-5.4': 'gpt-6-astra',
+  'gpt-5.2': 'gpt-6-astra',
+  'claude-sonnet-4-6': 'claude-sonnet-5',
+  'claude-opus-4-8': 'claude-opus-5-5',
+  'claude-fable-5': 'claude-fable-5-1',
+  'gemini-3-flash-preview': 'gemini-3.8-flash',
+  'grok-4-0709': 'grok-4.7',
+  'grok-4-1-fast-reasoning': 'grok-4.7',
+  'kimi-k2-5': 'kimi-k3',
+  'deepseek-v4-flash': 'deepseek-flash',
 };
 
 interface Config {
   provider?: string;
-  modelId?: string;  // Selected model ID (e.g., "gpt-5.6-sol", "ollama:llama3.1")
+  modelId?: string;  // Selected model ID (e.g., "gpt-6-astra", "ollama:llama3.1")
   model?: string;    // Legacy key, kept for migration
   webSearchPreferredProvider?: 'exa' | 'perplexity' | 'tavily';
   memory?: {
@@ -53,7 +64,7 @@ export function loadConfig(): Config {
     const content = readFileSync(SETTINGS_FILE, 'utf-8');
     let config = JSON.parse(content) as Config;
 
-    // Upgrade deprecated model IDs (e.g. gpt-5.5 -> gpt-5.6-sol)
+    // Upgrade deprecated model IDs (e.g. gpt-5.5 -> gpt-6-astra)
     if (config.modelId && DEPRECATED_MODEL_UPGRADES[config.modelId]) {
       config.modelId = DEPRECATED_MODEL_UPGRADES[config.modelId];
       saveConfig(config);
