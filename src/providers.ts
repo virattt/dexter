@@ -16,6 +16,35 @@ export interface ProviderDef {
   fastModel?: string;
   /** Default context window size in tokens. Used for model-aware compaction thresholds. */
   contextWindow?: number;
+  /** Default OpenAI-compatible base URL for hosted providers. */
+  openAIBaseUrl?: string;
+  /** Default Anthropic-compatible base URL for hosted providers. */
+  anthropicBaseUrl?: string;
+  /** Region-specific hosted API endpoints. */
+  regionalEndpoints?: ProviderRegionalEndpoint[];
+  /** Provider-owned model metadata used by the model selector. */
+  models?: ProviderModelDef[];
+}
+
+export interface ProviderRegionalEndpoint {
+  region: 'global_en' | 'cn_zh';
+  openAIBaseUrl: string;
+  anthropicBaseUrl?: string;
+  docsRoot: string;
+}
+
+export interface ProviderModelDef {
+  id: string;
+  displayName: string;
+  contextWindow: number;
+  pricingUsdPerMillionTokens?: {
+    input: number;
+    output: number;
+    cacheRead?: number;
+    cacheWrite?: number | null;
+  };
+  inputModalities?: string[];
+  thinking?: string[];
 }
 
 export const PROVIDERS: ProviderDef[] = [
@@ -66,6 +95,58 @@ export const PROVIDERS: ProviderDef[] = [
     apiKeyEnvVar: 'DEEPSEEK_API_KEY',
     fastModel: 'deepseek-flash',
     contextWindow: 1_000_000,
+  },
+  {
+    id: 'minimax',
+    displayName: 'MiniMax',
+    modelPrefix: 'minimax:',
+    apiKeyEnvVar: 'MINIMAX_API_KEY',
+    fastModel: 'minimax:MiniMax-M2.7',
+    contextWindow: 1_000_000,
+    openAIBaseUrl: 'https://api.minimax.io/v1',
+    anthropicBaseUrl: 'https://api.minimax.io/anthropic',
+    regionalEndpoints: [
+      {
+        region: 'global_en',
+        openAIBaseUrl: 'https://api.minimax.io/v1',
+        anthropicBaseUrl: 'https://api.minimax.io/anthropic',
+        docsRoot: 'https://platform.minimax.io/docs',
+      },
+      {
+        region: 'cn_zh',
+        openAIBaseUrl: 'https://api.minimaxi.com/v1',
+        anthropicBaseUrl: 'https://api.minimaxi.com/anthropic',
+        docsRoot: 'https://platform.minimaxi.com/docs',
+      },
+    ],
+    models: [
+      {
+        id: 'minimax:MiniMax-M3',
+        displayName: 'MiniMax M3',
+        contextWindow: 1_000_000,
+        pricingUsdPerMillionTokens: {
+          input: 0.6,
+          output: 2.4,
+          cacheRead: 0.12,
+          cacheWrite: null,
+        },
+        inputModalities: ['text', 'image', 'video'],
+        thinking: ['adaptive', 'disabled'],
+      },
+      {
+        id: 'minimax:MiniMax-M2.7',
+        displayName: 'MiniMax M2.7',
+        contextWindow: 204_800,
+        pricingUsdPerMillionTokens: {
+          input: 0.3,
+          output: 1.2,
+          cacheRead: 0.06,
+          cacheWrite: 0.375,
+        },
+        inputModalities: ['text'],
+        thinking: ['always_on'],
+      },
+    ],
   },
   {
     id: 'openrouter',
