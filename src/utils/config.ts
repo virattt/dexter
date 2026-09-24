@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { dexterPath } from './paths.js';
+import type { SearchProviderId } from './env.js';
 
 const SETTINGS_FILE = dexterPath('settings.json');
 
@@ -38,7 +39,7 @@ interface Config {
   provider?: string;
   modelId?: string;  // Selected model ID (e.g., "gpt-6-astra", "ollama:llama3.1")
   model?: string;    // Legacy key, kept for migration
-  webSearchPreferredProvider?: 'exa' | 'perplexity' | 'tavily';
+  webSearchPreferredProvider?: SearchProviderId;
   memory?: {
     enabled?: boolean;
     embeddingProvider?: 'openai' | 'gemini' | 'ollama' | 'auto';

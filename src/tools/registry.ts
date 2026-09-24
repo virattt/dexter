@@ -1,6 +1,6 @@
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { createGetFinancials, createGetMarketData, createReadFilings, createScreenStocks } from './finance/index.js';
-import { exaSearch, perplexitySearch, tavilySearch, langSearch, WEB_SEARCH_DESCRIPTION, xSearchTool, X_SEARCH_DESCRIPTION } from './search/index.js';
+import { exaSearch, perplexitySearch, tavilySearch, langSearch, keenableSearch, WEB_SEARCH_DESCRIPTION, xSearchTool, X_SEARCH_DESCRIPTION } from './search/index.js';
 import { createWebSearchTool, type WebSearchProvider } from './search/web-search.js';
 import { getSetting } from '../utils/config.js';
 import type { SearchProviderId } from '../utils/env.js';
@@ -161,8 +161,8 @@ export function getToolRegistry(model: string): RegisteredTool[] {
     },
   ];
 
-  // Build web_search as a fallback chain over whichever providers have keys configured.
-  // The user's preferred provider (set via /search) is tried first; the others act as fallbacks.
+  // Build web_search as a fallback chain: providers the user configured with a key, then
+  // Keenable, which needs no key. The user's preferred provider (set via /search) is tried first.
   const allWebSearchProviders: WebSearchProvider[] = [];
   if (process.env.EXASEARCH_API_KEY) {
     allWebSearchProviders.push({ id: 'exa', name: 'Exa', tool: exaSearch });
@@ -176,24 +176,23 @@ export function getToolRegistry(model: string): RegisteredTool[] {
   if (process.env.LANGSEARCH_API_KEY) {
     allWebSearchProviders.push({ id: 'langsearch', name: 'LangSearch', tool: langSearch });
   }
+  allWebSearchProviders.push({ id: 'keenable', name: 'Keenable', tool: keenableSearch });
 
-  if (allWebSearchProviders.length > 0) {
-    const preferred = getSetting<SearchProviderId | undefined>('webSearchPreferredProvider', undefined);
-    const orderedProviders = preferred
-      ? [
-          ...allWebSearchProviders.filter((p) => p.id === preferred),
-          ...allWebSearchProviders.filter((p) => p.id !== preferred),
-        ]
-      : allWebSearchProviders;
+  const preferred = getSetting<SearchProviderId | undefined>('webSearchPreferredProvider', undefined);
+  const orderedProviders = preferred
+    ? [
+        ...allWebSearchProviders.filter((p) => p.id === preferred),
+        ...allWebSearchProviders.filter((p) => p.id !== preferred),
+      ]
+    : allWebSearchProviders;
 
-    tools.push({
-      name: 'web_search',
-      tool: createWebSearchTool(orderedProviders),
-      description: WEB_SEARCH_DESCRIPTION,
-      compactDescription: 'Search the web for current information. Returns titles, URLs, and snippets.',
-      concurrencySafe: true,
-    });
-  }
+  tools.push({
+    name: 'web_search',
+    tool: createWebSearchTool(orderedProviders),
+    description: WEB_SEARCH_DESCRIPTION,
+    compactDescription: 'Search the web for current information. Returns titles, URLs, and snippets.',
+    concurrencySafe: true,
+  });
 
   if (process.env.X_BEARER_TOKEN) {
     tools.push({

@@ -14,7 +14,7 @@
   - Tools: `src/tools/` (financial search, web search, browser, skill tool)
   - Tool descriptions: `src/tools/descriptions/` (rich descriptions injected into system prompt)
   - Finance tools: `src/tools/finance/` (prices, fundamentals, filings, insider trades, etc.)
-  - Search tools: `src/tools/search/` (Exa preferred, Tavily fallback)
+  - Search tools: `src/tools/search/` (keyed providers first, Keenable as the keyless fallback)
   - Browser: `src/tools/browser/` (Playwright-based web scraping)
   - Skills: `src/skills/` (SKILL.md-based extensible workflows, e.g. DCF valuation)
   - Utils: `src/utils/` (env, config, caching, token estimation, markdown tables)
@@ -56,7 +56,7 @@
 - `financial_search`: primary tool for all financial data queries (prices, metrics, filings). Delegates to multiple sub-tools internally.
 - `financial_metrics`: direct metric lookups (revenue, market cap, etc.).
 - `read_filings`: SEC filing reader for 10-K, 10-Q, 8-K documents.
-- `web_search`: general web search (Exa if `EXASEARCH_API_KEY` set, else Tavily if `TAVILY_API_KEY` set).
+- `web_search`: general web search. Fallback chain over providers with keys set (Exa, Perplexity, Tavily, LangSearch), then Keenable, which needs no key, so the tool is always available.
 - `browser`: Playwright-based web scraping for reading pages the agent discovers.
 - `skill`: invokes SKILL.md-defined workflows (e.g. DCF valuation). Each skill runs at most once per query.
 - Tool registry: `src/tools/registry.ts`. Tools are conditionally included based on env vars.
@@ -81,7 +81,7 @@
 - LLM keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `XAI_API_KEY`, `OPENROUTER_API_KEY`
 - Ollama: `OLLAMA_BASE_URL` (default `http://127.0.0.1:11434`)
 - Finance: `FINANCIAL_DATASETS_API_KEY`
-- Search: `EXASEARCH_API_KEY` (preferred), `TAVILY_API_KEY` (fallback)
+- Search: `EXASEARCH_API_KEY` (preferred), `PERPLEXITY_API_KEY`, `TAVILY_API_KEY`, `LANGSEARCH_API_KEY`, `KEENABLE_API_KEY` (optional; Keenable works without it)
 - Tracing: `LANGSMITH_API_KEY`, `LANGSMITH_ENDPOINT`, `LANGSMITH_PROJECT`, `LANGSMITH_TRACING`
 - Never commit `.env` files or real API keys.
 

@@ -50,7 +50,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 - [Bun](https://bun.com) runtime (v1.0 or higher)
 - OpenAI API key (get [here](https://platform.openai.com/api-keys))
 - Financial Datasets API key (get [here](https://financialdatasets.ai))
-- Exa API key (get [here](https://exa.ai)) - optional, for web search
+- Exa API key (get [here](https://exa.ai)) - optional, for web search (without it, web search uses Keenable, which needs no key)
 
 #### Installing Bun
 
@@ -102,9 +102,10 @@ cp env.example .env
 # (Optional) If using Ollama locally
 # OLLAMA_BASE_URL=http://127.0.0.1:11434
 
-# Web Search (Exa preferred, Tavily fallback)
+# Web Search (Exa preferred, Tavily fallback; Keenable needs no key)
 # EXASEARCH_API_KEY=your-exa-api-key
 # TAVILY_API_KEY=your-tavily-api-key
+# KEENABLE_API_KEY=your-keenable-api-key (optional, lifts Keenable rate limits)
 ```
 
 ## 🚀 How to Run
