@@ -43,3 +43,21 @@ describe('Anthropic model catalog', () => {
     expect(getModelDisplayName('claude-fable-5-1')).toBe('Fable 5.1');
   });
 });
+
+describe('Atlas Cloud model catalog', () => {
+  test('offers the namespaced DeepSeek model as the default', () => {
+    expect(getModelIdsForProvider('atlascloud')).toEqual([
+      'atlascloud:deepseek-ai/deepseek-v4-pro',
+    ]);
+    expect(getDefaultModelForProvider('atlascloud')).toBe(
+      'atlascloud:deepseek-ai/deepseek-v4-pro',
+    );
+  });
+
+  test('uses the Atlas Cloud API key and shows a clean model name', () => {
+    expect(getProviderById('atlascloud')?.apiKeyEnvVar).toBe('ATLASCLOUD_API_KEY');
+    expect(getModelDisplayName('atlascloud:deepseek-ai/deepseek-v4-pro')).toBe(
+      'DeepSeek V4 Pro',
+    );
+  });
+});

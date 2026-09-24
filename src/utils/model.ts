@@ -32,6 +32,12 @@ const PROVIDER_MODELS: Record<string, Model[]> = {
     { id: 'deepseek-v4-pro', displayName: 'DeepSeek V4 Pro' },
     { id: 'deepseek-flash', displayName: 'DeepSeek V4.1 Flash' },
   ],
+  atlascloud: [
+    {
+      id: 'atlascloud:deepseek-ai/deepseek-v4-pro',
+      displayName: 'DeepSeek V4 Pro',
+    },
+  ],
 };
 
 export const PROVIDERS: Provider[] = PROVIDER_DEFS.map((provider) => ({
@@ -55,7 +61,7 @@ export function getDefaultModelForProvider(providerId: string): string | undefin
 }
 
 export function getModelDisplayName(modelId: string): string {
-  const normalizedId = modelId.replace(/^(ollama|ollama-cloud|openrouter):/, '');
+  const normalizedId = modelId.replace(/^(ollama|ollama-cloud|openrouter|atlascloud):/, '');
 
   for (const provider of PROVIDERS) {
     const model = provider.models.find((entry) => entry.id === normalizedId || entry.id === modelId);
