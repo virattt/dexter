@@ -51,6 +51,7 @@ Dexter takes complex financial questions and turns them into clear, step-by-step
 - OpenAI API key (get [here](https://platform.openai.com/api-keys))
 - Financial Datasets API key (get [here](https://financialdatasets.ai))
 - Exa API key (get [here](https://exa.ai)) - optional, for web search
+- Linkup API key (get [here](https://app.linkup.so)) - optional, for web search
 
 #### Installing Bun
 
@@ -105,6 +106,7 @@ cp env.example .env
 # Web Search (Exa preferred, Tavily fallback)
 # EXASEARCH_API_KEY=your-exa-api-key
 # TAVILY_API_KEY=your-tavily-api-key
+# LINKUP_API_KEY=your-linkup-api-key
 ```
 
 ## 🚀 How to Run

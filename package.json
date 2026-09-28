@@ -37,6 +37,7 @@
     "gray-matter": "^4.0.3",
     "langsmith": "^0.4.12",
     "linkedom": "^0.18.12",
+    "linkup-sdk": "^3.7.0",
     "lru-cache": "^11.5.1",
     "playwright": "^1.58.2",
     "qrcode-terminal": "^0.12.0",
