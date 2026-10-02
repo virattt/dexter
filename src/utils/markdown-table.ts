@@ -45,16 +45,11 @@ export function parseMarkdownTable(tableText: string): { headers: string[]; rows
   
   const headers = headerLine
     .split('|')
-    .map(cell => cell.trim())
-    .filter((_, i, arr) => i > 0 && i < arr.length - 1 || arr.length === 1);
+    .map(cell => cell.trim());
   
-  // Handle edge case where there's no leading/trailing pipe
-  if (headers.length === 0) {
-    const rawHeaders = headerLine.split('|').map(cell => cell.trim());
-    if (rawHeaders.length > 0) {
-      headers.push(...rawHeaders);
-    }
-  }
+  // Remove only the empty cells introduced by outer pipes.
+  if (headerLine.startsWith('|')) headers.shift();
+  if (headerLine.endsWith('|')) headers.pop();
   
   if (headers.length === 0) return null;
   
