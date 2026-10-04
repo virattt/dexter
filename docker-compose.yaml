@@ -1,0 +1,11 @@
+services:
+  dexter:
+    build: .
+    container_name: dexter
+    env_file:
+      - .env
+    stdin_open: true 
+    tty: true       
+    volumes:
+      - ./.dexter:/app/.dexter 
+    restart: no
