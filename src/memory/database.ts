@@ -1,5 +1,5 @@
-import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { ensureDirectory } from '../utils/ensure-directory.js';
 import type {
   MemoryChunk,
   MemoryKeywordCandidate,
@@ -117,7 +117,7 @@ export class MemoryDatabase {
   private constructor(private readonly db: SqliteDatabase) {}
 
   static async create(path: string): Promise<MemoryDatabase> {
-    await mkdir(dirname(path), { recursive: true });
+    await ensureDirectory(dirname(path));
     const db = await MemoryDatabase.openSqlite(path);
     const memoryDb = new MemoryDatabase(db);
     memoryDb.db.exec(CREATE_SCHEMA_SQL);
