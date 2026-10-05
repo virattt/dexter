@@ -1,6 +1,6 @@
 import { AIMessage, AIMessageChunk, SystemMessage, HumanMessage, ToolMessage, type BaseMessage } from '@langchain/core/messages';
 import { StructuredToolInterface } from '@langchain/core/tools';
-import { callLlmWithMessages, streamLlmWithMessages } from '../model/llm.js';
+import { callLlmWithMessages, streamLlmWithMessages, DEFAULT_MODEL } from '../model/llm.js';
 import { getTools, getToolConcurrencyMap } from '../tools/registry.js';
 import { buildSystemPrompt, loadSoulDocument, loadRulesDocument } from './prompts.js';
 import { extractTextContent, hasToolCalls } from '../utils/ai-message.js';
@@ -20,13 +20,12 @@ import { runMemoryFlush, shouldRunMemoryFlush } from '../memory/flush.js';
 import { resolveProvider } from '../providers.js';
 
 
-const DEFAULT_MODEL = 'gpt-5.6-sol';
 const DEFAULT_MAX_ITERATIONS = 10;
 const MAX_OVERFLOW_RETRIES = 2;
 const OVERFLOW_KEEP_ROUNDS = 3;
 
 /** Tools that require an interactive user and are only bound on the CLI channel. */
-const CLI_ONLY_TOOLS = new Set<string>(['ask_user_question', 'bash']);
+const CLI_ONLY_TOOLS = new Set<string>(['ask_user_question', 'bash', 'binance_trade']);
 
 /**
  * The core agent class that handles the agent loop and tool execution.

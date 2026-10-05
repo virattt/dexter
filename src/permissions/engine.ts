@@ -2,6 +2,7 @@
  * Permission engine — decides allow / ask / deny for a tool call.
  *
  *   - write_file / edit_file → ask (legacy parity)
+ *   - binance_trade          → ask every time (never session-cached)
  *   - bash                   → parse → classify → match rules (this file's core)
  *   - everything else        → allow
  *
@@ -17,6 +18,7 @@
  */
 import type { Classification, PermissionDecision, PermissionRequest } from './types.js';
 import { parseCommand, type ParsedCommand } from './command-parser.js';
+import { describeTrade } from '../tools/binance/binance-tools.js';
 import { isReadOnly } from './read-only.js';
 import { builtinDeny, loadRuleSet, matchRuleSet, proposeRule, serializeRule, type RuleSet } from './rules.js';
 
@@ -108,6 +110,15 @@ export function evaluatePermission(req: PermissionRequest): PermissionDecision {
   if (req.tool === 'bash') {
     const command = typeof req.args.command === 'string' ? req.args.command : '';
     return evaluateBash(command);
+  }
+  if (req.tool === 'binance_trade') {
+    // Real-money order: always ask, never cache a prior grant.
+    return {
+      mode: 'ask',
+      reason: 'Places a real Binance order.',
+      command: describeTrade(req.args as Parameters<typeof describeTrade>[0]),
+      sessionCacheable: false,
+    };
   }
   if (LEGACY_APPROVAL_TOOLS.has(req.tool)) {
     return { mode: 'ask', reason: 'This tool modifies files and needs your approval.' };

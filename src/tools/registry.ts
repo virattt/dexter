@@ -21,6 +21,7 @@ import { discoverSkills } from '../skills/index.js';
 import { createSpawnSubagent, SPAWN_SUBAGENT_DESCRIPTION } from './subagent/spawn-subagent.js';
 import { createAskUserQuestion, ASK_USER_QUESTION_DESCRIPTION } from './ask-user-question/ask-user-question.js';
 import { createBash, BASH_TOOL_DESCRIPTION } from './bash/bash-tool.js';
+import { binanceAnalyzeTool, binanceBacktestTool, binanceAccountTool, binanceTradeTool, BINANCE_DESCRIPTION } from './binance/binance-tools.js';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -47,34 +48,6 @@ export interface RegisteredTool {
  */
 export function getToolRegistry(model: string): RegisteredTool[] {
   const tools: RegisteredTool[] = [
-    {
-      name: 'get_financials',
-      tool: createGetFinancials(model),
-      description: GET_FINANCIALS_DESCRIPTION,
-      compactDescription: 'Financial statements and metrics. Handles multi-company/multi-metric queries in one call.',
-      concurrencySafe: true,
-    },
-    {
-      name: 'get_market_data',
-      tool: createGetMarketData(model),
-      description: GET_MARKET_DATA_DESCRIPTION,
-      compactDescription: 'Stock/crypto prices, company news, and insider trades/ownership. Handles multi-asset queries in one call.',
-      concurrencySafe: true,
-    },
-    {
-      name: 'read_filings',
-      tool: createReadFilings(model),
-      description: READ_FILINGS_DESCRIPTION,
-      compactDescription: 'SEC filings (10-K, 10-Q, 8-K). Extracts and summarizes specific filing sections.',
-      concurrencySafe: true,
-    },
-    {
-      name: 'stock_screener',
-      tool: createScreenStocks(model),
-      description: SCREEN_STOCKS_DESCRIPTION,
-      compactDescription: 'Screen stocks by financial criteria (P/E, growth, margins, etc.).',
-      concurrencySafe: true,
-    },
     {
       name: 'spawn_subagent',
       tool: createSpawnSubagent(model),
@@ -161,6 +134,40 @@ export function getToolRegistry(model: string): RegisteredTool[] {
     },
   ];
 
+  // Stock-data tools all call Financial Datasets; hide them (instead of failing) when no key is set.
+  if (process.env.FINANCIAL_DATASETS_API_KEY) {
+    tools.push(
+      {
+        name: 'get_financials',
+        tool: createGetFinancials(model),
+        description: GET_FINANCIALS_DESCRIPTION,
+        compactDescription: 'Financial statements and metrics. Handles multi-company/multi-metric queries in one call.',
+        concurrencySafe: true,
+      },
+      {
+        name: 'get_market_data',
+        tool: createGetMarketData(model),
+        description: GET_MARKET_DATA_DESCRIPTION,
+        compactDescription: 'Stock/crypto prices, company news, and insider trades/ownership. Handles multi-asset queries in one call.',
+        concurrencySafe: true,
+      },
+      {
+        name: 'read_filings',
+        tool: createReadFilings(model),
+        description: READ_FILINGS_DESCRIPTION,
+        compactDescription: 'SEC filings (10-K, 10-Q, 8-K). Extracts and summarizes specific filing sections.',
+        concurrencySafe: true,
+      },
+      {
+        name: 'stock_screener',
+        tool: createScreenStocks(model),
+        description: SCREEN_STOCKS_DESCRIPTION,
+        compactDescription: 'Screen stocks by financial criteria (P/E, growth, margins, etc.).',
+        concurrencySafe: true,
+      },
+    );
+  }
+
   // Build web_search as a fallback chain over whichever providers have keys configured.
   // The user's preferred provider (set via /search) is tried first; the others act as fallbacks.
   const allWebSearchProviders: WebSearchProvider[] = [];
@@ -203,6 +210,42 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       compactDescription: 'Search X/Twitter for tweets, profiles, and threads.',
       concurrencySafe: true,
     });
+  }
+
+  // Analysis and backtests only use public market data, so they need no keys.
+  tools.push(
+    {
+      name: 'binance_analyze',
+      tool: binanceAnalyzeTool,
+      description: BINANCE_DESCRIPTION,
+      compactDescription: 'Binance spot/futures trade plan: entry, stop, targets, size, leverage (or no_trade). Read-only.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'binance_backtest',
+      tool: binanceBacktestTool,
+      description: BINANCE_DESCRIPTION,
+      compactDescription: 'Backtest the Binance strategy on historical candles (win rate, avg R, drawdown vs buy-and-hold).',
+      concurrencySafe: true,
+    },
+  );
+  if (process.env.BINANCE_API_KEY && process.env.BINANCE_API_SECRET) {
+    tools.push(
+      {
+        name: 'binance_account',
+        tool: binanceAccountTool,
+        description: BINANCE_DESCRIPTION,
+        compactDescription: 'Binance balances and open futures positions. Read-only.',
+        concurrencySafe: true,
+      },
+      {
+        name: 'binance_trade',
+        tool: binanceTradeTool,
+        description: BINANCE_DESCRIPTION,
+        compactDescription: 'Place a Binance spot/futures order with SL/TP. Asks for approval on every call. CLI only.',
+        concurrencySafe: false,
+      },
+    );
   }
 
   const availableSkills = discoverSkills();
