@@ -32,7 +32,7 @@ export interface ChannelProfile {
  * User's response to a tool approval prompt.
  * - 'allow-once': approve this single invocation
  * - 'allow-session': approve this command/tool for the rest of the session (bash: this query)
- * - 'allow-always': approve AND persist a rule to .dexter/settings.json (bash only)
+ * - 'allow-always': approve AND persist (bash: a rule in .dexter/settings.json; edits: the approval in .dexter/permissions.json)
  * - 'deny': reject and immediately end the agent's turn
  */
 export type ApprovalDecision = 'allow-once' | 'allow-session' | 'allow-always' | 'deny';

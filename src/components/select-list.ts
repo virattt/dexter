@@ -97,6 +97,7 @@ export function createModelSelector(
 export function createApprovalSelector(
   onSelect: (decision: ApprovalDecision) => void,
   proposedRule?: string,
+  tool?: string,
 ) {
   const items: SelectItem[] = [{ value: 'allow-once', label: '1. Yes' }];
   if (proposedRule) {
@@ -104,9 +105,14 @@ export function createApprovalSelector(
     items.push({ value: 'allow-always', label: `2. Yes, and always allow ${proposedRule}` });
     items.push({ value: 'allow-session', label: '3. Yes, allow all bash this query' });
     items.push({ value: 'deny', label: '4. No' });
-  } else {
+  } else if (tool === 'bash') {
+    // Compound or unparseable command: there is no rule to save, so no "always".
     items.push({ value: 'allow-session', label: '2. Yes, allow all edits this session' });
     items.push({ value: 'deny', label: '3. No' });
+  } else {
+    items.push({ value: 'allow-session', label: '2. Yes, allow all edits this session' });
+    items.push({ value: 'allow-always', label: '3. Yes, always allow edits' });
+    items.push({ value: 'deny', label: '4. No' });
   }
   const list = new VimSelectList(items, 6, selectListTheme);
   list.onSelect = (item) => onSelect(item.value as ApprovalDecision);

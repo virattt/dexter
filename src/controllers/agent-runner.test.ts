@@ -1,6 +1,8 @@
 import { describe, expect, test, mock, beforeEach, afterEach } from 'bun:test';
+import { rmSync } from 'fs';
 import { AgentRunnerController } from './agent-runner.js';
 import { InMemoryChatHistory } from '../utils/in-memory-chat-history.js';
+import { saveApprovedTools } from '../utils/tool-permissions.js';
 import type { AgentConfig, AgentEvent, ApprovalDecision } from '../agent/types.js';
 
 /**
@@ -269,6 +271,19 @@ describe('AgentRunnerController', () => {
 
       controller.respondToApproval('deny');
       await runPromise;
+    });
+  });
+
+  describe('persisted edit grants', () => {
+    afterEach(() => {
+      rmSync('.dexter/permissions.json', { force: true });
+    });
+
+    test('loads an always-allowed edit grant at startup', () => {
+      saveApprovedTools(new Set(['file:write']));
+      const { controller } = createController();
+      const grants: Set<string> = (controller as unknown as { sessionApprovedTools: Set<string> }).sessionApprovedTools;
+      expect(grants.has('file:write')).toBe(true);
     });
   });
 });

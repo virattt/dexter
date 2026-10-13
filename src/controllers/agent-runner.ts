@@ -20,6 +20,7 @@ export interface PendingApproval {
   decision?: PermissionDecision;
 }
 import type { DisplayEvent, StreamMode } from '../agent/types.js';
+import { loadApprovedTools } from '../utils/tool-permissions.js';
 import type { HistoryItem, HistoryItemStatus, WorkingState } from '../types.js';
 
 export interface TurnStats {
@@ -49,7 +50,7 @@ export class AgentRunnerController {
   private abortController: AbortController | null = null;
   private approvalResolve: ((decision: ApprovalDecision) => void) | null = null;
   private questionResolve: ((answers: UserAnswers) => void) | null = null;
-  private sessionApprovedTools = new Set<string>();
+  private sessionApprovedTools = new Set<string>(loadApprovedTools());
 
   constructor(
     agentConfig: AgentConfig,

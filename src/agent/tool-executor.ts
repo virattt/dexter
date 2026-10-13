@@ -18,6 +18,7 @@ import { evaluatePermission, sessionKey } from '../permissions/engine.js';
 import { addRule } from '../permissions/rules.js';
 import type { PermissionDecision } from '../permissions/types.js';
 import type { RunContext } from './run-context.js';
+import { saveApprovedTools } from '../utils/tool-permissions.js';
 
 type ToolExecutionEvent =
   | ToolStartEvent
@@ -164,9 +165,15 @@ export class AgentToolExecutor {
         if (decision === 'allow-session' && cacheable) {
           this.sessionApprovedTools.add(key);
         }
-        if (decision === 'allow-always' && permission.proposedRule) {
-          // Persist a permanent allow rule, then run this turn.
-          addRule('allow', permission.proposedRule);
+        if (decision === 'allow-always') {
+          if (permission.proposedRule) {
+            // Persist a permanent allow rule, then run this turn.
+            addRule('allow', permission.proposedRule);
+          } else if (toolName !== 'bash') {
+            // File-write tools: remember the approval across sessions.
+            this.sessionApprovedTools.add(key);
+            saveApprovedTools(new Set([...this.sessionApprovedTools].filter((k) => !k.startsWith('bash:'))));
+          }
         }
       }
     }
