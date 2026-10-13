@@ -25,7 +25,7 @@ export class ApprovalPromptComponent extends Container {
 
   constructor(tool: string, args: Record<string, unknown>, opts: ApprovalPromptOptions = {}) {
     super();
-    this.selector = createApprovalSelector((decision) => this.onSelect?.(decision), opts.proposedRule);
+    this.selector = createApprovalSelector((decision) => this.onSelect?.(decision), opts.proposedRule, tool);
     const width = Math.max(20, process.stdout.columns ?? 80);
     const border = theme.warning('─'.repeat(width));
 
