@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { getProviderById } from '../providers.js';
+import { getProviderById, resolveProvider } from '../providers.js';
 import {
   getDefaultModelForProvider,
   getModelDisplayName,
@@ -41,5 +41,14 @@ describe('Anthropic model catalog', () => {
     expect(getModelDisplayName('claude-sonnet-5')).toBe('Sonnet 5');
     expect(getModelDisplayName('claude-opus-5-5')).toBe('Opus 5.5');
     expect(getModelDisplayName('claude-fable-5-1')).toBe('Fable 5.1');
+  });
+});
+
+describe('Cheaper Inference model catalog', () => {
+  test('routes prefixed models to Cheaper Inference with GPT 5.4 Mini as the default', () => {
+    expect(resolveProvider('cheaperinference:gpt-5.4-mini').id).toBe('cheaperinference');
+    expect(getDefaultModelForProvider('cheaperinference')).toBe('cheaperinference:gpt-5.4-mini');
+    expect(getProviderById('cheaperinference')?.fastModel).toBe('cheaperinference:gpt-5.4-mini');
+    expect(getModelDisplayName('cheaperinference:claude-sonnet-5')).toBe('Sonnet 5');
   });
 });

@@ -32,6 +32,12 @@ const PROVIDER_MODELS: Record<string, Model[]> = {
     { id: 'deepseek-v4-pro', displayName: 'DeepSeek V4 Pro' },
     { id: 'deepseek-flash', displayName: 'DeepSeek V4.1 Flash' },
   ],
+  cheaperinference: [
+    { id: 'cheaperinference:gpt-5.4-mini', displayName: 'GPT 5.4 Mini' },
+    { id: 'cheaperinference:gpt-5.4', displayName: 'GPT 5.4' },
+    { id: 'cheaperinference:claude-sonnet-5', displayName: 'Sonnet 5' },
+    { id: 'cheaperinference:gemini-3.1-pro', displayName: 'Gemini 3.1 Pro' },
+  ],
 };
 
 export const PROVIDERS: Provider[] = PROVIDER_DEFS.map((provider) => ({
@@ -55,7 +61,7 @@ export function getDefaultModelForProvider(providerId: string): string | undefin
 }
 
 export function getModelDisplayName(modelId: string): string {
-  const normalizedId = modelId.replace(/^(ollama|ollama-cloud|openrouter):/, '');
+  const normalizedId = modelId.replace(/^(ollama|ollama-cloud|openrouter|cheaperinference):/, '');
 
   for (const provider of PROVIDERS) {
     const model = provider.models.find((entry) => entry.id === normalizedId || entry.id === modelId);

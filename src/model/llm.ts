@@ -96,6 +96,15 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
         baseURL: 'https://openrouter.ai/api/v1',
       },
     }),
+  cheaperinference: (name, opts) =>
+    new ChatOpenAI({
+      model: name.replace(/^cheaperinference:/, ''),
+      ...opts,
+      apiKey: getApiKey('CHEAPER_INFERENCE_API_KEY'),
+      configuration: {
+        baseURL: 'https://api.cheaperinference.com/v1',
+      },
+    }),
   moonshot: (name, opts) =>
     new ChatOpenAI({
       model: name,

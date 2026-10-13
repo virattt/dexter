@@ -76,6 +76,14 @@ export const PROVIDERS: ProviderDef[] = [
     contextWindow: 128_000,
   },
   {
+    id: 'cheaperinference',
+    displayName: 'Cheaper Inference',
+    modelPrefix: 'cheaperinference:',
+    apiKeyEnvVar: 'CHEAPER_INFERENCE_API_KEY',
+    fastModel: 'cheaperinference:gpt-5.4-mini',
+    contextWindow: 400_000,
+  },
+  {
     id: 'ollama',
     displayName: 'Ollama',
     modelPrefix: 'ollama:',
