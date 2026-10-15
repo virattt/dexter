@@ -105,6 +105,7 @@ cp env.example .env
 # Web Search (Exa preferred, Tavily fallback)
 # EXASEARCH_API_KEY=your-exa-api-key
 # TAVILY_API_KEY=your-tavily-api-key
+# KEENABLE_API_KEY=your-keenable-api-key (optional; Keenable is opt-in via /search and works without a key)
 ```
 
 ## 🚀 How to Run

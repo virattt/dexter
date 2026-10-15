@@ -1,6 +1,6 @@
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { createGetFinancials, createGetMarketData, createReadFilings, createScreenStocks } from './finance/index.js';
-import { exaSearch, perplexitySearch, tavilySearch, langSearch, WEB_SEARCH_DESCRIPTION, xSearchTool, X_SEARCH_DESCRIPTION } from './search/index.js';
+import { exaSearch, perplexitySearch, tavilySearch, langSearch, keenableSearch, WEB_SEARCH_DESCRIPTION, xSearchTool, X_SEARCH_DESCRIPTION } from './search/index.js';
 import { createWebSearchTool, type WebSearchProvider } from './search/web-search.js';
 import { getSetting } from '../utils/config.js';
 import type { SearchProviderId } from '../utils/env.js';
@@ -177,8 +177,14 @@ export function getToolRegistry(model: string): RegisteredTool[] {
     allWebSearchProviders.push({ id: 'langsearch', name: 'LangSearch', tool: langSearch });
   }
 
+  const preferred = getSetting<SearchProviderId | undefined>('webSearchPreferredProvider', undefined);
+  // Keenable needs no key, so it is opt-in: it joins the chain only while selected via /search,
+  // and is never an automatic fallback.
+  if (preferred === 'keenable') {
+    allWebSearchProviders.push({ id: 'keenable', name: 'Keenable', tool: keenableSearch });
+  }
+
   if (allWebSearchProviders.length > 0) {
-    const preferred = getSetting<SearchProviderId | undefined>('webSearchPreferredProvider', undefined);
     const orderedProviders = preferred
       ? [
           ...allWebSearchProviders.filter((p) => p.id === preferred),
