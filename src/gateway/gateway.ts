@@ -6,6 +6,8 @@ import {
   sendMessageWhatsApp,
   type WhatsAppInboundMessage,
 } from './channels/whatsapp/index.js';
+import { createTelegramPlugin } from './channels/telegram/plugin.js';
+import type { TelegramInboundMessage } from './channels/telegram/index.js';
 import { resolveRoute } from './routing/resolve-route.js';
 import { resolveSessionStorePath, upsertSessionMeta } from './sessions/store.js';
 import { loadGatewayConfig, type GatewayConfig } from './config.js';
@@ -213,6 +215,78 @@ async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage
   }
 }
 
+async function handleTelegramInbound(cfg: GatewayConfig, inbound: TelegramInboundMessage): Promise<void> {
+  const isGroup = inbound.chatType === 'group';
+  const bodyPreview = elide(inbound.body.replace(/\n/g, ' '), 50);
+  console.log(`Inbound telegram message ${inbound.from} (${inbound.chatType}, ${inbound.body.length} chars): "${bodyPreview}"`);
+
+  const route = resolveRoute({
+    cfg,
+    channel: 'telegram',
+    accountId: inbound.accountId,
+    peer: { kind: inbound.chatType, id: inbound.chatId },
+  });
+
+  upsertSessionMeta({
+    storePath: resolveSessionStorePath(route.agentId),
+    sessionKey: route.sessionKey,
+    channel: 'telegram',
+    to: inbound.from,
+    accountId: route.accountId,
+    agentId: route.agentId,
+  });
+
+  const TYPING_INTERVAL_MS = 4000; // Telegram typing status expires after ~5s
+  let typingTimer: ReturnType<typeof setInterval> | undefined;
+  const stopTypingLoop = () => {
+    if (typingTimer) {
+      clearInterval(typingTimer);
+      typingTimer = undefined;
+    }
+  };
+
+  try {
+    const sendTyping = () => inbound.sendComposing().catch(() => undefined);
+    await sendTyping();
+    typingTimer = setInterval(() => { void sendTyping(); }, TYPING_INTERVAL_MS);
+
+    // Group chats share one session, so attribute each message to its sender
+    const query = isGroup
+      ? `${inbound.senderName ?? inbound.senderId}: ${inbound.body}`
+      : inbound.body;
+    const model = getSetting('modelId', DEFAULT_MODEL) as string;
+    const modelProvider = getSetting('provider', DEFAULT_PROVIDER) as string;
+
+    if (isSessionRunning(route.sessionKey)) {
+      enqueueForSession(route.sessionKey, model, query);
+      return;
+    }
+
+    const startedAt = Date.now();
+    const answer = await runAgentForMessage({
+      sessionKey: route.sessionKey,
+      query,
+      model,
+      modelProvider,
+      channel: 'telegram',
+    });
+    const durationMs = Date.now() - startedAt;
+    stopTypingLoop();
+
+    if (answer.trim()) {
+      await inbound.reply(cleanMarkdownForWhatsApp(answer).trim());
+      console.log(`Sent reply (${answer.length} chars, ${durationMs}ms)`);
+    } else {
+      console.log(`Agent returned empty response (${durationMs}ms)`);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.log(`Error: ${msg}`);
+  } finally {
+    stopTypingLoop();
+  }
+}
+
 export async function startGateway(params: { configPath?: string } = {}): Promise<GatewayService> {
   const cfg = loadGatewayConfig(params.configPath);
   const plugin = createWhatsAppPlugin({
@@ -226,7 +300,17 @@ export async function startGateway(params: { configPath?: string } = {}): Promis
     plugin,
     loadConfig: () => loadGatewayConfig(params.configPath),
   });
+  const telegramManager = createChannelManager({
+    plugin: createTelegramPlugin({
+      loadConfig: () => loadGatewayConfig(params.configPath),
+      onMessage: async (inbound) => {
+        await handleTelegramInbound(loadGatewayConfig(params.configPath), inbound);
+      },
+    }),
+    loadConfig: () => loadGatewayConfig(params.configPath),
+  });
   await manager.startAll();
+  await telegramManager.startAll();
 
   ensureHeartbeatCronJob(params.configPath);
   const cron = startCronRunner({ configPath: params.configPath });
@@ -235,7 +319,15 @@ export async function startGateway(params: { configPath?: string } = {}): Promis
     stop: async () => {
       cron.stop();
       await manager.stopAll();
+      await telegramManager.stopAll();
     },
-    snapshot: () => manager.getSnapshot(),
+    snapshot: () => {
+      const telegram: ReturnType<GatewayService['snapshot']> = {};
+      // Prefix keys so Telegram accounts can't collide with WhatsApp's 'default'
+      for (const [id, status] of Object.entries(telegramManager.getSnapshot())) {
+        telegram[`telegram:${id}`] = status;
+      }
+      return { ...manager.getSnapshot(), ...telegram };
+    },
   };
 }

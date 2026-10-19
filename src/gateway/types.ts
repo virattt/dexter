@@ -1,5 +1,5 @@
 export type InboundContext = {
-  channel: 'whatsapp';
+  channel: 'whatsapp' | 'telegram';
   accountId: string;
   from: string;
   to: string;

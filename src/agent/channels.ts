@@ -66,10 +66,19 @@ const WHATSAPP_PROFILE: ChannelProfile = {
   tables: null,
 };
 
+const TELEGRAM_PROFILE: ChannelProfile = {
+  ...WHATSAPP_PROFILE,
+  label: 'Telegram',
+  preamble: 'Your output is delivered via Telegram. Write like a concise, knowledgeable friend texting.',
+  behavior: WHATSAPP_PROFILE.behavior.map((b) => b.replace('WhatsApp', 'Telegram')),
+  responseFormat: WHATSAPP_PROFILE.responseFormat.map((b) => b.replace('WhatsApp', 'Telegram')),
+};
+
 /** Registry of channel profiles. Add new channels here. */
 const CHANNEL_PROFILES: Record<string, ChannelProfile> = {
   cli: CLI_PROFILE,
   whatsapp: WHATSAPP_PROFILE,
+  telegram: TELEGRAM_PROFILE,
 };
 
 /** Resolve the profile for a channel, falling back to CLI. */
