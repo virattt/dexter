@@ -10,6 +10,8 @@ import {
   type GatewayConfig,
 } from './config.js';
 import { loginWhatsApp } from './channels/whatsapp/login.js';
+import axios from 'axios';
+import { getTelegramMe } from './channels/telegram/outbound.js';
 import { startGateway } from './gateway.js';
 
 // Suppress noisy Baileys Signal protocol session logs
@@ -92,9 +94,59 @@ async function promptSetupMode(cfg: GatewayConfig, linkedPhone: string): Promise
   }
 }
 
+async function loginTelegram(tokenArg?: string): Promise<void> {
+  let token = tokenArg?.trim() ?? '';
+  if (!token) {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    try {
+      token = (await rl.question('Telegram bot token (from @BotFather): ')).trim();
+    } finally {
+      rl.close();
+    }
+  }
+  if (!token) {
+    console.log('No bot token provided.');
+    process.exitCode = 1;
+    return;
+  }
+
+  let username: string | undefined;
+  try {
+    username = (await getTelegramMe(token)).username;
+  } catch (error) {
+    const reason = axios.isAxiosError(error) && error.response?.status === 401
+      ? 'invalid token'
+      : error instanceof Error ? error.message : String(error);
+    console.log(`Telegram token validation failed: ${reason}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const cfg = loadGatewayConfig();
+  const telegram = cfg.channels.telegram ?? { enabled: true, accounts: {} };
+  const existing = telegram.accounts.default;
+  telegram.accounts.default = {
+    ...existing,
+    enabled: existing?.enabled ?? true,
+    allowFrom: existing?.allowFrom ?? [],
+    botToken: token,
+  };
+  cfg.channels.telegram = telegram;
+  saveGatewayConfig(cfg);
+  console.log(`Telegram bot @${username ?? 'unknown'} verified. Saved token to ${getGatewayConfigPath()}`);
+  if ((telegram.accounts.default.allowFrom ?? []).length === 0) {
+    console.log('Add your chat ID to channels.telegram.accounts.default.allowFrom to receive replies.');
+  }
+}
+
 async function run(): Promise<void> {
   const args = process.argv.slice(2);
   const command = args[0] ?? 'run';
+
+  if (command === 'telegram:login') {
+    await loginTelegram(args[1] ?? process.env.TELEGRAM_BOT_TOKEN);
+    return;
+  }
 
   if (command === 'login') {
     const cfg = loadGatewayConfig();

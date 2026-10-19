@@ -26,6 +26,16 @@ const WhatsAppAccountSchema = z.object({
   sendReadReceipts: z.boolean().optional().default(true),
 });
 
+const TelegramAccountSchema = z.object({
+  name: z.string().optional(),
+  botToken: z.string().optional(),
+  enabled: z.boolean().optional().default(true),
+  // Telegram chat IDs (or '*')
+  allowFrom: z.array(z.string()).optional().default([]),
+  dmPolicy: DmPolicySchema.optional(),
+  groupPolicy: GroupPolicySchema.optional(),
+});
+
 const HeartbeatConfigSchema = z
   .object({
     enabled: z.boolean().optional().default(false),
@@ -62,6 +72,12 @@ const GatewayConfigSchema = z.object({
           enabled: z.boolean().optional(),
           accounts: z.record(z.string(), WhatsAppAccountSchema).optional(),
           allowFrom: z.array(z.string()).optional(),
+        })
+        .optional(),
+      telegram: z
+        .object({
+          enabled: z.boolean().optional(),
+          accounts: z.record(z.string(), TelegramAccountSchema).optional(),
         })
         .optional(),
     })
@@ -109,6 +125,11 @@ export type GatewayConfig = {
       accounts: Record<string, z.infer<typeof WhatsAppAccountSchema>>;
       allowFrom: string[];
     };
+    /** Opt-in: absent from WhatsApp-only configs */
+    telegram?: {
+      enabled: boolean;
+      accounts: Record<string, z.infer<typeof TelegramAccountSchema>>;
+    };
   };
   bindings: Array<{
     agentId: string;
@@ -130,6 +151,16 @@ export type WhatsAppAccountConfig = {
   groupPolicy: 'open' | 'allowlist' | 'disabled';
   groupAllowFrom: string[];
   sendReadReceipts: boolean;
+};
+
+export type TelegramAccountConfig = {
+  accountId: string;
+  name?: string;
+  enabled: boolean;
+  botToken: string;
+  allowFrom: string[];
+  dmPolicy: 'pairing' | 'allowlist' | 'open' | 'disabled';
+  groupPolicy: 'open' | 'allowlist' | 'disabled';
 };
 
 export function getGatewayConfigPath(overridePath?: string): string {
@@ -171,6 +202,14 @@ export function loadGatewayConfig(overridePath?: string): GatewayConfig {
         accounts: parsed.channels?.whatsapp?.accounts ?? {},
         allowFrom: parsed.channels?.whatsapp?.allowFrom ?? [],
       },
+      ...(parsed.channels?.telegram
+        ? {
+            telegram: {
+              enabled: parsed.channels.telegram.enabled ?? true,
+              accounts: parsed.channels.telegram.accounts ?? {},
+            },
+          }
+        : {}),
     },
     bindings: parsed.bindings ?? [],
   };
@@ -219,3 +258,27 @@ export function resolveWhatsAppAccount(
   };
 }
 
+
+export function listTelegramAccountIds(cfg: GatewayConfig): string[] {
+  const ids = Object.keys(cfg.channels.telegram?.accounts ?? {});
+  if (ids.length > 0) {
+    return ids;
+  }
+  // Env-only setup: TELEGRAM_BOT_TOKEN enables a default account
+  return process.env.TELEGRAM_BOT_TOKEN ? ['default'] : [];
+}
+
+export function resolveTelegramAccount(cfg: GatewayConfig, accountId: string): TelegramAccountConfig {
+  const account: Partial<z.infer<typeof TelegramAccountSchema>> =
+    cfg.channels.telegram?.accounts?.[accountId] ?? {};
+  const envToken = accountId === 'default' ? process.env.TELEGRAM_BOT_TOKEN : undefined;
+  return {
+    accountId,
+    name: account.name,
+    enabled: account.enabled ?? true,
+    botToken: (account.botToken ?? envToken ?? '').trim(),
+    allowFrom: (account.allowFrom ?? []).map((entry) => entry.trim()).filter(Boolean),
+    dmPolicy: account.dmPolicy ?? 'allowlist',
+    groupPolicy: account.groupPolicy ?? 'disabled',
+  };
+}
