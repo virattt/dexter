@@ -5,6 +5,7 @@ export class CustomEditor extends Editor {
   onCtrlC?: () => void;
   onSlashChange?: (text: string) => void;
   onSlashSelect?: () => void;
+  onSlashComplete?: () => void;
   onSlashNavigate?: (direction: 'up' | 'down') => void;
   onSlashDismiss?: () => void;
   slashActive: boolean = false;
@@ -64,8 +65,14 @@ export class CustomEditor extends Editor {
       return;
     }
 
-    // Tab or Enter: select suggestion if active
-    if (showingSuggestions && (matchesKey(data, Key.tab) || matchesKey(data, Key.enter))) {
+    // Tab: fill the editor with the suggestion, but do not run it.
+    if (showingSuggestions && matchesKey(data, Key.tab)) {
+      this.slashActive = false;
+      this.onSlashComplete?.();
+      return;
+    }
+    // Enter: run the highlighted suggestion.
+    if (showingSuggestions && matchesKey(data, Key.enter)) {
       this.onSlashSelect?.();
       return;
     }

@@ -16,7 +16,7 @@ import { classifyError, isNonRetryableError } from '@/utils/errors';
 import { resolveProvider, getProviderById } from '@/providers';
 
 export const DEFAULT_PROVIDER = 'openai';
-export const DEFAULT_MODEL = 'gpt-5.6-sol';
+export const DEFAULT_MODEL = 'gpt-6-astra';
 
 /**
  * Gets the fast model variant for the given provider.
@@ -106,9 +106,10 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
       },
     }),
   deepseek: (name, opts) => {
-    // Both deepseek-v4-pro and deepseek-v4-flash support thinking mode.
+    // V4 Pro and V4.1 Flash (plus the retired V4 Flash id) support thinking mode.
     // temperature/top_p/presence_penalty/frequency_penalty are ignored in thinking mode.
-    const isThinkingModel = name === 'deepseek-v4-pro' || name === 'deepseek-v4-flash';
+    const isThinkingModel =
+      name === 'deepseek-v4-pro' || name === 'deepseek-flash' || name === 'deepseek-v4-flash';
     return new ChatOpenAI({
       model: name,
       ...opts,
@@ -148,8 +149,8 @@ const DEFAULT_FACTORY: ModelFactory = (name, opts) =>
     model: name,
     ...opts,
     apiKey: getApiKey('OPENAI_API_KEY'),
-    // GPT-5.6 requires the Responses API when reasoning and function tools are combined.
-    useResponsesApi: name.startsWith('gpt-5.6-'),
+    // GPT-5.6 and GPT-6 require the Responses API when reasoning and function tools are combined.
+    useResponsesApi: name.startsWith('gpt-5.6-') || name.startsWith('gpt-6-'),
   });
 
 export function getChatModel(
@@ -228,18 +229,22 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
   const finalSystemPrompt = systemPrompt || DEFAULT_SYSTEM_PROMPT;
 
   const llm = getChatModel(model, false);
+  const provider = resolveProvider(model);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let runnable: Runnable<any, any> = llm;
 
   if (outputSchema) {
-    runnable = llm.withStructuredOutput(outputSchema, { strict: false });
+    // Anthropic: forced tool calling (the default method) is rejected when thinking is on,
+    // which Claude 5 models always have. Their native JSON-schema output mode has no such limit.
+    runnable = provider.id === 'anthropic'
+      ? llm.withStructuredOutput(outputSchema, { method: 'jsonSchema' })
+      : llm.withStructuredOutput(outputSchema, { strict: false });
   } else if (tools && tools.length > 0 && llm.bindTools) {
     runnable = llm.bindTools(tools);
   }
 
   const invokeOpts = signal ? { signal } : undefined;
-  const provider = resolveProvider(model);
   let result;
 
   if (provider.id === 'anthropic') {

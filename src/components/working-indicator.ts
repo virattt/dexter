@@ -4,7 +4,7 @@ import type { StreamMode } from '../agent/types.js';
 import { getRandomThinkingVerb } from '../utils/thinking-verbs.js';
 import { theme } from '../theme.js';
 import { subscribeSpinner, currentSpinnerFrame } from '../utils/spinner.js';
-import { formatTurnDuration, formatTokensCompact } from '../utils/format.js';
+import { formatTokensCompact } from '../utils/format.js';
 
 export interface TurnStats {
   turnStartMs: number;
@@ -106,14 +106,11 @@ export class WorkingIndicatorComponent extends Container {
       this.lastTurnStartMs = stats.turnStartMs;
     }
 
-    const elapsed = Date.now() - stats.turnStartMs;
     this.advanceDisplayedChars(stats.streamedChars);
     const tokens = Math.round(this.displayedChars / 4);
-    if (tokens <= 0) {
-      return theme.muted(`(${formatTurnDuration(elapsed)})`);
-    }
+    if (tokens <= 0) return null;
     const arrow = stats.streamMode === 'requesting' ? '↑' : '↓';
-    return theme.muted(`(${formatTurnDuration(elapsed)} · ${arrow} ${formatTokensCompact(tokens)} tokens)`);
+    return theme.muted(`(${arrow} ${formatTokensCompact(tokens)} tokens)`);
   }
 
   /**

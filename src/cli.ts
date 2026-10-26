@@ -175,7 +175,12 @@ function renderEvent(
     chatLog.addMicrocompact(event.cleared, event.tokensSaved);
   }
   if (event.type === 'queue_drain') {
-    chatLog.addQueueDrain(event.messageCount);
+    // Picked up mid-run: the queued text leaves the area below the working
+    // indicator and joins the log as a normal query row.
+    for (const text of event.texts) {
+      chatLog.addQuery(text);
+    }
+    chatLog.resetToolGrouping();
   }
   if (event.type === 'compaction' && event.phase === 'end') {
     chatLog.addCompaction(event.success ?? false, event.preCompactTokens, event.postCompactTokens);
@@ -320,16 +325,26 @@ export async function runCli() {
   const hintBar = new HintBarComponent();
   const debugPanel = new DebugPanelComponent(8, true);
   const spacer = new Spacer(1);
+  // Queued messages wait below the working indicator until the agent picks them up.
+  const queuedMessages = new Container();
+  defaultQueue.subscribe(() => {
+    queuedMessages.clear();
+    const queued = defaultQueue.snapshot();
+    if (queued.length > 0) {
+      queuedMessages.addChild(new Spacer(1)); // gap under the working indicator
+    }
+    for (const msg of queued) {
+      queuedMessages.addChild(new Text(theme.muted(`❯ ${msg.text}`), 0, 0));
+    }
+    tui.requestRender();
+  });
 
-  // Build the component tree ONCE — stable structure, no root.clear()
-  root.addChild(intro);
-  root.addChild(chatLog);
-  root.addChild(errorText);
-  root.addChild(workingIndicator);
-  root.addChild(spacer);
-  root.addChild(editor);
-  root.addChild(hintBar);
-  root.addChild(debugPanel);
+  // The main view, top to bottom. Built once here and again by restoreMainView()
+  // after an overlay screen closes, so both must use this one list.
+  const mainViewChildren = [intro, chatLog, errorText, workingIndicator, queuedMessages, spacer, editor, hintBar, debugPanel];
+  for (const child of mainViewChildren) {
+    root.addChild(child);
+  }
   tui.addChild(root);
   initSpinner(tui);
 
@@ -454,7 +469,6 @@ export async function runCli() {
         source: 'cli',
       });
       await inputHistory.saveMessage(query);
-      chatLog.addQueuedMessage(query);
       tui.requestRender();
       return;
     }
@@ -557,14 +571,9 @@ export async function runCli() {
    */
   const restoreMainView = () => {
     root.clear();
-    root.addChild(intro);
-    root.addChild(chatLog);
-    root.addChild(errorText);
-    root.addChild(workingIndicator);
-    root.addChild(spacer);
-    root.addChild(editor);
-    root.addChild(hintBar);
-    root.addChild(debugPanel);
+    for (const child of mainViewChildren) {
+      root.addChild(child);
+    }
     updateView();
   };
 
@@ -812,6 +821,8 @@ export async function runCli() {
     slashSuggestions = matchCommands(text);
     slashSelectedIndex = 0;
     slashActive = slashSuggestions.length > 0;
+    // No matches (e.g. "/compact focus on X"): let Enter submit the text as typed.
+    editor.slashActive = slashActive;
     updateView();
     tui.requestRender();
   };
@@ -833,6 +844,17 @@ export async function runCli() {
       slashSuggestions = [];
       editor.setText('');
       void handleSlashCommand(selected.name);
+    }
+    updateView();
+    tui.requestRender();
+  };
+
+  editor.onSlashComplete = () => {
+    const selected = slashSuggestions[slashSelectedIndex];
+    slashActive = false;
+    slashSuggestions = [];
+    if (selected) {
+      editor.setText(`/${selected.name} `);
     }
     updateView();
     tui.requestRender();

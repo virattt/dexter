@@ -157,7 +157,7 @@ async function handleInbound(cfg: GatewayConfig, inbound: WhatsAppInboundMessage
     }
 
     console.log(`Processing message with agent...`);
-    const model = getSetting('modelId', 'gpt-5.6-sol') as string;
+    const model = getSetting('modelId', 'gpt-6-astra') as string;
     const modelProvider = getSetting('provider', 'openai') as string;
 
     // If agent is already running for this session, enqueue for mid-run injection

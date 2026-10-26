@@ -246,6 +246,8 @@ export interface QueueDrainEvent {
   messageCount: number;
   /** The merged text injected as a HumanMessage. */
   mergedText: string;
+  /** Each drained message, in the order they were merged. */
+  texts: string[];
 }
 
 /**
