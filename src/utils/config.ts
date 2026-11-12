@@ -39,6 +39,7 @@ interface Config {
   modelId?: string;  // Selected model ID (e.g., "gpt-6-astra", "ollama:llama3.1")
   model?: string;    // Legacy key, kept for migration
   webSearchPreferredProvider?: 'exa' | 'perplexity' | 'tavily';
+  maxIterations?: number;
   memory?: {
     enabled?: boolean;
     embeddingProvider?: 'openai' | 'gemini' | 'ollama' | 'auto';
