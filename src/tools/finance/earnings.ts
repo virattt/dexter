@@ -12,7 +12,7 @@ const EarningsInputSchema = z.object({
   limit: z
     .number()
     .int()
-    .positive()
+    .min(1)
     .max(100)
     .optional()
     .describe('Optional number of earnings records to return. For the feed, defaults to 10 and maxes at 100. For a ticker, values above 40 are clamped by the API.'),

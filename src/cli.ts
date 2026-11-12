@@ -13,6 +13,7 @@ import {
   getSearchProviderDisplayName,
 } from './utils/env.js';
 import { dexterPath } from './utils/paths.js';
+import { getSetting } from './utils/config.js';
 import { defaultQueue } from './utils/message-queue.js';
 import { logger } from './utils/logger.js';
 import {
@@ -229,7 +230,11 @@ export async function runCli() {
   let activeQuestionPrompt: QuestionPromptComponent | null = null;
 
   agentRunner = new AgentRunnerController(
-    { model: modelSelection.model, modelProvider: modelSelection.provider, maxIterations: 10 },
+    {
+      model: modelSelection.model,
+      modelProvider: modelSelection.provider,
+      maxIterations: getSetting<number>('maxIterations', 10),
+    },
     modelSelection.inMemoryChatHistory,
     () => {
       // Incremental history update — only render new events

@@ -56,6 +56,8 @@ export class Agent {
     concurrencyMap: Map<string, boolean>,
   ) {
     this.model = config.model ?? DEFAULT_MODEL;
+    // Use the maxIterations value supplied in the AgentConfig. If it's undefined,
+    // fall back to the built‑in default.
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
     this.tools = tools;
     this.toolMap = new Map(tools.map(t => [t.name, t]));

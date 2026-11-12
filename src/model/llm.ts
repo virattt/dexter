@@ -64,6 +64,86 @@ function getApiKey(envVar: string): string {
   return apiKey;
 }
 
+/**
+ * Recursively sanitize schemas for Google Generative AI API compatibility.
+ * The Gemini API schema proto rejects JSON Schema keywords like "exclusiveMinimum"
+ * and "exclusiveMaximum".
+ */
+function sanitizeGeminiSchema(obj: unknown): unknown {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(sanitizeGeminiSchema);
+
+  const copy = { ...(obj as Record<string, unknown>) };
+
+  if ('exclusiveMinimum' in copy) {
+    if (copy.type === 'integer' && typeof copy.exclusiveMinimum === 'number' && !('minimum' in copy)) {
+      copy.minimum = Math.floor(copy.exclusiveMinimum) + 1;
+    } else if (typeof copy.exclusiveMinimum === 'number' && !('minimum' in copy)) {
+      copy.minimum = copy.exclusiveMinimum;
+    }
+    delete copy.exclusiveMinimum;
+  }
+  if ('exclusiveMaximum' in copy) {
+    if (copy.type === 'integer' && typeof copy.exclusiveMaximum === 'number' && !('maximum' in copy)) {
+      copy.maximum = Math.ceil(copy.exclusiveMaximum) - 1;
+    } else if (typeof copy.exclusiveMaximum === 'number' && !('maximum' in copy)) {
+      copy.maximum = copy.exclusiveMaximum;
+    }
+    delete copy.exclusiveMaximum;
+  }
+
+  for (const key of Object.keys(copy)) {
+    copy[key] = sanitizeGeminiSchema(copy[key]);
+  }
+
+  return copy;
+}
+
+class DexterChatGoogleGenerativeAI extends ChatGoogleGenerativeAI {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  override bindTools(tools: any[], kwargs?: any) {
+    const bound = super.bindTools(tools, kwargs);
+    const boundAny = bound as any;
+    if (boundAny.config?.tools && Array.isArray(boundAny.config.tools)) {
+      boundAny.config.tools = boundAny.config.tools.map((t: any) => {
+        if (t && typeof t === 'object' && Array.isArray(t.functionDeclarations)) {
+          return {
+            ...t,
+            functionDeclarations: t.functionDeclarations.map((fn: any) => ({
+              ...fn,
+              parameters: sanitizeGeminiSchema(fn.parameters),
+            })),
+          };
+        }
+        return t;
+      });
+    }
+    return bound;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  override invocationParams(options?: any) {
+    const params = super.invocationParams(options);
+    if (params.tools && Array.isArray(params.tools)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      params.tools = params.tools.map((t: any) => {
+        if (t && typeof t === 'object' && Array.isArray(t.functionDeclarations)) {
+          return {
+            ...t,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            functionDeclarations: t.functionDeclarations.map((fn: any) => ({
+              ...fn,
+              parameters: sanitizeGeminiSchema(fn.parameters),
+            })),
+          };
+        }
+        return t;
+      });
+    }
+    return params;
+  }
+}
+
 // Factories keyed by provider id — prefix routing is handled by resolveProvider()
 const MODEL_FACTORIES: Record<string, ModelFactory> = {
   anthropic: (name, opts) =>
@@ -73,7 +153,7 @@ const MODEL_FACTORIES: Record<string, ModelFactory> = {
       apiKey: getApiKey('ANTHROPIC_API_KEY'),
     }),
   google: (name, opts) =>
-    new ChatGoogleGenerativeAI({
+    new DexterChatGoogleGenerativeAI({
       model: name,
       ...opts,
       apiKey: getApiKey('GOOGLE_API_KEY'),

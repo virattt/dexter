@@ -12,7 +12,7 @@ const BashInputSchema = z.object({
   timeout: z
     .number()
     .int()
-    .positive()
+    .min(1)
     .optional()
     .describe(`Hard timeout in milliseconds (default ${DEFAULT_TIMEOUT_MS}, max ${MAX_TIMEOUT_MS}).`),
   description: z
